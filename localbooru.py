@@ -5,9 +5,6 @@ Drop next to (or inside) your gallery-dl folder and run:
     python localbooru.py
 
 No pip required. Python 3.8+ only.
-
-Scans recursively for <name>.ext + <name>.ext.json pairs.
-Serves a booru-style browser at http://localhost:5000
 """
 
 import argparse
@@ -22,6 +19,7 @@ import urllib.parse
 import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from socketserver import ThreadingMixIn
 
 _HTML: bytes = b""
 
@@ -50,7 +48,6 @@ def scan_root(root: Path) -> list:
             if ext.lower() not in MEDIA_EXTS:
                 continue
             rel_path = str(rel_dir / fname).replace("\\", "/")
-
             meta = None
             if fname in json_names:
                 try:
@@ -82,8 +79,7 @@ def scan_root(root: Path) -> list:
                 }
             else:
                 post = {
-                    "file": rel_path,
-                    "ext": ext.lower().lstrip("."),
+                    "file": rel_path, "ext": ext.lower().lstrip("."),
                     "id": 0, "score": 0, "rating": "general",
                     "tags": "", "tags_artist": "", "tags_character": "",
                     "tags_copyright": "", "tags_metadata": "", "tags_general": "",
@@ -110,7 +106,6 @@ class Index:
         posts = scan_root(self.root)
         tc: dict = {"artist": {}, "character": {}, "copyright": {}, "general": {}, "meta": {}}
         cats: dict = {}
-
         for p in posts:
             def add(field, bucket, _p=p, _tc=tc):
                 for t in _p[field].split():
@@ -120,7 +115,6 @@ class Index:
             add("tags_general", "general")
             cat = p["category"]
             if cat: cats[cat] = cats.get(cat, 0) + 1
-
         with self.lock:
             self.posts = posts
             self.tag_counts = tc
@@ -134,10 +128,8 @@ class Index:
     def query(self, tags, rating, category, sort, page, per_page):
         with self.lock:
             posts = self.posts
-
         inc = [t for t in tags if not t.startswith("-")]
         exc = [t[1:] for t in tags if t.startswith("-")]
-
         results = []
         for p in posts:
             if rating != "all" and p["rating"] != rating: continue
@@ -147,14 +139,12 @@ class Index:
                 if not all(t in pt for t in inc): continue
                 if any(t in pt for t in exc): continue
             results.append(p)
-
         if sort == "id-asc": results.sort(key=lambda p: p["id"])
         elif sort == "score-desc": results.sort(key=lambda p: p["score"], reverse=True)
         elif sort == "score-asc": results.sort(key=lambda p: p["score"])
         elif sort == "random":
             import random; random.shuffle(results)
         else: results.sort(key=lambda p: p["id"], reverse=True)
-
         total = len(results)
         start = (page - 1) * per_page
         return {"total": total, "page": page, "per_page": per_page,
@@ -187,17 +177,25 @@ class Index:
 
 
 # ─────────────────────────────────────────────
-#  HTTP Server
+#  Threaded HTTP Server
 # ─────────────────────────────────────────────
 
-CHUNK = 1 << 20
+CHUNK = 1 << 17  # 128 KB chunks — smaller = more responsive under concurrent load
+
+
+class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
+    """Each request handled in its own thread — critical for concurrent image serving."""
+    daemon_threads = True
+    # Allow address reuse so restart doesn't get "address already in use"
+    allow_reuse_address = True
 
 
 class Handler(BaseHTTPRequestHandler):
     index: "Index"
     root: Path
+    protocol_version = "HTTP/1.1"  # enables keep-alive
 
-    def log_message(self, fmt, *args): pass
+    def log_message(self, fmt, *args): pass  # silence access log
 
     def send_json(self, obj, status=200):
         body = json.dumps(obj, ensure_ascii=False).encode()
@@ -205,6 +203,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-cache")
+        self.send_header("Connection", "keep-alive")
         self.end_headers()
         self.wfile.write(body)
 
@@ -213,13 +212,14 @@ class Handler(BaseHTTPRequestHandler):
             path = (self.root / rel).resolve()
             path.relative_to(self.root)
         except Exception:
-            self.send_error(403); return
+            self._send_error(403); return
         if not path.is_file():
-            self.send_error(404); return
+            self._send_error(404); return
 
         size = path.stat().st_size
         mime = mimetypes.guess_type(str(path))[0] or "application/octet-stream"
         range_header = self.headers.get("Range")
+
         if range_header:
             m = re.match(r"bytes=(\d+)-(\d*)", range_header)
             if m:
@@ -232,13 +232,17 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
                 self.send_header("Content-Length", str(length))
                 self.send_header("Accept-Ranges", "bytes")
+                self.send_header("Connection", "keep-alive")
+                self.send_header("Cache-Control", "public, max-age=86400")
                 self.end_headers()
                 with open(path, "rb") as f:
-                    f.seek(start); remaining = length
-                    while remaining:
+                    f.seek(start)
+                    remaining = length
+                    while remaining > 0:
                         chunk = f.read(min(CHUNK, remaining))
                         if not chunk: break
-                        self.wfile.write(chunk); remaining -= len(chunk)
+                        self.wfile.write(chunk)
+                        remaining -= len(chunk)
                 return
 
         self.send_response(200)
@@ -246,6 +250,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(size))
         self.send_header("Accept-Ranges", "bytes")
         self.send_header("Cache-Control", "public, max-age=86400")
+        self.send_header("Connection", "keep-alive")
         self.end_headers()
         with open(path, "rb") as f:
             while True:
@@ -253,7 +258,21 @@ class Handler(BaseHTTPRequestHandler):
                 if not chunk: break
                 self.wfile.write(chunk)
 
+    def _send_error(self, code):
+        body = str(code).encode()
+        self.send_response(code)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Connection", "close")
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_GET(self):
+        try:
+            self._handle()
+        except (BrokenPipeError, ConnectionResetError):
+            pass  # client disconnected mid-transfer, that's fine
+
+    def _handle(self):
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
         qs = urllib.parse.parse_qs(parsed.query)
@@ -267,7 +286,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(self.index.query(
                 tags=tags, rating=qp("rating", "all"), category=qp("category", ""),
                 sort=qp("sort", "id-desc"), page=int(qp("page", "1")),
-                per_page=min(int(qp("per_page", "40")), 500),
+                per_page=min(int(qp("per_page", "30")), 500),
             ))
         elif path == "/api/suggest":
             self.send_json(self.index.tag_suggestions(qp("q")))
@@ -280,10 +299,11 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(_HTML)))
+            self.send_header("Connection", "keep-alive")
             self.end_headers()
             self.wfile.write(_HTML)
         else:
-            self.send_error(404)
+            self._send_error(404)
 
 
 # ─────────────────────────────────────────────
@@ -300,8 +320,6 @@ _HTML_SOURCE = r"""<!DOCTYPE html>
 :root{--bg:#0d0f14;--surface:#161920;--surface2:#1e2130;--border:#2a2f45;--accent:#7c9ef8;--accent2:#a78bfa;--text:#d4d8f0;--text-dim:#7880a0;--text-muted:#4a5068;--radius:6px;--font:'Segoe UI',system-ui,sans-serif}
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px;min-height:100vh;display:flex;flex-direction:column}
-
-/* Header */
 #header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 14px;display:flex;align-items:center;gap:12px;height:48px;position:sticky;top:0;z-index:100;flex-shrink:0}
 #logo{font-size:18px;font-weight:700;letter-spacing:-.5px;color:var(--accent);cursor:pointer;white-space:nowrap;user-select:none}
 #logo span{color:var(--accent2)}
@@ -318,11 +336,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13
 .btn.primary{background:var(--accent);border-color:var(--accent);color:#0d0f14;font-weight:600}
 .btn.primary:hover{opacity:.9}
 #hdr-stat{color:var(--text-muted);font-size:11px;white-space:nowrap}
-
-/* Layout */
 #app{display:flex;flex:1;min-height:0;overflow:hidden}
-
-/* Sidebar */
 #sidebar{width:210px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;padding:10px 6px;display:flex;flex-direction:column;gap:14px}
 .sb-section h3{font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);padding:0 4px 5px;border-bottom:1px solid var(--border);margin-bottom:5px}
 .filter-btn{background:none;border:none;color:var(--text-dim);padding:3px 6px;border-radius:4px;cursor:pointer;text-align:left;font-size:12px;font-family:var(--font);transition:background .1s,color .1s;display:flex;justify-content:space-between;align-items:center;width:100%}
@@ -339,51 +353,68 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13
 .cat-btn{background:none;border:none;color:var(--text-dim);padding:3px 6px;border-radius:3px;cursor:pointer;text-align:left;font-size:11px;font-family:var(--font);display:flex;justify-content:space-between;width:100%;transition:background .1s}
 .cat-btn:hover{background:var(--surface2);color:var(--text)}
 .cat-btn.active{background:var(--surface2);color:var(--accent)}
-
-/* Main */
 #main{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden}
 #toolbar{background:var(--surface);border-bottom:1px solid var(--border);padding:6px 14px;display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap;min-height:38px}
 #active-tags{display:flex;flex-wrap:wrap;gap:4px;flex:1}
 #result-info{color:var(--text-muted);font-size:12px;white-space:nowrap}
-.tag-pill{background:rgba(124,158,248,.15);border:1px solid rgba(124,158,248,.4);border-radius:4px;padding:2px 7px;font-size:11px;color:var(--accent);display:flex;align-items:center;gap:4px;cursor:default}
+.tag-pill{background:rgba(124,158,248,.15);border:1px solid rgba(124,158,248,.4);border-radius:4px;padding:2px 7px;font-size:11px;color:var(--accent);display:flex;align-items:center;gap:4px}
 .tag-pill .rm{cursor:pointer;color:var(--text-muted);font-size:14px;line-height:1}
 .tag-pill .rm:hover{color:#e05555}
 .sort-grp{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text-dim);white-space:nowrap}
 select{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:3px 7px;font-size:12px;font-family:var(--font);cursor:pointer;outline:none}
 select:focus{border-color:var(--accent)}
 
-/* Virtual grid scroller */
-#grid-scroller{flex:1;overflow-y:scroll;overflow-x:hidden;position:relative;contain:strict}
-#grid-sizer{position:relative;width:100%}  /* height set by JS */
-#grid{position:absolute;top:0;left:0;right:0;display:grid;padding:10px;gap:7px;
-  grid-template-columns:repeat(auto-fill,minmax(175px,1fr))}
-
-/* Thumb */
-.thumb{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;cursor:pointer;transition:border-color .15s,transform .1s;position:relative;contain:layout paint}
+/* ── Grid ── */
+#grid-scroller{flex:1;overflow-y:scroll;overflow-x:hidden;position:relative}
+#grid-sizer{position:relative;width:100%}
+#grid{
+  position:absolute;top:0;left:0;right:0;
+  display:grid;
+  padding:10px;
+  gap:7px;
+  grid-template-columns:repeat(auto-fill,minmax(175px,1fr));
+  /* isolate paint so the rest of the page doesn't repaint on scroll */
+  will-change:transform;
+  contain:layout style;
+}
+.thumb{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  overflow:hidden;
+  cursor:pointer;
+  transition:border-color .15s,transform .1s;
+  /* tell browser this element's content is self-contained */
+  contain:layout paint style;
+}
 .thumb:hover{border-color:var(--accent);transform:translateY(-1px)}
 .thumb-img-wrap{width:100%;padding-top:75%;position:relative;background:var(--surface2);overflow:hidden}
-.thumb-img-wrap img,.thumb-img-wrap video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.thumb-img-wrap img{opacity:0;transition:opacity .2s}
-.thumb-img-wrap img.loaded{opacity:1}
-.thumb-rating{position:absolute;top:4px;left:4px;font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;text-transform:uppercase;letter-spacing:.5px}
+.thumb-img-wrap img,.thumb-img-wrap video{
+  position:absolute;inset:0;width:100%;height:100%;
+  object-fit:cover;
+  /* GPU-composite the image layer separately */
+  will-change:opacity;
+  opacity:0;transition:opacity .18s;
+}
+.thumb-img-wrap img.shown,.thumb-img-wrap video.shown{opacity:1}
+.thumb-rating{position:absolute;top:4px;left:4px;font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;text-transform:uppercase;letter-spacing:.5px;pointer-events:none}
 .r-general{background:#1a4a1a;color:#6fcc6f}.r-sensitive{background:#4a3a1a;color:#ccaa6f}
 .r-questionable{background:#4a2a1a;color:#cc8060}.r-explicit{background:#4a1a1a;color:#cc5555}
-.thumb-type{position:absolute;top:4px;right:4px;font-size:9px;padding:1px 4px;border-radius:3px;background:rgba(0,0,0,.7);color:var(--accent);font-weight:600}
-.thumb-score{position:absolute;bottom:4px;right:4px;font-size:10px;padding:1px 5px;border-radius:3px;background:rgba(0,0,0,.7);color:var(--text)}
+.thumb-type{position:absolute;top:4px;right:4px;font-size:9px;padding:1px 4px;border-radius:3px;background:rgba(0,0,0,.7);color:var(--accent);font-weight:600;pointer-events:none}
+.thumb-score{position:absolute;bottom:4px;right:4px;font-size:10px;padding:1px 5px;border-radius:3px;background:rgba(0,0,0,.7);color:var(--text);pointer-events:none}
 .thumb-score.pos{color:#6fcc6f}.thumb-score.neg{color:#e05555}
 .thumb-info{padding:5px 7px;font-size:10px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-
-#empty{display:none;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--text-muted);padding:80px 20px;text-align:center;position:absolute;inset:0}
+#empty{display:none;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--text-muted);padding:80px 20px;text-align:center}
 #empty .ico{font-size:48px}
 
-/* Pagination */
+/* ── Pagination ── */
 #pagination{background:var(--surface);border-top:1px solid var(--border);padding:7px 14px;display:flex;align-items:center;justify-content:center;gap:4px;flex-shrink:0;flex-wrap:wrap}
 .page-btn{background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text-dim);padding:4px 9px;font-size:12px;cursor:pointer;min-width:30px;text-align:center;transition:background .1s;font-family:var(--font)}
 .page-btn:hover{background:var(--border);color:var(--text)}
 .page-btn.active{background:var(--accent);border-color:var(--accent);color:#0d0f14;font-weight:700}
 .page-btn:disabled{opacity:.3;cursor:not-allowed}
 
-/* Lightbox */
+/* ── Lightbox ── */
 #lightbox{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:300;display:none;flex-direction:row}
 #lb-media{flex:1;display:flex;align-items:center;justify-content:center;min-width:0;padding:16px;position:relative}
 #lb-media img,#lb-media video{max-width:100%;max-height:100%;object-fit:contain;border-radius:4px}
@@ -396,8 +427,7 @@ select:focus{border-color:var(--accent)}
 #lb-hdr{padding:12px;border-bottom:1px solid var(--border)}
 #lb-id-txt{font-size:11px;color:var(--text-muted)}
 #lb-title-txt{font-size:14px;font-weight:600;color:var(--text);margin-top:3px}
-#lb-date-txt{font-size:11px;color:var(--text-muted);margin-top:2px}
-#lb-path-txt{font-size:10px;color:var(--text-muted);margin-top:4px;word-break:break-all}
+#lb-date-txt,#lb-path-txt{font-size:10px;color:var(--text-muted);margin-top:2px;word-break:break-all}
 #lb-meta-grid{padding:8px 12px;border-bottom:1px solid var(--border);display:grid;grid-template-columns:1fr 1fr;gap:5px}
 .lmk{display:flex;flex-direction:column;gap:1px}
 .lml{font-size:9px;text-transform:uppercase;letter-spacing:.8px;color:var(--text-muted)}
@@ -417,8 +447,6 @@ select:focus{border-color:var(--accent)}
 #lb-src a{color:var(--accent);text-decoration:none}
 #lb-src a:hover{text-decoration:underline}
 #lb-actions{padding:8px 12px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:5px}
-
-/* Loading */
 #loading{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:400}
 .spinner{width:38px;height:38px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -453,10 +481,7 @@ select:focus{border-color:var(--accent)}
       <button class="filter-btn" data-r="questionable" onclick="setRating('questionable')">Questionable <span class="fc" id="rc-questionable"></span></button>
       <button class="filter-btn" data-r="explicit" onclick="setRating('explicit')">Explicit <span class="fc" id="rc-explicit"></span></button>
     </div>
-    <div class="sb-section">
-      <h3>Sources</h3>
-      <div id="sb-categories"></div>
-    </div>
+    <div class="sb-section"><h3>Sources</h3><div id="sb-categories"></div></div>
     <div class="sb-section"><h3>Top Artists</h3><div class="tag-cloud" id="sb-artists"></div></div>
     <div class="sb-section"><h3>Top Characters</h3><div class="tag-cloud" id="sb-chars"></div></div>
     <div class="sb-section"><h3>Top Copyrights</h3><div class="tag-cloud" id="sb-copyrights"></div></div>
@@ -478,10 +503,10 @@ select:focus{border-color:var(--accent)}
         </select>
         Per page:
         <select id="pp-sel" onchange="setPerPage(+this.value)">
-          <option value="40" selected>40</option>
+          <option value="30" selected>30</option>
+          <option value="40">40</option>
           <option value="60">60</option>
           <option value="100">100</option>
-          <option value="200">200</option>
         </select>
       </div>
     </div>
@@ -497,7 +522,6 @@ select:focus{border-color:var(--accent)}
   </main>
 </div>
 
-<!-- Lightbox -->
 <div id="lightbox">
   <div id="lb-media">
     <button class="lb-nav" id="lb-prev" onclick="lbNav(-1)">‹</button>
@@ -527,12 +551,13 @@ select:focus{border-color:var(--accent)}
 </div>
 
 <script>
+'use strict';
 // ── State ──
 let stats = {};
-let posts = [];          // current page's posts from server
+let posts = [];
 let totalPosts = 0;
 let currentPage = 1;
-let perPage = 40;
+let perPage = 30;
 let currentSort = 'id-desc';
 let currentRating = 'all';
 let activeTags = [];
@@ -540,29 +565,69 @@ let activeCategory = '';
 let searchQuery = '';
 let lbIdx = 0;
 
-// ── Virtual grid state ──
-const THUMB_ASPECT = 75 / 100;  // padding-top 75% → h/w ratio
-const THUMB_MIN_W = 175;
-const THUMB_INFO_H = 27;        // .thumb-info height
-const GRID_GAP = 7;
-const GRID_PAD = 10;
-const OVERSCAN = 3;             // extra rows to render above/below viewport
+// ── Virtual grid geometry ──
+// These match the CSS exactly.
+const THUMB_ASPECT = 0.75;   // padding-top:75% → height = width * 0.75
+const THUMB_INFO_H = 27;     // .thumb-info pixel height
+const THUMB_MIN_W  = 175;    // minmax(175px, …)
+const GRID_GAP     = 7;
+const GRID_PAD     = 10;
+const OVERSCAN_PX  = 600;    // pixels beyond viewport to keep rendered
 
-let colCount = 1;
-let thumbW = THUMB_MIN_W;
-let thumbH = THUMB_MIN_W * THUMB_ASPECT + THUMB_INFO_H;
-let rowH = thumbH + GRID_GAP;
-let visibleStart = 0;   // first rendered post index
-let visibleEnd = 0;     // last rendered post index (exclusive)
-let rafPending = false;
+let colCount  = 1;
+let thumbW    = THUMB_MIN_W;
+let thumbH    = THUMB_MIN_W * THUMB_ASPECT + THUMB_INFO_H;
+let rowH      = thumbH + GRID_GAP;
+
+let renderedStart = 0;
+let renderedEnd   = 0;
+let rafId         = null;
 
 const scroller = document.getElementById('grid-scroller');
 const sizer    = document.getElementById('grid-sizer');
 const grid     = document.getElementById('grid');
 
+// ── Concurrent image loader ──
+// Never fire more than MAX_CONCURRENT image fetches at once.
+// This prevents the server (and browser) from choking on 30-60 parallel GETs.
+const MAX_CONCURRENT = 6;
+let loadingCount = 0;
+const loadQueue = [];  // {img, src} objects waiting
+
+function enqueueImage(img, src) {
+  if (loadingCount < MAX_CONCURRENT) {
+    startLoad(img, src);
+  } else {
+    loadQueue.push({img, src});
+  }
+}
+
+function startLoad(img, src) {
+  loadingCount++;
+  const el = new Image();
+  el.onload = el.onerror = () => {
+    if (el.naturalWidth) {       // success
+      img.src = src;
+      requestAnimationFrame(() => img.classList.add('shown'));
+    }
+    loadingCount--;
+    if (loadQueue.length > 0) {
+      const next = loadQueue.shift();
+      // only load if the img element is still in the DOM (not scrolled away)
+      if (next.img.isConnected) startLoad(next.img, next.src);
+      else { loadingCount--; if (loadQueue.length) startLoad(loadQueue.shift().img, loadQueue[loadQueue.length-1]?.src); }
+    }
+  };
+  el.src = src;
+}
+
+function drainQueue() {
+  // Called when a slot frees — handled inside onload above
+}
+
 // ── Boot ──
 async function boot() {
-  const s = await api('/api/stats');
+  const s = await apiFetch('/api/stats');
   stats = s;
   document.getElementById('hdr-stat').textContent = `${s.total.toLocaleString()} posts`;
   fillRatingCounts(s.ratings);
@@ -572,141 +637,148 @@ async function boot() {
   document.getElementById('app').style.display = 'flex';
 
   measureGrid();
-  window.addEventListener('resize', () => { measureGrid(); scheduleRender(); });
+  window.addEventListener('resize', onResize);
   scroller.addEventListener('scroll', onScroll, {passive: true});
-
   await fetchAndRender();
 }
 
-async function api(url) {
+async function apiFetch(url) {
   const r = await fetch(url);
   return r.json();
 }
 
-// ── Measure grid geometry from real DOM ──
+// ── Grid geometry ──
 function measureGrid() {
-  const scrollerW = scroller.clientWidth - GRID_PAD * 2;
-  colCount = Math.max(1, Math.floor((scrollerW + GRID_GAP) / (THUMB_MIN_W + GRID_GAP)));
-  thumbW = (scrollerW - (colCount - 1) * GRID_GAP) / colCount;
-  thumbH = thumbW * THUMB_ASPECT + THUMB_INFO_H;
-  rowH   = thumbH + GRID_GAP;
+  const w = scroller.clientWidth - GRID_PAD * 2;
+  colCount = Math.max(1, Math.floor((w + GRID_GAP) / (THUMB_MIN_W + GRID_GAP)));
+  thumbW   = (w - (colCount - 1) * GRID_GAP) / colCount;
+  thumbH   = thumbW * THUMB_ASPECT + THUMB_INFO_H;
+  rowH     = thumbH + GRID_GAP;
   grid.style.gridTemplateColumns = `repeat(${colCount}, 1fr)`;
 }
 
-// ── Scroll handler — throttled via rAF ──
+let resizeTimer;
+function onResize() {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => { measureGrid(); forceRefreshWindow(); }, 150);
+}
+
 function onScroll() {
-  if (!rafPending) {
-    rafPending = true;
-    requestAnimationFrame(() => { rafPending = false; scheduleRender(); });
-  }
+  if (!rafId) rafId = requestAnimationFrame(rafRender);
 }
 
-function scheduleRender() {
-  updateVirtualWindow();
+function rafRender() {
+  rafId = null;
+  refreshWindow();
 }
 
-// ── Compute which rows are visible and patch the DOM ──
-function updateVirtualWindow() {
+function forceRefreshWindow() {
+  renderedStart = renderedEnd = 0;
+  refreshWindow();
+}
+
+// ── Virtual window: render only visible rows ──
+function refreshWindow() {
   if (!posts.length) return;
 
   const totalRows = Math.ceil(posts.length / colCount);
-  const sizerH = totalRows * rowH - GRID_GAP + GRID_PAD * 2;
+  const sizerH = GRID_PAD + totalRows * rowH - GRID_GAP + GRID_PAD;
   sizer.style.height = sizerH + 'px';
 
   const scrollTop = scroller.scrollTop;
   const viewH     = scroller.clientHeight;
 
-  const firstVisibleRow = Math.max(0, Math.floor((scrollTop - GRID_PAD) / rowH) - OVERSCAN);
-  const lastVisibleRow  = Math.min(totalRows - 1,
-      Math.ceil((scrollTop + viewH - GRID_PAD) / rowH) + OVERSCAN);
+  // rows we want rendered (with overscan on both sides)
+  const firstRow = Math.max(0, Math.floor((scrollTop - OVERSCAN_PX) / rowH));
+  const lastRow  = Math.min(totalRows - 1, Math.ceil((scrollTop + viewH + OVERSCAN_PX) / rowH));
 
-  const newStart = firstVisibleRow * colCount;
-  const newEnd   = Math.min(posts.length, (lastVisibleRow + 1) * colCount);
+  const newStart = firstRow * colCount;
+  const newEnd   = Math.min(posts.length, (lastRow + 1) * colCount);
 
-  if (newStart === visibleStart && newEnd === visibleEnd) return;
-  visibleStart = newStart;
-  visibleEnd   = newEnd;
+  // Nothing changed — skip DOM work entirely
+  if (newStart === renderedStart && newEnd === renderedEnd) return;
+  renderedStart = newStart;
+  renderedEnd   = newEnd;
 
-  // Grid is positioned at the start of the first visible row
-  const gridTop = GRID_PAD + firstVisibleRow * rowH;
-  grid.style.top = gridTop + 'px';
+  // Position the grid element at the correct offset
+  grid.style.top = (GRID_PAD + firstRow * rowH) + 'px';
 
-  renderVisibleThumbs();
-}
+  // Flush the load queue — items that were waiting might now be off-screen
+  loadQueue.length = 0;
 
-// ── Render only the visible slice ──
-function renderVisibleThumbs() {
-  const slice = posts.slice(visibleStart, visibleEnd);
-  grid.innerHTML = slice.map((p, i) => thumbHTML(p, visibleStart + i)).join('');
+  // Build HTML for the visible slice
+  const slice = posts.slice(newStart, newEnd);
+  grid.innerHTML = buildGridHTML(slice, newStart);
 
-  // Trigger image fade-in after browser paints
-  requestAnimationFrame(() => {
-    grid.querySelectorAll('img[data-src]').forEach(img => {
-      const src = img.dataset.src;
-      img.onload = () => img.classList.add('loaded');
-      img.onerror = () => img.classList.add('loaded');  // still show placeholder
-      img.src = src;
-      delete img.dataset.src;
-    });
+  // Kick off staggered image loading
+  grid.querySelectorAll('img[data-src]').forEach(img => {
+    enqueueImage(img, img.dataset.src);
   });
 }
 
-function thumbHTML(p, globalIdx) {
-  const ext = p.ext;
-  const isVid = /mp4|webm/.test(ext);
-  const isGif = ext === 'gif';
-  const url = '/media/' + encodeURIFilepath(p.file);
-  const score = p.score;
-  const rS = (p.rating || 'general')[0].toUpperCase();
-  const scoreCls = score > 0 ? 'pos' : score < 0 ? 'neg' : '';
-  const infoText = p.id ? `#${p.id}` : p.file.split('/').pop();
-  const typeBadge = isVid ? '<span class="thumb-type">▶</span>' : isGif ? '<span class="thumb-type">GIF</span>' : '';
+function buildGridHTML(slice, startIdx) {
+  return slice.map((p, i) => {
+    const isVid = /^(mp4|webm)$/.test(p.ext);
+    const isGif = p.ext === 'gif';
+    const url   = '/media/' + encodeFilePath(p.file);
+    const sc    = p.score;
+    const rCls  = 'r-' + (p.rating || 'general');
+    const rLtr  = (p.rating || 'general')[0].toUpperCase();
+    const sCls  = sc > 0 ? 'pos' : sc < 0 ? 'neg' : '';
+    const label = p.id ? '#' + p.id : p.file.split('/').pop();
+    const badge = isVid ? '<span class="thumb-type">▶</span>'
+                : isGif ? '<span class="thumb-type">GIF</span>' : '';
 
-  // Videos: use src directly (browser won't load until visible anyway)
-  // Images: use data-src, set src after paint
-  const media = isVid
-    ? `<video src="${url}#t=0.1" muted preload="none"></video>`
-    : `<img data-src="${url}" alt="">`;
+    // Videos: src set directly; browser won't download until played.
+    // Images: use data-src so we control when the fetch happens.
+    const media = isVid
+      ? `<video src="${url}" muted preload="none" class="shown"></video>`
+      : `<img data-src="${url}" alt="">`;
 
-  return `<div class="thumb" onclick="openLb(${globalIdx})">
-    <div class="thumb-img-wrap">
-      ${media}
-      <span class="thumb-rating r-${p.rating||'general'}">${rS}</span>
-      ${typeBadge}
-      <span class="thumb-score ${scoreCls}">${score>0?'+':''}${score}</span>
-    </div>
-    <div class="thumb-info">${infoText}</div>
-  </div>`;
+    return `<div class="thumb" data-idx="${startIdx + i}">
+      <div class="thumb-img-wrap">
+        ${media}
+        <span class="thumb-rating ${rCls}">${rLtr}</span>
+        ${badge}
+        <span class="thumb-score ${sCls}">${sc > 0 ? '+' : ''}${sc}</span>
+      </div>
+      <div class="thumb-info">${label}</div>
+    </div>`;
+  }).join('');
 }
 
-// ── Fetch from server & reset virtual grid ──
+// Use event delegation — one listener on the grid, not per-thumb
+grid.addEventListener('click', e => {
+  const card = e.target.closest('.thumb');
+  if (card) openLb(+card.dataset.idx);
+});
+
+// ── Fetch from server ──
 async function fetchAndRender() {
   const params = new URLSearchParams({
     tags: [...activeTags, ...searchQuery.trim().split(/\s+/).filter(Boolean)].join(' '),
-    rating: currentRating,
-    category: activeCategory,
-    sort: currentSort,
-    page: currentPage,
-    per_page: perPage,
+    rating: currentRating, category: activeCategory,
+    sort: currentSort, page: currentPage, per_page: perPage,
   });
-
   document.getElementById('result-info').textContent = 'Loading…';
-  const data = await api('/api/posts?' + params);
-  posts = data.posts;
+
+  const data = await apiFetch('/api/posts?' + params);
+  posts      = data.posts;
   totalPosts = data.total;
 
   const empty = document.getElementById('empty');
+  loadQueue.length = 0;
+  grid.innerHTML = '';
+  scroller.scrollTop = 0;
+  renderedStart = renderedEnd = 0;
+
   if (!posts.length) {
-    grid.innerHTML = '';
     sizer.style.height = '200px';
     empty.style.display = 'flex';
-    document.getElementById('result-info').textContent = 'No results';
   } else {
     empty.style.display = 'none';
-    scroller.scrollTop = 0;
-    visibleStart = visibleEnd = 0;
     measureGrid();
-    updateVirtualWindow();
+    refreshWindow();
   }
 
   renderPagination(data.total);
@@ -714,40 +786,39 @@ async function fetchAndRender() {
   updateActiveTags();
 }
 
+// ── Pagination ──
 function renderPagination(total) {
   const totalPages = Math.ceil(total / perPage);
   const pag = document.getElementById('pagination');
   if (totalPages <= 1) { pag.innerHTML = ''; return; }
-
   let pages = [];
   if (totalPages <= 9) {
     pages = Array.from({length: totalPages}, (_,i) => i+1);
   } else {
-    let s = Math.max(1, currentPage - 4), e = Math.min(totalPages, s + 8);
-    if (e - s < 8) s = Math.max(1, e - 8);
+    let s = Math.max(1, currentPage-4), e = Math.min(totalPages, s+8);
+    if (e-s < 8) s = Math.max(1, e-8);
     pages = Array.from({length: e-s+1}, (_,i) => s+i);
-    if (pages[0] > 1) pages = [1, '…', ...pages.slice(1)];
-    if (pages[pages.length-1] < totalPages) pages = [...pages.slice(0,-1), '…', totalPages];
+    if (pages[0] > 1) pages = [1,'…',...pages.slice(1)];
+    if (pages[pages.length-1] < totalPages) pages = [...pages.slice(0,-1),'…',totalPages];
   }
   pag.innerHTML =
-    `<button class="page-btn" onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''}>‹</button>` +
+    btn('‹', currentPage-1, currentPage===1) +
     pages.map(p => p==='…'
       ? `<span class="page-btn" style="cursor:default;opacity:.4">…</span>`
-      : `<button class="page-btn ${p===currentPage?'active':''}" onclick="goPage(${p})">${p}</button>`
-    ).join('') +
-    `<button class="page-btn" onclick="goPage(${currentPage+1})" ${currentPage===totalPages?'disabled':''}>›</button>`;
+      : btn(p, p, false, p===currentPage)).join('') +
+    btn('›', currentPage+1, currentPage===totalPages);
 }
-
+function btn(label, page, disabled, active=false) {
+  return `<button class="page-btn${active?' active':''}" onclick="goPage(${page})"${disabled?' disabled':''}>${label}</button>`;
+}
 function updateResultInfo(total, page) {
-  const start = (page-1)*perPage+1, end = Math.min(page*perPage, total);
+  const s=(page-1)*perPage+1, e=Math.min(page*perPage,total);
   document.getElementById('result-info').textContent =
-    total===0 ? 'No results' : `${start}–${end} of ${total.toLocaleString()}`;
+    total===0?'No results':`${s}–${e} of ${total.toLocaleString()}`;
 }
-
 function updateActiveTags() {
-  document.getElementById('active-tags').innerHTML = activeTags.map(t =>
-    `<span class="tag-pill">${t}<span class="rm" onclick="removeTag('${esc(t)}')">×</span></span>`
-  ).join('');
+  document.getElementById('active-tags').innerHTML = activeTags.map(t=>
+    `<span class="tag-pill">${t}<span class="rm" onclick="removeTag('${esc(t)}')">×</span></span>`).join('');
 }
 
 // ── Sidebar ──
@@ -756,25 +827,21 @@ function fillRatingCounts(r) {
   document.getElementById('rc-all').textContent = total.toLocaleString();
   for (const [k,v] of Object.entries(r)) { const el=document.getElementById('rc-'+k); if(el) el.textContent=v.toLocaleString(); }
 }
-
 function buildSidebar(s) {
-  const catEl = document.getElementById('sb-categories');
   const cats = Object.entries(s.categories||{}).sort((a,b)=>b[1]-a[1]);
-  catEl.innerHTML = [['','All',s.total],...cats.map(([k,v])=>[k,k,v])].map(([val,label,cnt])=>
-    `<button class="cat-btn ${activeCategory===val?'active':''}" onclick="setCategory('${esc(val)}')">
-      <span>${label||'(unknown)'}</span><span style="color:var(--text-muted);font-size:10px">${cnt}</span>
-     </button>`).join('');
-
-  const render = (id, entries, type) => {
+  document.getElementById('sb-categories').innerHTML =
+    [['','All',s.total],...cats.map(([k,v])=>[k,k,v])].map(([val,label,cnt])=>
+      `<button class="cat-btn${activeCategory===val?' active':''}" onclick="setCategory('${esc(val)}')">
+        <span>${label||'(unknown)'}</span><span style="color:var(--text-muted);font-size:10px">${cnt}</span></button>`).join('');
+  const rend = (id, entries, type) => {
     document.getElementById(id).innerHTML = entries.slice(0,30).map(([tag,cnt])=>
-      `<div class="sb-tag t-${type} ${activeTags.includes(tag)?'active':''}" onclick="toggleTag('${esc(tag)}')">
-        <span class="tn">${tag}</span><span class="tc">${cnt}</span>
-       </div>`).join('');
+      `<div class="sb-tag t-${type}${activeTags.includes(tag)?' active':''}" onclick="toggleTag('${esc(tag)}')">
+        <span class="tn">${tag}</span><span class="tc">${cnt}</span></div>`).join('');
   };
-  render('sb-artists', s.top_artists, 'artist');
-  render('sb-chars', s.top_characters, 'character');
-  render('sb-copyrights', s.top_copyrights, 'copyright');
-  render('sb-tags', s.top_general, 'general');
+  rend('sb-artists',s.top_artists,'artist');
+  rend('sb-chars',s.top_characters,'character');
+  rend('sb-copyrights',s.top_copyrights,'copyright');
+  rend('sb-tags',s.top_general,'general');
 }
 
 // ── Controls ──
@@ -784,16 +851,16 @@ function setRating(r) {
   document.querySelectorAll('[data-r]').forEach(b=>b.classList.toggle('active',b.dataset.r===r));
   currentPage=1; fetchAndRender();
 }
-function setSort(s) { currentSort=s; currentPage=1; fetchAndRender(); }
-function setPerPage(n) { perPage=n; currentPage=1; fetchAndRender(); }
+function setSort(s)  { currentSort=s;  currentPage=1; fetchAndRender(); }
+function setPerPage(n){ perPage=n; currentPage=1; fetchAndRender(); }
 function setCategory(c) {
   activeCategory=c; currentPage=1;
-  document.querySelectorAll('.cat-btn').forEach(b=>b.classList.toggle('active',
-    (b.querySelector('span').textContent===(c||'All'))));
+  document.querySelectorAll('.cat-btn').forEach(b=>
+    b.classList.toggle('active',b.querySelector('span').textContent===(c||'All')));
   fetchAndRender();
 }
 function toggleTag(tag) {
-  activeTags=activeTags.includes(tag)?activeTags.filter(t=>t!==tag):[...activeTags,tag];
+  activeTags = activeTags.includes(tag) ? activeTags.filter(t=>t!==tag) : [...activeTags,tag];
   currentPage=1; buildSidebar(stats); fetchAndRender();
 }
 function removeTag(tag) { toggleTag(tag); }
@@ -806,42 +873,39 @@ function goHome() {
   buildSidebar(stats); fetchAndRender();
 }
 
-// ── Search ──
+// ── Search / autocomplete ──
 const searchInput = document.getElementById('search-input');
 const sugg = document.getElementById('suggestions');
 let sugTimer;
-
 searchInput.addEventListener('input', () => {
   clearTimeout(sugTimer);
   sugTimer = setTimeout(async () => {
-    const lastWord = searchInput.value.split(/\s+/).pop().replace(/^-/,'');
-    if (lastWord.length < 2) { sugg.style.display='none'; return; }
-    const results = await api('/api/suggest?q='+encodeURIComponent(lastWord));
-    if (!results.length) { sugg.style.display='none'; return; }
-    sugg.style.display = 'block';
-    sugg.innerHTML = results.map(r=>
+    const last = searchInput.value.split(/\s+/).pop().replace(/^-/,'');
+    if (last.length < 2) { sugg.style.display='none'; return; }
+    const res = await apiFetch('/api/suggest?q='+encodeURIComponent(last));
+    if (!res.length) { sugg.style.display='none'; return; }
+    sugg.style.display='block';
+    sugg.innerHTML = res.map(r=>
       `<div class="sug-item" onmousedown="selectSug('${esc(r.tag)}')">
         <span>${r.tag}</span><span class="sug-count">${r.count}</span></div>`).join('');
   }, 150);
 });
 searchInput.addEventListener('blur', ()=>setTimeout(()=>{sugg.style.display='none'},200));
 searchInput.addEventListener('keydown', e=>{ if(e.key==='Enter') doSearch(); });
-
 function selectSug(tag) {
-  const parts = searchInput.value.split(/\s+/);
-  const prefix = parts[parts.length-1].startsWith('-')?'-':'';
-  parts[parts.length-1] = prefix+tag;
-  searchInput.value = parts.join(' ')+' ';
+  const parts=searchInput.value.split(/\s+/);
+  const px=parts[parts.length-1].startsWith('-')?'-':'';
+  parts[parts.length-1]=px+tag;
+  searchInput.value=parts.join(' ')+' ';
   sugg.style.display='none'; searchInput.focus();
 }
 function doSearch() { searchQuery=searchInput.value; sugg.style.display='none'; currentPage=1; fetchAndRender(); }
 function clearSearch() { searchInput.value=''; searchQuery=''; currentPage=1; fetchAndRender(); }
-
 async function refreshIndex() {
   document.getElementById('hdr-stat').textContent='Re-scanning…';
-  await api('/api/refresh');
+  await apiFetch('/api/refresh');
   await new Promise(r=>setTimeout(r,1500));
-  const s = await api('/api/stats');
+  const s=await apiFetch('/api/stats');
   stats=s;
   document.getElementById('hdr-stat').textContent=`${s.total.toLocaleString()} posts`;
   fillRatingCounts(s.ratings); buildSidebar(s); fetchAndRender();
@@ -864,31 +928,25 @@ function lbKey(e) {
   else if(e.key==='ArrowRight') lbNav(1);
   else if(e.key==='ArrowLeft') lbNav(-1);
 }
-function lbNav(d) {
-  const n=lbIdx+d;
-  if(n<0||n>=posts.length) return;
-  lbIdx=n; showLbPost(posts[n]);
-}
+function lbNav(d) { const n=lbIdx+d; if(n>=0&&n<posts.length){lbIdx=n;showLbPost(posts[n]);} }
 function showLbPost(p) {
-  const url='/media/'+encodeURIFilepath(p.file);
-  const isVid=/mp4|webm/.test(p.ext);
+  const url='/media/'+encodeFilePath(p.file);
+  const isVid=/^(mp4|webm)$/.test(p.ext);
   const img=document.getElementById('lb-img'), vid=document.getElementById('lb-video');
-  if(isVid){ img.style.display='none'; vid.style.display='block'; vid.src=url; vid.play(); }
-  else{ vid.pause(); vid.src=''; vid.style.display='none'; img.style.display='block'; img.src=url; }
-
-  document.getElementById('lb-id-txt').textContent=p.id?`#${p.id}`:'';
-  document.getElementById('lb-title-txt').textContent=p.title||'';
-  document.getElementById('lb-date-txt').textContent=p.date?new Date(p.date).toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'}):'';
-  document.getElementById('lb-path-txt').textContent=p.file;
-  document.getElementById('lb-score').textContent=p.has_meta?((p.score>0?'+':'')+p.score):'—';
-  document.getElementById('lb-rating').textContent=p.rating||'—';
-  document.getElementById('lb-size').textContent=(p.width&&p.height)?`${p.width}×${p.height}`:'—';
-  document.getElementById('lb-ext').textContent=p.ext.toUpperCase();
-  document.getElementById('lb-src').innerHTML=p.source?`<a href="${p.source}" target="_blank" rel="noopener">${p.source}</a>`:'';
-  document.getElementById('lb-dl').href=url;
-  document.getElementById('lb-dl').download=p.file.split('/').pop();
-  document.getElementById('lb-open').href=url;
-
+  if(isVid){img.style.display='none';vid.style.display='block';vid.src=url;vid.play();}
+  else{vid.pause();vid.src='';vid.style.display='none';img.style.display='block';img.src=url;}
+  document.getElementById('lb-id-txt').textContent   = p.id ? '#'+p.id : '';
+  document.getElementById('lb-title-txt').textContent = p.title||'';
+  document.getElementById('lb-date-txt').textContent  = p.date ? new Date(p.date).toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'}) : '';
+  document.getElementById('lb-path-txt').textContent  = p.file;
+  document.getElementById('lb-score').textContent  = p.has_meta?((p.score>0?'+':'')+p.score):'—';
+  document.getElementById('lb-rating').textContent = p.rating||'—';
+  document.getElementById('lb-size').textContent   = (p.width&&p.height)?`${p.width}×${p.height}`:'—';
+  document.getElementById('lb-ext').textContent    = p.ext.toUpperCase();
+  document.getElementById('lb-src').innerHTML      = p.source?`<a href="${p.source}" target="_blank" rel="noopener">${p.source}</a>`:'';
+  document.getElementById('lb-dl').href    = url;
+  document.getElementById('lb-dl').download= p.file.split('/').pop();
+  document.getElementById('lb-open').href  = url;
   const sec=document.getElementById('lb-tags-sec');
   const secs=[{l:'Artist',f:'tags_artist',c:'ta'},{l:'Copyright',f:'tags_copyright',c:'tk'},
     {l:'Character',f:'tags_character',c:'tc'},{l:'General',f:'tags_general',c:'tg'},{l:'Meta',f:'tags_metadata',c:'tm'}];
@@ -896,15 +954,14 @@ function showLbPost(p) {
   if(p.has_meta){
     for(const s of secs){
       const tags=(p[s.f]||'').trim().split(/\s+/).filter(Boolean);
-      if(!tags.length) continue;
+      if(!tags.length)continue;
       html+=`<div class="lb-ts"><div class="lb-ts-lbl">${s.l}</div><div class="lb-tl">
         ${tags.map(t=>`<span class="lb-tag ${s.c}" onclick="lbTagSearch('${esc(t)}')">${t.replace(/_/g,' ')}</span>`).join('')}</div></div>`;
     }
-  } else { html+='<div style="color:var(--text-muted);font-size:12px">No metadata</div>'; }
+  } else html+='<div style="color:var(--text-muted);font-size:12px">No metadata</div>';
   sec.innerHTML=html;
-
-  document.getElementById('lb-prev').disabled=lbIdx===0;
-  document.getElementById('lb-next').disabled=lbIdx===posts.length-1;
+  document.getElementById('lb-prev').disabled = lbIdx===0;
+  document.getElementById('lb-next').disabled = lbIdx===posts.length-1;
 }
 function lbTagSearch(tag) {
   closeLb();
@@ -912,8 +969,8 @@ function lbTagSearch(tag) {
   currentPage=1; buildSidebar(stats); fetchAndRender();
 }
 
-// ── Utils ──
-function encodeURIFilepath(fp){ return fp.split('/').map(encodeURIComponent).join('/'); }
+// ── Utilities ──
+function encodeFilePath(fp){ return fp.split('/').map(encodeURIComponent).join('/'); }
 function esc(s){ return s.replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
 
 boot();
@@ -933,7 +990,7 @@ def make_handler(index: Index, root: Path):
 
 def main():
     parser = argparse.ArgumentParser(description="LocalBooru — gallery-dl browser")
-    parser.add_argument("root", nargs="?", default=".", help="Root folder to scan (default: current directory)")
+    parser.add_argument("root", nargs="?", default=".", help="Root folder to scan (default: .)")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=5000)
     parser.add_argument("--no-browser", action="store_true")
@@ -949,7 +1006,8 @@ def main():
 
     index = Index(root)
     handler = make_handler(index, root)
-    server = HTTPServer((args.host, args.port), handler)
+
+    server = ThreadingHTTPServer((args.host, args.port), handler)
     url = f"http://{args.host}:{args.port}"
     print(f"[localbooru] Serving {root}")
     print(f"[localbooru] Open → {url}")
