@@ -1,0 +1,41 @@
+# TEMP maintainer lines — replace when this moves to its own repo.
+# Maintainer: lev
+# Build from this checkout (no commit needed):
+#   cd packaging && makepkg -sf
+# Install the result globally:
+#   sudo pacman -U booru-explorer-*.pkg.tar.zst
+# When this gets its own repo, replace the live-tree logic below with e.g.
+#   source=("$pkgname::git+https://github.com/YOU/$pkgname.git#tag=$pkgver")
+# and add the matching sha256sums.
+
+pkgname=booru-explorer
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Read-only local booru viewer for gallery-dl and LOSN archives (Qt6)'
+arch=('x86_64')
+# TODO: set the real homepage when the repo exists.
+url='https://example.com/booru-explorer'
+# TODO: pick a license, add the LICENSE file, and name it here.
+license=('custom')
+depends=('qt6-base' 'qt6-multimedia' 'hicolor-icon-theme')
+makedepends=('cmake')
+# Always builds the latest working tree: no source tarball, no git snapshot.
+# `source` stays empty on purpose, and cmake points straight at the live
+# checkout (parent of this directory), so uncommitted edits are included.
+# The separate build-pkg dir keeps this apart from the dev build/ tree.
+source=()
+
+build() {
+	# Re-resolve every run; never caches a stale source path.
+	# NOTE: makepkg runs build() with cwd=$srcdir, so both dirs are absolute.
+	local live="$startdir/.."
+	local bld="$startdir/build-pkg"
+	cmake -B "$bld" -S "$live" \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_INSTALL_PREFIX=/usr
+	cmake --build "$bld" -j"$(nproc)"
+}
+
+package() {
+	DESTDIR="$pkgdir" cmake --install "$startdir/build-pkg"
+}

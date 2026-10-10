@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=booru-explorer
+GenericName=Booru Viewer
+Comment=Read-only local booru viewer for gallery-dl and LOSN archives
+Exec=booru-explorer %F
+Icon=booru-explorer
+Terminal=false
+Categories=Graphics;Viewer;
+MimeType=inode/directory;
+StartupWMClass=booru-explorer

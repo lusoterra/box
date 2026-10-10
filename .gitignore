@@ -1,0 +1,6 @@
+build/
+testfiles/
+packaging/src/
+packaging/pkg/
+packaging/build-pkg/
+*.pkg.tar.zst
