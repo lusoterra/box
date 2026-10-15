@@ -115,6 +115,33 @@ private slots:
         QCOMPARE(type, 4);
     }
 
+    void seedParseAndImport() {
+        const QHash<QString, int> m = TagTypes::parseTagSeed(
+            QByteArray("hatsune_miku\t4\n"
+                       "# comment\n"
+                       "\n"
+                       "sky\t0\n"
+                       "bogus-line\n"
+                       "sky\t1\n" // later wins
+                       "x\tnot-an-int\n"));
+        QCOMPARE(m.size(), 2);
+        QCOMPARE(m.value(QStringLiteral("hatsune_miku")), 4);
+        QCOMPARE(m.value(QStringLiteral("sky")), 1);
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        TagTypeCache cache;
+        QVERIFY(cache.open(tmp.filePath(QStringLiteral("tags.db"))));
+        QCOMPARE(cache.importSeed(m), 2);
+        int type = -99;
+        QVERIFY(cache.get(QStringLiteral("sky"), type));
+        QCOMPARE(type, 1);
+        // Re-import never clobbers: fetched verdicts win over the seed.
+        cache.put(QStringLiteral("sky"), 4);
+        QCOMPARE(cache.importSeed(m), 0);
+        QVERIFY(cache.get(QStringLiteral("sky"), type));
+        QCOMPARE(type, 4);
+    }
+
     void overrideLinesNormalize() {
         const QMap<QString, QString> m = TagTypes::normalizeTagOverrides(
             {QStringLiteral("  Lucky_Star = Copyright "),

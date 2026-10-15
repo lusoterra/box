@@ -6,6 +6,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QCoreApplication>
+#include <QNetworkCookie>
 #include <QNetworkRequest>
 #include <QUrl>
 #include <QtTest>
@@ -665,6 +666,97 @@ private slots:
                      BooruEngine::Gelbooru,
                      QStringLiteral("https://gelbooru.com")),
                  QStringLiteral("https://gelbooru.com"));
+    }
+
+    void proxySpec() {
+        using RemotePosts::proxyFromSpec;
+        // Empty/garbage means direct (same as never configured).
+        QCOMPARE(proxyFromSpec(QString()).type(), QNetworkProxy().type());
+        QCOMPARE(proxyFromSpec(QStringLiteral("not a url")).type(),
+                 QNetworkProxy().type());
+        QCOMPARE(proxyFromSpec(QStringLiteral("ftp://h:21")).type(),
+                 QNetworkProxy().type());
+        const QNetworkProxy http =
+            proxyFromSpec(QStringLiteral("http://127.0.0.1:8080"));
+        QCOMPARE(http.type(), QNetworkProxy::HttpProxy);
+        QCOMPARE(http.hostName(), QStringLiteral("127.0.0.1"));
+        QCOMPARE(http.port(), 8080);
+        const QNetworkProxy socks = proxyFromSpec(
+            QStringLiteral("socks5://u:p@proxy.example:1080"));
+        QCOMPARE(socks.type(), QNetworkProxy::Socks5Proxy);
+        QCOMPARE(socks.hostName(), QStringLiteral("proxy.example"));
+        QCOMPARE(socks.port(), 1080);
+        QCOMPARE(socks.user(), QStringLiteral("u"));
+        QCOMPARE(socks.password(), QStringLiteral("p"));
+    }
+
+    void proxyForUrl() {        BooruSite proxied;
+        proxied.key = QStringLiteral("proxied");
+        proxied.label = QStringLiteral("Proxied");
+        proxied.baseUrl = QStringLiteral("https://booru.example");
+        proxied.engine = BooruEngine::Danbooru;
+        proxied.proxy = QStringLiteral("http://127.0.0.1:8080");
+        BooruSite plain;
+        plain.key = QStringLiteral("plain");
+        plain.label = QStringLiteral("Plain");
+        plain.baseUrl = QStringLiteral("https://other.example");
+        plain.engine = BooruEngine::Danbooru;
+        RemoteSource::setConfiguredBoorus({proxied, plain});
+        QCOMPARE(RemotePosts::proxyForUrl(
+                     QStringLiteral("https://booru.example/posts.json")),
+                 QStringLiteral("http://127.0.0.1:8080"));
+        // Subdomains (media CDNs) inherit the entry's proxy.
+        QCOMPARE(RemotePosts::proxyForUrl(
+                     QStringLiteral("https://cdn.booru.example/a.jpg")),
+                 QStringLiteral("http://127.0.0.1:8080"));
+        // No proxy configured: direct.
+        QVERIFY(RemotePosts::proxyForUrl(
+                    QStringLiteral("https://other.example/x")).isEmpty());
+        QVERIFY(RemotePosts::proxyForUrl(
+                    QStringLiteral("https://unknown.example/x")).isEmpty());
+        RemoteSource::setConfiguredBoorus(RemoteSource::presetBoorus());
+    }
+
+    void harvestCookies() {
+        using RemotePosts::harvestCookies;
+        QList<QNetworkCookie> jar;
+        QNetworkCookie cf(QStringLiteral("cf_clearance").toUtf8(), "abc123");
+        cf.setDomain(QStringLiteral(".booru.example"));
+        jar << cf;
+        QNetworkCookie sess(QStringLiteral("sess").toUtf8(), "xyz");
+        sess.setDomain(QStringLiteral("booru.example"));
+        jar << sess;
+        // Later arrivals win.
+        QNetworkCookie sess2(QStringLiteral("sess").toUtf8(), "new");
+        sess2.setDomain(QStringLiteral("booru.example"));
+        jar << sess2;
+        // Wrong host + garbage are dropped.
+        QNetworkCookie other(QStringLiteral("x").toUtf8(), "1");
+        other.setDomain(QStringLiteral("other.example"));
+        jar << other;
+        QNetworkCookie noname(QByteArray(), "v");
+        noname.setDomain(QStringLiteral("booru.example"));
+        jar << noname;
+        QNetworkCookie noval(QStringLiteral("n").toUtf8(), QByteArray());
+        noval.setDomain(QStringLiteral("booru.example"));
+        jar << noval;
+        const QStringList out =
+            harvestCookies(jar, QStringLiteral("booru.example"));
+        QVERIFY(out.contains(QStringLiteral("cf_clearance=abc123")));
+        QVERIFY(out.contains(QStringLiteral("sess=new")));
+        QVERIFY(!out.join(u';').contains(QStringLiteral("sess=xyz")));
+        QVERIFY(!out.join(u';').contains(QStringLiteral("x=1")));
+        // Subdomain cookies cover the exact host too.
+        QNetworkCookie sub(QStringLiteral("s").toUtf8(), "1");
+        sub.setDomain(QStringLiteral("cdn.booru.example"));
+        QVERIFY(harvestCookies({sub}, QStringLiteral("booru.example"))
+                    .contains(QStringLiteral("s=1")));
+        // Host-only session cookies (empty domain) are kept.
+        QNetworkCookie hostOnly(QStringLiteral("h").toUtf8(), "1");
+        QVERIFY(harvestCookies({hostOnly}, QStringLiteral("booru.example"))
+                    .contains(QStringLiteral("h=1")));
+        QVERIFY(harvestCookies({}, QStringLiteral("booru.example")).isEmpty());
+        QVERIFY(harvestCookies(jar, QString()).isEmpty());
     }
 };
 

@@ -114,9 +114,3 @@ have.
 
 Downloads (`<Site>_<md5>.<ext>` + pretty-printed JSON sidecar) feed the
 same pipeline: rescanning the download folder browses them offline.
-
-## License
-
-GPLv3 or later, see `LICENSE`. Icons are [Lucide](https://lucide.dev)
-(ISC, see `assets/icons/LICENSE.lucide`). `packaging/PKGBUILD` builds an
-Arch package from the working tree.

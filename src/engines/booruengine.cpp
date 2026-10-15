@@ -10,6 +10,8 @@
 #include <QRegularExpression>
 #include <QTimeZone>
 #include <QUrlQuery>
+#include <climits>
+#include <cmath>
 
 QString BooruEngineOps::apiBase(const Context &ctx) const {
     return RemotePosts::apiBaseUrl(ctx.engine, ctx.baseUrl);
@@ -26,8 +28,14 @@ QString BooruEngineOps::joinTags(const QStringList &tags) {
 }
 
 qint64 BooruEngineOps::jsonInt(const QJsonValue &v, qint64 def) {
-    if (v.isDouble())
-        return static_cast<qint64>(v.toDouble());
+    if (v.isDouble()) {
+        // Clamp: out-of-range double->integer casts are UB, and a rogue
+        // API object must never trigger that (score 1e30 and friends).
+        const double d = v.toDouble();
+        if (!std::isfinite(d) || d > 9.0e18 || d < -9.0e18)
+            return def;
+        return static_cast<qint64>(d);
+    }
     if (v.isString()) {
         bool ok = false;
         const qint64 n = v.toString().trimmed().toLongLong(&ok);
@@ -36,17 +44,29 @@ qint64 BooruEngineOps::jsonInt(const QJsonValue &v, qint64 def) {
     return def;
 }
 
+int BooruEngineOps::jsonInt32(const QJsonValue &v, int def) {
+    static constexpr qint64 lo = qint64(INT_MIN), hi = qint64(INT_MAX);
+    const qint64 n = jsonInt(v, qint64(def));
+    if (n < lo || n > hi)
+        return def;
+    return int(n);
+}
+
 QStringList BooruEngineOps::splitTags(const QString &s) {
     return s.split(QChar::Space, Qt::SkipEmptyParts);
 }
 
 QString BooruEngineOps::extOf(const QString &fileUrl, const QString &fallback) {
-    const QString path = QUrl(fileUrl).path();
-    const int dot = path.lastIndexOf(u'.');
+    // Last path segment only ("a.b/c" has no extension), strict match:
+    // a hostile tail like b/c falls back instead of reaching a filename.
+    const QString segment = QUrl(fileUrl).path().section(u'/', -1);
+    const int dot = segment.lastIndexOf(u'.');
     if (dot < 0)
         return fallback;
-    const QString ext = path.mid(dot + 1).toLower();
-    return ext.size() <= 5 ? ext : fallback;
+    static const QRegularExpression ext(
+        QStringLiteral("^([A-Za-z0-9]{1,5})$"));
+    const auto m = ext.match(segment.mid(dot + 1).toLower());
+    return m.hasMatch() ? m.captured(1) : fallback;
 }
 
 QString BooruEngineOps::resolveFileUrl(const QString &baseUrl, const QString &url) {
@@ -77,7 +97,8 @@ QJsonObject BooruEngineOps::firstOfArray(const QJsonArray &arr, bool &ok) {
 }
 
 void BooruEngineOps::finishRemote(Post &p, const QString &siteLabel,
-                                  const QJsonObject &raw, BooruEngine engine) {
+                                  const QJsonObject &raw, BooruEngine engine,
+                                  const QString &host) {
     p.isRemote = true;
     // Hygiene: every engine's tag blob funnels through here.
     p.tagsArtist = cleanTagTokens(splitTags(p.tagsArtist)).join(u' ');
@@ -86,11 +107,14 @@ void BooruEngineOps::finishRemote(Post &p, const QString &siteLabel,
     p.tagsGeneral = cleanTagTokens(splitTags(p.tagsGeneral)).join(u' ');
     p.tagsMeta = cleanTagTokens(splitTags(p.tagsMeta)).join(u' ');
     p.untyped = cleanTagTokens(splitTags(p.untyped)).join(u' ');
-    // Disabled buckets for this booru type fold into general (non-anime
-    // taxonomies). General itself never folds.
+    // Disabled buckets for this booru fold into general (non-anime
+    // taxonomies). Per-host keys win; legacy engine keys still apply.
+    // General itself never folds.
     auto foldBucket = [&](QString &field, const char *bucket) {
+        const QString b = QString::fromLatin1(bucket);
         if (!field.isEmpty() &&
-            RemotePosts::bucketDisabled(engine, QString::fromLatin1(bucket))) {
+            (RemotePosts::bucketDisabledFor(host, b) ||
+             RemotePosts::bucketDisabled(engine, b))) {
             p.tagsGeneral = p.tagsGeneral.isEmpty()
                                 ? field
                                 : p.tagsGeneral + u' ' + field;
@@ -249,10 +273,22 @@ QString postPageUrl(const QString &siteKey, const QString &baseUrl, qint64 id) {
 
 QString downloadFileName(const QString &siteLabel, const QJsonObject &raw) {
     QString safe = siteLabel;
+    // A leading underscore survives (the _Stray convention); anything
+    // else non-alphanumeric goes.
+    const bool lead = safe.startsWith(u'_');
     safe.replace(QRegularExpression(QStringLiteral("[^A-Za-z0-9]+")), QString());
+    if (lead && !safe.startsWith(u'_'))
+        safe.prepend(u'_');
     if (safe.isEmpty())
         safe = QStringLiteral("Booru");
     QString ext = raw.value(QStringLiteral("file_ext")).toString().toLower();
+    // Leading alphanumerics only (same traversal rule as extOf): a
+    // hostile file_ext like "jpg/../../x" degrades to "jpg", anything
+    // unusable falls through to the URL derivation below.
+    static const QRegularExpression leadExt(
+        QStringLiteral("^([A-Za-z0-9]{1,5})"));
+    const auto m = leadExt.match(ext);
+    ext = m.hasMatch() ? m.captured(1) : QString();
     if (ext.isEmpty()) {
         const QString url = raw.value(QStringLiteral("file_url")).toString();
         if (!url.isEmpty())
@@ -260,11 +296,27 @@ QString downloadFileName(const QString &siteLabel, const QJsonObject &raw) {
     }
     if (ext.isEmpty())
         ext = QStringLiteral("jpg");
+    // Content hashes are hex by definition: anything else (paths,
+    // javascript:, "../..") falls back to the numeric id. Never let a
+    // remote string choose the filename.
+    auto validMd5 = [](const QString &s) {
+        if (s.size() != 32)
+            return false;
+        for (const QChar &c : s) {
+            const ushort u = c.unicode();
+            if (!((u >= u'0' && u <= u'9') || (u >= u'a' && u <= u'f') ||
+                  (u >= u'A' && u <= u'F')))
+                return false;
+        }
+        return true;
+    };
     QString md5 = raw.value(QStringLiteral("md5")).toString();
-    if (md5.isEmpty())
+    if (!validMd5(md5))
         md5 = raw.value(QStringLiteral("checksumMD5")).toString(); // szurubooru
+    if (!validMd5(md5))
+        md5.clear();
     if (!md5.isEmpty())
-        return safe + u'_' + md5 + u'.' + ext;
+        return safe + u'_' + md5.toLower() + u'.' + ext;
     return safe + u'_' + QString::number(BooruEngineOps::jsonInt(raw.value(QStringLiteral("id")))) + u'.' +
            ext;
 }
@@ -284,6 +336,12 @@ bool bucketDisabled(BooruEngine engine, const QString &bucket) {
     if (bucket == QStringLiteral("general"))
         return false;
     return disabledBucketSet().contains(engineKey(engine) + u':' + bucket);
+}
+
+bool bucketDisabledFor(const QString &host, const QString &bucket) {
+    if (bucket == QStringLiteral("general") || host.isEmpty())
+        return false;
+    return disabledBucketSet().contains(host.toLower() + u':' + bucket);
 }
 
 } // namespace RemotePosts

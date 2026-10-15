@@ -30,8 +30,11 @@ private slots:
         QVERIFY(s.dataDir.isEmpty());
         QCOMPARE(s.browseSites, QStringList({QStringLiteral("safebooru")}));
         QCOMPARE(s.tabsDefault, QStringLiteral("welcome"));
-        QVERIFY(!s.unfavDeletesFile);
-        QVERIFY(!s.paranoiaMode);
+        QVERIFY(!s.favAutoDownload); // download-on-favourite defaults OFF
+        QVERIFY(s.favAutoFav);       // favourite-on-download defaults ON
+        QVERIFY(s.unfavDeletesFile); // delete-on-unfavourite defaults ON
+        QVERIFY(!s.deleteUnfavs);    // unfavourite-on-delete defaults OFF
+        QVERIFY(!s.hasLastPlace);    // nothing to resume on first run
     }
 
     void settingsRoundTrip() {
@@ -44,7 +47,9 @@ private slots:
         s.downloadDir = QStringLiteral("/tmp/be-dl");
         s.dataDir = QStringLiteral("/tmp/be-data");
         s.favAutoDownload = true;
+        s.favAutoFav = true;
         s.unfavDeletesFile = true;
+        s.deleteUnfavs = true;
         s.blacklist = {QStringLiteral("loli"), QStringLiteral("shota")};
         s.browseSites = {QStringLiteral("danbooru")};
         BooruSite custom;
@@ -59,7 +64,9 @@ private slots:
         custom.cookies = {QStringLiteral("cf_clearance=abc"),
                           QStringLiteral("sess=xyz")};
         custom.skipAutoClassify = true;
+        custom.disabledBuckets = {QStringLiteral("character")};
         custom.defaultTags = QStringLiteral("rating:safe solo");
+        custom.proxy = QStringLiteral("socks5://127.0.0.1:1080");
         s.boorus = {custom};
         s.explicitTags = {QStringLiteral("customtag")};
         s.disabledBuckets = {QStringLiteral("gelbooru:character")};
@@ -70,8 +77,12 @@ private slots:
         s.gridScrollRows = 2.5;
         s.tabsDefault = QStringLiteral("last");
         s.language = QStringLiteral("fr");
-        s.paranoiaMode = true;
         s.mascotPath = QStringLiteral("/pics/mascot.png");
+        s.hasLastPlace = true;
+        s.lastPlace.kind = QStringLiteral("browse");
+        s.lastPlace.sites = {QStringLiteral("danbooru")};
+        s.lastPlace.tags = {QStringLiteral("sky")};
+        s.lastPlace.sort = QStringLiteral("score-desc");
         saveSettings(s);
         const AppSettings back = loadSettings();
         QCOMPARE(back.indexCache, false);
@@ -82,7 +93,9 @@ private slots:
         QCOMPARE(back.downloadDir, QStringLiteral("/tmp/be-dl"));
         QCOMPARE(back.dataDir, QStringLiteral("/tmp/be-data"));
         QVERIFY(back.favAutoDownload);
+        QVERIFY(back.favAutoFav);
         QVERIFY(back.unfavDeletesFile);
+        QVERIFY(back.deleteUnfavs);
         QCOMPARE(back.blacklist, s.blacklist);
         QCOMPARE(back.browseSites, QStringList({QStringLiteral("danbooru")}));
         QCOMPARE(back.boorus.size(), 1);
@@ -96,8 +109,12 @@ private slots:
         QCOMPARE(back.boorus.first().badgeColor, QStringLiteral("#a1b2c3"));
         QCOMPARE(back.boorus.first().cookies, custom.cookies);
         QVERIFY(back.boorus.first().skipAutoClassify);
+        QCOMPARE(back.boorus.first().disabledBuckets,
+                 QSet<QString>({QStringLiteral("character")}));
         QCOMPARE(back.boorus.first().defaultTags,
                  QStringLiteral("rating:safe solo"));
+        QCOMPARE(back.boorus.first().proxy,
+                 QStringLiteral("socks5://127.0.0.1:1080"));
         QCOMPARE(back.disabledBuckets,
                  QSet<QString>({QStringLiteral("gelbooru:character")}));
         QCOMPARE(back.explicitTags, QStringList({QStringLiteral("customtag")}));
@@ -109,7 +126,11 @@ private slots:
         QCOMPARE(back.tabsDefault, QStringLiteral("last"));
         QCOMPARE(back.language, QStringLiteral("fr"));
         QCOMPARE(back.mascotPath, QStringLiteral("/pics/mascot.png"));
-        QVERIFY(back.paranoiaMode);
+        QVERIFY(back.hasLastPlace);
+        QCOMPARE(back.lastPlace.kind, QStringLiteral("browse"));
+        QCOMPARE(back.lastPlace.sites, QStringList({QStringLiteral("danbooru")}));
+        QCOMPARE(back.lastPlace.tags, QStringList({QStringLiteral("sky")}));
+        QCOMPARE(back.lastPlace.sort, QStringLiteral("score-desc"));
     }
 
     void listsNormalizeOnLoad() {

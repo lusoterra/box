@@ -2,6 +2,7 @@
 
 #include <QString>
 #include <QJsonObject>
+#include <QSet>
 
 // Post record. Mirrors the fields the Python prototypes exposed
 // (local archives, remote API results, favourites rows).
@@ -48,6 +49,26 @@ struct Post {
 
 inline bool isVideoExt(const QString &ext) {
     return ext == QStringLiteral("mp4") || ext == QStringLiteral("webm");
+}
+
+// AI-generated marker: token-exact (case-insensitive, '-' == '_') across
+// every tag blob. Drives the grid "AI" chip; nothing else keys off it.
+inline bool isAiPost(const Post &post) {
+    static const QSet<QString> ai = {QStringLiteral("ai_generated"),
+                                     QStringLiteral("ai_created"),
+                                     QStringLiteral("ai_assisted"),
+                                     QStringLiteral("ai_art")};
+    const QString blobs[] = {post.tags,        post.tagsArtist,
+                             post.tagsCharacter, post.tagsCopyright,
+                             post.tagsMeta,    post.tagsGeneral,
+                             post.untyped};
+    for (const QString &blob : blobs) {
+        for (const QString &tok : blob.split(QChar::Space, Qt::SkipEmptyParts)) {
+            if (ai.contains(tok.toLower().replace(u'-', u'_')))
+                return true;
+        }
+    }
+    return false;
 }
 
 // Tag hygiene at ingestion: real tags never contain commas, semicolons or

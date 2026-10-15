@@ -72,17 +72,17 @@ namespace RemotePosts {
 Post fromMoebooru(const QJsonObject &o, const QString &baseUrl) {
     Post p;
     p.id = BooruEngineOps::jsonInt(o.value(QStringLiteral("id")));
-    p.score = static_cast<int>(BooruEngineOps::jsonInt(o.value(QStringLiteral("score"))));
+    p.score = BooruEngineOps::jsonInt32(o.value(QStringLiteral("score")));
     p.rating = normalizeRating(o.value(QStringLiteral("rating")).toString());
     p.tagsGeneral = o.value(QStringLiteral("tags")).toString();
     p.untyped = p.tagsGeneral;
-    p.width = static_cast<int>(BooruEngineOps::jsonInt(o.value(QStringLiteral("width"))));
-    p.height = static_cast<int>(BooruEngineOps::jsonInt(o.value(QStringLiteral("height"))));
+    p.width = qMax(0, BooruEngineOps::jsonInt32(o.value(QStringLiteral("width"))));
+    p.height = qMax(0, BooruEngineOps::jsonInt32(o.value(QStringLiteral("height"))));
     p.source = o.value(QStringLiteral("source")).toString();
     const QJsonValue created = o.value(QStringLiteral("created_at"));
     if (created.isDouble())
-        p.date = QDateTime::fromSecsSinceEpoch(static_cast<qint64>(created.toDouble()),
-                                               QTimeZone::UTC)
+        p.date = QDateTime::fromSecsSinceEpoch(
+                     BooruEngineOps::jsonInt(created, 0), QTimeZone::UTC)
                      .toString(Qt::ISODate);
     else
         p.date = created.toString();

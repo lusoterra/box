@@ -7,6 +7,7 @@
 // proof-of-work challenge that re-appears roughly daily even for logins.
 // Pure functions over the host: no registry, no network.
 #include <QList>
+#include <QNetworkCookie>
 #include <QString>
 #include <QStringList>
 #include <QUrl>
@@ -33,8 +34,19 @@ QString apiBaseUrl(BooruEngine engine, const QString &baseUrl);
 QStringList normalizeCookies(const QStringList &lines);
 // Cleaned list -> "a=1; b=2" header value (empty when none).
 QString cookieHeaderValue(const QStringList &cookies);
+// Fetchable URL schemes: only http(s) ever leaves the machine. Anything
+// else (file:///, javascript:, data:, custom schemes from a rogue API
+// object) is refused before any request, read, or download.
+bool isHttpUrl(const QString &url);
 // Quirk default cookies missing from `current` (compared by cookie name,
 // case-insensitive). Empty when the host has no quirk or nothing is
 // missing: callers append the result to the stored list.
 QStringList seedQuirkCookies(const QStringList &current, const QString &host);
+// Normalized harvest of a raw cookie jar for one host (exact host or
+// subdomain match, later values win, garbage dropped). Pure.
+QStringList harvestCookies(const QList<QNetworkCookie> &seen,
+                           const QString &host);
+// Host matching for one cookie (exact, subdomain either way, or
+// host-only session cookies).
+bool cookieBelongsTo(const QNetworkCookie &cookie, const QString &host);
 } // namespace RemotePosts

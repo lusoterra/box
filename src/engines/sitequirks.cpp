@@ -30,6 +30,11 @@ const SiteQuirk *quirkForUrl(const QString &baseUrl) {
     return quirkForHost(QUrl(baseUrl).host());
 }
 
+bool isHttpUrl(const QString &url) {
+    const QString scheme = QUrl(url).scheme().toLower();
+    return scheme == QStringLiteral("http") || scheme == QStringLiteral("https");
+}
+
 QString apiBaseUrl(BooruEngine engine, const QString &baseUrl) {
     if (const SiteQuirk *q = quirkForUrl(baseUrl)) {
         if (!q->apiHost.isEmpty() && engine == BooruEngine::Gelbooru)
@@ -99,6 +104,32 @@ QStringList seedQuirkCookies(const QStringList &current, const QString &host) {
             add << seed;
     }
     return add;
+}
+
+bool cookieBelongsTo(const QNetworkCookie &cookie, const QString &host) {
+    if (host.isEmpty() || cookie.name().isEmpty())
+        return false;
+    QString domain = cookie.domain().toLower().trimmed();
+    if (domain.startsWith(u'.'))
+        domain = domain.mid(1);
+    if (domain.isEmpty())
+        return true; // host-only session cookie: keep, server set it
+    return domain == host || host.endsWith(u'.' + domain) ||
+           domain.endsWith(u'.' + host);
+}
+
+QStringList harvestCookies(const QList<QNetworkCookie> &seen,
+                           const QString &host) {
+    QStringList raw;
+    for (const QNetworkCookie &c : seen) {
+        if (!cookieBelongsTo(c, host))
+            continue;
+        const QString name = QString::fromUtf8(c.name());
+        const QString value = QString::fromUtf8(c.value());
+        if (!name.isEmpty() && !value.isEmpty())
+            raw << name + u'=' + value;
+    }
+    return normalizeCookies(raw);
 }
 
 } // namespace RemotePosts

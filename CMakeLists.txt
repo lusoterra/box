@@ -10,15 +10,15 @@ find_package(Qt6 REQUIRED COMPONENTS Widgets Concurrent Sql Multimedia Multimedi
 
 add_executable(booru-explorer
     src/main.cpp
-    src/metaparser.cpp
-    src/scanner.cpp
-    src/cache.cpp
-    src/cachejanitor.cpp
-    src/favdb.cpp
-    src/index.cpp
+    src/library/metaparser.cpp
+    src/library/scanner.cpp
+    src/library/cache.cpp
+    src/library/cachejanitor.cpp
+    src/library/favdb.cpp
+    src/library/index.cpp
     src/settings.cpp
-    src/tagtypes.cpp
-    src/postmeta.cpp
+    src/library/tagtypes.cpp
+    src/remote/postmeta.cpp
     src/engines/boorutypes.h
     src/engines/sitequirks.h
     src/engines/sitequirks.cpp
@@ -29,29 +29,31 @@ add_executable(booru-explorer
     src/engines/engine_moebooru.cpp
     src/engines/engine_szurubooru.cpp
     src/engines/engine_shimmie.cpp
-    src/remotesource.cpp
-    src/downloadmanager.cpp
-    src/imagecache.cpp
-    src/thumbloader.cpp
-    src/theme.cpp
-    src/flowlayout.cpp
-    src/tabbar.cpp
-    src/tagsuggest.cpp
-    src/faviconcache.cpp
-    src/sidecarrefresh.cpp
-    src/webdlbackend.h
-    src/losnimport.cpp
-    src/queryor.cpp
-    src/cookiegrab.cpp
-    src/progressbar.cpp
-    src/viewerpage.cpp
-    src/welcomepage.cpp
-    src/prefsdlg.cpp
-    src/mainwindow.cpp
+    src/remote/remotesource.cpp
+    src/remote/downloadmanager.cpp
+    src/remote/imagecache.cpp
+    src/remote/thumbloader.cpp
+    src/ui/theme.cpp
+    src/ui/flowlayout.cpp
+    src/ui/tabbar.cpp
+    src/remote/tagsuggest.cpp
+    src/remote/faviconcache.cpp
+    src/library/sidecarrefresh.cpp
+    src/remote/webdlbackend.h
+    src/library/losnimport.cpp
+    src/library/queryor.cpp
+    src/remote/cookiegrab.cpp
+    src/ui/progressbar.cpp
+    src/ui/viewerpage.cpp
+    src/ui/welcomepage.cpp
+    src/ui/prefsdlg.cpp
+    src/ui/straydialog.cpp
+    src/ui/mainwindow.cpp
     src/icons.qrc
+    src/seed.qrc
 )
 
-target_include_directories(booru-explorer PRIVATE src src/engines)
+target_include_directories(booru-explorer PRIVATE src src/engines src/remote src/library src/ui)
 target_link_libraries(booru-explorer PRIVATE Qt6::Widgets Qt6::Concurrent Qt6::Sql
                                              Qt6::Multimedia Qt6::MultimediaWidgets
                                              Qt6::Network Qt6::WebEngineWidgets Qt6::WebEngineCore)
@@ -72,7 +74,18 @@ if(NOT APP_TS_FILES)
 endif()
 qt_add_translations(booru-explorer
     TS_FILES ${APP_TS_FILES}
-    RESOURCE_PREFIX "/i18n"
+    QM_FILES_OUTPUT_VARIABLE APP_QM_FILES
+)
+# Explicit embed: the .qm files must live in the binary (verified by
+# strings: without this, :/i18n/ is empty at runtime and every locale
+# silently falls back to English).
+foreach(qm IN LISTS APP_QM_FILES)
+    get_filename_component(qm_name "${qm}" NAME)
+    set_source_files_properties("${qm}" PROPERTIES QT_RESOURCE_ALIAS "${qm_name}")
+endforeach()
+qt_add_resources(booru-explorer "app_translations"
+    PREFIX "/i18n"
+    FILES ${APP_QM_FILES}
 )
 
 include(GNUInstallDirs)

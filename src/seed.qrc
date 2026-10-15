@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/seed">
+        <file alias="tagtypes.tsv">../assets/tagtypes-seed.tsv</file>
+    </qresource>
+</RCC>

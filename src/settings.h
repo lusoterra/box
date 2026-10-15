@@ -31,10 +31,18 @@ struct AppSettings {
     bool restoreSession = false; // legacy: migrated to tabsDefault="last"
     QString language; // UI locale override ("fr", "pt_BR"); empty = system
     // Favourites (DB entries, no files) + optional coupling with downloads.
+    // Each direction is its own toggle: favouriting can download, downloads
+    // can favourite, unfavouriting can delete, deleting can unfavourite.
     bool favAutoDownload = false; // favouriting also downloads full quality
-    bool favAutoFav = false;      // downloads also get favourited
-    // Unfavouriting also deletes the downloaded file. Off by default.
-    bool unfavDeletesFile = false;
+    bool favAutoFav = true;       // downloads also get favourited
+    // Unfavouriting also deletes the downloaded file. On by default.
+    bool unfavDeletesFile = true;
+    // Deleting a file also removes the favourite entry. Off by default:
+    // Delete stays a disk-only affair unless this is on.
+    bool deleteUnfavs = false;
+    // Strays pulled in via File -> Download/Add Stray get favourited
+    // automatically. On by default (they have no home tab otherwise).
+    bool strayAutoFav = true;
     // Blacklisted tags: hidden everywhere (local + browse).
     QStringList blacklist;
     // Online tag-category lookup for untyped tags (cached forever).
@@ -71,6 +79,11 @@ struct AppSettings {
     };
     QList<SavedTab> savedTabs;
     int savedTabCurrent = 0;
+    // Last place (any tab kind, local archives included): the home page
+    // "Back to last tab" button resumes it, even across restarts. Updated
+    // on every tab switch; empty kind = nothing to resume yet.
+    SavedTab lastPlace;
+    bool hasLastPlace = false;
     // Configured boorus (LoliSnatcher-style): presets for the popular ones
     // plus user-added instances. First run seeds the presets and migrates
     // the legacy per-site credentials into them.
@@ -96,10 +109,6 @@ struct AppSettings {
     int volume = 100; // 0..100 default output volume
     // Viewer
     int viewerMaxSide = 2560; // huge-image decode cap
-    // Paranoia mode: images load from the network into memory only — no
-    // thumbnail/full-image disk caches, no downloads. Favourites DB and tag
-    // verdicts still work. Off by default.
-    bool paranoiaMode = false;
     // Startup + window
     QString tabsDefault = QStringLiteral("welcome"); // welcome|last|<sitekey>
     QByteArray geometry;
@@ -166,7 +175,8 @@ inline bool booruSiteEqual(const BooruSite &a, const BooruSite &b) {
            a.engine == b.engine && a.user == b.user &&
            a.secret == b.secret && a.cookies == b.cookies &&
            a.skipAutoClassify == b.skipAutoClassify &&
-           a.defaultTags == b.defaultTags;
+           a.disabledBuckets == b.disabledBuckets &&
+           a.defaultTags == b.defaultTags && a.proxy == b.proxy;
 }
 
 // True when every persisted field matches (window geometry excluded:
@@ -183,13 +193,19 @@ inline bool operator==(const AppSettings &a, const AppSettings &b) {
         if (!(a.savedTabs.at(i) == b.savedTabs.at(i)))
             return false;
     }
+    if (a.hasLastPlace != b.hasLastPlace)
+        return false;
+    if (a.hasLastPlace && !(a.lastPlace == b.lastPlace))
+        return false;
     return a.indexCache == b.indexCache && a.thumbCache == b.thumbCache &&
            a.fullCache == b.fullCache && a.cacheLimitMB == b.cacheLimitMB &&
            a.thumbLongSide == b.thumbLongSide && a.lastRoot == b.lastRoot &&
            a.history == b.history && a.restoreSession == b.restoreSession &&
            a.language == b.language &&
            a.favAutoDownload == b.favAutoDownload && a.favAutoFav == b.favAutoFav &&
-           a.unfavDeletesFile == b.unfavDeletesFile && a.blacklist == b.blacklist &&
+           a.unfavDeletesFile == b.unfavDeletesFile &&
+           a.deleteUnfavs == b.deleteUnfavs && a.strayAutoFav == b.strayAutoFav &&
+           a.blacklist == b.blacklist &&
            a.classifyTags == b.classifyTags && a.manualTagTypes == b.manualTagTypes &&
            a.disabledBuckets == b.disabledBuckets &&
            a.browseMode == b.browseMode && a.browseSites == b.browseSites &&
@@ -203,7 +219,7 @@ inline bool operator==(const AppSettings &a, const AppSettings &b) {
            a.gridBoxW == b.gridBoxW && a.gridScrollRows == b.gridScrollRows &&
            a.videoMuted == b.videoMuted &&
            a.videoLoop == b.videoLoop && a.volume == b.volume &&
-           a.viewerMaxSide == b.viewerMaxSide && a.paranoiaMode == b.paranoiaMode &&
+           a.viewerMaxSide == b.viewerMaxSide &&
            a.tabsDefault == b.tabsDefault && a.sideSplitter == b.sideSplitter;
 }
 

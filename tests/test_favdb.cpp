@@ -50,6 +50,33 @@ private slots:
         QCOMPARE(db.count(), 0);
     }
 
+    void idlessImportsKeyByUrl() {
+        // Stray link posts all carry id 0: they must favourite (and
+        // un-favourite) independently by URL hash, not collide on (site, 0).
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        FavDb db;
+        QVERIFY(db.open(tmp.path()));
+        Post a = samplePost();
+        a.siteName = QStringLiteral("_Stray");
+        a.id = 0;
+        a.fileUrl = QStringLiteral("https://example.com/a.png");
+        Post b = samplePost();
+        b.siteName = QStringLiteral("_Stray");
+        b.id = 0;
+        b.fileUrl = QStringLiteral("https://example.com/b.png");
+        QVERIFY(FavDb::pidFor(a) != FavDb::pidFor(b));
+        QVERIFY(db.add(a));
+        QVERIFY(db.add(b));
+        QCOMPARE(db.count(), 2);
+        QVERIFY(!db.add(a)); // same URL: duplicate rejected
+        QVERIFY(db.isFavourite(QStringLiteral("_Stray"), FavDb::pidFor(a)));
+        QVERIFY(
+            db.remove(QStringLiteral("_Stray"), FavDb::pidFor(a)));
+        QCOMPARE(db.count(), 1);
+        QVERIFY(db.isFavourite(QStringLiteral("_Stray"), FavDb::pidFor(b)));
+    }
+
     void localFavKeepsFilePath() {
         // Regression: archive posts carry a source URL in postUrl; the
         // favourites list must still resolve to the file on disk.

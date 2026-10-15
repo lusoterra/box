@@ -958,6 +958,30 @@
         <source>Could not move %1 (left in place)</source>
         <translation>Could not move %1 (left in place)</translation>
     </message>
+    <message>
+        <source>Delete from disk…</source>
+        <translation>Delete from disk…</translation>
+    </message>
+    <message>
+        <source>Permanently delete %1 file(s) from disk?</source>
+        <translation>Permanently delete %1 file(s) from disk?</translation>
+    </message>
+    <message>
+        <source>Imported %1 file(s) to _Stray, favourited %2</source>
+        <translation>Imported %1 file(s) to _Stray, favourited %2</translation>
+    </message>
+    <message>
+        <source>Last place is gone: %1</source>
+        <translation>Last place is gone: %1</translation>
+    </message>
+    <message>
+        <source>Re-downloading %1 missing stray file(s)…</source>
+        <translation>Re-downloading %1 missing stray file(s)…</translation>
+    </message>
+    <message>
+        <source>%1 favourited file(s) have no source link and cannot be re-downloaded.</source>
+        <translation>%1 favourited file(s) have no source link and cannot be re-downloaded.</translation>
+    </message>
 </context>
 <context>
     <name>PrefsDialog</name>
@@ -1449,6 +1473,26 @@ They rebuild on the next scan.</translation>
         <source>%1 %2: %3</source>
         <translation>%1 %2: %3</translation>
     </message>
+    <message>
+        <source>Deleting a file also removes it from favourites</source>
+        <translation>Deleting a file also removes it from favourites</translation>
+    </message>
+    <message>
+        <source>Unfavouriting deletes the downloaded file</source>
+        <translation>Unfavouriting deletes the downloaded file</translation>
+    </message>
+    <message>
+        <source>Favourites are database entries only - no files are written unless auto-download is on.</source>
+        <translation>Favourites are database entries only - no files are written unless auto-download is on.</translation>
+    </message>
+    <message>
+        <source>Categories:</source>
+        <translation>Categories:</translation>
+    </message>
+    <message>
+        <source>Untick buckets this host's taxonomy lacks; they fold into general.</source>
+        <translation>Untick buckets this host's taxonomy lacks; they fold into general.</translation>
+    </message>
 </context>
 <context>
     <name>VideoPane</name>
@@ -1656,6 +1700,28 @@ They rebuild on the next scan.</translation>
         <location filename="../src/welcomepage.cpp" line="72" />
         <source>Always load last session on startup</source>
         <translation>Always load last session on startup</translation>
+    </message>
+</context>
+<context>
+    <name>StrayDialog</name>
+    <message>
+        <source>Auto-favourite strays I add</source>
+        <translation>Auto-favourite strays I add</translation>
+    </message>
+    <message>
+        <source>Favourites get the imported/downloaded files</source>
+        <translation>Favourites get the imported/downloaded files</translation>
+    </message>
+    <message>
+        <source>Space-separated tags. Buckets are assigned automatically when you save; reopen to fix anything miscategorized.</source>
+        <translation>Space-separated tags. Buckets are assigned automatically when you save; reopen to fix anything miscategorized.</translation>
+    </message>
+</context>
+<context>
+    <name>WelcomePage</name>
+    <message>
+        <source>Back to last tab</source>
+        <translation>Back to last tab</translation>
     </message>
 </context>
 </TS>

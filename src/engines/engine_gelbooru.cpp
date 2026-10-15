@@ -95,12 +95,12 @@ namespace RemotePosts {
 Post fromGelbooru(const QJsonObject &o, const QString &baseUrl) {
     Post p;
     p.id = BooruEngineOps::jsonInt(o.value(QStringLiteral("id")));
-    p.score = static_cast<int>(BooruEngineOps::jsonInt(o.value(QStringLiteral("score"))));
+    p.score = BooruEngineOps::jsonInt32(o.value(QStringLiteral("score")));
     p.rating = normalizeRating(o.value(QStringLiteral("rating")).toString());
     p.tagsGeneral = o.value(QStringLiteral("tags")).toString();
     p.untyped = p.tagsGeneral; // one flat blob: classifiable later
-    p.width = static_cast<int>(BooruEngineOps::jsonInt(o.value(QStringLiteral("width"))));
-    p.height = static_cast<int>(BooruEngineOps::jsonInt(o.value(QStringLiteral("height"))));
+    p.width = qMax(0, BooruEngineOps::jsonInt32(o.value(QStringLiteral("width"))));
+    p.height = qMax(0, BooruEngineOps::jsonInt32(o.value(QStringLiteral("height"))));
     p.source = o.value(QStringLiteral("source")).toString();
     p.date = o.value(QStringLiteral("created_at")).toString();
     p.fileUrl = BooruEngineOps::resolveFileUrl(baseUrl, o.value(QStringLiteral("file_url")).toString());

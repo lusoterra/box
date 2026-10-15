@@ -34,14 +34,26 @@ AppSettings loadSettings() {
     s.thumbLongSide = c.value(QStringLiteral("cache/thumbSize"), s.thumbLongSide).toInt();
     s.lastRoot = c.value(QStringLiteral("library/root")).toString();
     s.history = c.value(QStringLiteral("library/history")).toStringList();
-    s.restoreSession =
-        c.value(QStringLiteral("general/restoreSession"), s.restoreSession).toBool();
-    s.language = c.value(QStringLiteral("general/language"), s.language).toString();
+    // NOTE: never a group literally named general/General — QSettings
+    // reserves General for groupless keys, so that group can neither be
+    // written readably nor read back (settings silently reset every
+    // launch). app/ holds these instead; General/ is a read fallback
+    // for files written before the rename.
+    s.restoreSession = c.value(QStringLiteral("app/restoreSession"),
+                               c.value(QStringLiteral("General/restoreSession"),
+                                       s.restoreSession)).toBool();
+    s.language = c.value(QStringLiteral("app/language"),
+                         c.value(QStringLiteral("General/language"),
+                                 s.language)).toString();
     s.favAutoDownload =
         c.value(QStringLiteral("fav/autoDownload"), s.favAutoDownload).toBool();
     s.favAutoFav = c.value(QStringLiteral("fav/autoFav"), s.favAutoFav).toBool();
     s.unfavDeletesFile =
         c.value(QStringLiteral("fav/unfavDeletesFile"), s.unfavDeletesFile).toBool();
+    s.deleteUnfavs =
+        c.value(QStringLiteral("fav/deleteUnfavs"), s.deleteUnfavs).toBool();
+    s.strayAutoFav =
+        c.value(QStringLiteral("stray/autoFav"), s.strayAutoFav).toBool();
     if (c.contains(QStringLiteral("filter/blacklist")))
         s.blacklist =
             normalizeExplicitTags(c.value(QStringLiteral("filter/blacklist")).toStringList());
@@ -93,6 +105,21 @@ AppSettings loadSettings() {
     c.endGroup();
     s.savedTabCurrent =
         c.value(QStringLiteral("tabs/savedCurrent"), 0).toInt();
+    // Last place for the home-page resume button (any tab kind).
+    s.hasLastPlace = false;
+    if (!c.value(QStringLiteral("last/kind")).toString().isEmpty()) {
+        s.hasLastPlace = true;
+        s.lastPlace.kind = c.value(QStringLiteral("last/kind")).toString();
+        s.lastPlace.root = c.value(QStringLiteral("last/root")).toString();
+        s.lastPlace.sites = c.value(QStringLiteral("last/sites")).toStringList();
+        s.lastPlace.tags = c.value(QStringLiteral("last/tags")).toStringList();
+        s.lastPlace.query = c.value(QStringLiteral("last/query")).toString();
+        s.lastPlace.rating =
+            c.value(QStringLiteral("last/rating"), QStringLiteral("all")).toString();
+        s.lastPlace.category = c.value(QStringLiteral("last/category")).toString();
+        s.lastPlace.sort =
+            c.value(QStringLiteral("last/sort"), QStringLiteral("id-desc")).toString();
+    }
     s.downloadDir = c.value(QStringLiteral("downloads/dir")).toString();
     s.dataDir = c.value(QStringLiteral("storage/dataDir")).toString();
     s.tabsDefault = c.value(QStringLiteral("startup/defaultTab"), s.tabsDefault).toString();
@@ -126,8 +153,6 @@ AppSettings loadSettings() {
         c.value(QStringLiteral("viewer/maxSide"), s.viewerMaxSide).toInt();
     if (s.viewerMaxSide < 512)
         s.viewerMaxSide = 512;
-    s.paranoiaMode =
-        c.value(QStringLiteral("privacy/paranoia"), s.paranoiaMode).toBool();
     return s;
 }
 
@@ -140,11 +165,13 @@ void saveSettings(const AppSettings &s) {
     c.setValue(QStringLiteral("cache/thumbSize"), s.thumbLongSide);
     c.setValue(QStringLiteral("library/root"), s.lastRoot);
     c.setValue(QStringLiteral("library/history"), s.history);
-    c.setValue(QStringLiteral("general/restoreSession"), s.restoreSession);
-    c.setValue(QStringLiteral("general/language"), s.language);
+    c.setValue(QStringLiteral("app/restoreSession"), s.restoreSession);
+    c.setValue(QStringLiteral("app/language"), s.language);
     c.setValue(QStringLiteral("fav/autoDownload"), s.favAutoDownload);
     c.setValue(QStringLiteral("fav/autoFav"), s.favAutoFav);
     c.setValue(QStringLiteral("fav/unfavDeletesFile"), s.unfavDeletesFile);
+    c.setValue(QStringLiteral("fav/deleteUnfavs"), s.deleteUnfavs);
+    c.setValue(QStringLiteral("stray/autoFav"), s.strayAutoFav);
     c.setValue(QStringLiteral("filter/blacklist"), s.blacklist);
     c.setValue(QStringLiteral("classify/enabled"), s.classifyTags);
     c.setValue(QStringLiteral("tagtypes/manual"),
@@ -173,6 +200,17 @@ void saveSettings(const AppSettings &s) {
     }
     c.endGroup();
     c.setValue(QStringLiteral("tabs/savedCurrent"), s.savedTabCurrent);
+    c.remove(QStringLiteral("last"));
+    if (s.hasLastPlace && !s.lastPlace.kind.isEmpty()) {
+        c.setValue(QStringLiteral("last/kind"), s.lastPlace.kind);
+        c.setValue(QStringLiteral("last/root"), s.lastPlace.root);
+        c.setValue(QStringLiteral("last/sites"), s.lastPlace.sites);
+        c.setValue(QStringLiteral("last/tags"), s.lastPlace.tags);
+        c.setValue(QStringLiteral("last/query"), s.lastPlace.query);
+        c.setValue(QStringLiteral("last/rating"), s.lastPlace.rating);
+        c.setValue(QStringLiteral("last/category"), s.lastPlace.category);
+        c.setValue(QStringLiteral("last/sort"), s.lastPlace.sort);
+    }
     c.setValue(QStringLiteral("downloads/dir"), s.downloadDir);
     c.setValue(QStringLiteral("storage/dataDir"), s.dataDir);
     c.setValue(QStringLiteral("startup/defaultTab"), s.tabsDefault);
@@ -192,7 +230,7 @@ void saveSettings(const AppSettings &s) {
     c.setValue(QStringLiteral("viewer/loop"), s.videoLoop);
     c.setValue(QStringLiteral("viewer/volume"), s.volume);
     c.setValue(QStringLiteral("viewer/maxSide"), s.viewerMaxSide);
-    c.setValue(QStringLiteral("privacy/paranoia"), s.paranoiaMode);
+    c.remove(QStringLiteral("privacy/paranoia")); // retired: false promise
     c.sync();
 }
 
@@ -236,7 +274,16 @@ QList<BooruSite> loadBoorus(QSettings &c) {
             c.value(QStringLiteral("cookies")).toStringList());
         b.skipAutoClassify =
             c.value(QStringLiteral("skipAutoClassify"), false).toBool();
+        b.disabledBuckets.clear();
+        for (const QString &bucket : c.value(QStringLiteral("disabledBuckets"))
+                                         .toStringList()) {
+            const QString t = bucket.trimmed().toLower();
+            if (t == QStringLiteral("artist") || t == QStringLiteral("character") ||
+                t == QStringLiteral("copyright") || t == QStringLiteral("meta"))
+                b.disabledBuckets.insert(t);
+        }
         b.defaultTags = c.value(QStringLiteral("tags")).toString();
+        b.proxy = c.value(QStringLiteral("proxy")).toString();
         c.endGroup();
         out.append(b);
     }
@@ -309,7 +356,10 @@ void saveBoorus(QSettings &c, const QList<BooruSite> &boorus) {
         c.setValue(QStringLiteral("secret"), b.secret);
         c.setValue(QStringLiteral("cookies"), b.cookies);
         c.setValue(QStringLiteral("skipAutoClassify"), b.skipAutoClassify);
+        c.setValue(QStringLiteral("disabledBuckets"),
+                   QStringList(b.disabledBuckets.begin(), b.disabledBuckets.end()));
         c.setValue(QStringLiteral("tags"), b.defaultTags);
+        c.setValue(QStringLiteral("proxy"), b.proxy);
         c.endGroup();
     }
     c.setValue(QStringLiteral("boorus/order"), order);

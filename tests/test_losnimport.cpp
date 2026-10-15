@@ -139,6 +139,36 @@ private slots:
         QCOMPARE(q.filePath, QStringLiteral("/d/Danbooru/Danbooru_losn7.jpg"));
     }
 
+    void pathsForRowPrefersSidecarMd5() {
+        // Refreshed rows carry a real md5 in the sidecar while the row
+        // itself has none: naming must use it, not the losn fallback.
+        LosnRow row;
+        row.rowId = 9;
+        row.siteLabel = QStringLiteral("Gelbooru");
+        row.fileUrl = QStringLiteral("https://example.com/f.png");
+        QJsonObject sidecar;
+        sidecar[QStringLiteral("id")] = 42;
+        sidecar[QStringLiteral("md5")] =
+            QStringLiteral("d41d8cd98f00b204e9800998ecf8427e");
+        const LosnImport::DownloadPaths p =
+            LosnImport::pathsForRow(row, sidecar, QStringLiteral("/d"));
+        QCOMPARE(p.fileName,
+                 QStringLiteral("Gelbooru_d41d8cd98f00b204e9800998ecf8427e.png"));
+        // Szurubooru-style checksum key works too.
+        QJsonObject szuru;
+        szuru[QStringLiteral("id")] = 43;
+        szuru[QStringLiteral("checksumMD5")] =
+            QStringLiteral("900150983cd24fb0d6963f7d28e17f72");
+        const LosnImport::DownloadPaths q =
+            LosnImport::pathsForRow(row, szuru, QStringLiteral("/d"));
+        QCOMPARE(q.fileName,
+                 QStringLiteral("Gelbooru_900150983cd24fb0d6963f7d28e17f72.png"));
+        // No md5 anywhere: same fallback as targetPaths.
+        const LosnImport::DownloadPaths r =
+            LosnImport::pathsForRow(row, QJsonObject(), QStringLiteral("/d"));
+        QCOMPARE(r.fileName, QStringLiteral("Gelbooru_losn9.png"));
+    }
+
     void readSyntheticBackup() {
         QTemporaryDir tmp;
         QVERIFY(tmp.isValid());

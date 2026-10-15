@@ -74,7 +74,7 @@ Post fromDanbooru(const QJsonObject &o, const QString &baseUrl) {
     QJsonValue scoreV = o.value(QStringLiteral("score"));
     if (scoreV.isObject())
         scoreV = scoreV.toObject().value(QStringLiteral("total"));
-    p.score = static_cast<int>(BooruEngineOps::jsonInt(scoreV));
+    p.score = BooruEngineOps::jsonInt32(scoreV);
     p.rating = normalizeRating(o.value(QStringLiteral("rating")).toString());
     p.tagsArtist = o.value(QStringLiteral("tag_string_artist")).toString();
     p.tagsCharacter = o.value(QStringLiteral("tag_string_character")).toString();
@@ -83,8 +83,8 @@ Post fromDanbooru(const QJsonObject &o, const QString &baseUrl) {
     if (p.tagsGeneral.isEmpty())
         p.tagsGeneral = o.value(QStringLiteral("tag_string")).toString();
     p.tagsMeta = o.value(QStringLiteral("tag_string_meta")).toString();
-    p.width = static_cast<int>(BooruEngineOps::jsonInt(o.value(QStringLiteral("image_width"))));
-    p.height = static_cast<int>(BooruEngineOps::jsonInt(o.value(QStringLiteral("image_height"))));
+    p.width = qMax(0, BooruEngineOps::jsonInt32(o.value(QStringLiteral("image_width"))));
+    p.height = qMax(0, BooruEngineOps::jsonInt32(o.value(QStringLiteral("image_height"))));
     p.source = o.value(QStringLiteral("source")).toString();
     p.date = o.value(QStringLiteral("created_at")).toString();
     p.fileUrl = o.value(QStringLiteral("file_url")).toString();

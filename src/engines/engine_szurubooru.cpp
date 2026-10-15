@@ -76,7 +76,7 @@ Post fromSzuru(const QJsonObject &o, const QString &baseUrl) {
     // Szurubooru /api/posts/ object. Field names defensive: instances vary.
     Post p;
     p.id = BooruEngineOps::jsonInt(o.value(QStringLiteral("id")));
-    p.score = static_cast<int>(BooruEngineOps::jsonInt(o.value(QStringLiteral("score"))));
+    p.score = BooruEngineOps::jsonInt32(o.value(QStringLiteral("score")));
     const QString safety = o.value(QStringLiteral("safety")).toString().toLower();
     if (safety == QStringLiteral("unsafe"))
         p.rating = QStringLiteral("explicit");
@@ -119,12 +119,12 @@ Post fromSzuru(const QJsonObject &o, const QString &baseUrl) {
     p.tagsCopyright = copyright.join(u' ');
     p.tagsGeneral = general.join(u' ');
     p.tagsMeta = meta.join(u' ');
-    p.width = static_cast<int>(BooruEngineOps::jsonInt(o.value(QStringLiteral("canvasWidth"))));
+    p.width = qMax(0, BooruEngineOps::jsonInt32(o.value(QStringLiteral("canvasWidth"))));
     if (!p.width)
-        p.width = static_cast<int>(BooruEngineOps::jsonInt(o.value(QStringLiteral("width"))));
-    p.height = static_cast<int>(BooruEngineOps::jsonInt(o.value(QStringLiteral("canvasHeight"))));
+        p.width = qMax(0, BooruEngineOps::jsonInt32(o.value(QStringLiteral("width"))));
+    p.height = qMax(0, BooruEngineOps::jsonInt32(o.value(QStringLiteral("canvasHeight"))));
     if (!p.height)
-        p.height = static_cast<int>(BooruEngineOps::jsonInt(o.value(QStringLiteral("height"))));
+        p.height = qMax(0, BooruEngineOps::jsonInt32(o.value(QStringLiteral("height"))));
     p.source = o.value(QStringLiteral("source")).toString();
     p.date = o.value(QStringLiteral("creationTime")).toString();
     auto abs = [&](const QString &u) {

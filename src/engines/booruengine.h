@@ -52,6 +52,10 @@ bool isImageUrl(const QString &url); // image ext (pool pipeline) vs video
 // Pushed from settings at startup / prefs apply; "general" never folds.
 void setDisabledBuckets(const QSet<QString> &disabled);
 bool bucketDisabled(BooruEngine engine, const QString &bucket);
+// Per-host override ("gelbooru.com:character"): the form the prefs grid
+// manages. engine-scoped keys keep working as a fallback (pre-rename
+// settings); see the loadSettings migration.
+bool bucketDisabledFor(const QString &host, const QString &bucket);
 } // namespace RemotePosts
 
 // One implementation per engine family (engine_danbooru.cpp and
@@ -83,6 +87,9 @@ public:
     // Mapping helpers shared by the engines and the pure post helpers
     // below (public so the per-engine from* mappers can use them).
     static qint64 jsonInt(const QJsonValue &v, qint64 def = 0);
+    // Range-checked int variant (scores, dimensions): hostile values
+    // fall back instead of overflowing the cast.
+    static int jsonInt32(const QJsonValue &v, int def = 0);
     static QString extOf(const QString &fileUrl,
                          const QString &fallback = QStringLiteral("jpg"));
     static QString joinTags(const QStringList &tags);
@@ -91,7 +98,8 @@ public:
     // against the host; absolute URLs pass through untouched.
     static QString resolveFileUrl(const QString &baseUrl, const QString &url);
     static void finishRemote(Post &p, const QString &siteLabel,
-                             const QJsonObject &raw, BooruEngine engine);
+                             const QJsonObject &raw, BooruEngine engine,
+                             const QString &host = {});
     // JSON response helpers: null document on syntax error; first object
     // of an array shape (ok=false when absent).
     static QJsonDocument parseJsonBody(const QByteArray &body);

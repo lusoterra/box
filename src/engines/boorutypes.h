@@ -6,6 +6,7 @@
 // and the per-host quirks (sitequirks.h).
 #include <QList>
 #include <QMap>
+#include <QSet>
 #include <QString>
 #include <QStringList>
 #include <QVector>
@@ -46,7 +47,14 @@ struct BooruSite {
     // Meme/other non-anime hosts: leave their tags alone (no fetching,
     // no applying verdicts). Defaults off.
     bool skipAutoClassify = false;
+    // Buckets this host's taxonomy lacks (artist/character/copyright/
+    // meta): folded into general at parse + classify time. Empty = all
+    // on. Per-host replacement for the engine-family grid in Preferences.
+    QSet<QString> disabledBuckets;
     // Extra tags for every search on this booru, added to the global
     // defaults (space-separated, same syntax as the omnibar).
     QString defaultTags;
+    // Proxy for this booru's traffic (http://host:port or
+    // socks5://[user:pass@]host:port). Empty = direct connection.
+    QString proxy;
 };

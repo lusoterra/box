@@ -1,6 +1,5 @@
 build/
 build-asan/
-testfiles/
 packaging/src/
 packaging/pkg/
 packaging/build-pkg/

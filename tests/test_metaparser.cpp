@@ -154,6 +154,24 @@ private slots:
         QVERIFY(p.hasMeta);
     }
 
+    void strayTagsLandInGeneralAndUntyped() {
+        // Hand-tagged strays: flat tag string with the stray marker.
+        // General for display AND untyped so the classify pipeline
+        // (manual overrides + online fetch) can categorize them.
+        QJsonObject o;
+        o[QStringLiteral("tags")] = QStringLiteral("hatsune_miku sky");
+        o[QStringLiteral("file_ext")] = QStringLiteral("jpg");
+        o[QStringLiteral("md5")] = QStringLiteral("d41d8cd98f00b204e9800998ecf8427e");
+        o[QStringLiteral("stray")] = true;
+        Post p;
+        QVERIFY(MetaParser::parse(o, p));
+        QCOMPARE(p.tagsGeneral, QStringLiteral("hatsune_miku sky"));
+        QCOMPARE(p.untyped, QStringLiteral("hatsune_miku sky"));
+        QVERIFY(p.tags.contains(QStringLiteral("hatsune_miku")));
+        QVERIFY(p.tagsArtist.isEmpty());
+        QVERIFY(p.hasMeta);
+    }
+
     void galleryDlFlatMergesCombined() {
         QJsonObject o;
         o[QStringLiteral("id")] = 3;

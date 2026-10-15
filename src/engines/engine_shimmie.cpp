@@ -103,8 +103,8 @@ Post fromShimmie(const QMap<QString, QString> &attrs, const QString &baseUrl) {
     p.rating = normalizeRating(attrs.value(QStringLiteral("rating"))); // "?" -> general
     p.tagsGeneral = attrs.value(QStringLiteral("tags"));
     p.untyped = p.tagsGeneral; // flat blob: classifiable later
-    p.width = attrs.value(QStringLiteral("width")).toInt();
-    p.height = attrs.value(QStringLiteral("height")).toInt();
+    p.width = qMax(0, attrs.value(QStringLiteral("width")).toInt());
+    p.height = qMax(0, attrs.value(QStringLiteral("height")).toInt());
     p.source = attrs.value(QStringLiteral("source"));
     p.date = attrs.value(QStringLiteral("date"));
     auto abs = [&](const QString &u) {

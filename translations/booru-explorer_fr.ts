@@ -1026,6 +1026,30 @@
         <source>Could not move %1 (left in place)</source>
         <translation type="unfinished">Impossible de déplacer %1 (laissé en place)</translation>
     </message>
+    <message>
+        <source>Delete from disk…</source>
+        <translation>Supprimer du disque…</translation>
+    </message>
+    <message>
+        <source>Permanently delete %1 file(s) from disk?</source>
+        <translation>Supprimer définitivement %1 fichier(s) du disque ?</translation>
+    </message>
+    <message>
+        <source>Imported %1 file(s) to _Stray, favourited %2</source>
+        <translation>Importé %1 fichier(s) dans _Stray, %2 ajouté(s) aux favoris</translation>
+    </message>
+    <message>
+        <source>Last place is gone: %1</source>
+        <translation>Dernier emplacement introuvable : %1</translation>
+    </message>
+    <message>
+        <source>Re-downloading %1 missing stray file(s)…</source>
+        <translation>Re-téléchargement de %1 fichier(s) stray manquant(s)…</translation>
+    </message>
+    <message>
+        <source>%1 favourited file(s) have no source link and cannot be re-downloaded.</source>
+        <translation>%1 fichier(s) favori(s) sans lien source ne peuvent pas être re-téléchargés.</translation>
+    </message>
 </context>
 <context>
     <name>PrefsDialog</name>
@@ -1577,6 +1601,26 @@ Ils seront reconstruits à la prochaine analyse.</translation>
         <source>%1 %2: %3</source>
         <translation type="unfinished">%1 %2 : %3</translation>
     </message>
+    <message>
+        <source>Deleting a file also removes it from favourites</source>
+        <translation>Supprimer un fichier le retire aussi des favoris</translation>
+    </message>
+    <message>
+        <source>Unfavouriting deletes the downloaded file</source>
+        <translation>Retirer des favoris supprime le fichier téléchargé</translation>
+    </message>
+    <message>
+        <source>Favourites are database entries only - no files are written unless auto-download is on.</source>
+        <translation>Les favoris ne sont que des entrées de base de données - aucun fichier n'est écrit sauf si le téléchargement auto est activé.</translation>
+    </message>
+    <message>
+        <source>Categories:</source>
+        <translation>Catégories :</translation>
+    </message>
+    <message>
+        <source>Untick buckets this host's taxonomy lacks; they fold into general.</source>
+        <translation>Décocher les catégories que cet hôte ne connaît pas ; elles sont regroupées dans « Général ».</translation>
+    </message>
 </context>
 <context>
     <name>VideoPane</name>
@@ -1798,6 +1842,28 @@ Ils seront reconstruits à la prochaine analyse.</translation>
 %1</source>
         <translation type="obsolete">Reprendre la dernière session
 %1</translation>
+    </message>
+</context>
+<context>
+    <name>StrayDialog</name>
+    <message>
+        <source>Auto-favourite strays I add</source>
+        <translation>Ajouter aux favoris les strays que j’ajoute</translation>
+    </message>
+    <message>
+        <source>Favourites get the imported/downloaded files</source>
+        <translation>Les fichiers importés ou téléchargés vont dans les favoris</translation>
+    </message>
+    <message>
+        <source>Space-separated tags. Buckets are assigned automatically when you save; reopen to fix anything miscategorized.</source>
+        <translation>Tags séparés par des espaces. Les catégories sont attribuées automatiquement à l'enregistrement ; rouvrez pour corriger.</translation>
+    </message>
+</context>
+<context>
+    <name>WelcomePage</name>
+    <message>
+        <source>Back to last tab</source>
+        <translation>Retour au dernier onglet</translation>
     </message>
 </context>
 </TS>

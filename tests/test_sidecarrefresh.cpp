@@ -74,6 +74,24 @@ private slots:
         QCOMPARE(jobs.first().id, 1LL);
     }
 
+    void skipsStrays() {
+        // Hand-tagged strays have no source to refresh from, by design —
+        // even with a valid id and a known folder shape.
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        QDir().mkpath(tmp.filePath(QStringLiteral("_Stray")));
+        QJsonObject s;
+        s[QStringLiteral("id")] = 5;
+        s[QStringLiteral("tags")] = QStringLiteral("sky");
+        s[QStringLiteral("md5")] =
+            QStringLiteral("d41d8cd98f00b204e9800998ecf8427e");
+        s[QStringLiteral("stray")] = true;
+        writeJson(tmp.filePath(QStringLiteral(
+                      "_Stray/_Stray_d41d8cd98f00b204e9800998ecf8427e.json")),
+                  s);
+        QCOMPARE(SidecarRefresh::collect(tmp.path(), labels()).size(), 0);
+    }
+
     void registryLabelMap() {
         // Configured entries resolve; custom labels shadow by key.
         BooruSite dan;
