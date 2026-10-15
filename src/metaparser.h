@@ -18,4 +18,11 @@ private:
     static bool parseGalleryDlFlat(const QJsonObject &raw, Post &post);
     static bool parseDanbooruNative(const QJsonObject &raw, Post &post);
     static bool parseGelbooruNative(const QJsonObject &raw, Post &post);
+    static bool parseSzuruNative(const QJsonObject &raw, Post &post);
 };
+
+// Merge a freshly fetched API object into an existing sidecar file,
+// preserving its format (LOSN sidecars get re-typed tag arrays, native ones
+// are replaced wholesale). Returns false when the sidecar shape is unknown.
+bool writeRefreshedSidecar(const QString &sidecarPath, const QJsonObject &fresh,
+                           const QString &siteKey);

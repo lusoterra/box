@@ -1,21 +1,29 @@
 #include "thumbloader.h"
+#include "cachejanitor.h"
 #include "post.h"
+#include "remotesource.h"
 #include "thumbcommon.h"
+#include "webdlbackend.h"
 
 #include <QCryptographicHash>
 #include <QDir>
+#include <QEventLoop>
 #include <QFile>
 #include <QFileInfo>
 #include <QImageReader>
 #include <QMediaPlayer>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QNetworkRequest>
+#include <QTemporaryFile>
 #include <QTimer>
 #include <QUrl>
 #include <QVideoFrame>
 #include <QVideoSink>
 
-ThumbLoader::ThumbLoader(QObject *parent)
-    : QObject(parent), m_pool(QThreadPool::globalInstance()) {
-    m_pool->setMaxThreadCount(6);
+ThumbLoader::ThumbLoader(QObject *parent) : QObject(parent) {
+    m_pool = new QThreadPool(this);
+    m_pool->setMaxThreadCount(4);
 }
 
 void ThumbLoader::setAspect(int num, int den) {
@@ -33,17 +41,33 @@ void ThumbLoader::setMaxThreads(int n) {
     m_pool->setMaxThreadCount(n);
 }
 
+void ThumbLoader::setWebBackend(WebDownloadBackend *backend) {
+    m_webBackend = backend;
+}
+
 void ThumbLoader::request(const QString &key, const QString &path, qint64 mtime,
-                          qint64 size, int longSide) {
-    auto *task = new ThumbTask(this, key, path, mtime, size, longSide);
+                          qint64 size, int longSide, const QString &referer) {
+    {
+        QMutexLocker lock(&m_inflightMutex);
+        if (m_inflight.contains(key))
+            return; // scroll spam: this row already has a task queued
+        m_inflight.insert(key);
+    }
+    auto *task = new ThumbTask(this, key, path, mtime, size, longSide, referer);
     task->setAutoDelete(true);
     m_pool->start(task);
 }
 
+void ThumbLoader::releaseKey(const QString &key) {
+    QMutexLocker lock(&m_inflightMutex);
+    m_inflight.remove(key);
+}
+
 ThumbTask::ThumbTask(ThumbLoader *loader, QString key, QString path, qint64 mtime,
-                     qint64 size, int longSide)
+                     qint64 size, int longSide, QString referer)
     : m_loader(loader), m_key(std::move(key)), m_path(std::move(path)),
-      m_mtime(mtime), m_size(size), m_longSide(longSide) {}
+      m_mtime(mtime), m_size(size), m_longSide(longSide),
+      m_referer(std::move(referer)) {}
 
 void ThumbTask::run() {
     const int num = m_loader->m_aspectNum;
@@ -68,13 +92,59 @@ void ThumbTask::run() {
                    QStringLiteral(".jpg");
         QImage cached;
         if (cached.load(diskPath)) {
+            CacheJanitor::hit(diskPath);
+            m_loader->releaseKey(m_key);
             emit m_loader->thumbnailReady(m_key, cached);
             return;
         }
     }
 
     QImage img;
-    if (isVideoExt(ext)) {
+    if (m_path.startsWith(QStringLiteral("http"))) {
+        // Fingerprint-walled hosts ride the browser stack (plain
+        // requests get wall pages instead of bytes there).
+        const RemotePosts::SiteQuirk *wq = RemotePosts::quirkForHost(
+            QUrl(m_path).host().toLower());
+        if (m_loader->m_webBackend && wq && wq->powWall) {
+            QTemporaryFile tmp;
+            if (tmp.open()) {
+                const QString tmpPath = tmp.fileName();
+                tmp.close();
+                QString error;
+                if (m_loader->m_webBackend->fetchBlocking(
+                        m_path, tmpPath, &error, 90000))
+                    img = QImage(tmpPath);
+            }
+        } else {
+            // Remote preview/sample URL: plain GET, decoded in-memory.
+            QNetworkAccessManager nam;
+            QEventLoop loop;
+            QTimer timer;
+            timer.setSingleShot(true);
+            timer.setInterval(20000);
+            QObject::connect(&timer, &QTimer::timeout, &loop, &QEventLoop::quit);
+            QNetworkRequest req{QUrl(m_path)};
+            if (!m_referer.isEmpty())
+                req.setRawHeader("Referer", m_referer.toUtf8());
+            RemoteSource::applyCookies(req); // clearance header, if any
+            req.setHeader(QNetworkRequest::UserAgentHeader,
+                          QStringLiteral("booru-explorer/0.1 (thumbnail)"));
+            req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
+                             QNetworkRequest::NoLessSafeRedirectPolicy);
+            QNetworkReply *reply = nam.get(req);
+            QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+            timer.start();
+            loop.exec();
+            if (reply->error() == QNetworkReply::NoError)
+                img = QImage::fromData(reply->readAll());
+            reply->deleteLater();
+        }
+        img = ThumbCommon::cropScale(img, want, m_longSide);
+        if (img.isNull()) {
+            m_loader->releaseKey(m_key);
+            return;
+        }
+    } else if (isVideoExt(ext)) {
         // Videos are handled by VideoThumbGrabber in the GUI thread
         // (QMediaPlayer is unreliable in pool threads). If one ever lands
         // here, emit the placeholder so the grid never hangs on gray.
@@ -91,12 +161,18 @@ void ThumbTask::run() {
                 QSize(qMax(1, int(full.width() * k)), qMax(1, int(full.height() * k))));
         }
         img = ThumbCommon::cropScale(reader.read(), want, m_longSide);
-        if (img.isNull())
+        if (img.isNull()) {
+            m_loader->releaseKey(m_key);
             return;
+        }
     }
 
-    if (!diskPath.isEmpty())
+    if (!diskPath.isEmpty()) {
         img.save(diskPath, "JPEG", 82); // best effort
+        CacheJanitor::record(diskPath);
+        CacheJanitor::enforce();
+    }
+    m_loader->releaseKey(m_key);
     emit m_loader->thumbnailReady(m_key, img);
 }
 
@@ -189,7 +265,9 @@ void VideoThumbGrabber::pump() {
     m_diskPath = videoDiskPath(m_cacheDir, m_current.path, m_current.mtime,
                                m_current.size, m_aspectNum, m_aspectDen,
                                m_current.longSide);
-    m_player->setSource(QUrl::fromLocalFile(m_current.path));
+    m_player->setSource(m_current.path.startsWith(QStringLiteral("http"))
+                            ? QUrl(m_current.path)
+                            : QUrl::fromLocalFile(m_current.path));
     m_player->play();
     m_timeout->start();
 }

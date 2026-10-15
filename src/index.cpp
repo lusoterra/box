@@ -1,5 +1,7 @@
 #include "index.h"
+#include "tagtypes.h"
 
+#include <QFileInfo>
 #include <QRandomGenerator>
 #include <QRegularExpression>
 #include <QSet>
@@ -38,19 +40,43 @@ void Index::recount() {
     };
     m_categories.clear();
     for (const Post &p : m_posts) {
-        for (const QString &t : splitTags(p.tagsArtist))
+        for (const QString &t : cleanTagTokens(splitTags(p.tagsArtist)))
             m_tagCounts[QStringLiteral("artist")][t]++;
-        for (const QString &t : splitTags(p.tagsCharacter))
+        for (const QString &t : cleanTagTokens(splitTags(p.tagsCharacter)))
             m_tagCounts[QStringLiteral("character")][t]++;
-        for (const QString &t : splitTags(p.tagsCopyright))
+        for (const QString &t : cleanTagTokens(splitTags(p.tagsCopyright)))
             m_tagCounts[QStringLiteral("copyright")][t]++;
-        for (const QString &t : splitTags(p.tagsGeneral))
+        for (const QString &t : cleanTagTokens(splitTags(p.tagsGeneral)))
             m_tagCounts[QStringLiteral("general")][t]++;
-        for (const QString &t : splitTags(p.tagsMeta))
+        for (const QString &t : cleanTagTokens(splitTags(p.tagsMeta)))
             m_tagCounts[QStringLiteral("meta")][t]++;
         if (!p.category.isEmpty())
             m_categories[p.category]++;
     }
+    // Merge buckets once: dominant bucket wins for colors, counts add up.
+    struct Agg {
+        QString tag;
+        int count = 0;
+        QString bucket;
+        int bucketCount = 0;
+    };
+    QHash<QString, Agg> agg;
+    for (auto bit = m_tagCounts.begin(); bit != m_tagCounts.end(); ++bit) {
+        for (auto it = bit.value().begin(); it != bit.value().end(); ++it) {
+            Agg &a = agg[it.key().toLower()];
+            a.tag = it.key();
+            a.count += it.value();
+            if (it.value() > a.bucketCount) {
+                a.bucketCount = it.value();
+                a.bucket = bit.key();
+            }
+        }
+    }
+    m_suggest.clear();
+    m_suggest.reserve(agg.size());
+    for (auto it = agg.begin(); it != agg.end(); ++it)
+        m_suggest.append({it.key(), it.value().tag, it.value().count,
+                          it.value().bucket});
 }
 
 QueryResult Index::query(const QStringList &tags, const QString &rating,
@@ -101,6 +127,20 @@ QueryResult Index::query(const QStringList &tags, const QString &rating,
         for (int i = results.size() - 1; i > 0; --i)
             results.swapItemsAt(i, static_cast<int>(
                                         QRandomGenerator::global()->bounded(i + 1)));
+    } else if (sort == QStringLiteral("added")) {
+        // File mtime, newest first (download folders: actual arrival order).
+        // One stat per post, sorted once.
+        QVector<QPair<qint64, int>> order;
+        order.reserve(results.size());
+        for (int i = 0; i < results.size(); ++i)
+            order.append({QFileInfo(results.at(i).absFile).lastModified().toMSecsSinceEpoch(), i});
+        std::sort(order.begin(), order.end(),
+                  [](const auto &a, const auto &b) { return a.first > b.first; });
+        QVector<Post> sorted;
+        sorted.reserve(results.size());
+        for (const auto &e : order)
+            sorted.append(results.at(e.second));
+        results.swap(sorted);
     } else { // id-desc default
         std::sort(results.begin(), results.end(),
                   [](const Post &a, const Post &b) { return a.id > b.id; });
@@ -118,23 +158,42 @@ QueryResult Index::query(const QStringList &tags, const QString &rating,
 
 QVector<Index::Suggestion> Index::suggest(const QString &prefix, int limit) const {
     const QString q = prefix.toLower();
-    if (q.length() < 2)
+    if (q.length() < 2 || limit <= 0)
         return {};
-    QHash<QString, int> combined;
-    for (auto bit = m_tagCounts.begin(); bit != m_tagCounts.end(); ++bit) {
-        for (auto it = bit.value().begin(); it != bit.value().end(); ++it) {
-            if (it.key().toLower().contains(q))
-                combined[it.key()] += it.value();
+    // Prefix matches first (binary-searchable order would need sorting;
+    // a single linear scan over precomputed entries is fast enough and
+    // keeps substring behavior for non-prefix hits).
+    QVector<const SuggestEntry *> hits;
+    hits.reserve(qMax(0, limit * 2));
+    for (const SuggestEntry &e : m_suggest) {
+        if (e.lower.startsWith(q))
+            hits.append(&e);
+    }
+    if (hits.size() < limit) {
+        for (const SuggestEntry &e : m_suggest) {
+            if (!e.lower.startsWith(q) && e.lower.contains(q)) {
+                hits.append(&e);
+                if (hits.size() >= limit * 4)
+                    break; // bound the slow path; top-N trims below
+            }
         }
     }
+    if (hits.isEmpty())
+        return {};
+    std::nth_element(hits.begin(), hits.begin() + qMin(limit, hits.size()) - 1,
+                     hits.end(), [](const SuggestEntry *a, const SuggestEntry *b) {
+                         return a->count > b->count;
+                     });
+    if (hits.size() > limit)
+        hits.resize(limit);
+    std::sort(hits.begin(), hits.end(), [](const SuggestEntry *a,
+                                           const SuggestEntry *b) {
+        return a->count > b->count;
+    });
     QVector<Suggestion> out;
-    out.reserve(combined.size());
-    for (auto it = combined.begin(); it != combined.end(); ++it)
-        out.append({it.key(), it.value()});
-    std::sort(out.begin(), out.end(),
-              [](const Suggestion &a, const Suggestion &b) { return a.count > b.count; });
-    if (out.size() > limit)
-        out.resize(limit);
+    out.reserve(hits.size());
+    for (const SuggestEntry *e : hits)
+        out.append({e->tag, e->count, e->bucket});
     return out;
 }
 
@@ -151,11 +210,22 @@ Stats Index::stats() const {    Stats s;
     return s;
 }
 
+QString Index::bucketOf(const QString &tag) const {
+    for (const char *bucket :
+         {"artist", "character", "copyright", "meta", "general"}) {
+        const QString b = QString::fromLatin1(bucket);
+        auto it = m_tagCounts.find(b);
+        if (it != m_tagCounts.end() && it.value().contains(tag))
+            return b;
+    }
+    return QStringLiteral("general");
+}
+
 QSet<QString> Index::collectUntyped() const {
     QSet<QString> out;
     for (const Post &p : m_posts) {
         for (const QString &t : splitTags(p.untyped))
-            out.insert(t);
+            out.insert(t.toLower()); // caches/results are lowercase: match them
     }
     return out;
 }
@@ -163,8 +233,28 @@ QSet<QString> Index::collectUntyped() const {
 int Index::applyTagTypes(const QHash<QString, QString> &tagToBucket) {
     if (tagToBucket.isEmpty())
         return 0;
-    int moved = 0;
-    for (Post &p : m_posts) {
+    const QVector<TagMove> moves = applyTagBuckets(m_posts, tagToBucket);
+    // Incremental tally: O(moved), not O(archive).
+    for (const TagMove &m : moves) {
+        auto fromIt = m_tagCounts.find(m.from);
+        if (fromIt != m_tagCounts.end()) {
+            if (--fromIt.value()[m.tag] <= 0)
+                fromIt.value().remove(m.tag);
+        }
+        m_tagCounts[m.to][m.tag]++;
+    }
+    return moves.size();
+}
+
+// Shared core with Index::applyTagTypes, for post vectors that live outside
+// an Index (browse results). Same contract: case-insensitive lookups,
+// override-wins relocation, idempotent, combined set unchanged.
+QVector<TagMove> applyTagBuckets(QVector<Post> &posts,
+                                 const QHash<QString, QString> &tagToBucket) {
+    QVector<TagMove> moves;
+    if (tagToBucket.isEmpty())
+        return moves;
+    for (Post &p : posts) {
         if (p.untyped.isEmpty())
             continue;
         QStringList gen = splitTags(p.tagsGeneral);
@@ -174,12 +264,37 @@ int Index::applyTagTypes(const QHash<QString, QString> &tagToBucket) {
         QStringList meta = splitTags(p.tagsMeta);
         bool changed = false;
         for (const QString &t : splitTags(p.untyped)) {
-            const QString bucket = tagToBucket.value(t);
-            if (bucket.isEmpty() || bucket == QStringLiteral("general"))
+            // Lookups are lowercase (fetched verdicts and manual overrides
+            // are keyed that way); moves keep the post's original spelling.
+            const QString bucket = tagToBucket.value(t.toLower());
+            if (bucket.isEmpty() || (!TagTypes::isValidBucket(bucket)))
                 continue;
-            if (!gen.removeOne(t))
-                continue; // already moved (or not present)
-            if (bucket == QStringLiteral("artist"))
+            QStringList *placed = nullptr;
+            QString placedName;
+            if (gen.contains(t)) {
+                placed = &gen;
+                placedName = QStringLiteral("general");
+            } else if (artist.contains(t)) {
+                placed = &artist;
+                placedName = QStringLiteral("artist");
+            } else if (character.contains(t)) {
+                placed = &character;
+                placedName = QStringLiteral("character");
+            } else if (copyright.contains(t)) {
+                placed = &copyright;
+                placedName = QStringLiteral("copyright");
+            } else if (meta.contains(t)) {
+                placed = &meta;
+                placedName = QStringLiteral("meta");
+            } else {
+                continue; // not placed anywhere: never invent tags
+            }
+            if (placedName == bucket)
+                continue; // already there: rescans are no-ops
+            placed->removeOne(t);
+            if (bucket == QStringLiteral("general"))
+                gen << t;
+            else if (bucket == QStringLiteral("artist"))
                 artist << t;
             else if (bucket == QStringLiteral("character"))
                 character << t;
@@ -187,10 +302,8 @@ int Index::applyTagTypes(const QHash<QString, QString> &tagToBucket) {
                 copyright << t;
             else if (bucket == QStringLiteral("meta"))
                 meta << t;
-            else
-                continue;
             changed = true;
-            moved++;
+            moves.append({t, placedName, bucket});
         }
         if (!changed)
             continue;
@@ -202,7 +315,5 @@ int Index::applyTagTypes(const QHash<QString, QString> &tagToBucket) {
         p.tags = (artist + character + copyright + gen + meta).join(u' ');
         // NOTE: combined tag set is identical, so rating inference is stable.
     }
-    if (moved > 0)
-        recount();
-    return moved;
+    return moves;
 }

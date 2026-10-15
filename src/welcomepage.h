@@ -5,7 +5,10 @@
 // (mirrored in Preferences, either side can disable it).
 #include <QWidget>
 
+#include <QPixmap>
+
 class QCheckBox;
+class QLabel;
 class QListWidget;
 class QPushButton;
 
@@ -16,17 +19,24 @@ public:
 
     // history: most-recent-first archive roots; lastRoot highlighted.
     // Missing directories are skipped.
-    void setHistory(const QStringList &history, const QString &lastRoot);
     void setRestore(bool on);
+    // Custom background mascot (home page only); empty path hides it.
+    void setMascot(const QString &path);
 
 signals:
     void openDialogRequested();
-    void openPathRequested(const QString &path);
+    void browseTabRequested();
+    void favTabRequested();
+    void downloadsRequested();
     void restoreToggled(bool on);
 
+protected:
+    void resizeEvent(QResizeEvent *e) override;
+
 private:
-    QPushButton *m_resume;
-    QListWidget *m_recent;
+    void layoutMascot();
+
     QCheckBox *m_always;
-    QString m_lastRoot;
+    QLabel *m_mascot = nullptr;
+    QPixmap m_mascotFull;
 };

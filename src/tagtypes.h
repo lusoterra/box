@@ -6,15 +6,19 @@
 // (tagType "none" / one flat blob), so everything lands in General.
 // Fix: look the category up and re-bucket, persistently.
 //
-// Sources (both public, no API key, danbooru numbering
+// Sources (danbooru numbering
 // 0=general 1=artist 3=copyright 4=character 5=meta 6=deprecated):
-//   1. Safebooru tag API (exact `name=` match, XML)
-//   2. yandere tag API fallback (exact-name pick from substring results, JSON)
-// Results — including misses (type -1) — persist in the per-root index DB's
+//   1. Gelbooru tag API when credentials are set (exact `name=` match, XML;
+//      anonymous requests 401, so this stage is skipped without creds)
+//   2. Danbooru tag API, anonymous (same tag universe + numbering, JSON)
+//   3. Safebooru tag API fallback (SFW-filtered, misses more)
+//   4. yandere tag API fallback (exact-name pick from substring results, JSON)
+// Results - including misses (type -1) - persist in the per-root index DB's
 // tag_types table, so each tag is fetched once ever. Transient network
 // failures are NOT cached and retried on the next scan.
 #include <QHash>
 #include <QList>
+#include <QMap>
 #include <QObject>
 #include <QSet>
 #include <QString>
@@ -31,8 +35,43 @@ int typeForBucket(const QString &bucket);
 // The Gelbooru-family tag XML schema is shared by Gelbooru and Safebooru.
 int parseSafebooruXml(const QByteArray &data, const QString &wanted); // -2 on error
 int parseYandereJson(const QByteArray &data, const QString &wanted);  // -2 on error
+int parseDanbooruTagsJson(const QByteArray &data, const QString &wanted); // -2 on error
 constexpr int kTransientFailure = -2;
 constexpr int kUnknownTag = -1;
+
+// Manual per-tag overrides (Preferences → Tag type overrides): tags the
+// online classifier missed or got wrong. Keys are lowercase, values are
+// bucketForType() names ("general" pins a tag in General).
+inline bool isValidBucket(const QString &bucket) {
+    return bucket == QStringLiteral("artist") ||
+           bucket == QStringLiteral("copyright") ||
+           bucket == QStringLiteral("character") ||
+           bucket == QStringLiteral("meta") || bucket == QStringLiteral("general");
+}
+
+// Parse "tag=bucket" lines (settings.ini form): lowercase, trimmed,
+// validated; later lines win; garbage dropped.
+inline QMap<QString, QString> normalizeTagOverrides(const QStringList &lines) {
+    QMap<QString, QString> out;
+    for (const QString &line : lines) {
+        const int eq = line.indexOf(u'=');
+        if (eq <= 0)
+            continue;
+        const QString tag = line.left(eq).trimmed().toLower();
+        const QString bucket = line.mid(eq + 1).trimmed().toLower();
+        if (tag.isEmpty() || !isValidBucket(bucket))
+            continue;
+        out.insert(tag, bucket);
+    }
+    return out;
+}
+
+inline QStringList serializeTagOverrides(const QMap<QString, QString> &overrides) {
+    QStringList out;
+    for (auto it = overrides.begin(); it != overrides.end(); ++it)
+        out << it.key() + u'=' + it.value();
+    return out;
+}
 } // namespace TagTypes
 
 // Persistent tag->type store. Owns one QSql connection; create, use and
@@ -44,6 +83,10 @@ public:
 
     bool open(const QString &dbPath);
     bool isOpen() const { return m_open; }
+    // Batch a whole fetch run into ONE transaction (hundreds of per-row
+    // fsyncs on the GUI thread otherwise). Commit even partial runs.
+    bool beginBatch();
+    bool endBatch(bool commit);
     // True when the tag has a stored verdict (type may be kUnknownTag).
     bool get(const QString &tag, int &type);
     void put(const QString &tag, int type);
@@ -56,15 +99,16 @@ private:
 };
 
 // Sequential-ish fetcher (GUI thread): up to 4 concurrent lookups,
-// Safebooru first, yandere fallback. Emits progress + one finished map.
+// Gelbooru first when credentials exist, else anonymous Danbooru, then
+// Safebooru and yandere as fallbacks. Emits progress + one finished map.
 class TagTypeFetcher : public QObject {
     Q_OBJECT
 public:
     explicit TagTypeFetcher(QObject *parent = nullptr);
 
-    // Optional Gelbooru credentials (BOTH user ID and API key are required
-    // by their API). When set, Gelbooru is queried first; Safebooru/yandere
-    // remain as fallbacks for misses.
+    // Optional Gelbooru credentials (user ID + API key, sent together or
+    // not at all). Gelbooru's tag API 401s anonymously, so without them
+    // the anonymous Danbooru index is used instead.
     void setGelbooruCredentials(const QString &userId, const QString &apiKey);
 
     void fetch(const QStringList &tags, const QString &dbPath);
@@ -84,7 +128,7 @@ signals:
     void backoff(); // rate-limited: launches paused briefly
 
 private:
-    enum class Source { Gelbooru, Safebooru, Yandere };
+    enum class Source { Gelbooru, Danbooru, Safebooru, Yandere };
     struct Flight {
         QString tag;
         QNetworkReply *reply = nullptr;

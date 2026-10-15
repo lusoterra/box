@@ -1,6 +1,7 @@
 #include "scanner.h"
 #include "cache.h"
 #include "explicittags.h"
+#include "filehash.h"
 #include "metaparser.h"
 
 #include <QDirIterator>
@@ -8,6 +9,7 @@
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QRegularExpression>
 #include <QSet>
 
 const QStringList &Scanner::mediaExtensions() {
@@ -41,6 +43,96 @@ QString categoryFor(const QStringList &dirParts, const QString &fileName) {
     if (us > 0)
         return stem.split(u'_').value(0);
     return {};
+}
+
+// One-time repair for sidecar-backed files whose names carry no content
+// hash (Site_losn123 from imports, Site_456 from id fallback): reuse the
+// sidecar's md5, or hash the bytes when it has none, then rename to
+// <Site>_<md5>.<ext> and patch the sidecar. Returns the current absolute
+// media path (renamed or not). Sidecar-less files are left alone: with no
+// provenance the site prefix would be a guess.
+QString fixupMd5Name(const QString &absPath, const QString &siteLabel,
+                     Scanner *owner) {
+    const QFileInfo fi(absPath);
+    const QString stem = fi.completeBaseName();
+    if (isMd5Stem(stem))
+        return absPath;
+    const QString dir = fi.absolutePath();
+    const QString flatSidecar = absPath + QStringLiteral(".json");
+    const QString stemSidecar = dir + u'/' + stem + QStringLiteral(".json");
+    const bool hasFlat = QFile::exists(flatSidecar);
+    const bool hasStem = QFile::exists(stemSidecar);
+    if (!hasFlat && !hasStem)
+        return absPath;
+    // The sidecar we pair with (flat wins, like the scan below).
+    const QString srcSidecar = hasFlat ? flatSidecar : stemSidecar;
+    QJsonObject sobj;
+    {
+        QFile sf(srcSidecar);
+        if (sf.open(QIODevice::ReadOnly)) {
+            QJsonParseError err;
+            const QJsonDocument doc =
+                QJsonDocument::fromJson(sf.readAll(), &err);
+            if (err.error == QJsonParseError::NoError && doc.isObject())
+                sobj = doc.object();
+        }
+    }
+    QString md5 = sobj.value(QStringLiteral("md5")).toString();
+    if (md5.isEmpty())
+        md5 = sobj.value(QStringLiteral("checksumMD5")).toString();
+    bool patched = false;
+    if (md5.isEmpty()) {
+        if (owner && owner->cancelRequested.load())
+            return absPath;
+        md5 = fileContentMd5(absPath);
+        if (md5.isEmpty())
+            return absPath;
+        sobj[QStringLiteral("md5")] = md5;
+        patched = true;
+    }
+    QString safe = siteLabel;
+    safe.replace(QRegularExpression(QStringLiteral("[^A-Za-z0-9]+")), QString());
+    if (safe.isEmpty())
+        safe = QStringLiteral("Booru");
+    const QString newStem = safe + u'_' + md5;
+    auto writePatched = [&](const QString &path) {
+        QFile nf(path);
+        if (nf.open(QIODevice::WriteOnly | QIODevice::Truncate))
+            nf.write(QJsonDocument(sobj).toJson(QJsonDocument::Indented));
+    };
+    if (newStem == stem) {
+        if (patched)
+            writePatched(srcSidecar);
+        return absPath;
+    }
+    // Preserve the original extension's case.
+    const QString fileName = fi.fileName();
+    const QString newAbs =
+        dir + u'/' + newStem + fileName.mid(fileName.lastIndexOf(u'.'));
+    if (QFile::exists(newAbs) || !QFile::rename(absPath, newAbs)) {
+        // Collision or cross-device failure: keep the md5 in the old
+        // sidecar at least, so the file stays searchable in-app.
+        if (patched)
+            writePatched(srcSidecar);
+        return absPath;
+    }
+    const QString newFlat = newAbs + QStringLiteral(".json");
+    const QString newStemSide = dir + u'/' + newStem + QStringLiteral(".json");
+    auto moveSidecar = [&](const QString &oldP, const QString &newP) {
+        if (!QFile::exists(oldP) || oldP == newP)
+            return;
+        if (patched && oldP == srcSidecar) {
+            writePatched(newP);
+            QFile::remove(oldP);
+        } else {
+            QFile::rename(oldP, newP);
+        }
+    };
+    if (hasFlat)
+        moveSidecar(flatSidecar, newFlat);
+    if (hasStem)
+        moveSidecar(stemSidecar, newStemSide);
+    return newAbs;
 }
 
 } // namespace
@@ -79,10 +171,24 @@ QVector<Post> Scanner::scan(const QString &root, Scanner *owner, bool useCache,
     int sinceProgress = 0;
     while (it.hasNext()) {
         it.next();
-        const QFileInfo fi = it.fileInfo();
+        QFileInfo fi = it.fileInfo();
         const QString suffix = fi.suffix().toLower();
         if (!exts.contains(suffix))
             continue;
+
+        // One-time md5 repair (may rename the file + sidecar on disk).
+        {
+            const QString relDir0 =
+                rootDir.relativeFilePath(fi.absolutePath());
+            const QString siteLabel =
+                relDir0 != QStringLiteral(".")
+                    ? relDir0.split(u'/', Qt::SkipEmptyParts).value(0)
+                    : fi.completeBaseName().section(u'_', 0, 0);
+            const QString fixed = fixupMd5Name(fi.absoluteFilePath(),
+                                               siteLabel, owner);
+            if (fixed != fi.absoluteFilePath())
+                fi = QFileInfo(fixed);
+        }
 
         const QString relPath = rootDir.relativeFilePath(fi.absoluteFilePath());
         const qint64 mtime = fi.lastModified().toMSecsSinceEpoch();
@@ -133,6 +239,9 @@ QVector<Post> Scanner::scan(const QString &root, Scanner *owner, bool useCache,
         if (owner && ++sinceProgress >= 200) {
             sinceProgress = 0;
             emit owner->progress(posts.size(), total);
+            // Cooperative cancel (quit / rescan): return what we have.
+            if (owner->cancelRequested.load())
+                return posts;
         }
     }
     if (cache.isOpen()) {

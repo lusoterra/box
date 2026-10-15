@@ -1,6 +1,7 @@
 # Convenience wrapper around the CMake build.
 #   make [build]        configure + compile (default)
 #   make run [ARGS=..]  build and run from the build tree
+#   make test           build and run the unit tests (ctest)
 #   make install        install to $(PREFIX) (DESTDIR supported)
 #   make uninstall      remove installed files using the install manifest
 #   make clean          drop the build tree
@@ -17,7 +18,7 @@ BUILD_DIR   ?= build
 BUILD_TYPE  ?= Release
 JOBS        ?= $(shell nproc 2>/dev/null || echo 4)
 
-.PHONY: all build configure run install uninstall clean
+.PHONY: all build configure run test install uninstall clean
 
 all: build
 
@@ -31,6 +32,9 @@ build: configure
 
 run: build
 	./$(BUILD_DIR)/booru-explorer $(ARGS)
+
+test: build
+	ctest --test-dir $(BUILD_DIR) --output-on-failure
 
 install: build
 	cmake --install $(BUILD_DIR)

@@ -7,7 +7,10 @@
 #include <QString>
 #include <QVector>
 
-// Recursive folder scan. Supports both sidecar layouts (read-only, never writes):
+#include <atomic>
+
+// Recursive folder scan. Supports both sidecar layouts (the library itself
+// is never written to):
 //   gallery-dl:  <mediafile>.json  (e.g. image.jpg.json, flat or native info.json)
 //   LOSN:        <stem>.json        (e.g. Danbooru_<md5>.jpg + Danbooru_<md5>.json)
 // Runs off the UI thread via QtConcurrent; emits progress as it goes.
@@ -26,6 +29,9 @@ public:
     static QVector<Post> scan(const QString &root, Scanner *owner = nullptr,
                               bool useCache = true,
                               QSet<QString> *unknownOut = nullptr);
+
+    void requestCancel() { cancelRequested.store(true); }
+    std::atomic<bool> cancelRequested{false};
 
 signals:
     void progress(int filesFound, int totalFiles);

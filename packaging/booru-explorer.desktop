@@ -2,8 +2,8 @@
 Type=Application
 Version=1.0
 Name=booru-explorer
-GenericName=Booru Viewer
-Comment=Read-only local booru viewer for gallery-dl and LOSN archives
+GenericName=Booru Client
+Comment=Booru client for local archives and online boorus
 Exec=booru-explorer %F
 Icon=booru-explorer
 Terminal=false

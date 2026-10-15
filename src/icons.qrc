@@ -2,4 +2,32 @@
     <qresource prefix="/icons">
         <file alias="app.png">../icon.png</file>
     </qresource>
+    <qresource prefix="/icons/ui">
+        <file alias="arrow-left.svg">../assets/icons/arrow-left.svg</file>
+        <file alias="check.svg">../assets/icons/check.svg</file>
+        <file alias="chevron-left.svg">../assets/icons/chevron-left.svg</file>
+        <file alias="chevron-right.svg">../assets/icons/chevron-right.svg</file>
+        <file alias="copy.svg">../assets/icons/copy.svg</file>
+        <file alias="download.svg">../assets/icons/download.svg</file>
+        <file alias="external-link.svg">../assets/icons/external-link.svg</file>
+        <file alias="eye.svg">../assets/icons/eye.svg</file>
+        <file alias="eye-off.svg">../assets/icons/eye-off.svg</file>
+        <file alias="film.svg">../assets/icons/film.svg</file>
+        <file alias="folder-open.svg">../assets/icons/folder-open.svg</file>
+        <file alias="heart.svg">../assets/icons/heart.svg</file>
+        <file alias="house.svg">../assets/icons/house.svg</file>
+        <file alias="image.svg">../assets/icons/image.svg</file>
+        <file alias="pause.svg">../assets/icons/pause.svg</file>
+        <file alias="play.svg">../assets/icons/play.svg</file>
+        <file alias="plus.svg">../assets/icons/plus.svg</file>
+        <file alias="refresh-cw.svg">../assets/icons/refresh-cw.svg</file>
+        <file alias="search.svg">../assets/icons/search.svg</file>
+        <file alias="settings.svg">../assets/icons/settings.svg</file>
+        <file alias="star.svg">../assets/icons/star.svg</file>
+        <file alias="tag.svg">../assets/icons/tag.svg</file>
+        <file alias="trash-2.svg">../assets/icons/trash-2.svg</file>
+        <file alias="volume-2.svg">../assets/icons/volume-2.svg</file>
+        <file alias="volume-x.svg">../assets/icons/volume-x.svg</file>
+        <file alias="x.svg">../assets/icons/x.svg</file>
+    </qresource>
 </RCC>

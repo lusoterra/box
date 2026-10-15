@@ -81,11 +81,12 @@ bool ScanCache::open(const QString &rootAbs, const QString &explicitHash) {
     const QString dir = cacheDirFor(rootAbs);
     if (!QDir().mkpath(dir))
         return false;
-    m_conn = QStringLiteral("scan_%1").arg(
+    m_conn = QStringLiteral("scan_%1_%2").arg(
         QString::fromLatin1(QCryptographicHash::hash(rootAbs.toUtf8(),
                                                      QCryptographicHash::Sha1)
                                  .toHex()
-                                 .left(8)));
+                                 .left(8)),
+        QUuid::createUuid().toString(QUuid::WithoutBraces));
     QSqlDatabase db = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), m_conn);
     db.setDatabaseName(dbPathFor(rootAbs));
     if (!db.open()) {
@@ -182,21 +183,24 @@ void ScanCache::store(const QString &relPath, qint64 mtime, qint64 size, const P
 void ScanCache::finish(const QSet<QString> &seen) {
     if (!m_open)
         return;
-    QSqlDatabase db = QSqlDatabase::database(m_conn);
-    QSet<QString> stale;
     {
-        QSqlQuery sel(db);
-        if (sel.exec(QStringLiteral("SELECT path FROM files"))) {
-            while (sel.next()) {
-                const QString p = sel.value(0).toString();
-                if (!seen.contains(p))
-                    stale.insert(p);
+        // NOTE: every handle must die before close() below - removeDatabase
+        // with live handles/queries segfaults Qt's SQLite driver.
+        QSqlDatabase db = QSqlDatabase::database(m_conn);
+        QSet<QString> stale;
+        {
+            QSqlQuery sel(db);
+            if (sel.exec(QStringLiteral("SELECT path FROM files"))) {
+                while (sel.next()) {
+                    const QString p = sel.value(0).toString();
+                    if (!seen.contains(p))
+                        stale.insert(p);
+                }
             }
         }
-    }
-    // Delete stale rows in chunks to stay under SQLite variable limits.
-    const QList<QString> list(stale.begin(), stale.end());
-    for (int i = 0; i < list.size(); i += 900) {
+        // Delete stale rows in chunks to stay under SQLite variable limits.
+        const QList<QString> list(stale.begin(), stale.end());
+        for (int i = 0; i < list.size(); i += 900) {
             const QList<QString> chunk = list.mid(i, 900);
             QString ph;
             for (int j = 0; j < chunk.size(); ++j)
@@ -208,6 +212,7 @@ void ScanCache::finish(const QSet<QString> &seen) {
                 del.addBindValue(p);
             del.exec();
         }
+    }
     close();
 }
 

@@ -52,7 +52,7 @@ inline const QSet<QString> &defaultExplicitTags() {
     return tags;
 }
 
-// NOTE: "breasts"/"nipples"/"areola" are deliberately NOT in the defaults —
+// NOTE: "breasts"/"nipples"/"areola" are deliberately NOT in the defaults -
 // they appear on SFW posts too (e.g. clothed emphasis tagged "breasts"
 // rated g). Add them in Preferences if you want them flagged.
 

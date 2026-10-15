@@ -1,5 +1,7 @@
 #include "tagtypes.h"
 
+#include "remotesource.h"
+
 #include <QCryptographicHash>
 #include <QDir>
 #include <QFileInfo>
@@ -77,6 +79,22 @@ int parseYandereJson(const QByteArray &data, const QString &wanted) {
     return kUnknownTag;
 }
 
+int parseDanbooruTagsJson(const QByteArray &data, const QString &wanted) {
+    // [{"name":"hatsune_miku","category":4,...}] - anonymous OK.
+    QJsonParseError err;
+    const QJsonDocument doc = QJsonDocument::fromJson(data, &err);
+    if (err.error != QJsonParseError::NoError || !doc.isArray())
+        return kTransientFailure;
+    for (const QJsonValue &v : doc.array()) {
+        if (!v.isObject())
+            continue;
+        const QJsonObject o = v.toObject();
+        if (o.value(QStringLiteral("name")).toString() == wanted)
+            return o.value(QStringLiteral("category")).toInt(kUnknownTag);
+    }
+    return kUnknownTag;
+}
+
 } // namespace TagTypes
 
 // ── TagTypeCache ─────────────────────────────────────────────────
@@ -84,11 +102,12 @@ int parseYandereJson(const QByteArray &data, const QString &wanted) {
 bool TagTypeCache::open(const QString &dbPath) {
     close();
     QDir().mkpath(QFileInfo(dbPath).absolutePath()); // index cache may be off
-    m_conn = QStringLiteral("tagdb_%1").arg(
+    m_conn = QStringLiteral("tagdb_%1_%2").arg(
         QString::fromLatin1(QCryptographicHash::hash(dbPath.toUtf8(),
                                                      QCryptographicHash::Sha1)
                                  .toHex()
-                                 .left(8)));
+                                 .left(8)),
+        QUuid::createUuid().toString(QUuid::WithoutBraces));
     QSqlDatabase db = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), m_conn);
     db.setDatabaseName(dbPath);
     if (!db.open()) {
@@ -104,6 +123,19 @@ bool TagTypeCache::open(const QString &dbPath) {
     }
     m_open = true;
     return true;
+}
+
+bool TagTypeCache::beginBatch() {
+    if (!m_open)
+        return false;
+    return QSqlDatabase::database(m_conn).transaction();
+}
+
+bool TagTypeCache::endBatch(bool commit) {
+    if (!m_open)
+        return false;
+    QSqlDatabase db = QSqlDatabase::database(m_conn);
+    return commit ? db.commit() : db.rollback();
 }
 
 bool TagTypeCache::get(const QString &tag, int &type) {
@@ -156,13 +188,19 @@ QUrl safebooruUrl(const QString &tag) {
 }
 
 QUrl gelbooruUrl(const QString &tag, const QString &userId, const QString &apiKey) {
-    return QUrl(QStringLiteral("https://gelbooru.com/index.php?page=dapi&s=tag"
-                               "&q=index&name=") +
-                QString::fromLatin1(QUrl::toPercentEncoding(tag)) +
-                QStringLiteral("&api_key=") +
-                QString::fromLatin1(QUrl::toPercentEncoding(apiKey)) +
-                QStringLiteral("&user_id=") +
-                QString::fromLatin1(QUrl::toPercentEncoding(userId)));
+    // Gelbooru's tag endpoint answers anonymously; credentials (when set)
+    // just raise the rate limit. Never send half a credential pair.
+    QUrl url(QStringLiteral("https://gelbooru.com/index.php?page=dapi&s=tag"
+                            "&q=index&name=") +
+             QString::fromLatin1(QUrl::toPercentEncoding(tag)));
+    if (!userId.isEmpty() && !apiKey.isEmpty()) {
+        url.setQuery(url.query() +
+                     QStringLiteral("&api_key=") +
+                     QString::fromLatin1(QUrl::toPercentEncoding(apiKey)) +
+                     QStringLiteral("&user_id=") +
+                     QString::fromLatin1(QUrl::toPercentEncoding(userId)));
+    }
+    return url;
 }
 
 QUrl yandereUrl(const QString &tag) {
@@ -170,9 +208,16 @@ QUrl yandereUrl(const QString &tag) {
                 QString::fromLatin1(QUrl::toPercentEncoding(tag)));
 }
 
+QUrl danbooruUrl(const QString &tag) {
+    return QUrl(QStringLiteral("https://danbooru.donmai.us/tags.json?search[name]=") +
+                QString::fromLatin1(QUrl::toPercentEncoding(tag)) +
+                QStringLiteral("&limit=5"));
+}
+
 QNetworkRequest timedRequest(const QUrl &url) {
     QNetworkRequest req(url);
     req.setTransferTimeout(15000);
+    RemoteSource::applyCookies(req); // clearance header, if any
     req.setHeader(QNetworkRequest::UserAgentHeader,
                   QStringLiteral("booru-explorer/0.1 (local tag classifier)"));
     req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
@@ -202,9 +247,13 @@ void TagTypeFetcher::fetch(const QStringList &tags, const QString &dbPath) {
     cancel();
     m_cache.open(dbPath); // best effort; results still emitted on failure
     m_order.clear();
+    // Gelbooru needs credentials (its tag API 401s anonymously); without
+    // them the anonymous Danbooru index goes first — same tag universe,
+    // same category numbering. Safebooru (SFW subset) then yandere cover
+    // the misses.
     if (!m_gelbooruUser.isEmpty() && !m_gelbooruKey.isEmpty())
         m_order << Source::Gelbooru;
-    m_order << Source::Safebooru << Source::Yandere;
+    m_order << Source::Danbooru << Source::Safebooru << Source::Yandere;
     m_gelbooruDead = false;
     QSet<QString> seen;
     for (const QString &t : tags) {
@@ -218,7 +267,9 @@ void TagTypeFetcher::fetch(const QStringList &tags, const QString &dbPath) {
     m_total = m_queue.size();
     m_failures = 0;
     m_results.clear();
+    m_cache.beginBatch();
     if (m_total == 0) {
+        m_cache.endBatch(true);
         m_cache.close();
         emit finished(m_results);
         return;
@@ -242,6 +293,7 @@ void TagTypeFetcher::cancel() {
     }
     m_flights.clear();
     m_queue.clear();
+    m_cache.endBatch(true); // keep verdicts fetched so far
     m_cache.close();
     m_active = false;
 }
@@ -266,6 +318,7 @@ void TagTypeFetcher::pump() {
         if (!m_queue.isEmpty())
             return; // backed off: the timer will resume us
         m_active = false;
+        m_cache.endBatch(true);
         m_cache.close();
         emit finished(m_results);
     }
@@ -282,6 +335,8 @@ void TagTypeFetcher::issue(Flight *flight) {
         QUrl url;
         if (src == Source::Gelbooru)
             url = gelbooruUrl(flight->tag, m_gelbooruUser, m_gelbooruKey);
+        else if (src == Source::Danbooru)
+            url = danbooruUrl(flight->tag);
         else if (src == Source::Safebooru)
             url = safebooruUrl(flight->tag);
         else
@@ -297,6 +352,8 @@ void TagTypeFetcher::issue(Flight *flight) {
 int TagTypeFetcher::parseFor(Source src, const QByteArray &body, const QString &tag) {
     if (src == Source::Yandere)
         return TagTypes::parseYandereJson(body, tag);
+    if (src == Source::Danbooru)
+        return TagTypes::parseDanbooruTagsJson(body, tag);
     return TagTypes::parseSafebooruXml(body, tag); // Gelbooru shares the schema
 }
 
@@ -325,8 +382,9 @@ void TagTypeFetcher::onReply(Flight *flight) {
         return;
     }
     if (src == Source::Gelbooru && (http == 401 || http == 403)) {
-        // Bad credentials: stop hitting Gelbooru this run, fall through to
-        // the public sources, and tell the UI once.
+        // Gelbooru refused us (bad credentials, or anonymous blocked):
+        // stop hitting it this run, fall through to the public sources,
+        // and tell the UI once.
         if (!m_gelbooruDead) {
             m_gelbooruDead = true;
             emit gelbooruAuthFailed();
@@ -372,7 +430,7 @@ void TagTypeFetcher::onReply(Flight *flight) {
         if (type != TagTypes::kUnknownTag)
             m_results.insert(tag, TagTypes::bucketForType(type));
     } else {
-        // Transient failure — leave uncached so the next scan retries.
+        // Transient failure - leave uncached so the next scan retries.
         m_failures++;
     }
     m_done++;
@@ -401,7 +459,7 @@ void TagTypeFetcher::validateCredentials(const QString &userId, const QString &a
                 msg = QStringLiteral("HTTP 200 but the response did not parse");
             } else {
                 ok = true;
-                msg = QStringLiteral("OK — hatsune_miku resolves as %1")
+                msg = QStringLiteral("OK - hatsune_miku resolves as %1")
                           .arg(TagTypes::bucketForType(type));
             }
         }

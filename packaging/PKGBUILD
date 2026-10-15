@@ -11,13 +11,11 @@
 pkgname=booru-explorer
 pkgver=0.1.0
 pkgrel=1
-pkgdesc='Read-only local booru viewer for gallery-dl and LOSN archives (Qt6)'
+pkgdesc='Booru client for local archives and online boorus (Qt6)'
 arch=('x86_64')
-# TODO: set the real homepage when the repo exists.
-url='https://example.com/booru-explorer'
-# TODO: pick a license, add the LICENSE file, and name it here.
-license=('custom')
-depends=('qt6-base' 'qt6-multimedia' 'hicolor-icon-theme')
+url='https://git.lusosterone.net/lev/booru-explorer'
+license=('GPL-3.0-or-later')
+depends=('qt6-base' 'qt6-multimedia' 'qt6-svg' 'qt6-webengine' 'hicolor-icon-theme')
 makedepends=('cmake')
 # Always builds the latest working tree: no source tarball, no git snapshot.
 # `source` stays empty on purpose, and cmake points straight at the live
