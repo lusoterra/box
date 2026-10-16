@@ -651,6 +651,54 @@ QString keyForLabel(const QString &siteLabel) {
     return {};
 }
 
+QMap<QString, QString> hostKeys() {
+    // Configured entries win on collision (same rule as labelKeys()).
+    QMap<QString, QString> out;
+    auto add = [&](const BooruSite &b) {
+        if (b.key.isEmpty() || b.baseUrl.isEmpty())
+            return;
+        const QString host = QUrl(b.baseUrl).host().toLower();
+        if (!host.isEmpty())
+            out.insert(host, b.key);
+    };
+    for (const BooruSite &b : RemoteSource::presetBoorus())
+        add(b);
+    for (auto it = labelKeyMap().begin(); it != labelKeyMap().end(); ++it) {
+        const BooruSite *site = RemoteSource::siteFor(it.value());
+        if (site)
+            add(*site);
+    }
+    return out;
+}
+
+QString fsTagForPost(const Post &post) {
+    // Strays are homeless by design: no site, no host.
+    if (post.siteName == QStringLiteral("_Stray"))
+        return post.siteName;
+    const QString key = !post.siteKey.isEmpty() ? post.siteKey
+                                                : keyForLabel(post.siteName);
+    const BooruSite *site =
+        key.isEmpty() ? nullptr : RemoteSource::siteFor(key);
+    if (site && !site->baseUrl.isEmpty()) {
+        const QUrl u(site->baseUrl);
+        const QString host = u.host().toLower();
+        if (!host.isEmpty()) {
+            // Self-hosted instances often live behind explicit ports
+            // (localhost:8080 vs :9090): keep those distinct, drop the
+            // scheme defaults.
+            const int port = u.port();
+            const QString scheme = u.scheme().toLower();
+            const bool nonDefault =
+                port > 0 && !((scheme == QStringLiteral("http") && port == 80) ||
+                              (scheme == QStringLiteral("https") && port == 443));
+            if (nonDefault)
+                return host + u'_' + QString::number(port);
+            return host;
+        }
+    }
+    return post.siteName; // unconfigured/unknown: legacy label layout
+}
+
 QString mediaReferer(const QString &siteKey) {
     const BooruSite *site = RemoteSource::siteFor(siteKey);
     if (!site || site->engine != BooruEngine::Gelbooru || site->baseUrl.isEmpty())

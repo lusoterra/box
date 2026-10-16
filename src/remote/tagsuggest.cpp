@@ -11,8 +11,10 @@
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QPointer>
+#include <QSet>
 #include <QUrl>
 #include <QUrlQuery>
+#include <QXmlStreamReader>
 #include <QtConcurrent>
 
 namespace {
@@ -47,6 +49,8 @@ QVector<TagSuggestion> takeCapped(QVector<TagSuggestion> v, int cap = 12) {
     return v;
 }
 
+QVector<TagSuggestion> parseGelbooruXmlList(const QByteArray &body);
+
 QVector<TagSuggestion> parseDanbooru(const QByteArray &body) {
     // [{name, category, post_count}] - category is danbooru numbering.
     QVector<TagSuggestion> out;
@@ -72,7 +76,10 @@ QVector<TagSuggestion> parseDanbooru(const QByteArray &body) {
 
 QVector<TagSuggestion> parseGelbooru(const QByteArray &body) {
     // {"tag": [{name, type, count}]} - Gelbooru tag types match danbooru
-    // numbering; bare arrays tolerated.
+    // numbering; bare arrays tolerated. Older builds (Safebooru) answer
+    // the same endpoint with XML instead of JSON - same attributes.
+    if (body.trimmed().startsWith('<'))
+        return parseGelbooruXmlList(body);
     QVector<TagSuggestion> out;
     QJsonParseError err;
     const QJsonDocument doc = QJsonDocument::fromJson(body, &err);
@@ -95,6 +102,34 @@ QVector<TagSuggestion> parseGelbooru(const QByteArray &body) {
         s.bucket = TagTypes::bucketForType(o.value(QStringLiteral("type")).toInt(0));
         s.count = o.value(QStringLiteral("count")).toInt(0);
         out.append(s);
+    }
+    return takeCapped(out);
+}
+
+QVector<TagSuggestion> parseGelbooruXmlList(const QByteArray &body) {
+    // <tags><tag name=".." type=".." count=".."/>... (older Gelbooru
+    // builds, Safebooru): same attributes as the JSON form.
+    QVector<TagSuggestion> out;
+    QXmlStreamReader xml(body);
+    while (!xml.atEnd()) {
+        xml.readNext();
+        if (!xml.isStartElement() || xml.name() != QLatin1String("tag"))
+            continue;
+        const auto attrs = xml.attributes();
+        const QString name =
+            attrs.value(QLatin1String("name")).toString();
+        if (name.isEmpty())
+            continue;
+        bool numOk = false;
+        const int type =
+            attrs.value(QLatin1String("type")).toString().toInt(&numOk);
+        TagSuggestion s;
+        s.tag = name;
+        s.bucket = TagTypes::bucketForType(numOk ? type : 0);
+        s.count = attrs.value(QLatin1String("count")).toString().toInt();
+        out.append(s);
+        if (out.size() >= 64)
+            break; // bounded (takeCapped trims to 12 below)
     }
     return takeCapped(out);
 }
@@ -303,6 +338,33 @@ void TagSuggester::suggest(const BooruSite &site, const SiteCreds &creds,
             reply->deleteLater();
         emit finished(key, prefix, out);
     });
+}
+
+QVector<TagSuggestion> TagSuggester::merge(const QVector<TagSuggestion> &local,
+                                              const QVector<TagSuggestion> &remote,
+                                              int cap) {
+    QVector<TagSuggestion> out;
+    out.reserve(qMax(0, cap));
+    QSet<QString> seen;
+    for (const TagSuggestion &s : local) {
+        if (out.size() >= cap)
+            break;
+        const QString key = s.tag.toLower();
+        if (key.isEmpty() || seen.contains(key))
+            continue;
+        seen.insert(key);
+        out.append(s);
+    }
+    for (const TagSuggestion &s : remote) {
+        if (out.size() >= cap)
+            break;
+        const QString key = s.tag.toLower();
+        if (key.isEmpty() || seen.contains(key))
+            continue;
+        seen.insert(key);
+        out.append(s);
+    }
+    return out;
 }
 
 QVector<TagSuggestion> TagSuggester::parse(BooruEngine engine,

@@ -15,7 +15,7 @@
 class ScanCache {
 public:
     ScanCache() = default;
-    ~ScanCache() { close(); }
+    ~ScanCache(); // rolls back an uncommitted batch (cancelled scans)
 
     // Opens (creating if needed) the cache DB for `rootAbs`. False on error
     // (caller then scans without cache). `explicitHash` identifies the
@@ -44,4 +44,7 @@ private:
     QString m_conn;
     int m_hits = 0;
     int m_misses = 0;
+    // Write batching: stores share one transaction (one fsync per scan,
+    // not per file). Opened on first store, committed by finish().
+    bool m_batch = false;
 };

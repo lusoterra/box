@@ -16,17 +16,12 @@ public:
 
     // Row identity, shared by add/addMany and the UI's favIdentity:
     // site-labelled rows (remote AND downloaded) key by site+id, except
-    // id-less imports (stray links all carry id 0) which key by site+URL
-    // hash instead. Pure-local rows key by file hash.
-    static qint64 pidFor(const Post &post) {
-        if (post.siteName.isEmpty() && !post.isRemote)
-            return static_cast<qint64>(qHash(post.absFile));
-        if (post.id != 0)
-            return post.id;
-        const QString &u =
-            post.fileUrl.isEmpty() ? post.absFile : post.fileUrl;
-        return static_cast<qint64>(qHash(u));
-    }
+    // id-less imports (stray links all carry id 0) which key by a stable
+    // content hash of the URL instead. Pure-local rows key by stable hash
+    // of the file path. Stable (SHA1-based, NOT qHash: Qt does not
+    // guarantee qHash stability across versions) so identities survive
+    // restarts and upgrades.
+    static qint64 pidFor(const Post &post);
     static QString siteFor(const Post &post) {
         if (post.siteName.isEmpty() && !post.isRemote)
             return QStringLiteral("local");
@@ -74,6 +69,10 @@ public:
     void clear();
 
 private:
+    // One-time healing of hash-based identities (see pidFor): rewrites
+    // unstable (site,0)/qHash rows to stable ids, collapsing duplicates.
+    void migrateHashIds();
+
     bool m_open = false;
     QString m_conn;
 };

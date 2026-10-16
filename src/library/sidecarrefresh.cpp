@@ -8,14 +8,23 @@
 
 namespace SidecarRefresh {
 QList<Job> collect(const QString &downloadDir,
-                   const QMap<QString, QString> &labelToKey) {
+                   const QMap<QString, QString> &labelToKey,
+                   const QSet<QString> &siteLabels) {
+    // Host layout (see RemotePosts::fsTagForPost): folders moved from
+    // <Label> to <host>, so resolve either spelling.
+    const QMap<QString, QString> hostToKey = RemotePosts::hostKeys();
     QList<Job> out;
     QDirIterator it(downloadDir, {QStringLiteral("*.json")},
                     QDir::Files, QDirIterator::Subdirectories);
     while (it.hasNext()) {
         it.next();
-        const QString siteKey =
-            labelToKey.value(QFileInfo(it.filePath()).dir().dirName());
+        const QString folder = QFileInfo(it.filePath()).dir().dirName();
+        // Scoped refresh: only the chosen site subfolders.
+        if (!siteLabels.isEmpty() && !siteLabels.contains(folder))
+            continue;
+        QString siteKey = labelToKey.value(folder);
+        if (siteKey.isEmpty())
+            siteKey = hostToKey.value(folder.toLower());
         if (siteKey.isEmpty())
             continue; // not one of ours (or renamed): skip
         QFile f(it.filePath());
@@ -53,8 +62,19 @@ SidecarBatch::SidecarBatch(QObject *parent) : QObject(parent) {
 }
 
 void SidecarBatch::start(const QString &downloadDir) {
+    start(downloadDir, {});
+}
+
+void SidecarBatch::start(const QString &downloadDir,
+                         const QSet<QString> &siteLabels) {
     cancel();
-    m_pending = SidecarRefresh::collect(downloadDir, RemoteSource::labelKeys());
+    startJobs(SidecarRefresh::collect(downloadDir, RemoteSource::labelKeys(),
+                                       siteLabels));
+}
+
+void SidecarBatch::startJobs(QList<SidecarRefresh::Job> jobs) {
+    cancel();
+    m_pending = std::move(jobs);
     m_flight.clear();
     m_done = 0;
     m_updated = 0;

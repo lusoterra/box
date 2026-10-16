@@ -92,8 +92,67 @@ private slots:
         QCOMPARE(SidecarRefresh::collect(tmp.path(), labels()).size(), 0);
     }
 
-    void registryLabelMap() {
-        // Configured entries resolve; custom labels shadow by key.
+    void scopeFiltersBySiteLabel() {
+        // Scoped refresh: only the chosen site subfolders collect jobs.
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        auto writeNative = [&](const QString &site, const QString &stem) {
+            QDir().mkpath(tmp.filePath(site));
+            QJsonObject o;
+            o[QStringLiteral("id")] = 5;
+            o[QStringLiteral("tag_string")] = QStringLiteral("sky");
+            writeJson(tmp.filePath(site + u'/' + stem + QStringLiteral(".json")), o);
+        };
+        writeNative(QStringLiteral("Danbooru"), QStringLiteral("Danbooru_a"));
+        writeNative(QStringLiteral("Gelbooru"), QStringLiteral("Gelbooru_b"));
+        QCOMPARE(SidecarRefresh::collect(tmp.path(), labels()).size(), 2);
+        const auto scoped = SidecarRefresh::collect(
+            tmp.path(), labels(), {QStringLiteral("Gelbooru")});
+        QCOMPARE(scoped.size(), 1);
+        QCOMPARE(scoped.first().siteKey, QStringLiteral("gelbooru"));
+        QVERIFY(SidecarRefresh::collect(tmp.path(), labels(),
+                                        {QStringLiteral("Nope")})
+                    .isEmpty());
+    }
+
+    void collectsHostFolders() {
+        // Host layout (see RemotePosts::fsTagForPost): folders named by
+        // base-URL host resolve even with an empty label map, and legacy
+        // label folders keep working alongside.
+        BooruSite dan;
+        dan.key = QStringLiteral("danbooru");
+        dan.label = QStringLiteral("Danbooru");
+        dan.baseUrl = QStringLiteral("https://danbooru.donmai.us");
+        dan.engine = BooruEngine::Danbooru;
+        RemoteSource::setConfiguredBoorus({dan});
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        QDir().mkpath(tmp.filePath(QStringLiteral("danbooru.donmai.us")));
+        QDir().mkpath(tmp.filePath(QStringLiteral("Danbooru")));
+        QJsonObject h;
+        h[QStringLiteral("id")] = 9;
+        writeJson(tmp.filePath(QStringLiteral(
+                      "danbooru.donmai.us/danboorudonmaius_abc.json")),
+                  h);
+        QJsonObject l;
+        l[QStringLiteral("id")] = 10;
+        writeJson(tmp.filePath(QStringLiteral("Danbooru/Danbooru_def.json")),
+                  l);
+        const auto jobs = SidecarRefresh::collect(tmp.path(), labels());
+        RemoteSource::setConfiguredBoorus({});
+        QCOMPARE(jobs.size(), 2);
+        QMap<QString, qint64> bySite;
+        for (const auto &j : jobs)
+            bySite.insert(j.jsonPath, j.id);
+        QCOMPARE(bySite.value(tmp.filePath(QStringLiteral(
+                                  "danbooru.donmai.us/danboorudonmaius_abc.json"))),
+                 9LL);
+        QCOMPARE(bySite.value(tmp.filePath(
+                                  QStringLiteral("Danbooru/Danbooru_def.json"))),
+                 10LL);
+    }
+
+    void registryLabelMap() {        // Configured entries resolve; custom labels shadow by key.
         BooruSite dan;
         dan.key = QStringLiteral("danbooru");
         dan.label = QStringLiteral("Danbooru");

@@ -12,7 +12,7 @@
 
 namespace {
 
-constexpr int kVersion = 2; // v2: posts carry the "untyped" tag list
+constexpr int kVersion = 3; // v3: posts carry native custom categories
 
 QString cacheDirFor(const QString &rootAbs) {
     const QString base = appCacheDir();
@@ -37,6 +37,10 @@ QJsonObject postToJson(const Post &p) {
     o[QStringLiteral("tagsMeta")] = p.tagsMeta;
     o[QStringLiteral("tagsGeneral")] = p.tagsGeneral;
     o[QStringLiteral("untyped")] = p.untyped;
+    QJsonObject custom;
+    for (auto it = p.customTags.begin(); it != p.customTags.end(); ++it)
+        custom.insert(it.key(), QJsonArray::fromStringList(it.value()));
+    o[QStringLiteral("custom")] = custom;
     o[QStringLiteral("width")] = p.width;
     o[QStringLiteral("height")] = p.height;
     o[QStringLiteral("source")] = p.source;
@@ -60,6 +64,19 @@ void postFromJson(const QJsonObject &o, Post &p) {
     p.tagsMeta = o.value(QStringLiteral("tagsMeta")).toString();
     p.tagsGeneral = o.value(QStringLiteral("tagsGeneral")).toString();
     p.untyped = o.value(QStringLiteral("untyped")).toString();
+    p.customTags.clear();
+    const QJsonObject custom = o.value(QStringLiteral("custom")).toObject();
+    for (auto it = custom.begin(); it != custom.end(); ++it) {
+        if (!it.value().isArray())
+            continue;
+        QStringList tags;
+        for (const QJsonValue &v : it.value().toArray()) {
+            if (v.isString() && !v.toString().isEmpty())
+                tags << v.toString();
+        }
+        if (!tags.isEmpty())
+            p.customTags.insert(it.key(), tags);
+    }
     p.width = o.value(QStringLiteral("width")).toInt();
     p.height = o.value(QStringLiteral("height")).toInt();
     p.source = o.value(QStringLiteral("source")).toString();
@@ -71,6 +88,14 @@ void postFromJson(const QJsonObject &o, Post &p) {
 }
 
 } // namespace
+
+ScanCache::~ScanCache() {
+    // Cancelled scans never reach finish(): roll the partial batch back
+    // so no write lock lingers on the next scan's connection.
+    if (m_batch && !m_conn.isEmpty())
+        QSqlDatabase::database(m_conn).rollback();
+    close();
+}
 
 QString ScanCache::dbPathFor(const QString &rootAbs) {
     return cacheDirFor(rootAbs) + u'/' + QStringLiteral("index.db");
@@ -169,6 +194,14 @@ bool ScanCache::lookup(const QString &relPath, qint64 mtime, qint64 size, Post &
 void ScanCache::store(const QString &relPath, qint64 mtime, qint64 size, const Post &post) {
     if (!m_open)
         return;
+    if (!m_batch) {
+        // One transaction for the whole scan: per-file autocommits were
+        // ~6x slower than the scan itself on cold caches (fsync per row).
+        // If the begin fails (locked), fall through to a single
+        // autocommit write rather than dropping the row.
+        if (QSqlDatabase::database(m_conn).transaction())
+            m_batch = true;
+    }
     QSqlQuery q(QSqlDatabase::database(m_conn));
     q.prepare(QStringLiteral("INSERT OR REPLACE INTO files (path, mtime, size, post) "
                              "VALUES (?, ?, ?, ?)"));
@@ -177,12 +210,19 @@ void ScanCache::store(const QString &relPath, qint64 mtime, qint64 size, const P
     q.addBindValue(size);
     q.addBindValue(QString::fromUtf8(
         QJsonDocument(postToJson(post)).toJson(QJsonDocument::Compact)));
-    q.exec();
+    if (!q.exec() && m_batch) {
+        QSqlDatabase::database(m_conn).rollback();
+        m_batch = false;
+    }
 }
 
 void ScanCache::finish(const QSet<QString> &seen) {
     if (!m_open)
         return;
+    if (m_batch) {
+        QSqlDatabase::database(m_conn).commit();
+        m_batch = false;
+    }
     {
         // NOTE: every handle must die before close() below - removeDatabase
         // with live handles/queries segfaults Qt's SQLite driver.

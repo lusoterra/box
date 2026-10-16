@@ -31,7 +31,9 @@ AppSettings loadSettings() {
     s.cacheLimitMB =
         qBound(0, c.value(QStringLiteral("cache/limitMB"), s.cacheLimitMB).toInt(),
                1048576);
-    s.thumbLongSide = c.value(QStringLiteral("cache/thumbSize"), s.thumbLongSide).toInt();
+    s.thumbLongSide = qBound(
+        128, c.value(QStringLiteral("cache/thumbSize"), s.thumbLongSide).toInt(),
+        1024);
     s.lastRoot = c.value(QStringLiteral("library/root")).toString();
     s.history = c.value(QStringLiteral("library/history")).toStringList();
     // NOTE: never a group literally named general/General — QSettings
@@ -135,6 +137,15 @@ AppSettings loadSettings() {
     s.accent = c.value(QStringLiteral("theme/accent"), s.accent).toString();
     s.stylesheet = c.value(QStringLiteral("theme/stylesheet")).toString();
     s.mascotPath = c.value(QStringLiteral("home/mascot")).toString();
+    s.mascotOpacity = qBound(
+        0.1, c.value(QStringLiteral("home/mascotOpacity"), s.mascotOpacity).toDouble(),
+        1.0);
+    s.mascotScale = qBound(
+        0.1, c.value(QStringLiteral("home/mascotScale"), s.mascotScale).toDouble(),
+        2.0);
+    s.mascotMargin =
+        qBound(0, c.value(QStringLiteral("home/mascotMargin"), s.mascotMargin).toInt(),
+               256);
     s.aspectNum = c.value(QStringLiteral("grid/aspectNum"), s.aspectNum).toInt();
     s.aspectDen = c.value(QStringLiteral("grid/aspectDen"), s.aspectDen).toInt();
     s.gridBoxW =
@@ -149,10 +160,9 @@ AppSettings loadSettings() {
     s.videoMuted = c.value(QStringLiteral("viewer/muted"), s.videoMuted).toBool();
     s.videoLoop = c.value(QStringLiteral("viewer/loop"), s.videoLoop).toBool();
     s.volume = qBound(0, c.value(QStringLiteral("viewer/volume"), s.volume).toInt(), 100);
-    s.viewerMaxSide =
-        c.value(QStringLiteral("viewer/maxSide"), s.viewerMaxSide).toInt();
-    if (s.viewerMaxSide < 512)
-        s.viewerMaxSide = 512;
+    s.viewerMaxSide = qBound(
+        512, c.value(QStringLiteral("viewer/maxSide"), s.viewerMaxSide).toInt(),
+        8192);
     return s;
 }
 
@@ -222,6 +232,9 @@ void saveSettings(const AppSettings &s) {
     c.setValue(QStringLiteral("theme/accent"), s.accent);
     c.setValue(QStringLiteral("theme/stylesheet"), s.stylesheet);
     c.setValue(QStringLiteral("home/mascot"), s.mascotPath);
+    c.setValue(QStringLiteral("home/mascotOpacity"), s.mascotOpacity);
+    c.setValue(QStringLiteral("home/mascotScale"), s.mascotScale);
+    c.setValue(QStringLiteral("home/mascotMargin"), s.mascotMargin);
     c.setValue(QStringLiteral("grid/aspectNum"), s.aspectNum);
     c.setValue(QStringLiteral("grid/aspectDen"), s.aspectDen);
     c.setValue(QStringLiteral("grid/boxW"), s.gridBoxW);

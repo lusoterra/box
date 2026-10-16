@@ -69,6 +69,50 @@ private slots:
         body += "]";
         QCOMPARE(TagSuggester::parse(BooruEngine::Danbooru, body).size(), 12);
     }
+
+    void gelbooruXmlFallback() {
+        // Older builds (Safebooru) answer the tag endpoint with XML:
+        // same attributes, must parse instead of yielding nothing.
+        const QByteArray body =
+            R"(<?xml version="1.0" encoding="UTF-8"?><tags type="array"><tag type="0" count="3" name="sky-raft" id="59190"/><tag type="1" count="1" name="skyqidog" id="59541"/><tag count="1" name="" id="1"/></tags>)";
+        const auto out = TagSuggester::parse(BooruEngine::Gelbooru, body);
+        QCOMPARE(out.size(), 2);
+        QCOMPARE(out.at(0).tag, QStringLiteral("sky-raft"));
+        QCOMPARE(out.at(0).bucket, QStringLiteral("general"));
+        QCOMPARE(out.at(0).count, 3);
+        QCOMPARE(out.at(1).bucket, QStringLiteral("artist"));
+    }
+
+    void mergeKeepsLocalsFirst() {
+        // Remote extras append below locals; dupes collapse (local wins);
+        // an empty remote never blanks good local answers.
+        auto sug = [](const char *tag, const char *bucket, int count) {
+            TagSuggestion s;
+            s.tag = QString::fromLatin1(tag);
+            s.bucket = QString::fromLatin1(bucket);
+            s.count = count;
+            return s;
+        };
+        const QVector<TagSuggestion> local = {
+            sug("sky", "general", 30), sug("skirt", "general", 5)};
+        const QVector<TagSuggestion> remote = {
+            sug("SKY", "general", 999), // dupe: local row wins
+            sug("skyline", "general", 400)};
+        const auto merged = TagSuggester::merge(local, remote);
+        QCOMPARE(merged.size(), 3);
+        QCOMPARE(merged.at(0).tag, QStringLiteral("sky"));
+        QCOMPARE(merged.at(0).count, 30); // local count kept, not remote's
+        QCOMPARE(merged.at(2).tag, QStringLiteral("skyline"));
+        // Empty remote keeps locals untouched.
+        QCOMPARE(TagSuggester::merge(local, {}).size(), 2);
+        QVERIFY(TagSuggester::merge({}, {}).isEmpty());
+        // Cap honored, locals first.
+        QVector<TagSuggestion> many;
+        for (int i = 0; i < 20; ++i)
+            many.append(sug(QByteArray("l" + QByteArray::number(i)).constData(),
+                            "general", i));
+        QCOMPARE(TagSuggester::merge(many, remote).size(), 12);
+    }
 };
 
 int main(int argc, char *argv[]) {

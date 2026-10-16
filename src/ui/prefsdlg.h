@@ -96,6 +96,9 @@ private:
     QCheckBox *m_booruNoClassify = nullptr;
     QLineEdit *m_booruTags = nullptr;
     QLineEdit *m_booruProxy = nullptr;
+    QSlider *m_mascotOpacity = nullptr;
+    QLabel *m_mascotOpacityLabel = nullptr;
+    QSpinBox *m_mascotMargin = nullptr;
     // Per-entry taxonomy: bucket -> enabled checkbox. Unchecked buckets
     // fold into general for this host only (meme instances).
     QMap<QString, QCheckBox *> m_booruBuckets;

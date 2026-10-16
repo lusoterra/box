@@ -572,6 +572,10 @@
         <translation>No more posts</translation>
     </message>
     <message>
+        <source> · retrying…</source>
+        <translation> · retrying…</translation>
+    </message>
+    <message>
         <location filename="../src/mainwindow.cpp" line="1636" />
         <source>Nothing downloadable (login-walled entries have no file URL)</source>
         <translation>Nothing downloadable (login-walled entries have no file URL)</translation>

@@ -624,6 +624,10 @@
         <translation type="unfinished">Sem mais posts</translation>
     </message>
     <message>
+        <source> · retrying…</source>
+        <translation type="unfinished"> · tentando de novo…</translation>
+    </message>
+    <message>
         <location filename="../src/mainwindow.cpp" line="1636" />
         <source>Nothing downloadable (login-walled entries have no file URL)</source>
         <translation type="unfinished">Nada para baixar (entradas restritas a login não têm URL de arquivo)</translation>

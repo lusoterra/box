@@ -78,6 +78,9 @@ private slots:
         s.tabsDefault = QStringLiteral("last");
         s.language = QStringLiteral("fr");
         s.mascotPath = QStringLiteral("/pics/mascot.png");
+        s.mascotOpacity = 0.5;
+        s.mascotScale = 0.25;
+        s.mascotMargin = 12;
         s.hasLastPlace = true;
         s.lastPlace.kind = QStringLiteral("browse");
         s.lastPlace.sites = {QStringLiteral("danbooru")};
@@ -126,6 +129,9 @@ private slots:
         QCOMPARE(back.tabsDefault, QStringLiteral("last"));
         QCOMPARE(back.language, QStringLiteral("fr"));
         QCOMPARE(back.mascotPath, QStringLiteral("/pics/mascot.png"));
+        QCOMPARE(back.mascotOpacity, 0.5);
+        QCOMPARE(back.mascotScale, 0.25);
+        QCOMPARE(back.mascotMargin, 12);
         QVERIFY(back.hasLastPlace);
         QCOMPARE(back.lastPlace.kind, QStringLiteral("browse"));
         QCOMPARE(back.lastPlace.sites, QStringList({QStringLiteral("danbooru")}));

@@ -77,6 +77,70 @@ private slots:
         QVERIFY(db.isFavourite(QStringLiteral("_Stray"), FavDb::pidFor(b)));
     }
 
+    void legacyHashRowsHealOnOpen() {
+        // Stuck favourites: rows keyed by unstable identities ((site,0)
+        // from before URL-hash identity, qHash rows from before the stable
+        // scheme) are rewritten to stable ids on open, so unfavouriting
+        // works again. True API ids are untouched.
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        {
+            // Pre-seed legacy rows with raw SQL (bypassing add()).
+            QSqlDatabase db =
+                QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"),
+                                          QStringLiteral("legacyseed"));
+            db.setDatabaseName(
+                tmp.filePath(QStringLiteral("store.db")));
+            QVERIFY(db.open());
+            QSqlQuery setup(db);
+            QVERIFY(setup.exec(QStringLiteral(
+                "CREATE TABLE favourites (site TEXT, post_id INTEGER, "
+                "rating TEXT, score INTEGER, ext TEXT, tags TEXT, "
+                "tags_artist TEXT, tags_character TEXT, tags_copyright TEXT, "
+                "tags_general TEXT, tags_meta TEXT, file_url TEXT, "
+                "sample_url TEXT, preview_url TEXT, post_url TEXT, "
+                "width INTEGER, height INTEGER, added INTEGER, "
+                "local_path TEXT, untyped TEXT, "
+                "PRIMARY KEY (site, post_id))")));
+            QSqlQuery q(db);
+            // (a) pre-identity (site,0) stray row.
+            QVERIFY(q.exec(QStringLiteral(
+                "INSERT INTO favourites (site, post_id, rating, score, ext, tags, "
+                "tags_artist, tags_character, tags_copyright, tags_general, "
+                "tags_meta, file_url, sample_url, preview_url, post_url, width, "
+                "height, added, local_path, untyped) VALUES ('_Stray', 0, "
+                "'general', 0, 'png', 'sky', '', '', '', 'sky', '', "
+                "'https://example.com/legacy.png', '', '', '', 0, 0, 1, "
+                "NULL, 'sky')")));
+            // (b) normal API-id row: must survive untouched.
+            QVERIFY(q.exec(QStringLiteral(
+                "INSERT INTO favourites (site, post_id, rating, score, ext, tags, "
+                "tags_artist, tags_character, tags_copyright, tags_general, "
+                "tags_meta, file_url, sample_url, preview_url, post_url, width, "
+                "height, added, local_path, untyped) VALUES ('Danbooru', 4242, "
+                "'general', 0, 'jpg', 'sky', '', '', '', 'sky', '', "
+                "'https://example.com/x.jpg', '', '', '', 0, 0, 1, NULL, "
+                "'sky')")));
+            db.close();
+        }
+        QSqlDatabase::removeDatabase(QStringLiteral("legacyseed"));
+        FavDb db;
+        QVERIFY(db.open(tmp.path()));
+        Post probe;
+        probe.isRemote = true;
+        probe.siteName = QStringLiteral("_Stray");
+        probe.id = 0;
+        probe.fileUrl = QStringLiteral("https://example.com/legacy.png");
+        const qint64 healed = FavDb::pidFor(probe);
+        QVERIFY(healed != 0);
+        // The stuck row is now reachable (and removable) by identity.
+        QVERIFY(db.isFavourite(QStringLiteral("_Stray"), healed));
+        QVERIFY(db.remove(QStringLiteral("_Stray"), healed));
+        QCOMPARE(db.count(), 1);
+        // Untouched survivor still keyed by API id.
+        QVERIFY(db.isFavourite(QStringLiteral("Danbooru"), 4242));
+    }
+
     void localFavKeepsFilePath() {
         // Regression: archive posts carry a source URL in postUrl; the
         // favourites list must still resolve to the file on disk.
@@ -155,6 +219,23 @@ private slots:
         QCOMPARE(p.width, 800);
         QCOMPARE(p.height, 600);
         QCOMPARE(p.category, QStringLiteral("Gelbooru"));
+    }
+
+    void customBucketsRoundTrip() {
+        // Native instance categories survive the DB (and empty stays empty).
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        FavDb db;
+        QVERIFY(db.open(tmp.path()));
+        Post p = samplePost();
+        p.customTags = {{"meme", {"dank", "lol"}},
+                        {"oc", {"my_guy"}}};
+        QVERIFY(db.add(p));
+        const QVector<Post> posts = db.list();
+        QCOMPARE(posts.size(), 1);
+        QCOMPARE(posts.first().customTags,
+                 (QMap<QString, QStringList>(
+                     {{"meme", {"dank", "lol"}}, {"oc", {"my_guy"}}})));
     }
 
     void tagSplitsRoundTrip() {
@@ -284,8 +365,12 @@ private slots:
                 "height INTEGER, added INTEGER, local_path TEXT, "
                 "PRIMARY KEY (site, post_id))")));
             QVERIFY(q.exec(QStringLiteral(
-                "INSERT INTO favourites VALUES ('Gelbooru', 5, 'general', 0, 'jpg', "
-                "'a b', '', '', '', 'a b', '', '', '', '', '', 0, 0, 0, '')")));
+                "INSERT INTO favourites (site, post_id, rating, score, ext, tags, "
+                "tags_artist, tags_character, tags_copyright, tags_general, "
+                "tags_meta, file_url, sample_url, preview_url, post_url, width, "
+                "height, added, local_path) VALUES ('Gelbooru', 5, "
+                "'general', 0, 'jpg', 'a b', '', '', '', 'a b', '', '', '', '', "
+                "'', 0, 0, 0, '')")));
             cdb.close();
         }
         QSqlDatabase::removeDatabase(QStringLiteral("legacy"));
@@ -295,8 +380,55 @@ private slots:
         QCOMPARE(db.list().first().untyped, QStringLiteral("a b"));
     }
 
-    void localPostsUseAbsFile() {
+    void explicitRatingHealsOnList() {
+        // LOSN imports store "general" with no rating source: listing
+        // upgrades rows whose tags hit the explicit list (same rule the
+        // scanner applies) and heals the stored value once.
         QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        FavDb db;
+        QVERIFY(db.open(tmp.path()));
+        Post e = samplePost();
+        e.id = 11;
+        e.tags = QStringLiteral("1girl nude");
+        e.tagsGeneral = e.tags;
+        QVERIFY(db.add(e));
+        Post g = samplePost();
+        g.id = 12;
+        QVERIFY(db.add(g)); // "1girl sky": stays general
+        QVector<Post> listed = db.list();
+        QCOMPARE(listed.size(), 2);
+        for (const Post &p : listed) {
+            if (p.id == 11) {
+                QCOMPARE(p.rating, QStringLiteral("explicit"));
+                QVERIFY(p.ratingInferred);
+            } else {
+                QCOMPARE(p.rating, QStringLiteral("general"));
+                QVERIFY(!p.ratingInferred);
+            }
+        }
+        // Stored value healed: raw SQL sees explicit, not general.
+        {
+            QSqlDatabase cdb =
+                QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"),
+                                          QStringLiteral("healcheck"));
+            cdb.setDatabaseName(tmp.filePath(QStringLiteral("store.db")));
+            QVERIFY(cdb.open());
+            QSqlQuery q(cdb);
+            QVERIFY(q.exec(QStringLiteral(
+                "SELECT rating FROM favourites WHERE post_id=11")));
+            QVERIFY(q.next());
+            QCOMPARE(q.value(0).toString(), QStringLiteral("explicit"));
+            QVERIFY(q.exec(QStringLiteral(
+                "SELECT rating FROM favourites WHERE post_id=12")));
+            QVERIFY(q.next());
+            QCOMPARE(q.value(0).toString(), QStringLiteral("general"));
+            cdb.close();
+        }
+        QSqlDatabase::removeDatabase(QStringLiteral("healcheck"));
+    }
+
+    void localPostsUseAbsFile() {        QTemporaryDir tmp;
         QVERIFY(tmp.isValid());
         FavDb db;
         QVERIFY(db.open(tmp.path()));

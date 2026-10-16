@@ -4,43 +4,59 @@ namespace QueryOr {
 
 ParsedQuery parse(const QString &query) {
     ParsedQuery out;
-    QString rest = query;
-    while (true) {
-        const int open = rest.indexOf(QStringLiteral("~("));
-        if (open < 0)
-            break;
-        // AND part before the group.
-        for (const QString &tok : rest.left(open).split(
+    // Cursor scan over a bounded window: the old code re-copied the
+    // shrinking remainder with mid() per group (quadratic on hostile
+    // ~(a)~(b)... chains from the box or restored tabs). Past the caps the
+    // remainder stays one literal AND blob (still searchable, just not
+    // group-split).
+    static constexpr qsizetype kMaxChars = 65536;
+    static constexpr int kMaxGroups = 512;
+    const QStringView view(query);
+    const qsizetype n = qMin(view.size(), kMaxChars);
+    qsizetype pos = 0;
+    const bool truncated = view.size() > kMaxChars;
+    auto pushAnd = [&](QStringView span) {
+        for (const QString &tok : span.toString().split(
                  QChar::Space, Qt::SkipEmptyParts))
             out.andTokens << tok;
-        const int close = rest.indexOf(u')', open + 2);
-        if (close < 0) {
-            // Unterminated: keep the remainder literal, stop parsing groups.
-            for (const QString &tok : rest.mid(open).split(
-                     QChar::Space, Qt::SkipEmptyParts))
-                out.andTokens << tok;
+    };
+    while (pos < n) {
+        const qsizetype open = view.indexOf(QStringLiteral("~("), pos);
+        if (open < 0 || open + 2 >= n || out.groups.size() >= kMaxGroups)
+            break;
+        pushAnd(view.mid(pos, open - pos));
+        const qsizetype close = view.indexOf(u')', open + 2);
+        if (close < 0 || close >= n) {
+            // Unterminated: keep the remainder literal, stop parsing groups
+            // (and skip the lone-~ split, like before).
+            pushAnd(view.mid(open, n - open));
+            if (truncated)
+                pushAnd(view.mid(n));
             return out;
         }
         QStringList alts;
-        for (const QString &tok : rest.mid(open + 2, close - open - 2)
+        for (const QString &tok : view.mid(open + 2, close - open - 2)
+                     .toString()
                      .split(QChar::Space, Qt::SkipEmptyParts))
             alts << tok;
         out.groups << alts;
-        rest = rest.mid(close + 1);
+        pos = close + 1;
     }
-    for (const QString &tok :
-         rest.split(QChar::Space, Qt::SkipEmptyParts))
-        out.andTokens << tok;
+    if (pos < n)
+        pushAnd(view.mid(pos, n - pos));
+    if (truncated)
+        pushAnd(view.mid(n));
     // A lone `~tag` is a one-option group (Danbooru users expect `~` OR).
-    for (int i = 0; i < out.andTokens.size();) {
-        const QString tok = out.andTokens.at(i);
+    QStringList kept;
+    kept.reserve(out.andTokens.size());
+    for (const QString &tok : out.andTokens) {
         if (tok.startsWith(u'~') && tok.size() > 1 && !tok.startsWith(QStringLiteral("~("))) {
             out.groups << QStringList{tok.mid(1)};
-            out.andTokens.removeAt(i);
         } else {
-            ++i;
+            kept << tok;
         }
     }
+    out.andTokens = kept;
     return out;
 }
 
@@ -88,7 +104,13 @@ bool groupsMatch(const QSet<QString> &postTags, const QList<QStringList> &groups
 }
 
 QString suggestBare(const QString &queryText) {
-    const QStringList parts = queryText.split(QChar::Space);
+    // Bounded: per-keystroke path, so a pasted megabyte of spaces must not
+    // become a million-element list (SkipEmptyParts + tail window). A
+    // trailing space still means "no token in progress".
+    if (queryText.endsWith(QChar::Space))
+        return {};
+    const QString tail = queryText.right(512);
+    const QStringList parts = tail.split(QChar::Space, Qt::SkipEmptyParts);
     if (parts.isEmpty())
         return {};
     QString last = parts.last();

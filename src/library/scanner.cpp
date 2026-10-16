@@ -25,6 +25,11 @@ namespace {
 
 bool loadSidecar(const QString &path, Post &post) {
     QFile f(path);
+    // Bounded: sidecars are KBs; a multi-GB hostile .json next to media
+    // must not OOM the scan.
+    static constexpr qint64 kMaxSidecar = 8LL * 1024 * 1024;
+    if (f.size() > kMaxSidecar)
+        return false;
     if (!f.open(QIODevice::ReadOnly))
         return false;
     QJsonParseError err;

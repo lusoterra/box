@@ -118,6 +118,35 @@ private slots:
         QCOMPARE(s.topGeneral.size(), 1);
     }
 
+    void ratingShorthandsMatchStoredWords() {
+        // rating:g/s/q/e (and safety:) filter the post's rating field;
+        // unknown rating:foo keeps match-nothing behavior.
+        Post g, e;
+        g.tags = g.tagsGeneral = QStringLiteral("sky");
+        g.rating = QStringLiteral("general");
+        g.hasMeta = true;
+        e.tags = e.tagsGeneral = QStringLiteral("sky");
+        e.rating = QStringLiteral("explicit");
+        e.hasMeta = true;
+        Index idx;
+        idx.setPosts({g, e});
+        QCOMPARE(idx.query({QStringLiteral("rating:g")}, QStringLiteral("all"),
+                           QString(), QStringLiteral("id-desc"), 1, 30)
+                     .posts.size(),
+                 1);
+        QCOMPARE(idx.query({QStringLiteral("rating:e"), QStringLiteral("sky")},
+                           QStringLiteral("all"), QString(), QStringLiteral("id-desc"),
+                           1, 30)
+                     .posts.size(),
+                 1);
+        QVERIFY(idx.query({QStringLiteral("rating:foo")}, QStringLiteral("all"),
+                          QString(), QStringLiteral("id-desc"), 1, 30)
+                    .posts.isEmpty());
+        QVERIFY(idx.query({QStringLiteral("-rating:general")}, QStringLiteral("all"),
+                          QString(), QStringLiteral("id-desc"), 1, 30)
+                    .posts.size() == 1);
+    }
+
     void addedSortUsesFileMtime() {
         QTemporaryDir tmp;
         QVERIFY(tmp.isValid());

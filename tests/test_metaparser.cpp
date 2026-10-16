@@ -216,6 +216,38 @@ private slots:
         QVERIFY(p.hasMeta);
     }
 
+    void szuruCustomCategoriesSurvive() {
+        // Instance-native categories (meme, ...) are preserved as custom
+        // buckets instead of dissolving into general, and stay searchable
+        // through the combined tag blob.
+        QJsonObject o;
+        auto maketag = [](const char *name, const char *cat) {
+            QJsonObject t;
+            QJsonArray names;
+            names.append(QString::fromLatin1(name));
+            t[QStringLiteral("names")] = names;
+            t[QStringLiteral("category")] = QString::fromLatin1(cat);
+            return t;
+        };
+        QJsonArray tags;
+        tags.append(maketag("an_artist", "artist"));
+        tags.append(maketag("dank_meme", "meme"));
+        tags.append(maketag("oc_guy", "oc"));
+        o[QStringLiteral("tags")] = tags;
+        o[QStringLiteral("safety")] = QStringLiteral("safe");
+        Post p;
+        QVERIFY(MetaParser::parse(o, p));
+        QCOMPARE(p.tagsArtist, QStringLiteral("an_artist"));
+        QVERIFY(!p.tagsGeneral.contains(QStringLiteral("dank_meme")));
+        QCOMPARE(p.customTags.value(QStringLiteral("meme")),
+                 QStringList({QStringLiteral("dank_meme")}));
+        QCOMPARE(p.customTags.value(QStringLiteral("oc")),
+                 QStringList({QStringLiteral("oc_guy")}));
+        QVERIFY(p.tags.contains(QStringLiteral("dank_meme")));
+        QVERIFY(p.tags.contains(QStringLiteral("oc_guy")));
+        QVERIFY(p.untyped.isEmpty()); // typed natively: nothing to classify
+    }
+
     void routingByShape() {
         Post p;
         QJsonObject md5marker;

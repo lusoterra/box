@@ -121,6 +121,16 @@ namespace RemotePosts {
 // Registry-dependent lookups (need RemoteSource::siteFor).
 QString keyForLabel(const QString &siteLabel); // "Danbooru" -> "danbooru"
                                                // (custom labels via setConfiguredBoorus)
+// Filesystem tag for one remote post's download folder + filename
+// prefix: the entry's base-URL host (lowercased, "_<port>" suffixed when
+// the port is explicit and non-default), so renaming the display label
+// never orphans files. "_Stray" stays literal; unconfigured/unknown
+// sites fall back to the label (legacy layout). Feed the result straight
+// into safeSiteDir()/downloadFileName().
+QString fsTagForPost(const Post &post);
+// host -> key for every configured + preset entry. Lets sidecar refresh
+// resolve host-named folders back to sites.
+QMap<QString, QString> hostKeys();
 // Referer required by hotlink-protected media hosts (Gelbooru-family
 // CDNs 302 to hotlink.php without one). Empty when unneeded.
 QString mediaReferer(const QString &siteKey);

@@ -5,7 +5,8 @@
 // API object. Sidecars reuse this app's own layouts so downloads are
 // instantly browsable:
 //
-//   <Site>_<md5>.<ext>  +  <Site>_<md5>.json   (native API object)
+//   <host>_<md5>.<ext>  +  <host>_<md5>.json   (native API object)
+//   (host = the entry's base-URL host; legacy <Label>_* files still read)
 //
 // The scanner content-routes native Danbooru/Gelbooru/Moebooru objects, so
 // no conversion step is needed - tags are stored exactly as the API gave
@@ -15,6 +16,7 @@
 #include <QList>
 #include <QMap>
 #include <QObject>
+#include <QSet>
 #include <QString>
 #include <QVector>
 
@@ -25,9 +27,9 @@ class WebDownloadBackend; // webdlbackend.h (injected by the app)
 
 struct DownloadJob {
     Post post;
-    QString fileName; // <Site>_<md5>.<ext>
-    QString filePath; // dest/<Site>/<fileName>
-    QString jsonPath; // dest/<Site>/<stem>.json
+    QString fileName; // <host>_<md5>.<ext>
+    QString filePath; // dest/<host>/<fileName>
+    QString jsonPath; // dest/<host>/<stem>.json
 };
 
 struct DownloadSummary {
@@ -50,6 +52,10 @@ public:
 
     void enqueue(const QList<DownloadJob> &jobs);
     void cancel();
+    // Drop queued/in-flight jobs for these file URLs (explicit unfavourite:
+    // a finishing download must neither resurrect the row nor rewrite the
+    // deleted file). Dropped flights report Cancelled, never failure.
+    void cancelUrls(const QSet<QString> &fileUrls);
     bool isActive() const { return m_active; }
     // Browser-backed media for fingerprint-walled hosts (null = QNAM
     // for everything). Set once by the app.

@@ -112,5 +112,5 @@ it you get untagged files. Re-run the same command later for new posts;
 add `--download-archive ~/pics/archive.sqlite3` to skip what you already
 have.
 
-Downloads (`<Site>_<md5>.<ext>` + pretty-printed JSON sidecar) feed the
+Downloads (`<host>_<md5>.<ext>` + pretty-printed JSON sidecar) feed the
 same pipeline: rescanning the download folder browses them offline.

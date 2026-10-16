@@ -6,6 +6,7 @@
 #include "settings.h"
 
 #include <QCheckBox>
+#include <QCoreApplication>
 #include <QDesktopServices>
 #include <QDir>
 #include <QFile>
@@ -84,7 +85,12 @@ DownloadPaths pathsForRow(const LosnRow &row, const QJsonObject &sidecar,
     QString smd = sidecar.value(QStringLiteral("md5")).toString();
     if (smd.isEmpty())
         smd = sidecar.value(QStringLiteral("checksumMD5")).toString();
-    if (!smd.isEmpty())
+    // Hex only: a rogue sidecar md5 ("../../x") must never become a
+    // filename (path traversal into the download folder and beyond).
+    // Anything else falls back to the _losn<rowId> name below.
+    smd = smd.trimmed().toLower();
+    static const QRegularExpression hex32(QStringLiteral("^[0-9a-f]{32}$"));
+    if (!smd.isEmpty() && hex32.match(smd).hasMatch())
         named.md5 = smd;
     return targetPaths(named, destDir);
 }
@@ -95,9 +101,11 @@ DownloadPaths targetPaths(const LosnRow &row, const QString &destDir) {
                              ? row.siteLabel + u'_' + row.md5
                              : row.siteLabel + QStringLiteral("_losn") +
                                    QString::number(row.rowId);
+    // Gated like downloadFileName: a 300-char suffix (or Windows-illegal
+    // chars) must not become a filename (ENAMETOOLONG -> perpetual job).
     const QString ext =
-        QFileInfo(QUrl(row.fileUrl).path()).suffix().toLower();
-    out.fileName = stem + u'.' + (ext.isEmpty() ? QStringLiteral("jpg") : ext);
+        BooruEngineOps::extOf(row.fileUrl, QStringLiteral("jpg"));
+    out.fileName = stem + u'.' + ext;
     const QString dir = destDir + u'/' + row.siteLabel;
     out.filePath = dir + u'/' + out.fileName;
     out.jsonPath = dir + u'/' + stem + QStringLiteral(".json");
@@ -138,19 +146,43 @@ QList<LosnRow> readBackup(const QString &dbPath, QString &error) {
         return rows;
     }
     // tag id -> name
-    QHash<qint64, QString> tagNames;
-    {
+    // Tables only, capped and forward-only: a hostile file can alias
+    // these names to cartesian VIEWs that explode a KB file into GBs of
+    // logical rows. Real backups (50 MB+) sit far below the caps.
+    auto tableOk = [&](const QString &name) {
         QSqlQuery q(db);
-        if (q.exec(QStringLiteral("SELECT id, name FROM Tag"))) {
+        q.prepare(QStringLiteral(
+            "SELECT type FROM sqlite_master WHERE name=?"));
+        q.bindValue(0, name);
+        return q.exec() && q.next() &&
+               q.value(0).toString() == QStringLiteral("table");
+    };
+    if (!tableOk(QStringLiteral("BooruItem"))) {
+        error = QCoreApplication::translate(
+            "LosnImportDialog",
+            "Not a LoliSnatcher backup (BooruItem table missing)");
+        db.close();
+        QSqlDatabase::removeDatabase(conn);
+        return rows;
+    }
+    static constexpr int kMaxTags = 1000000;
+    static constexpr int kMaxItemTags = 4000000;
+    static constexpr int kMaxItems = 1000000;
+    QHash<qint64, QString> tagNames;
+    if (tableOk(QStringLiteral("Tag"))) {
+        QSqlQuery q(db);
+        q.setForwardOnly(true);
+        if (q.exec(QStringLiteral("SELECT id, name FROM Tag LIMIT ") + QString::number(kMaxTags))) {
             while (q.next())
                 tagNames.insert(q.value(0).toLongLong(), q.value(1).toString());
         }
     }
     // item id -> tags
     QHash<qint64, QStringList> itemTags;
-    {
+    if (tableOk(QStringLiteral("ImageTag"))) {
         QSqlQuery q(db);
-        if (q.exec(QStringLiteral("SELECT tagID, booruItemID FROM ImageTag"))) {
+        q.setForwardOnly(true);
+        if (q.exec(QStringLiteral("SELECT tagID, booruItemID FROM ImageTag LIMIT ") + QString::number(kMaxItemTags))) {
             while (q.next()) {
                 const QString name = tagNames.value(q.value(0).toLongLong());
                 if (!name.isEmpty())
@@ -160,9 +192,10 @@ QList<LosnRow> readBackup(const QString &dbPath, QString &error) {
     }
     {
         QSqlQuery q(db);
+        q.setForwardOnly(true);
         if (!q.exec(QStringLiteral("SELECT id, thumbnailURL, sampleURL, fileURL, "
                                    "postURL, mediaType, isSnatched, isFavourite "
-                                   "FROM BooruItem"))) {
+                                   "FROM BooruItem LIMIT ") + QString::number(kMaxItems))) {
             error = q.lastError().text();
             db.close();
             QSqlDatabase::removeDatabase(conn);

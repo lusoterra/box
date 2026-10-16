@@ -181,11 +181,29 @@ QString engineLabel(BooruEngine engine) {
 QStringList translateSearchTags(const QStringList &tags, BooruEngine engine) {
     // "Safe" has no universal spelling: danbooru/moebooru/shimmie take
     // rating:safe, Gelbooru only understands rating:general, Szurubooru
-    // wants safety:safe (safety:unsafe for explicit). Anything else passes
-    // through untouched.
+    // wants safety:safe (safety:unsafe for explicit). Single-letter
+    // shorthands (rating:g/s/q/e, danbooru convention) expand to full
+    // words first so the rules below apply to them too — otherwise a
+    // multibooru rating:g only answers on engines that tolerate it.
+    // Anything else passes through untouched.
     QStringList out;
     out.reserve(tags.size());
     for (QString tok : tags) {
+        const int colon = tok.indexOf(u':');
+        if (colon > 0 &&
+            tok.left(colon).compare(QStringLiteral("rating"),
+                                    Qt::CaseInsensitive) == 0) {
+            const QString v =
+                tok.mid(colon + 1).trimmed().toLower();
+            if (v == QStringLiteral("g"))
+                tok = QStringLiteral("rating:general");
+            else if (v == QStringLiteral("s"))
+                tok = QStringLiteral("rating:safe");
+            else if (v == QStringLiteral("q"))
+                tok = QStringLiteral("rating:questionable");
+            else if (v == QStringLiteral("e"))
+                tok = QStringLiteral("rating:explicit");
+        }
         if (tok.compare(QStringLiteral("rating:safe"), Qt::CaseInsensitive) == 0) {
             if (engine == BooruEngine::Gelbooru)
                 tok = QStringLiteral("rating:general");
@@ -203,6 +221,54 @@ QStringList translateSearchTags(const QStringList &tags, BooruEngine engine) {
         out << tok;
     }
     return out;
+}
+
+QString sortSearchTag(const QString &sort, BooruEngine engine) {
+    // Verified spellings only (cheatsheets: danbooru/help:cheatsheet,
+    // gelbooru help topic=cheatsheet, konachan help/cheatsheet). Unmapped
+    // engines/modes sort client-side; "added" and the id-desc default
+    // need no tag anywhere.
+    if (sort == QStringLiteral("id-asc")) {
+        if (engine == BooruEngine::Danbooru)
+            return QStringLiteral("order:id_asc");
+        if (engine == BooruEngine::Gelbooru || engine == BooruEngine::Safebooru)
+            return QStringLiteral("sort:id:asc");
+        if (engine == BooruEngine::Moebooru)
+            return QStringLiteral("order:id");
+        return {};
+    }
+    if (sort == QStringLiteral("score-desc")) {
+        if (engine == BooruEngine::Danbooru)
+            return QStringLiteral("order:score");
+        if (engine == BooruEngine::Gelbooru || engine == BooruEngine::Safebooru)
+            return QStringLiteral("sort:score:desc");
+        return {};
+    }
+    if (sort == QStringLiteral("score-asc")) {
+        if (engine == BooruEngine::Danbooru)
+            return QStringLiteral("order:score_asc");
+        if (engine == BooruEngine::Gelbooru || engine == BooruEngine::Safebooru)
+            return QStringLiteral("sort:score:asc");
+        return {};
+    }
+    if (sort == QStringLiteral("random")) {
+        if (engine == BooruEngine::Danbooru)
+            return QStringLiteral("order:random");
+        return {};
+    }
+    return {}; // "added", "id-desc" (server default), unknown
+}
+
+bool isTransientSearchError(int httpStatus, const QString &error) {
+    if (error.isEmpty())
+        return false;
+    if (httpStatus == 408 || httpStatus == 429 || httpStatus >= 500)
+        return true;
+    // http 0: QNAM never reached the server (DNS, timeout, reset).
+    // "cancell" excluded defensively: aborted flights disconnect first
+    // and never report, but must never arm a retry if one slips through.
+    return httpStatus == 0 &&
+           !error.contains(QStringLiteral("cancell"), Qt::CaseInsensitive);
 }
 
 QString uniqueBooruKey(const QString &label, const QSet<QString> &taken) {

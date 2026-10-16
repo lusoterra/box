@@ -31,7 +31,56 @@ inline QColor tagBucketColor(const QString &bucket) {
         return QColor(0xe0, 0x9a, 0x3c); // orange
     if (bucket == QStringLiteral("meta"))
         return QColor(0xe5, 0xc5, 0x48); // yellow
+    if (bucket == QStringLiteral("custom"))
+        return QColor(0x7c, 0x9e, 0xf8); // native instance categories
     return QColor(0xe8, 0xe8, 0xec); // general: white
+}
+
+// Metatag colors for search-filter tokens (rating:g, sort:random,
+// score:>10, ...): system operators get their own hues instead of the
+// bucket white, so they read as operators at a glance. Invalid color
+// when the token is a plain tag.
+inline QColor filterTagColor(const QString &token) {
+    QString t = token.trimmed().toLower();
+    while (t.startsWith(u'-') || t.startsWith(u'~'))
+        t = t.mid(1);
+    const int colon = t.indexOf(u':');
+    if (colon <= 0)
+        return {};
+    const QString key = t.left(colon);
+    if (key == QStringLiteral("rating") || key == QStringLiteral("safety"))
+        return QColor(0xff, 0x6b, 0x81); // rose
+    if (key == QStringLiteral("sort") || key == QStringLiteral("order"))
+        return QColor(0xb3, 0x88, 0xff); // violet
+    if (key == QStringLiteral("score"))
+        return QColor(0x69, 0xf0, 0xae); // mint
+    if (key == QStringLiteral("id"))
+        return QColor(0x82, 0xaa, 0xff); // light blue
+    if (key == QStringLiteral("width") || key == QStringLiteral("height") ||
+        key == QStringLiteral("mpixels") || key == QStringLiteral("filesize"))
+        return QColor(0x4d, 0xd0, 0xe1); // cyan
+    if (key == QStringLiteral("type") || key == QStringLiteral("filetype"))
+        return QColor(0xff, 0xd5, 0x4f); // amber
+    if (key == QStringLiteral("pool"))
+        return QColor(0xce, 0x93, 0xd8); // lavender
+    if (key == QStringLiteral("parent") || key == QStringLiteral("child"))
+        return QColor(0xff, 0xab, 0x91); // peach
+    if (key == QStringLiteral("user") || key == QStringLiteral("approver") ||
+        key == QStringLiteral("commenter") || key == QStringLiteral("uploader"))
+        return QColor(0x90, 0xca, 0xf9); // pale blue
+    if (key == QStringLiteral("status") || key == QStringLiteral("flag") ||
+        key == QStringLiteral("note") || key == QStringLiteral("appeal"))
+        return QColor(0xef, 0x9a, 0x9a); // salmon
+    if (key == QStringLiteral("tagcount") || key == QStringLiteral("favcount"))
+        return QColor(0xbc, 0xaa, 0xa4); // taupe
+    if (key == QStringLiteral("md5") || key == QStringLiteral("checksum"))
+        return QColor(0xb0, 0xbe, 0xc5); // grey-blue
+    if (key == QStringLiteral("source") || key == QStringLiteral("date") ||
+        key == QStringLiteral("age") || key == QStringLiteral("created_at"))
+        return QColor(0xff, 0xe0, 0x82); // sand
+    if (key == QStringLiteral("limit") || key == QStringLiteral("page"))
+        return QColor(0x9e, 0x9e, 0x9e); // grey
+    return QColor(0x7c, 0x9e, 0xf8); // other prefix: accent
 }
 
 inline QIcon icon(const QString &name, const QColor &color, int px = 44) {

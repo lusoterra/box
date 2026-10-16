@@ -118,6 +118,12 @@ std::pair<QString, qint64> favIdentity(const Post &p) {
     return {QStringLiteral("local"), static_cast<qint64>(qHash(p.absFile))};
 }
 
+// Veto key for an explicit unfavourite: a download finishing later must
+// not re-favourite the row (the reported "it added itself back").
+inline QString favVetoKey(const QString &site, qint64 pid) {
+    return site + u'#' + QString::number(pid);
+}
+
 // First-run tag seed: a fresh tag_types.db starts with the maintainer
 // snapshot (top tags by usage, :/seed/tagtypes.tsv) so first scans
 // categorize from cache instead of hundreds of rate-limited requests.
@@ -165,6 +171,15 @@ bool ratingMatches(const QString &postRating, const QString &tok) {
     QString want = tok.mid(tok.indexOf(u':') + 1).toLower();
     if (want == QStringLiteral("safe"))
         want = QStringLiteral("general"); // danbooru convention
+    // Single-letter shorthands (rating:g/s/q/e) match the stored words.
+    if (want == QStringLiteral("g"))
+        want = QStringLiteral("general");
+    else if (want == QStringLiteral("s"))
+        want = QStringLiteral("sensitive");
+    else if (want == QStringLiteral("q"))
+        want = QStringLiteral("questionable");
+    else if (want == QStringLiteral("e"))
+        want = QStringLiteral("explicit");
     return postRating.compare(want, Qt::CaseInsensitive) == 0;
 }
 
@@ -265,20 +280,39 @@ void GalleryDelegate::paint(QPainter *painter, const QStyleOptionViewItem &optio
         painter->drawText(kb, Qt::AlignCenter, kind);
     }
 
-    // AI badge (top-left over image, mirrors the kind badge).
+    // AI badge (top-left over image, mirrors the kind badge):
+    // a robot glyph, not text.
     if (index.data(Qt::UserRole + 9).toBool()) {
-        const QRect ab(imgR.left() + 4, imgR.top() + 4, 26, 18);
+        const QRect ab(imgR.left() + 4, imgR.top() + 4, 30, 18);
         painter->setPen(Qt::NoPen);
         painter->setBrush(QColor(0x7c, 0x4d, 0xff, 200));
         painter->drawRoundedRect(ab, 4, 4);
-        painter->setPen(Qt::white);
-        painter->drawText(ab, Qt::AlignCenter, QStringLiteral("AI"));
+        const int cx = ab.center().x();
+        const QColor paper(Qt::white);
+        const QColor glass(0x7c, 0x4d, 0xff);
+        painter->setBrush(paper);
+        // Antenna stem + tip.
+        painter->setPen(QPen(paper, 1.5));
+        painter->drawLine(cx, ab.top() + 2, cx, ab.top() + 5);
+        painter->setPen(Qt::NoPen);
+        painter->drawEllipse(QPoint(cx, ab.top() + 3), 2, 2);
+        // Head.
+        painter->drawRoundedRect(cx - 7, ab.top() + 5, 14, 9, 2, 2);
+        // Eyes punch out in badge purple.
+        painter->setBrush(glass);
+        painter->drawEllipse(QPoint(cx - 3, ab.top() + 9), 1, 1);
+        painter->drawEllipse(QPoint(cx + 3, ab.top() + 9), 1, 1);
     }
 
-    // Origin badge for remote posts (bottom-left over image).
+    // Origin badge for remote posts (bottom-left over image):
+    // site favicon + short text.
     const QString origin = index.data(Qt::UserRole + 7).toString();
     if (!origin.isEmpty()) {
-        const int ow = painter->fontMetrics().horizontalAdvance(origin) + 12;
+        const QPixmap fav =
+            qvariant_cast<QPixmap>(index.data(Qt::UserRole + 10));
+        const int iconW = fav.isNull() ? 0 : 20; // 16px art + padding
+        const int ow =
+            painter->fontMetrics().horizontalAdvance(origin) + 12 + iconW;
         const QRect ob(imgR.left() + 4, imgR.bottom() - 22, ow, 18);
         painter->setPen(Qt::NoPen);
         QColor bg(0x3a, 0x7e, 0xc2, 220);
@@ -289,8 +323,15 @@ void GalleryDelegate::paint(QPainter *painter, const QStyleOptionViewItem &optio
         }
         painter->setBrush(bg);
         painter->drawRoundedRect(ob, 4, 4);
+        int textLeft = 0;
+        if (!fav.isNull()) {
+            painter->drawPixmap(ob.left() + 4, ob.center().y() - 8, 16, 16,
+                                fav);
+            textLeft = iconW;
+        }
         painter->setPen(Qt::white);
-        painter->drawText(ob, Qt::AlignCenter, origin);
+        painter->drawText(ob.adjusted(textLeft, 0, 0, 0), Qt::AlignCenter,
+                          origin);
     }
 
     // Unified info card: [G] +12 #11984812
@@ -341,8 +382,11 @@ public:
                const QModelIndex &index) const override {
         QStyleOptionViewItem opt(option);
         initStyleOption(&opt, index);
+        const QString bucket = index.data(Qt::UserRole + 1).toString();
+        const QColor meta =
+            UiIcons::filterTagColor(index.data(Qt::DisplayRole).toString());
         const QColor color =
-            UiIcons::tagBucketColor(index.data(Qt::UserRole + 1).toString());
+            meta.isValid() ? meta : UiIcons::tagBucketColor(bucket);
         opt.palette.setColor(QPalette::Text, color);
         opt.palette.setColor(QPalette::HighlightedText, color);
         QStyledItemDelegate::paint(painter, opt, index);
@@ -584,6 +628,9 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
             &MainWindow::onCompleterActivated);
 
     m_ratingBox = new QComboBox(this);
+    // Never visually empty: rebuildCombos() replaces this with counts
+    // once data arrives ("All (12)"); same data value, same semantics.
+    m_ratingBox->addItem(tr("All"), QStringLiteral("all"));
     m_categoryBox = new QComboBox(this);
     m_sortBox = new QComboBox(this);
     m_sortBox->addItem(tr("Recently added"), QStringLiteral("added"));
@@ -602,7 +649,10 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     connect(m_sortBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
             [this] {
                 m_sort = m_sortBox->currentData().toString();
-                commitFilter();
+                if (isBrowse())
+                    commitSearch(); // sort rides server-side: refetch like rating
+                else
+                    commitFilter();
             });
     connect(m_ratingBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
             &MainWindow::onRatingChanged);
@@ -817,17 +867,21 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
                         m_settings.favAutoFav ||
                         (m_settings.strayAutoFav &&
                          p.siteName == Stray::dirName());
-                    if (autoFav && !m_favDb.isFavourite(site, pid)) {
+                    // Explicitly unfavourited rows stay out, even when a
+                    // download they were part of lands afterwards.
+                    if (autoFav && !m_favDb.isFavourite(site, pid) &&
+                        !m_unfavVeto.contains(favVetoKey(site, pid))) {
                         m_favDb.add(p);
                         touched = true;
                     }
                     // Point favourites at the file just written (or an
                     // earlier copy): they open from disk afterwards.
                     if (m_favDb.isFavourite(site, pid)) {
+                        const QString tag = RemotePosts::fsTagForPost(p);
                         m_favDb.setLocalPath(
                             site, pid,
-                            dest + u'/' + p.siteName + u'/' +
-                                RemotePosts::downloadFileName(p.siteName,
+                            dest + u'/' + tag + u'/' +
+                                RemotePosts::downloadFileName(tag,
                                                               p.rawJson));
                         touched = true;
                     }
@@ -850,8 +904,12 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     m_viewer->setImageCache(m_imgCache);
     m_viewer->setThumbModel(m_model);
     m_viewer->setWebBackend(webDownloads);
-    connect(m_viewer, &ViewerPage::downloadRequested, this,
-            [this](const Post &p) { downloadPosts({p}); });
+    connect(m_viewer, &ViewerPage::downloadRequested, this, [this](const Post &p) {
+        // Explicit download lifts the veto (see m_unfavVeto).
+        const auto [site, pid] = favIdentity(p);
+        m_unfavVeto.remove(favVetoKey(site, pid));
+        downloadPosts({p});
+    });
     connect(m_viewer, &ViewerPage::refreshRequested, this,
             &MainWindow::refreshPost);
     connect(m_refresher, &PostRefresher::refreshed, this,
@@ -962,6 +1020,13 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     // Stage: welcome page vs. browser.
     m_welcome = new WelcomePage(this);
     m_welcome->setMascot(m_settings.mascotPath);
+    m_welcome->setMascotOpacity(m_settings.mascotOpacity);
+    m_welcome->setMascotScale(m_settings.mascotScale);
+    m_welcome->setMascotMargin(m_settings.mascotMargin);
+    connect(m_welcome, &WelcomePage::mascotScaleChanged, this, [this](double s) {
+        m_settings.mascotScale = s;
+        saveSettings(m_settings);
+    });
     connect(m_welcome, &WelcomePage::openDialogRequested, this, &MainWindow::openFolder);
     connect(m_welcome, &WelcomePage::browseTabRequested, this, [this] {
         addRemoteTab(m_settings.browseSites, {});
@@ -1225,7 +1290,15 @@ QIcon MainWindow::sitesIcon(const QStringList &sites) const {
 }
 
 void MainWindow::onFaviconReady(const QString &key, QIcon icon) {
-    Q_UNUSED(icon);
+    // Grid origin badges for this site gain their icon in place.
+    const QPixmap fav = icon.pixmap(16, 16);
+    if (!fav.isNull() && m_model) {
+        for (int r = 0; r < m_model->rowCount(); ++r) {
+            QStandardItem *it = m_model->item(r);
+            if (it && it->data(Qt::UserRole + 11).toString() == key)
+                it->setData(fav, Qt::UserRole + 10);
+        }
+    }
     // Retitle browse tabs using this site (composite marks may have gained
     // an icon). The sites picker stays text-only for readability.
     for (int i = 0; i < m_tabs.size(); ++i) {
@@ -1550,6 +1623,65 @@ void MainWindow::applyBooruCreds() {
 
 void MainWindow::updateDownloadSidecars() {
     const QString dest = effectiveDownloadDir(m_settings);
+    // Scope first: one checkbox per site subfolder holding refreshable
+    // sidecars (all checked). Single-site libraries skip the dialog.
+    const QList<SidecarRefresh::Job> all =
+        SidecarRefresh::collect(dest, RemoteSource::labelKeys());
+    if (all.isEmpty()) {
+        statusBar()->showMessage(tr("Nothing to refresh"), 4000);
+        return;
+    }
+    QMap<QString, int> counts;
+    for (const SidecarRefresh::Job &j : all) {
+        const QString label =
+            QFileInfo(j.jsonPath).dir().dirName();
+        counts[label]++;
+    }
+    QSet<QString> scope;
+    if (counts.size() > 1) {
+        QDialog dlg(this);
+        dlg.setWindowTitle(tr("Update downloaded sidecars"));
+        auto *lay = new QVBoxLayout(&dlg);
+        lay->addWidget(new QLabel(tr("Refresh sidecars for:"), &dlg));
+        auto *list = new QListWidget(&dlg);
+        for (auto it = counts.begin(); it != counts.end(); ++it) {
+            auto *item = new QListWidgetItem(
+                QStringLiteral("%1 (%2)").arg(it.key()).arg(it.value()),
+                list);
+            item->setFlags(Qt::ItemIsUserCheckable | Qt::ItemIsEnabled);
+            item->setCheckState(Qt::Checked);
+            item->setData(Qt::UserRole, it.key());
+        }
+        lay->addWidget(list, 1);
+        auto *buttons = new QDialogButtonBox(
+            QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dlg);
+        lay->addWidget(buttons);
+        connect(buttons, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
+        connect(buttons, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+        dlg.resize(320, 300);
+        if (dlg.exec() != QDialog::Accepted)
+            return;
+        for (int i = 0; i < list->count(); ++i) {
+            const QListWidgetItem *item = list->item(i);
+            if (item->checkState() == Qt::Checked)
+                scope.insert(item->data(Qt::UserRole).toString());
+        }
+        if (scope.isEmpty())
+            return;
+    } else {
+        scope = QSet<QString>(counts.keyBegin(), counts.keyEnd());
+    }
+    // Reuse the collected jobs (no second tree walk): keep the scope.
+    QList<SidecarRefresh::Job> jobs;
+    for (const SidecarRefresh::Job &j : all) {
+        if (scope.contains(QFileInfo(j.jsonPath).dir().dirName()))
+            jobs.append(j);
+    }
+    runSidecarJobs(dest, scope, jobs);
+}
+
+void MainWindow::runSidecarJobs(const QString &dest, const QSet<QString> &scope,
+                                QList<SidecarRefresh::Job> jobs) {
     auto *batch = new SidecarBatch(this);
     auto *prog = new QProgressDialog(tr("Updating sidecars…"), tr("Cancel"),
                                      0, 0, this);
@@ -1565,7 +1697,8 @@ void MainWindow::updateDownloadSidecars() {
                     : tr("Updating %1…").arg(current));
             });
     connect(batch, &SidecarBatch::finished, prog,
-            [this, prog, batch](int updated, int failed, int skipped) {
+            [this, prog, batch, dest, scope](int updated, int failed,
+                                             int skipped) {
                 batch->deleteLater();
                 prog->close();
                 statusBar()->showMessage(
@@ -1574,14 +1707,31 @@ void MainWindow::updateDownloadSidecars() {
                         .arg(failed)
                         .arg(skipped),
                     8000);
-                // The current grid may show refreshed posts: rescan cheaply.
+                // Rescan when the current local tab lives inside the
+                // refreshed scope (the whole tree when unscoped).
                 if (updated > 0 && m_curTab >= 0 && !m_tabs[m_curTab]->isRemote &&
-                    !m_tabs[m_curTab]->isFavourites)
-                    startScan(m_root);
+                    !m_tabs[m_curTab]->isFavourites) {
+                    const QString tabRoot =
+                        QDir(m_tabs[m_curTab]->root).canonicalPath();
+                    bool covered = scope.isEmpty();
+                    for (const QString &label : scope) {
+                        const QString dir =
+                            QDir(dest + u'/' + label).canonicalPath();
+                        if (!dir.isEmpty() &&
+                            (tabRoot == dir ||
+                             tabRoot.startsWith(dir + u'/') ||
+                             dir.startsWith(tabRoot + u'/'))) {
+                            covered = true;
+                            break;
+                        }
+                    }
+                    if (covered)
+                        startScan(m_root);
+                }
             });
     connect(prog, &QProgressDialog::canceled, batch, &SidecarBatch::cancel);
     connect(batch, &SidecarBatch::finished, batch, &SidecarBatch::deleteLater);
-    batch->start(dest);
+    batch->startJobs(std::move(jobs));
     if (!batch->isActive()) {
         // Nothing collectible: start() already emitted finished.
         prog->close();
@@ -1680,6 +1830,7 @@ void MainWindow::doBrowseSearch(bool append) {
         return;
     clearStatusProbe(); // a new search invalidates the old error details
     m_appendResults = append;
+    m_searchRetried = false; // each search earns its own single retry
     m_loadingPage = true;
     // Instant feedback: new cards render now (bucket colors refine when
     // results land), with the busy bar until the page arrives.
@@ -1702,9 +1853,44 @@ void MainWindow::doBrowseSearch(bool append) {
     if (t->rating != QStringLiteral("all"))
         andBase << QStringLiteral("rating:") + t->rating;
     // Per-site AND set: the entry's own defaults on top of the query.
+    // The sort box rides server-side here too (translated per engine;
+    // explicit user sort:/order: tokens always win over the box).
     auto siteAndBase = [&](const BooruSite *cfg) {
         QStringList tags = andBase;
         tags += cfg->defaultTags.split(QChar::Space, Qt::SkipEmptyParts);
+        const QString serverSort =
+            RemotePosts::sortSearchTag(t->sort, cfg->engine);
+        if (!serverSort.isEmpty()) {
+            auto isSortToken = [](const QString &tok) {
+                QString head = tok;
+                while (head.startsWith(u'-'))
+                    head = head.mid(1);
+                head = head.split(u':').value(0).toLower();
+                return head == QStringLiteral("sort") ||
+                       head == QStringLiteral("order");
+            };
+            bool userSort = false;
+            for (const QString &tok : tags) {
+                if (isSortToken(tok)) {
+                    userSort = true;
+                    break;
+                }
+            }
+            if (!userSort) {
+                for (const QStringList &g : pq.groups) {
+                    for (const QString &tok : g) {
+                        if (isSortToken(tok)) {
+                            userSort = true;
+                            break;
+                        }
+                    }
+                    if (userSort)
+                        break;
+                }
+            }
+            if (!userSort)
+                tags << serverSort;
+        }
         return tags;
     };
     QStringList sites = t->sites.isEmpty() ? m_settings.browseSites : t->sites;
@@ -1806,6 +1992,14 @@ void MainWindow::onRemoteFinished() {
             ps.posts += done->lastPosts();
             if (!ps.queriesLeft.isEmpty())
                 pumpSiteSearch(key);
+            // Retryable completions (rate limits, 5xx, timeouts) mark the
+            // site: a fresh search that lands nothing but these gets one
+            // delayed retry instead of a dead empty grid. Auth/wall/bad
+            // filter errors (401/403/400) never retry.
+            if (!done->lastError().isEmpty() &&
+                RemotePosts::isTransientSearchError(done->lastHttp(),
+                                                    done->lastError()))
+                ps.transientError = true;
             break;
         }
     }
@@ -1897,6 +2091,14 @@ void MainWindow::onRemoteFinished() {
             merged.append(stamped);
         }
     }
+    bool anyTransient = false;
+    for (auto bit = m_pendingSites.begin(); bit != m_pendingSites.end();
+         ++bit) {
+        if (bit->transientError) {
+            anyTransient = true;
+            break;
+        }
+    }
     m_pendingSites.clear();
     m_loadingPage = false;
     m_scanBar->setVisible(false); // page landed (classify re-shows if needed)
@@ -1941,6 +2143,22 @@ void MainWindow::onRemoteFinished() {
         if (hiddenWalled > 0)
             msg += tr(" · %1 login-walled hidden").arg(hiddenWalled);
         statusBar()->showMessage(msg, 5000);
+    }
+    // Fresh search, nothing landed, failures look transient (rate limits,
+    // 5xx, timeouts — never auth/walls): one delayed retry instead of a
+    // dead empty grid. Appends never retry (existing rows stay put) and
+    // the flag caps it at one per search; manual F5 still works.
+    if (t && t->page <= 1 && merged.isEmpty() && anyTransient &&
+        !m_searchRetried) {
+        m_searchRetried = true;
+        statusBar()->showMessage(
+            errors.join(QStringLiteral(" · ")) + tr(" · retrying…"), 8000);
+        QTimer::singleShot(3000, this, [this, t] {
+            if (m_pendingSearches != 0 || currentTab() != t ||
+                !m_tabs.contains(t) || !t->browseMerged.isEmpty())
+                return;
+            doBrowseSearch(false);
+        });
     }
     m_pageLabel->setText(tr("Page %1").arg(t->page));
     applyBrowseFilter();
@@ -2142,6 +2360,12 @@ void MainWindow::toggleFavourite(const Post &post) {
     const auto [site, pid] = favIdentity(post);
     if (m_favDb.isFavourite(site, pid)) {
         m_favDb.remove(site, pid);
+        // Explicit removal wins over the automatic coupling: a download
+        // finishing later must not resurrect the row (nor the file, when
+        // the option deletes it).
+        m_unfavVeto.insert(favVetoKey(site, pid));
+        if (!post.fileUrl.isEmpty())
+            m_downloads->cancelUrls({post.fileUrl});
         m_viewer->setFaved(false);
         maybeDeleteUnfavFile(post);
         statusBar()->showMessage(tr("Removed from favourites"), 3000);
@@ -2150,6 +2374,7 @@ void MainWindow::toggleFavourite(const Post &post) {
             statusBar()->showMessage(tr("Could not favourite"), 4000);
             return;
         }
+        m_unfavVeto.remove(favVetoKey(site, pid));
         m_viewer->setFaved(true);
         statusBar()->showMessage(tr("♥ Favourited"), 3000);
         if (m_settings.favAutoDownload && post.isRemote && !post.fileUrl.isEmpty())
@@ -2214,11 +2439,20 @@ void MainWindow::showGridMenu(const QPoint &pos) {
     if (allFav) {
         QAction *unfav = menu.addAction(tr("♡ Unfavourite"));
         connect(unfav, &QAction::triggered, this, [this, targets] {
+            QSet<QString> urls;
             for (const Post &p : targets) {
                 const auto [site, pid] = favIdentity(p);
-                if (m_favDb.remove(site, pid))
+                if (m_favDb.remove(site, pid)) {
+                    // Explicit removal vetoes any later auto-favourite,
+                    // and drops in-flight downloads of the same file.
+                    m_unfavVeto.insert(favVetoKey(site, pid));
+                    if (!p.fileUrl.isEmpty())
+                        urls.insert(p.fileUrl);
                     maybeDeleteUnfavFile(p);
+                }
             }
+            if (!urls.isEmpty())
+                m_downloads->cancelUrls(urls);
             refreshFavTabs();
             statusBar()->showMessage(tr("Removed %1 from favourites")
                                          .arg(targets.size()),
@@ -2229,8 +2463,11 @@ void MainWindow::showGridMenu(const QPoint &pos) {
         connect(fav, &QAction::triggered, this, [this, targets] {
             int added = 0;
             for (const Post &p : targets) {
-                if (m_favDb.add(p))
+                if (m_favDb.add(p)) {
+                    const auto [site, pid] = favIdentity(p);
+                    m_unfavVeto.remove(favVetoKey(site, pid));
                     added++;
+                }
             }
             refreshFavTabs();
             statusBar()->showMessage(
@@ -2245,6 +2482,11 @@ void MainWindow::showGridMenu(const QPoint &pos) {
             if (p.isRemote && !p.fileUrl.isEmpty())
                 remote.append(p);
         }
+        // Explicit download lifts the veto: the user asked for the file.
+        for (const Post &p : remote) {
+            const auto [site, pid] = favIdentity(p);
+            m_unfavVeto.remove(favVetoKey(site, pid));
+        }
         downloadPosts(remote);
     });
     // Tag editing is a stray-only affair: exactly one stray file, so the
@@ -2253,6 +2495,14 @@ void MainWindow::showGridMenu(const QPoint &pos) {
         QAction *edit = menu.addAction(tr("Edit tags…"));
         connect(edit, &QAction::triggered, this,
                 [this, post = targets.first()] { editStrayTags(post); });
+    }
+    // Any on-disk file can become the home mascot (remote-only posts
+    // have no file yet — download them first).
+    if (targets.size() == 1 && !targets.first().absFile.isEmpty() &&
+        QFileInfo::exists(targets.first().absFile)) {
+        QAction *mascot = menu.addAction(tr("Set as mascot"));
+        connect(mascot, &QAction::triggered, this,
+                [this, post = targets.first()] { setAsMascot(post); });
     }
     // Delete is a disk-only affair unless "deleting unfavourites" is on:
     // it removes the files (plus our download sidecars) and leaves the
@@ -2357,11 +2607,18 @@ void MainWindow::showGridMenu(const QPoint &pos) {
         }
         int unfaved = 0;
         if (m_settings.deleteUnfavs) {
+            QSet<QString> urls;
             for (const Post &p : targets) {
                 const auto [site, pid] = favIdentity(p);
-                if (m_favDb.remove(site, pid))
+                if (m_favDb.remove(site, pid)) {
+                    m_unfavVeto.insert(favVetoKey(site, pid));
+                    if (!p.fileUrl.isEmpty())
+                        urls.insert(p.fileUrl);
                     unfaved++;
+                }
             }
+            if (!urls.isEmpty())
+                m_downloads->cancelUrls(urls);
         }
         refreshFavTabs();
         if (m_curTab >= 0 && !currentTab()->isRemote &&
@@ -2393,9 +2650,13 @@ void MainWindow::relinkFavourites() {
                            QStringLiteral("/booru-explorer");
     if (QDir(legacy).exists() && !roots.contains(legacy))
         roots << legacy;
-    // One listing per site folder (not one per missing row): fresh imports
-    // can leave hundreds unlinked, and entryList per row stalls tab switches.
-    QHash<QString, QHash<QString, QString>> bySite; // site -> stem -> abs path
+    // One listing for the whole tree (not one per missing row): fresh
+    // imports can leave hundreds unlinked, and entryList per row stalls
+    // tab switches. Folder-agnostic on purpose: download folders moved
+    // from <Label> to <host> over versions (and label renames orphan
+    // old folders), so match the _<md5> suffix in ANY site folder.
+    // Same bytes = same md5, so cross-folder hits are still correct.
+    QHash<QString, QString> byStem; // stem -> abs path (first wins)
     for (const QString &root : roots) {
         const QDir rootDir(root);
         if (!rootDir.exists())
@@ -2403,13 +2664,13 @@ void MainWindow::relinkFavourites() {
         for (const QString &siteDir :
              rootDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot)) {
             const QDir dir(rootDir.absoluteFilePath(siteDir));
-            auto &stems = bySite[siteDir];
             for (const QFileInfo &fi : dir.entryInfoList(QDir::Files)) {
                 const QString stem = fi.completeBaseName();
-                // Any prefixed stem qualifies (<Site>_<md5> and the
-                // underscore-leading _Stray_<md5> alike).
-                if (stem.contains(u'_') && !stems.contains(stem))
-                    stems.insert(stem, fi.absoluteFilePath());
+                // Any prefixed stem qualifies (<host>_<md5>, legacy
+                // <Label>_<md5> and the underscore-leading _Stray_<md5>
+                // alike).
+                if (stem.contains(u'_') && !byStem.contains(stem))
+                    byStem.insert(stem, fi.absoluteFilePath());
             }
         }
     }
@@ -2418,11 +2679,8 @@ void MainWindow::relinkFavourites() {
         const QString md5 = LosnImport::md5FromFileUrl(u.fileUrl);
         if (md5.isEmpty())
             continue;
-        const auto it = bySite.constFind(u.site);
-        if (it == bySite.constEnd())
-            continue;
-        // <Label>_<md5>.<any ext>
-        for (auto s = it->begin(); s != it->end(); ++s) {
+        // <tag>_<md5>.<any ext>, in any folder
+        for (auto s = byStem.begin(); s != byStem.end(); ++s) {
             if (s.key().endsWith(u'_' + md5)) {
                 found.insert({u.site, u.id}, s.value());
                 break;
@@ -2471,6 +2729,17 @@ void MainWindow::relinkFavourites() {
         statusBar()->showMessage(
             tr("Linked %1 favourites to files on disk.").arg(n), 6000);
     }
+}
+
+void MainWindow::setAsMascot(const Post &post) {
+    if (post.absFile.isEmpty() || !QFileInfo::exists(post.absFile)) {
+        statusBar()->showMessage(tr("No local file to use as mascot"), 4000);
+        return;
+    }
+    m_settings.mascotPath = post.absFile;
+    saveSettings(m_settings);
+    m_welcome->setMascot(m_settings.mascotPath);
+    statusBar()->showMessage(tr("Home mascot updated"), 4000);
 }
 
 void MainWindow::openStrayDialog() {
@@ -2632,11 +2901,14 @@ void MainWindow::editStrayTags(const Post &post) {
     StrayTagDialog dlg(fi.fileName(), tags, this);
     if (dlg.exec() != QDialog::Accepted)
         return;
-    // Normalize like the rest of the tag universe: lowercase, deduped.
-    // (The classifier, search and sidebar all key on lowercase.)
+    // Normalize like the rest of the tag universe: all whitespace runs
+    // become single spaces (Tab/Enter must never glue itself to a tag),
+    // lowercase, deduped. (The classifier, search and sidebar all key on
+    // lowercase.)
     QStringList kept;
     for (const QString &t :
-         dlg.tags().toLower().split(QChar::Space, Qt::SkipEmptyParts)) {
+         dlg.tags().simplified().toLower().split(QChar::Space,
+                                                  Qt::SkipEmptyParts)) {
         if (!kept.contains(t))
             kept << t;
     }
@@ -2976,10 +3248,21 @@ void MainWindow::onRefreshDone(qint64 reqId,
             }
         }
         // Downloaded copy's sidecar shares the filename convention.
+        // Folders moved from <Label> to <host> over versions: check the
+        // host path first, then the legacy label path.
+        const QString tag = RemotePosts::fsTagForPost(orig);
         const QString stem =
-            RemotePosts::downloadFileName(orig.siteName, raw).split(u'.').first();
-        const QString sidecar = effectiveDownloadDir(m_settings) + u'/' + orig.siteName +
-                                u'/' + stem + QStringLiteral(".json");
+            RemotePosts::downloadFileName(tag, raw).split(u'.').first();
+        QString sidecar = effectiveDownloadDir(m_settings) + u'/' + tag +
+                          u'/' + stem + QStringLiteral(".json");
+        if (!QFile::exists(sidecar) && tag != orig.siteName) {
+            const QString legacyStem =
+                RemotePosts::downloadFileName(orig.siteName, raw)
+                    .split(u'.')
+                    .first();
+            sidecar = effectiveDownloadDir(m_settings) + u'/' + orig.siteName +
+                      u'/' + legacyStem + QStringLiteral(".json");
+        }
         if (QFile::exists(sidecar)) {
             QFile f(sidecar);
             if (f.open(QIODevice::WriteOnly | QIODevice::Truncate))
@@ -3642,9 +3925,11 @@ void MainWindow::fillModel() {
                                          : QStringLiteral("-"),
                       Qt::UserRole + 6);
         // Origin badge: the configured entry's text + color (never the
-        // engine-family code). Browsed posts carry their entry key;
-        // favourites and older rows resolve by label instead.
-        QString badge, badgeColor;
+        // engine-family code) plus its favicon. Browsed posts carry
+        // their entry key; favourites and older rows resolve by label
+        // instead.
+        QString badge, badgeColor, badgeKey;
+        QPixmap badgeFav;
         if (p.isRemote) {
             const BooruSite *entry = nullptr;
             if (!p.siteKey.isEmpty())
@@ -3657,12 +3942,20 @@ void MainWindow::fillModel() {
                 badge = entry->shortName.isEmpty() ? p.siteShort
                                                    : entry->shortName;
                 badgeColor = entry->badgeColor;
+                badgeKey = entry->key;
+                // Sync hit from memory/disk; a miss queues a fetch and
+                // lands via onFaviconReady (rows update in place).
+                badgeFav = m_favicons->iconFor(entry->key, entry->baseUrl)
+                               .pixmap(16, 16);
             } else {
                 badge = p.siteShort;
             }
         }
         item->setData(badge, Qt::UserRole + 7);
         item->setData(badgeColor, Qt::UserRole + 8);
+        if (!badgeFav.isNull())
+            item->setData(badgeFav, Qt::UserRole + 10);
+        item->setData(badgeKey, Qt::UserRole + 11);
         item->setData(isAiPost(p), Qt::UserRole + 9); // grid "AI" chip
         item->setEditable(false);
         item->setToolTip(p.isRemote ? p.postUrl : p.file);
@@ -3718,7 +4011,21 @@ void MainWindow::updateResultLabel() {
             }
         }
     }
-    auto pillBucket = [&](const QString &tag) {
+    // Native custom categories (outside the blobs): one pass, consulted
+    // by every pill below.
+    QHash<QString, QString> customOf;
+    for (const Post &p : m_current) {
+        for (auto it = p.customTags.begin(); it != p.customTags.end();
+             ++it) {
+            for (const QString &tok : it.value()) {
+                if (!customOf.contains(tok))
+                    customOf.insert(tok, it.key());
+            }
+        }
+    }
+    auto pillBucket = [&](const QString &tag) -> QString {
+        if (customOf.contains(tag))
+            return QStringLiteral("custom");
         if (!isBrowse())
             return m_index.bucketOf(tag);
         return browseBuckets.value(tag, QStringLiteral("general"));
@@ -3726,8 +4033,11 @@ void MainWindow::updateResultLabel() {
     for (const QString &t : m_activeTags) {
         const QString clean =
             t.startsWith(u'-') && t.size() > 1 ? t.mid(1) : t;
+        // System operators read as operators: metatag hues win over the
+        // bucket white (rating:g, sort:random, score:>10, ...).
+        const QColor meta = UiIcons::filterTagColor(clean);
         addPill(QStringLiteral("%1 ×").arg(t), tr("Remove filter"),
-                UiIcons::tagBucketColor(pillBucket(clean)),
+                meta.isValid() ? meta : UiIcons::tagBucketColor(pillBucket(clean)),
                 [this, t] {
                     m_activeTags.removeAll(t);
                     updateResultLabel(); // pill vanishes now, fetch lands later
@@ -3745,7 +4055,13 @@ void MainWindow::updateResultLabel() {
                 alts.size() == 1
                     ? QStringLiteral("~%1").arg(alts.first())
                     : QStringLiteral("~(%1)").arg(alts.join(u' '));
-            addPill(label + QStringLiteral(" ×"), tr("Remove group"), accent,
+            QColor gcolor = accent;
+            if (alts.size() == 1) {
+                const QColor meta = UiIcons::filterTagColor(alts.first());
+                if (meta.isValid())
+                    gcolor = meta;
+            }
+            addPill(label + QStringLiteral(" ×"), tr("Remove group"), gcolor,
                     [this, gi] { removeQueryGroup(gi); });
             ++gi;
         }
@@ -3891,6 +4207,23 @@ void MainWindow::onSearchEdited(const QString &text) {
 
 void MainWindow::fillSuggestModel(const QStringList &tags,
                                   const QStringList &buckets) {
+    // No-op rebuilds: per-keystroke identical lists must not flash the
+    // popup (clear + refill repaints even when nothing changed).
+    if (m_completeModel->rowCount() == tags.size()) {
+        bool same = true;
+        for (int i = 0; i < tags.size(); ++i) {
+            const QModelIndex idx = m_completeModel->index(i, 0);
+            if (idx.data(Qt::DisplayRole).toString() != tags.at(i) ||
+                idx.data(Qt::UserRole + 1).toString() !=
+                    (i < buckets.size() ? buckets.at(i)
+                                        : QStringLiteral("general"))) {
+                same = false;
+                break;
+            }
+        }
+        if (same)
+            return;
+    }
     m_completeModel->clear();
     for (int i = 0; i < tags.size(); ++i) {
         auto *item = new QStandardItem(tags.at(i));
@@ -3910,7 +4243,31 @@ void MainWindow::onRemoteSuggest(const QString &siteKey, const QString &prefix,
     if (bare != prefix || !isBrowse())
         return;
     QStringList words, buckets;
-    for (const TagSuggestion &sg : suggestions) {
+    for (int i = 0; i < m_completeModel->rowCount(); ++i) {
+        const QModelIndex idx = m_completeModel->index(i, 0);
+        words << idx.data(Qt::DisplayRole).toString();
+        buckets << idx.data(Qt::UserRole + 1).toString();
+    }
+    // Merge, don't replace: the instant local answers stay on top and
+    // remote extras append below. An empty/error reply leaves the popup
+    // exactly as it was instead of blanking good answers.
+    QVector<TagSuggestion> local;
+    local.reserve(words.size());
+    for (int i = 0; i < words.size(); ++i) {
+        TagSuggestion s;
+        s.tag = words.at(i);
+        s.bucket = i < buckets.size()
+                       ? buckets.at(i)
+                       : QStringLiteral("general");
+        local.append(s);
+    }
+    const QVector<TagSuggestion> merged =
+        TagSuggester::merge(local, suggestions);
+    if (merged.isEmpty())
+        return;
+    words.clear();
+    buckets.clear();
+    for (const TagSuggestion &sg : merged) {
         words << sg.tag;
         buckets << sg.bucket;
     }
@@ -4483,6 +4840,9 @@ void MainWindow::applyPreferences(const AppSettings &app) {
                                   m_settings.volume);
     m_viewer->setMaxSide(m_settings.viewerMaxSide);
     m_welcome->setMascot(m_settings.mascotPath);
+    m_welcome->setMascotOpacity(m_settings.mascotOpacity);
+    m_welcome->setMascotScale(m_settings.mascotScale);
+    m_welcome->setMascotMargin(m_settings.mascotMargin);
     m_imgCache->setEnabled(m_settings.fullCache);
     if (m_stage->currentIndex() == 1 && m_curTab >= 0) {
         if (isBrowse()) {
@@ -4579,6 +4939,11 @@ void MainWindow::downloadSelected() {
     if (posts.isEmpty()) {
         statusBar()->showMessage(tr("Select posts first"), 3000);
         return;
+    }
+    // Explicit download lifts the veto (see m_unfavVeto).
+    for (const Post &p : posts) {
+        const auto [site, pid] = favIdentity(p);
+        m_unfavVeto.remove(favVetoKey(site, pid));
     }
     downloadPosts(posts);
 }

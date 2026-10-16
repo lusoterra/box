@@ -23,6 +23,8 @@
 #include <QUrl>
 #include <QVBoxLayout>
 
+#include <algorithm>
+
 DownloadManager::DownloadManager(QObject *parent)
     : QObject(parent), m_nam(new QNetworkAccessManager(this)) {}
 
@@ -55,6 +57,21 @@ QString proxySpecForJob(const DownloadJob &job) {
 } // namespace
 
 namespace {
+// Site folder segment: hostname for configured sites (see
+// RemotePosts::fsTagForPost), legacy label otherwise; settings.ini is
+// hand-editable either way, so a hostile "../.." tag must never become
+// a path. Separators and colons (IPv6/port leftovers) are flattened
+// and bare dot-names prefixed; everything else (dots, spaces, unicode,
+// "_Stray") passes through untouched so existing folders keep working.
+QString safeSiteDir(const QString &tag) {
+    QString seg = tag;
+    seg.replace(u'/', u'_').replace(u'\\', u'_').replace(u':', u'_');
+    while (seg == QStringLiteral(".") || seg == QStringLiteral(".."))
+        seg.prepend(u'_');
+    if (seg.isEmpty())
+        seg = QStringLiteral("Booru");
+    return seg;
+}
 // 32-hex file stems double as content hashes on most boorus (Gelbooru,
 // Safebooru, Danbooru CDN...). Same rule as LosnImport::md5FromFileUrl.
 QString md5Stem(const QString &fileUrl) {
@@ -123,8 +140,9 @@ QList<DownloadJob> DownloadManager::plan(const QVector<Post> &posts,
             else
                 raw[QStringLiteral("file_url")] = p.fileUrl;
         }
-        const QString dir = destDir + u'/' + p.siteName;
-        QString name = RemotePosts::downloadFileName(p.siteName, raw);
+        const QString tag = RemotePosts::fsTagForPost(p);
+        const QString dir = destDir + u'/' + safeSiteDir(tag);
+        QString name = RemotePosts::downloadFileName(tag, raw);
         if (used.contains(dir + u'/' + name)) {
             const int dot = name.lastIndexOf(u'.');
             const QString stem = name.left(dot), ext = name.mid(dot);
@@ -191,6 +209,44 @@ void DownloadManager::cancel() {
     m_queue.clear();
     m_active = false;
     m_summary = DownloadSummary();
+}
+
+void DownloadManager::cancelUrls(const QSet<QString> &fileUrls) {
+    if (fileUrls.isEmpty())
+        return;
+    const int before = m_queue.size() + m_flights.size();
+    m_queue.erase(std::remove_if(m_queue.begin(), m_queue.end(),
+                                 [&](const DownloadJob &j) {
+                                     return fileUrls.contains(j.post.fileUrl);
+                                 }),
+                  m_queue.end());
+    QList<Flight *> dead;
+    for (Flight *f : m_flights) {
+        if (fileUrls.contains(f->job.post.fileUrl))
+            dead.append(f);
+    }
+    for (Flight *f : dead) {
+        m_flights.removeAll(f);
+        if (f->webId >= 0 && m_webBackend)
+            m_webBackend->cancel(f->webId); // backend drops partial files
+        if (f->reply) {
+            disconnect(f->reply, nullptr, this, nullptr);
+            f->reply->abort();
+            f->reply->deleteLater();
+        }
+        if (f->file) {
+            f->file->close();
+            f->file->remove(); // partial file
+            delete f->file;
+        }
+        emit fileFinished(f->job.fileName, false, tr("Cancelled"));
+        delete f;
+    }
+    m_total = qMax(0, m_total - (before - m_queue.size() - m_flights.size()));
+    if (m_queue.isEmpty() && m_flights.isEmpty())
+        m_active = false;
+    else
+        pump(); // fill freed flight slots
 }
 
 void DownloadManager::pump() {
@@ -348,8 +404,8 @@ bool DownloadManager::completeJob(DownloadJob &job, QString *error) {
         const QString md5 = fileContentMd5(job.filePath);
         if (!md5.isEmpty()) {
             raw[QStringLiteral("md5")] = md5;
-            const QString name =
-                RemotePosts::downloadFileName(job.post.siteName, raw);
+            const QString name = RemotePosts::downloadFileName(
+                RemotePosts::fsTagForPost(job.post), raw);
             if (name != job.fileName) {
                 const QString dir =
                     QFileInfo(job.filePath).absolutePath();

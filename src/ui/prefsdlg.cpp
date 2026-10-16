@@ -314,6 +314,9 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
         "Tags the online classifier missed or got wrong (e.g. lucky_star → "
         "Copyright). Overrides apply on every scan without any network use "
         "and win over fetched categories.")));
+    typesLay->addWidget(note(tr(
+        "Native custom categories (Szurubooru instances define their own) "
+        "keep theirs and are not overridden.")));
     m_tagOverrides = new QListWidget(this);
     m_tagOverrides->setMinimumHeight(90);
     for (auto it = current.manualTagTypes.begin();
@@ -878,6 +881,31 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     mascotRow->addWidget(mascotBrowse);
     mascotRow->addWidget(mascotClear);
     appLay->addRow(tr("Home mascot:"), mascotRow);
+    m_mascotOpacity = new QSlider(Qt::Horizontal, this);
+    m_mascotOpacity->setRange(10, 100);
+    m_mascotOpacity->setValue(qRound(current.mascotOpacity * 100.0));
+    m_mascotOpacityLabel = new QLabel(this);
+    auto *opRow = new QHBoxLayout();
+    opRow->addWidget(m_mascotOpacity, 1);
+    opRow->addWidget(m_mascotOpacityLabel);
+    auto opUpdate = [this](int v) {
+        if (m_mascotOpacityLabel)
+            m_mascotOpacityLabel->setText(tr("%1%").arg(v));
+    };
+    opUpdate(m_mascotOpacity->value());
+    connect(m_mascotOpacity, &QSlider::valueChanged, this, opUpdate);
+    connect(m_mascotOpacity, &QSlider::valueChanged, this,
+            [this] { updateApplyState(); });
+    appLay->addRow(tr("Mascot opacity:"), opRow);
+    m_mascotMargin = new QSpinBox(this);
+    m_mascotMargin->setRange(0, 256);
+    m_mascotMargin->setSuffix(tr(" px"));
+    m_mascotMargin->setValue(current.mascotMargin);
+    m_mascotMargin->setToolTip(
+        tr("Padding between the mascot and the window corner"));
+    connect(m_mascotMargin, QOverload<int>::of(&QSpinBox::valueChanged), this,
+            [this] { updateApplyState(); });
+    appLay->addRow(tr("Mascot margin:"), m_mascotMargin);
     lookPage->addWidget(app);
 
     // ── Grid ──
@@ -1042,6 +1070,10 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
                 setSwatch(m_accent);
                 m_stylesheet->clear();
                 m_mascot->clear();
+                if (m_mascotOpacity)
+                    m_mascotOpacity->setValue(qRound(d.mascotOpacity * 100.0));
+                if (m_mascotMargin)
+                    m_mascotMargin->setValue(d.mascotMargin);
                 m_aspect->setCurrentIndex(0);
                 if (m_scrollRows)
                     m_scrollRows->setValue(d.gridScrollRows);
@@ -1715,6 +1747,9 @@ void PrefsDialog::harvestInto(AppSettings &out) {
     out.accent = m_accent.name();
     out.stylesheet = m_stylesheet->text().trimmed();
     out.mascotPath = m_mascot ? m_mascot->text().trimmed() : QString();
+    out.mascotOpacity = m_mascotOpacity ? m_mascotOpacity->value() / 100.0
+                                        : out.mascotOpacity;
+    out.mascotMargin = m_mascotMargin ? m_mascotMargin->value() : out.mascotMargin;
     const QVariantList r = m_aspect->currentData().toList();
     if (r.size() == 2) {
         out.aspectNum = qMax(1, r.value(0).toInt());

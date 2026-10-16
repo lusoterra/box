@@ -19,6 +19,7 @@
 #include <QFutureWatcher>
 #include <QGraphicsEllipseItem>
 #include <QGraphicsRectItem>
+#include <QGraphicsVideoItem>
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QImageReader>
@@ -305,6 +306,88 @@ void GifView::resizeEvent(QResizeEvent *e) {
         fit();
 }
 
+// ── VideoView ────────────────────────────────────────────────────
+
+VideoView::VideoView(QWidget *parent) : QGraphicsView(parent) {
+    m_scene = new QGraphicsScene(this);
+    setScene(m_scene);
+    setDragMode(QGraphicsView::ScrollHandDrag);
+    setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
+    setResizeAnchor(QGraphicsView::AnchorViewCenter);
+    setBackgroundBrush(QColor(0x0d, 0x0f, 0x14));
+    setFrameShape(QFrame::NoFrame);
+    m_item = new QGraphicsVideoItem();
+    m_scene->addItem(m_item);
+    m_scene->setSceneRect(m_item->boundingRect());
+    // First real frame sizes the scene; later size changes (stream
+    // renegotiation) re-apply the current fit/zoom instead of jumping.
+    connect(m_item, &QGraphicsVideoItem::nativeSizeChanged, this,
+            [this](const QSizeF &size) {
+                if (size.isEmpty())
+                    return;
+                m_scene->setSceneRect(QRectF(QPointF(), size));
+                if (m_fitted)
+                    fit();
+            });
+}
+
+void VideoView::fit() {
+    resetTransform();
+    // Empty scene (no frame yet): nothing to fit, stay fitted for later.
+    if (!m_scene->sceneRect().isEmpty())
+        fitInView(m_scene->sceneRect(), Qt::KeepAspectRatio);
+    m_zoom = transform().m11();
+    if (m_zoom <= 0)
+        m_zoom = 1.0;
+    m_fitted = true;
+}
+
+void VideoView::zoom100() {
+    resetTransform();
+    m_zoom = 1.0;
+    m_fitted = false;
+    centerOn(m_scene->sceneRect().center());
+}
+
+void VideoView::applyZoom(double f) {
+    const double next = qBound(0.05, m_zoom * f, 16.0);
+    scale(next / m_zoom, next / m_zoom);
+    m_zoom = next;
+    m_fitted = false;
+}
+
+void VideoView::wheelEvent(QWheelEvent *e) {
+    // Free zoom (trackpads steer by pixel sign when there is no angle).
+    const int d = e->angleDelta().y() != 0 ? e->angleDelta().y()
+                                           : e->pixelDelta().y();
+    applyZoom(d > 0 ? 1.15 : 1.0 / 1.15);
+    e->accept();
+}
+
+bool VideoView::viewportEvent(QEvent *e) {
+    // Route viewport wheels exclusively to zoom: otherwise the view both
+    // scrolls and zooms on the same tick when zoomed past fit.
+    if (e->type() == QEvent::Wheel) {
+        wheelEvent(static_cast<QWheelEvent *>(e));
+        return true;
+    }
+    return QGraphicsView::viewportEvent(e);
+}
+
+void VideoView::mouseDoubleClickEvent(QMouseEvent *e) {
+    if (m_fitted)
+        zoom100();
+    else
+        fit();
+    e->accept();
+}
+
+void VideoView::resizeEvent(QResizeEvent *e) {
+    QGraphicsView::resizeEvent(e);
+    if (m_fitted)
+        fit();
+}
+
 // ── VideoPane ────────────────────────────────────────────────────
 
 void SeekSlider::jumpTo(const QPoint &pos) {
@@ -360,16 +443,16 @@ void SeekSlider::mouseReleaseEvent(QMouseEvent *e) {
 VideoPane::VideoPane(QWidget *parent) : QWidget(parent) {
     auto *lay = new QVBoxLayout(this);
     lay->setContentsMargins(0, 0, 0, 0);
-    m_video = new QVideoWidget(this);
-    m_video->installEventFilter(this); // click toggles pause (below)
-    lay->addWidget(m_video, 1);
+    m_view = new VideoView(this);
+    m_view->viewport()->installEventFilter(this); // click toggles pause
+    lay->addWidget(m_view, 1);
     m_player = new QMediaPlayer(this);
     m_audio = new QAudioOutput(this);
     m_audio->setDevice(QMediaDevices::defaultAudioOutput());
     m_audio->setVolume(1.0);
     m_audio->setMuted(true); // muted by default; unmute in the controls
     m_player->setAudioOutput(m_audio);
-    m_player->setVideoOutput(m_video);
+    m_player->setVideoOutput(m_view->videoItem());
     m_player->setLoops(QMediaPlayer::Infinite);
 
     auto *ctl = new QHBoxLayout();
@@ -453,14 +536,44 @@ void VideoPane::togglePlayPause() {
         m_player->play();
 }
 
+void VideoPane::fitView() {
+    if (m_view)
+        m_view->fit();
+}
+
+void VideoPane::zoom100View() {
+    if (m_view)
+        m_view->zoom100();
+}
+
 bool VideoPane::eventFilter(QObject *watched, QEvent *e) {
     // Left-click on the picture toggles pause; anything else (side
     // buttons included) keeps its normal path to the parent viewer.
-    if (watched == m_video && e->type() == QEvent::MouseButtonPress &&
+    // NOTE: drag-pan starts with a left press too — the click only
+    // toggles when the pointer never moved (i.e. not a pan), and only
+    // then is the release consumed so pans always finish cleanly.
+    if (watched == m_view->viewport() &&
+        e->type() == QEvent::MouseButtonPress &&
         static_cast<QMouseEvent *>(e)->button() == Qt::LeftButton) {
-        togglePlayPause();
-        return true;
+        m_pressPos = static_cast<QMouseEvent *>(e)->position().toPoint();
+        m_pressed = true;
+        return false; // let ScrollHandDrag see it too
     }
+    if (watched == m_view->viewport() &&
+        e->type() == QEvent::MouseButtonRelease &&
+        static_cast<QMouseEvent *>(e)->button() == Qt::LeftButton) {
+        const bool click = m_pressed &&
+                           (static_cast<QMouseEvent *>(e)->position().toPoint() -
+                            m_pressPos).manhattanLength() < 6;
+        m_pressed = false;
+        if (click) {
+            togglePlayPause();
+            return true;
+        }
+        return false;
+    }
+    if (e->type() == QEvent::MouseButtonRelease)
+        m_pressed = false;
     return QWidget::eventFilter(watched, e);
 }
 
@@ -517,6 +630,8 @@ void VideoPane::stop() {
     dropTemp();
     m_player->stop();
     m_player->setSource(QUrl());
+    if (m_view)
+        m_view->fit(); // next video starts fitted, not at the old zoom
 }
 
 void VideoPane::dropTemp() {
@@ -610,27 +725,37 @@ ViewerPage::ViewerPage(QWidget *parent) : QWidget(parent) {
     connect(m_fitBtn, &QPushButton::clicked, this, [this] {
         if (m_stack->currentWidget() == m_gif)
             m_gif->fit();
+        else if (m_stack->currentWidget() == m_video)
+            m_video->fitView();
         else
             m_image->fit();
     });
     connect(m_zoomBtn, &QPushButton::clicked, this, [this] {
         if (m_stack->currentWidget() == m_gif)
             m_gif->zoom100();
+        else if (m_stack->currentWidget() == m_video)
+            m_video->zoom100View();
         else
             m_image->zoom100();
     });
     connect(m_postBtn, &QPushButton::clicked, this, [this] {
-        if (!m_posts[m_row].postUrl.isEmpty())
-            QDesktopServices::openUrl(QUrl(m_posts[m_row].postUrl));
+        // Scheme-gated: a rogue sidecar/API postUrl like file:///etc
+        // must never reach the local file handler on click.
+        const QUrl url(m_posts[m_row].postUrl);
+        if (!m_posts[m_row].postUrl.isEmpty() &&
+            RemotePosts::isHttpUrl(m_posts[m_row].postUrl))
+            QDesktopServices::openUrl(url);
     });
     connect(openBtn, &QPushButton::clicked, this, [this] {
         if (m_posts.isEmpty())
             return;
         const Post &p = m_posts[m_row];
-        if (p.isRemote && !p.fileUrl.isEmpty())
-            QDesktopServices::openUrl(QUrl(p.fileUrl));
-        else
+        if (p.isRemote && !p.fileUrl.isEmpty()) {
+            if (RemotePosts::isHttpUrl(p.fileUrl))
+                QDesktopServices::openUrl(QUrl(p.fileUrl));
+        } else {
             QDesktopServices::openUrl(QUrl::fromLocalFile(p.absFile));
+        }
     });
     connect(copyBtn, &QPushButton::clicked, this, [this] {
         if (m_posts.isEmpty())
@@ -1131,6 +1256,18 @@ void ViewerPage::showCurrent() {
                     QStringLiteral("#7aaee0"));
         addTagGroup(m_tagLayout, tr("Meta"), p.tagsMeta,
                     QStringLiteral("#88aa88"));
+        // Native custom categories (Szurubooru instances define their
+        // own): one group each, accent colored.
+        for (auto it = p.customTags.begin(); it != p.customTags.end();
+             ++it) {
+            if (it.value().isEmpty())
+                continue;
+            QString label = it.key();
+            if (!label.isEmpty())
+                label[0] = label[0].toUpper();
+            addTagGroup(m_tagLayout, label, it.value().join(QChar::Space),
+                        QStringLiteral("#7c9ef8"));
+        }
     }
     if (p.isRemote)
         renderMetaSections();

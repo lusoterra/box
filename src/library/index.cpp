@@ -72,6 +72,21 @@ void Index::recount() {
             }
         }
     }
+    // Native custom categories suggest too (bucket "custom" colors them);
+    // counts stay 1-ish so real buckets outrank them.
+    for (const Post &p : m_posts) {
+        for (auto it = p.customTags.begin(); it != p.customTags.end();
+             ++it) {
+            for (const QString &t : it.value()) {
+                Agg &a = agg[t.toLower()];
+                if (a.tag.isEmpty()) {
+                    a.tag = t;
+                    a.bucket = QStringLiteral("custom");
+                }
+                a.count += 1;
+            }
+        }
+    }
     m_suggest.clear();
     m_suggest.reserve(agg.size());
     for (auto it = agg.begin(); it != agg.end(); ++it)
@@ -83,11 +98,34 @@ QueryResult Index::query(const QStringList &tags, const QString &rating,
                          const QString &category, const QString &sort,
                          int page, int perPage) const {
     QStringList inc, exc;
+    QStringList incRating, excRating; // rating:g/s/q/e (and safety:) filter
+    auto ratingValue = [](const QString &tok) { // the post's rating field
+        const QString v = tok.mid(tok.indexOf(u':') + 1).toLower();
+        if (v == QStringLiteral("general") || v == QStringLiteral("g") ||
+            v == QStringLiteral("safe"))
+            return QStringLiteral("general"); // danbooru conventions
+        if (v == QStringLiteral("sensitive") || v == QStringLiteral("s"))
+            return QStringLiteral("sensitive");
+        if (v == QStringLiteral("questionable") || v == QStringLiteral("q"))
+            return QStringLiteral("questionable");
+        if (v == QStringLiteral("explicit") || v == QStringLiteral("e"))
+            return QStringLiteral("explicit");
+        return QString(); // unrecognized: keep literal handling below
+    };
     for (const QString &t : tags) {
-        if (t.startsWith(u'-') && t.size() > 1)
+        const bool neg = t.startsWith(u'-') && t.size() > 1;
+        const QString tok = neg ? t.mid(1) : t;
+        const QString low = tok.toLower();
+        const bool isRate = low.startsWith(QStringLiteral("rating:")) ||
+                            low.startsWith(QStringLiteral("safety:"));
+        const QString rv = isRate ? ratingValue(tok) : QString();
+        if (isRate && !rv.isEmpty()) {
+            (neg ? excRating : incRating) << rv;
+        } else if (neg) {
             exc << t.mid(1);
-        else if (!t.isEmpty())
+        } else if (!t.isEmpty()) {
             inc << t;
+        }
     }
 
     QVector<Post> results;
@@ -97,8 +135,28 @@ QueryResult Index::query(const QStringList &tags, const QString &rating,
             continue;
         if (!category.isEmpty() && p.category != category)
             continue;
+        bool rateOk = true;
+        for (const QString &r : incRating) {
+            if (p.rating != r) {
+                rateOk = false;
+                break;
+            }
+        }
+        if (rateOk) {
+            for (const QString &r : excRating) {
+                if (p.rating == r) {
+                    rateOk = false;
+                    break;
+                }
+            }
+        }
+        if (!rateOk)
+            continue;
         if (!inc.isEmpty() || !exc.isEmpty()) {
-            const QStringList pt = splitTags(p.tags);
+            // Set lookup, split once: the old per-token contains() on a
+            // fresh split was the bulk of filter time on big archives.
+            const QStringList toks = splitTags(p.tags);
+            const QSet<QString> pt(toks.begin(), toks.end());
             bool ok = true;
             for (const QString &t : inc) {
                 if (!pt.contains(t)) { ok = false; break; }
@@ -158,8 +216,11 @@ QueryResult Index::query(const QStringList &tags, const QString &rating,
 
 QVector<Index::Suggestion> Index::suggest(const QString &prefix, int limit) const {
     const QString q = prefix.toLower();
+    // Defense in depth: limit arithmetic below multiplies, so clamp the
+    // top (all callers pass 12 today). Zero/negative still means empty.
     if (q.length() < 2 || limit <= 0)
         return {};
+    limit = qMin(limit, 1000);
     // Prefix matches first (binary-searchable order would need sorting;
     // a single linear scan over precomputed entries is fast enough and
     // keeps substring behavior for non-prefix hits).

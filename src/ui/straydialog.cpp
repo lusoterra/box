@@ -77,6 +77,8 @@ StrayTagDialog::StrayTagDialog(const QString &fileName, const QString &tags,
         this));
     m_edit = new QPlainTextEdit(this);
     m_edit->setPlainText(tags);
+    m_edit->setTabChangesFocus(true); // Tab leaves the box (Save/Cancel),
+                                      // it must never become tag text
     lay->addWidget(m_edit, 1);
     auto *row = new QHBoxLayout();
     auto *saveBtn = new QPushButton(tr("Save"), this);

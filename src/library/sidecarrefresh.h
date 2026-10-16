@@ -7,20 +7,23 @@
 #include <QList>
 #include <QMap>
 #include <QObject>
+#include <QSet>
 #include <QString>
 
 #include "remotesource.h" // RefreshTarget (registry-backed)
 
 namespace SidecarRefresh {
 // One refreshable sidecar. Pure collection (unit-tested): labelToKey maps
-// the download subfolder name (<Site>) to a site key.
+// the download subfolder name (<Site>) to a site key; host-named folders
+// (<host>, see RemotePosts::fsTagForPost) resolve via the registry too.
 struct Job {
     QString jsonPath;
     QString siteKey;
     qint64 id = 0;
 };
 QList<Job> collect(const QString &downloadDir,
-                   const QMap<QString, QString> &labelToKey);
+                    const QMap<QString, QString> &labelToKey,
+                    const QSet<QString> &siteLabels = {});
 } // namespace SidecarRefresh
 
 class SidecarBatch : public QObject {
@@ -29,6 +32,11 @@ public:
     explicit SidecarBatch(QObject *parent = nullptr);
 
     void start(const QString &downloadDir);
+    // Scoped refresh: only sidecars under these site subfolders
+    // (empty = everything, like start()).
+    void start(const QString &downloadDir, const QSet<QString> &siteLabels);
+    // Same, with pre-collected jobs (avoids walking the tree twice).
+    void startJobs(QList<SidecarRefresh::Job> jobs);
     void cancel();
     bool isActive() const { return m_active; }
 

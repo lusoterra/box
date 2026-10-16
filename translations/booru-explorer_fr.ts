@@ -624,6 +624,10 @@
         <translation type="unfinished">Plus aucun post</translation>
     </message>
     <message>
+        <source> · retrying…</source>
+        <translation type="unfinished"> · nouvel essai…</translation>
+    </message>
+    <message>
         <location filename="../src/mainwindow.cpp" line="1636" />
         <source>Nothing downloadable (login-walled entries have no file URL)</source>
         <translation type="unfinished">Rien à télécharger (les entrées protégées par connexion n'ont pas d'URL de fichier)</translation>

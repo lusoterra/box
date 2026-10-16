@@ -19,7 +19,7 @@
 #include <QPushButton>
 #include <QSlider>
 #include <QStackedWidget>
-#include <QVideoWidget>
+#include <QGraphicsVideoItem>
 
 class QBoxLayout;
 class QAbstractItemModel;
@@ -87,6 +87,31 @@ private:
 };
 
 // mp4/webm playback via Qt Multimedia (FFmpeg backend). No libmpv needed.
+// Zoomable/pannable like stills and gifs: frames land on a graphics video
+// item, so wheel-zoom-at-cursor, drag-pan and double-click fit<->100%
+// behave identically across all three.
+class VideoView : public QGraphicsView {
+    Q_OBJECT
+public:
+    explicit VideoView(QWidget *parent = nullptr);
+    QGraphicsVideoItem *videoItem() const { return m_item; }
+    void fit();
+    void zoom100();
+
+protected:
+    void wheelEvent(QWheelEvent *e) override;
+    bool viewportEvent(QEvent *e) override; // wheel zooms only, never scrolls
+    void mouseDoubleClickEvent(QMouseEvent *e) override;
+    void resizeEvent(QResizeEvent *e) override;
+
+private:
+    void applyZoom(double f);
+    QGraphicsScene *m_scene;
+    QGraphicsVideoItem *m_item = nullptr;
+    double m_zoom = 1.0;
+    bool m_fitted = true;
+};
+
 class VideoPane : public QWidget {
     Q_OBJECT
 public:
@@ -95,6 +120,9 @@ public:
     void setUrl(const QUrl &url);
     void stop();
     void setDefaults(bool muted, bool loop, int volume);
+    // Zoom controls for the toolbar (route to the live video view).
+    void fitView();
+    void zoom100View();
     // Browser backend for fingerprint-walled video (null = stream direct).
     void setWebBackend(class WebDownloadBackend *backend);
 
@@ -105,12 +133,14 @@ private:
     void togglePlayPause();
     void onWebFinished(qint64 id, bool ok, const QString &error);
     void dropTemp();
-    QVideoWidget *m_video;
+    VideoView *m_view;
     QMediaPlayer *m_player;
     QAudioOutput *m_audio;
     QPushButton *m_playBtn;
     QPushButton *m_muteBtn;
-    QSlider *m_slider;
+    // Click-vs-pan disambiguation for pause-on-click (see eventFilter).
+    QPoint m_pressPos;
+    bool m_pressed = false;    QSlider *m_slider;
     QSlider *m_vol;
     QLabel *m_time;
     QLabel *m_buf;

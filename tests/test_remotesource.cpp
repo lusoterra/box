@@ -182,6 +182,123 @@ private slots:
                  other);
     }
 
+    void ratingShorthandsTranslate() {
+        // rating:g/s/q/e expand before the per-engine rules, so a
+        // multibooru rating:g answers on every engine, not just the
+        // ones that tolerate the shorthand.
+        for (BooruEngine e : {BooruEngine::Danbooru, BooruEngine::Gelbooru,
+                              BooruEngine::Moebooru, BooruEngine::Shimmie,
+                              BooruEngine::Szurubooru,
+                              BooruEngine::Safebooru}) {
+            QCOMPARE(RemotePosts::translateSearchTags(
+                         {QStringLiteral("1girl"),
+                          QStringLiteral("rating:q")},
+                         e),
+                     QStringList({QStringLiteral("1girl"),
+                                  QStringLiteral("rating:questionable")}));
+        }
+        QCOMPARE(RemotePosts::translateSearchTags(
+                     {QStringLiteral("rating:g")}, BooruEngine::Danbooru),
+                 QStringList({QStringLiteral("rating:general")}));
+        QCOMPARE(RemotePosts::translateSearchTags(
+                     {QStringLiteral("rating:G")}, BooruEngine::Gelbooru),
+                 QStringList({QStringLiteral("rating:general")}));
+        QCOMPARE(RemotePosts::translateSearchTags(
+                     {QStringLiteral("rating:g")}, BooruEngine::Szurubooru),
+                 QStringList({QStringLiteral("safety:safe")}));
+        QCOMPARE(RemotePosts::translateSearchTags(
+                     {QStringLiteral("rating:s")}, BooruEngine::Szurubooru),
+                 QStringList({QStringLiteral("safety:safe")}));
+        QCOMPARE(RemotePosts::translateSearchTags(
+                     {QStringLiteral("rating:e")}, BooruEngine::Szurubooru),
+                 QStringList({QStringLiteral("safety:unsafe")}));
+        QCOMPARE(RemotePosts::translateSearchTags(
+                     {QStringLiteral("rating:e")}, BooruEngine::Gelbooru),
+                 QStringList({QStringLiteral("rating:explicit")}));
+        // Non-shorthands and negations pass through untouched.
+        QCOMPARE(RemotePosts::translateSearchTags(
+                     {QStringLiteral("-rating:g")}, BooruEngine::Szurubooru),
+                 QStringList({QStringLiteral("-rating:g")}));
+        QCOMPARE(RemotePosts::translateSearchTags(
+                     {QStringLiteral("rating:gg")}, BooruEngine::Szurubooru),
+                 QStringList({QStringLiteral("rating:gg")}));
+    }
+
+    void sortTagsTranslate() {
+        // Danbooru order:* (help:cheatsheet).
+        QCOMPARE(RemotePosts::sortSearchTag(QStringLiteral("id-asc"),
+                                            BooruEngine::Danbooru),
+                 QStringLiteral("order:id_asc"));
+        QCOMPARE(RemotePosts::sortSearchTag(QStringLiteral("score-desc"),
+                                            BooruEngine::Danbooru),
+                 QStringLiteral("order:score"));
+        QCOMPARE(RemotePosts::sortSearchTag(QStringLiteral("score-asc"),
+                                            BooruEngine::Danbooru),
+                 QStringLiteral("order:score_asc"));
+        QCOMPARE(RemotePosts::sortSearchTag(QStringLiteral("random"),
+                                            BooruEngine::Danbooru),
+                 QStringLiteral("order:random"));
+        // Gelbooru family sort:*:* (help topic=cheatsheet).
+        for (BooruEngine e : {BooruEngine::Gelbooru, BooruEngine::Safebooru}) {
+            QCOMPARE(RemotePosts::sortSearchTag(QStringLiteral("id-asc"), e),
+                     QStringLiteral("sort:id:asc"));
+            QCOMPARE(RemotePosts::sortSearchTag(QStringLiteral("score-desc"), e),
+                     QStringLiteral("sort:score:desc"));
+            QCOMPARE(RemotePosts::sortSearchTag(QStringLiteral("score-asc"), e),
+                     QStringLiteral("sort:score:asc"));
+            // Random unverified there: stays client-side.
+            QVERIFY(RemotePosts::sortSearchTag(QStringLiteral("random"), e)
+                        .isEmpty());
+        }
+        // Moebooru order:id (konachan help/cheatsheet); the rest unverified.
+        QCOMPARE(RemotePosts::sortSearchTag(QStringLiteral("id-asc"),
+                                            BooruEngine::Moebooru),
+                 QStringLiteral("order:id"));
+        QVERIFY(RemotePosts::sortSearchTag(QStringLiteral("score-desc"),
+                                           BooruEngine::Moebooru)
+                    .isEmpty());
+        // Szurubooru/Shimmie sort styles unverified: client-side.
+        QVERIFY(RemotePosts::sortSearchTag(QStringLiteral("score-desc"),
+                                           BooruEngine::Szurubooru)
+                    .isEmpty());
+        QVERIFY(RemotePosts::sortSearchTag(QStringLiteral("score-desc"),
+                                           BooruEngine::Shimmie)
+                    .isEmpty());
+        // "added" and the id-desc default need no tag anywhere.
+        for (BooruEngine e : {BooruEngine::Danbooru, BooruEngine::Gelbooru,
+                              BooruEngine::Moebooru, BooruEngine::Szurubooru,
+                              BooruEngine::Shimmie, BooruEngine::Safebooru}) {
+            QVERIFY(
+                RemotePosts::sortSearchTag(QStringLiteral("added"), e).isEmpty());
+            QVERIFY(RemotePosts::sortSearchTag(QStringLiteral("id-desc"), e)
+                        .isEmpty());
+            QVERIFY(RemotePosts::sortSearchTag(QStringLiteral("bogus"), e)
+                        .isEmpty());
+        }
+    }
+
+    void transientErrors() {
+        // Retryable: rate limits, timeouts, server errors, dead network.
+        QVERIFY(RemotePosts::isTransientSearchError(
+            429, QStringLiteral("HTTP 429 (Too Many Requests)")));
+        QVERIFY(RemotePosts::isTransientSearchError(
+            503, QStringLiteral("HTTP 503 (Service Unavailable)")));
+        QVERIFY(RemotePosts::isTransientSearchError(
+            408, QStringLiteral("HTTP 408 (Request Timeout)")));
+        QVERIFY(RemotePosts::isTransientSearchError(
+            0, QStringLiteral("Network error: Connection timed out")));
+        // Never retry: auth, walls, bad filters, silence, cancels.
+        QVERIFY(!RemotePosts::isTransientSearchError(
+            401, QStringLiteral("HTTP 401 (Unauthorized)")));
+        QVERIFY(!RemotePosts::isTransientSearchError(
+            403, QStringLiteral("HTTP 403 — challenge")));
+        QVERIFY(!RemotePosts::isTransientSearchError(
+            400, QStringLiteral("HTTP 400 (Bad Request)")));
+        QVERIFY(!RemotePosts::isTransientSearchError(200, QString()));
+        QVERIFY(!RemotePosts::isTransientSearchError(
+            0, QStringLiteral("cancelled")));
+    }
+
     void danbooruMapping() {
         const Post p = RemotePosts::fromDanbooru(
             danbooruObj(), QStringLiteral("https://danbooru.donmai.us"));

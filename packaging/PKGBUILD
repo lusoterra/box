@@ -16,7 +16,7 @@ arch=('x86_64')
 url='https://git.lusosterone.net/lev/booru-explorer'
 license=('GPL-3.0-or-later')
 depends=('qt6-base' 'qt6-multimedia' 'qt6-svg' 'qt6-webengine' 'hicolor-icon-theme')
-makedepends=('cmake')
+makedepends=('cmake' 'qt6-tools')
 # Always builds the latest working tree: no source tarball, no git snapshot.
 # `source` stays empty on purpose, and cmake points straight at the live
 # checkout (parent of this directory), so uncommitted edits are included.

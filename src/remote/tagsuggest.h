@@ -29,11 +29,16 @@ public:
                  const QString &prefix);
     void cancel();
     // Local archive index: its matches emit instantly on every keystroke
-    // (offline completion from your own vocabulary), then the remote
-    // fetch overwrites when it lands. Not owned.
+    // (offline completion from your own vocabulary); the remote fetch
+    // MERGES into them when it lands (never replaces). Not owned.
     void setLocalIndex(const Index *index);
 
     static QVector<TagSuggestion> parse(BooruEngine engine, const QByteArray &body);
+    // Merge policy for one prefix: local rows first (your vocabulary wins
+    // ties), then remote extras, case-insensitive dedup, capped.
+    static QVector<TagSuggestion> merge(const QVector<TagSuggestion> &local,
+                                        const QVector<TagSuggestion> &remote,
+                                        int cap = 12);
 
 signals:
     void finished(const QString &siteKey, const QString &prefix,

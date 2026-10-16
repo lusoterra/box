@@ -5,6 +5,7 @@
 #include "index.h"
 #include "remotesource.h"
 #include "settings.h"
+#include "sidecarrefresh.h"
 #include "faviconcache.h"
 #include "tagsuggest.h"
 
@@ -155,6 +156,9 @@ private slots:
     void refreshFavicons();  // drop cached icons and fetch them again
     void showPlusMenu();     // + button: home, specials, booru picker
     void updateDownloadSidecars(); // refresh every downloaded sidecar
+    // Bulk refresh worker for an explicit site scope (progress + rescan).
+    void runSidecarJobs(const QString &dest, const QSet<QString> &scope,
+                        QList<SidecarRefresh::Job> jobs);
     void applyBooruCreds();  // classifier + notes fetchers follow the registry
     void loadNextPage();
     void onViewerPastEnd();
@@ -168,6 +172,7 @@ private slots:
     void maybeDeleteUnfavFile(const Post &post); // unfav-deletes-file option
     void importLosnBackup();
     void openStrayDialog();
+    void setAsMascot(const Post &post); // home mascot from a grid file
     void importStrayFiles(const QStringList &paths);
     void editStrayTags(const Post &post);
     void refreshPost(const Post &post);
@@ -304,6 +309,11 @@ private:
     // Regeneration attempts this session (site#id): favourited strays
     // with a source URL re-download once, then never nag again.
     QSet<QString> m_regenTried;
+    // Explicit-unfavourite vetoes (site#pid): an in-flight or future
+    // download finishing must not re-favourite the row. Cleared by an
+    // explicit favourite or an explicit download request for the post.
+    // Session-only: a fresh launch restores the automatic coupling.
+    QSet<QString> m_unfavVeto;
     // Coalesced settings.ini flush (tab switches come in bursts; the
     // registry serialization is the slowest part of a switch).
     QTimer *m_saveTimer = nullptr;
@@ -335,6 +345,7 @@ private:
         QVector<Post> posts;           // raw accumulated results
         QString error;                 // first error text (if any)
         QString probe;                 // its raw diagnostics section
+        bool transientError = false;   // any completion looked retryable
     };
     QHash<QString, PendingSite> m_pendingSites;
     // Fetched classify verdicts, applied per host group so buckets a host
@@ -349,6 +360,7 @@ private:
     QTimer *m_partialTimer = nullptr; // throttles waterfall sidebar refreshes
     int m_pendingSearches = 0;
     bool m_appendResults = false;
+    bool m_searchRetried = false; // one automatic retry per search at most
     bool m_loadingPage = false;
     qint64 m_lastPageLoadMs = 0;
     bool m_advanceOnLoad = false; // viewer asked past the end: go there after load

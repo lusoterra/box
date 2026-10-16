@@ -5,12 +5,21 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonValue>
+#include <QSet>
+
+#include <cmath>
 
 namespace {
 
 qint64 toInt(const QJsonValue &v, qint64 def = 0) {
-    if (v.isDouble())
-        return static_cast<qint64>(v.toDouble());
+    if (v.isDouble()) {
+        // Clamp: out-of-range double->integer casts are UB (mirrors
+        // BooruEngineOps::jsonInt).
+        const double d = v.toDouble();
+        if (!std::isfinite(d) || d > 9.0e18 || d < -9.0e18)
+            return def;
+        return static_cast<qint64>(d);
+    }
     if (v.isString()) {
         bool ok = false;
         qint64 n = v.toString().trimmed().toLongLong(&ok);
@@ -158,10 +167,17 @@ bool MetaParser::parseGalleryDlFlat(const QJsonObject &raw, Post &post) {
     // Some flat files also carry a combined "tags" string; merge it into general.
     const QString combined = raw.value(QStringLiteral("tags")).toString().trimmed();
     if (!combined.isEmpty()) {
+        // Set membership, not re-split per token (quadratic hang on blobs
+        // with tens of thousands of tags).
+        QSet<QString> seen =
+            QSet<QString>(splitTags(post.tagsGeneral).begin(),
+                         splitTags(post.tagsGeneral).end());
         QString gen = post.tagsGeneral;
         for (const QString &t : splitTags(combined)) {
-            if (!gen.split(QChar::Space, Qt::SkipEmptyParts).contains(t))
+            if (!seen.contains(t)) {
+                seen.insert(t);
                 gen += u' ' + t;
+            }
         }
         post.tagsGeneral = gen.trimmed();
         post.tags = (post.tagsArtist + u' ' + post.tagsCharacter + u' ' + post.tagsCopyright +
@@ -220,7 +236,7 @@ bool MetaParser::parseDanbooruNative(const QJsonObject &raw, Post &post) {
 
 bool MetaParser::parseSzuruNative(const QJsonObject &raw, Post &post) {
     // Same bucket mapping as the live Szurubooru objects (see remotesource).
-    QStringList artist, character, copyright, general, meta;
+    SzuruSplit split;
     for (const QJsonValue &tv : raw.value(QStringLiteral("tags")).toArray()) {
         if (!tv.isObject())
             continue;
@@ -232,20 +248,13 @@ bool MetaParser::parseSzuruNative(const QJsonObject &raw, Post &post) {
                 break;
             }
         }
-        if (name.isEmpty() || !tagTokenOk(name.trimmed()))
+        // Trimmed + hygiene-gated like every other shape: untrimmed names
+        // split tag matching downstream (" x" never equals "x").
+        name = name.trimmed();
+        if (name.isEmpty() || !tagTokenOk(name))
             continue;
-        const QString cat = t.value(QStringLiteral("category")).toString().toLower();
-        if (cat == QStringLiteral("artist"))
-            artist << name;
-        else if (cat == QStringLiteral("character"))
-            character << name;
-        else if (cat == QStringLiteral("copyright") || cat == QStringLiteral("series") ||
-                 cat == QStringLiteral("studio"))
-            copyright << name;
-        else if (cat == QStringLiteral("meta"))
-            meta << name;
-        else
-            general << name;
+        szuruPlace(split, name,
+                   t.value(QStringLiteral("category")).toString().toLower());
     }
     QJsonObject rated = raw;
     const QString safety = raw.value(QStringLiteral("safety")).toString().toLower();
@@ -258,7 +267,14 @@ bool MetaParser::parseSzuruNative(const QJsonObject &raw, Post &post) {
                   : (safety == QStringLiteral("sensitive") ? QStringLiteral("sensitive")
                                                           : QStringLiteral("general"));
     applyRatingAndTags(post, rated.value(QStringLiteral("rating")).toString(),
-                       artist, character, copyright, general, meta);
+                       split.artist, split.character, split.copyright,
+                       split.general, split.meta);
+    // Native custom categories ride along: searchable via tags, shown as
+    // their own groups, never folded or classified away.
+    post.customTags = split.custom;
+    for (auto it = split.custom.begin(); it != split.custom.end(); ++it)
+        post.tags += u' ' + it.value().join(u' ');
+    post.tags = post.tags.simplified();
     post.width = static_cast<int>(toInt(raw.value(QStringLiteral("canvasWidth"))));
     if (!post.width)
         post.width = static_cast<int>(toInt(raw.value(QStringLiteral("width"))));
@@ -351,7 +367,8 @@ FreshMeta freshFrom(const QJsonObject &o, const QString &siteKey) {
                     break;
                 }
             }
-            if (name.isEmpty())
+            name = name.trimmed();
+            if (name.isEmpty() || !tagTokenOk(name))
                 continue;
             const QString cat = t.value(QStringLiteral("category")).toString().toLower();
             if (cat == QStringLiteral("artist"))
@@ -388,6 +405,9 @@ FreshMeta freshFrom(const QJsonObject &o, const QString &siteKey) {
 bool writeRefreshedSidecar(const QString &sidecarPath, const QJsonObject &fresh,
                            const QString &siteKey) {
     QFile f(sidecarPath);
+    static constexpr qint64 kMaxSidecar = 8LL * 1024 * 1024;
+    if (f.size() > kMaxSidecar)
+        return false;
     if (!f.open(QIODevice::ReadOnly))
         return false;
     QJsonParseError err;

@@ -28,8 +28,19 @@ BooruEngine engineForKey(const QString &key); // unknown -> Danbooru
 QString engineLabel(BooruEngine engine);      // UI combo text
 // Rewrite rating filters to the engine's native syntax ("safe" has no
 // universal spelling: Gelbooru wants rating:general, Szurubooru wants
-// safety:safe/unsafe). Anything else passes through untouched.
+// safety:safe/unsafe). Single-letter shorthands (rating:g/s/q/e) expand
+// to full words first. Anything else passes through untouched.
 QStringList translateSearchTags(const QStringList &tags, BooruEngine engine);
+// Native sort metatag for one UI sort mode ("added" and unknown modes
+// have no server equivalent: empty). Only verified spellings are mapped
+// (Danbooru order:*, Gelbooru sort:*:*, Moebooru order:id); anything else
+// stays client-side via sortPosts. Explicit user sort:/order: tokens
+// always win: callers skip this when the query already has one.
+QString sortSearchTag(const QString &sort, BooruEngine engine);
+// True when a failed search is worth one automatic retry (rate limits,
+// timeouts, 5xx — never auth/walls/bad filters). A fresh search that
+// lands nothing but these gets a delayed retry instead of a dead grid.
+bool isTransientSearchError(int httpStatus, const QString &error);
 // Stable slug for a new custom booru ("My Booru" -> "mybooru", deduped).
 QString uniqueBooruKey(const QString &label, const QSet<QString> &taken);
 // Per-engine API-object -> Post mapping (pure, unit-tested).

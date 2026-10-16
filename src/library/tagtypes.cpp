@@ -416,7 +416,23 @@ void TagTypeFetcher::onReply(Flight *flight) {
     m_flights.removeAll(flight);
     QNetworkReply *reply = flight->reply;
     const QNetworkReply::NetworkError err = reply->error();
-    const QByteArray body = (err == QNetworkReply::NoError) ? reply->readAll() : QByteArray();
+    // Cap: tag API answers are KBs. A rogue endpoint streaming GBs must
+    // not OOM us (RemoteSource/PostRefresher enforce the same 32 MB).
+    static constexpr qint64 kMaxBody = 32LL * 1024 * 1024;
+    QByteArray body;
+    bool oversize = false;
+    if (err == QNetworkReply::NoError) {
+        const QVariant declared =
+            reply->header(QNetworkRequest::ContentLengthHeader);
+        if (declared.isValid() && declared.toLongLong() > kMaxBody)
+            oversize = true;
+        else
+            body = reply->readAll();
+        if (!oversize && body.size() > kMaxBody) {
+            body.clear();
+            oversize = true;
+        }
+    }
     const int http = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
     reply->deleteLater();
 
@@ -461,7 +477,7 @@ void TagTypeFetcher::onReply(Flight *flight) {
     }
 
     int type = TagTypes::kTransientFailure;
-    if (err == QNetworkReply::NoError)
+    if (err == QNetworkReply::NoError && !oversize)
         type = parseFor(src, body, flight->tag);
 
     if (type == TagTypes::kUnknownTag && flight->stage + 1 < m_order.size()) {

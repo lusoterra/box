@@ -2,6 +2,7 @@
 
 #include <QString>
 #include <QJsonObject>
+#include <QMap>
 #include <QSet>
 
 // Post record. Mirrors the fields the Python prototypes exposed
@@ -21,6 +22,11 @@ struct Post {
     QString tagsCopyright;
     QString tagsMeta;
     QString tagsGeneral;
+    // Native categories outside the five buckets (Szurubooru instances
+    // define their own: meme, series extras, ...). Category -> tags in
+    // arrival order. Searchable via `tags`, shown as their own groups in
+    // the viewer; never folded, never classified away.
+    QMap<QString, QStringList> customTags;
     // Tags that arrived without a category (LOSN tagType "none", Gelbooru
     // native blob). Initially bucketed as general; TagTypes classification
     // may move them later. Feeds Index::collectUntyped().
@@ -51,7 +57,32 @@ inline bool isVideoExt(const QString &ext) {
     return ext == QStringLiteral("mp4") || ext == QStringLiteral("webm");
 }
 
-// AI-generated marker: token-exact (case-insensitive, '-' == '_') across
+// Szurubooru-style native category split. Instances define their own
+// taxonomy: the anime-family buckets fold into the fixed five, anything
+// else (meme, oc, ...) stays native in `custom` so it survives instead of
+// dissolving into general. Names should already be trimmed + hygiene
+// checked by the caller.
+struct SzuruSplit {
+    QStringList artist, character, copyright, general, meta;
+    QMap<QString, QStringList> custom; // native category -> tags
+};
+
+inline void szuruPlace(SzuruSplit &s, const QString &name, const QString &cat) {
+    if (cat == QStringLiteral("artist"))
+        s.artist << name;
+    else if (cat == QStringLiteral("character"))
+        s.character << name;
+    else if (cat == QStringLiteral("copyright") ||
+             cat == QStringLiteral("series") || cat == QStringLiteral("studio"))
+        s.copyright << name;
+    else if (cat == QStringLiteral("meta"))
+        s.meta << name;
+    else if (cat == QStringLiteral("general") ||
+             cat == QStringLiteral("default") || cat.isEmpty())
+        s.general << name;
+    else
+        s.custom[cat] << name;
+}
 // every tag blob. Drives the grid "AI" chip; nothing else keys off it.
 inline bool isAiPost(const Post &post) {
     static const QSet<QString> ai = {QStringLiteral("ai_generated"),

@@ -87,7 +87,7 @@ Post fromSzuru(const QJsonObject &o, const QString &baseUrl) {
         p.rating = QStringLiteral("sensitive");
     else
         p.rating = QStringLiteral("general");
-    QStringList artist, character, copyright, general, meta;
+    SzuruSplit split;
     for (const QJsonValue &tv : o.value(QStringLiteral("tags")).toArray()) {
         if (!tv.isObject())
             continue;
@@ -99,26 +99,17 @@ Post fromSzuru(const QJsonObject &o, const QString &baseUrl) {
                 break;
             }
         }
-        if (name.isEmpty())
+        name = name.trimmed();
+        if (name.isEmpty() || !tagTokenOk(name))
             continue;
-        const QString cat = t.value(QStringLiteral("category")).toString().toLower();
-        if (cat == QStringLiteral("artist"))
-            artist << name;
-        else if (cat == QStringLiteral("character"))
-            character << name;
-        else if (cat == QStringLiteral("copyright") || cat == QStringLiteral("series") ||
-                 cat == QStringLiteral("studio"))
-            copyright << name;
-        else if (cat == QStringLiteral("meta"))
-            meta << name;
-        else
-            general << name;
+        szuruPlace(split, name,
+                   t.value(QStringLiteral("category")).toString().toLower());
     }
-    p.tagsArtist = artist.join(u' ');
-    p.tagsCharacter = character.join(u' ');
-    p.tagsCopyright = copyright.join(u' ');
-    p.tagsGeneral = general.join(u' ');
-    p.tagsMeta = meta.join(u' ');
+    p.tagsArtist = split.artist.join(u' ');
+    p.tagsCharacter = split.character.join(u' ');
+    p.tagsCopyright = split.copyright.join(u' ');
+    p.tagsGeneral = split.general.join(u' ');
+    p.tagsMeta = split.meta.join(u' ');
     p.width = qMax(0, BooruEngineOps::jsonInt32(o.value(QStringLiteral("canvasWidth"))));
     if (!p.width)
         p.width = qMax(0, BooruEngineOps::jsonInt32(o.value(QStringLiteral("width"))));
@@ -145,6 +136,11 @@ Post fromSzuru(const QJsonObject &o, const QString &baseUrl) {
     p.ext = BooruEngineOps::extOf(p.fileUrl);
     p.postUrl = postPageUrl(QStringLiteral("szurubooru"), baseUrl, p.id);
     BooruEngineOps::finishRemote(p, QStringLiteral("Szurubooru"), o, BooruEngine::Szurubooru);
+    // Native custom categories survive alongside the fixed buckets.
+    p.customTags = split.custom;
+    for (auto it = split.custom.begin(); it != split.custom.end(); ++it)
+        p.tags += u' ' + it.value().join(u' ');
+    p.tags = p.tags.simplified();
     return p;
 }
 } // namespace RemotePosts

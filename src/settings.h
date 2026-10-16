@@ -96,6 +96,10 @@ struct AppSettings {
     QString accent = QStringLiteral("#3a7ec2");
     QString stylesheet; // optional custom .qss on top, empty = none
     QString mascotPath; // optional home-page mascot image, empty = none
+    double mascotOpacity = 0.9; // mascot translucency (0.1-1.0)
+    double mascotScale = 0.45;   // height fraction (0.1-0.65), 1.0 = max
+                                 // height, 2.0 = full width
+    int mascotMargin = 0;        // mascot right/bottom padding in px
     // Grid
     int aspectNum = 1;
     int aspectDen = 1;
@@ -215,6 +219,9 @@ inline bool operator==(const AppSettings &a, const AppSettings &b) {
            a.explicitTags == b.explicitTags && a.themeMode == b.themeMode &&
            a.accent == b.accent && a.stylesheet == b.stylesheet &&
            a.mascotPath == b.mascotPath &&
+           qFuzzyCompare(a.mascotOpacity + 1.0, b.mascotOpacity + 1.0) &&
+           qFuzzyCompare(a.mascotScale + 1.0, b.mascotScale + 1.0) &&
+           a.mascotMargin == b.mascotMargin &&
            a.aspectNum == b.aspectNum && a.aspectDen == b.aspectDen &&
            a.gridBoxW == b.gridBoxW && a.gridScrollRows == b.gridScrollRows &&
            a.videoMuted == b.videoMuted &&
