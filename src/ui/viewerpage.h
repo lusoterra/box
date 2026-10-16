@@ -95,6 +95,9 @@ class VideoView : public QGraphicsView {
 public:
     explicit VideoView(QWidget *parent = nullptr);
     QGraphicsVideoItem *videoItem() const { return m_item; }
+    // Scene size from the player metadata (preferred) or the video
+    // item's nativeSizeChanged (backup); idempotent, refits when fitted.
+    void setNativeSize(const QSizeF &size);
     void fit();
     void zoom100();
 
@@ -117,7 +120,7 @@ class VideoPane : public QWidget {
 public:
     explicit VideoPane(QWidget *parent = nullptr);
     void setFile(const QString &path);
-    void setUrl(const QUrl &url);
+    void setUrl(const QUrl &url, const Post &post = {});
     void stop();
     void setDefaults(bool muted, bool loop, int volume);
     // Zoom controls for the toolbar (route to the live video view).

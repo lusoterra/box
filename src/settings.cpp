@@ -9,7 +9,7 @@
 
 QString settingsFilePath() {
     return QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) +
-           QStringLiteral("/booru-explorer/settings.ini");
+           QStringLiteral("/box/settings.ini");
 }
 
 QString appCacheDir() {

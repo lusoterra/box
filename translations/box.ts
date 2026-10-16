@@ -49,7 +49,7 @@
     </message>
     <message>
         <location filename="../src/downloadmanager.cpp" line="101"/>
-        <source>booru-explorer/0.1 (batch download)</source>
+        <source>box/0.1 (batch download)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1623,7 +1623,7 @@ They rebuild on the next scan.</source>
     <name>WelcomePage</name>
     <message>
         <location filename="../src/welcomepage.cpp" line="34"/>
-        <source>booru-explorer</source>
+        <source>box</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

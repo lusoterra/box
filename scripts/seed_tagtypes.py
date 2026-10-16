@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a pre-seeded tag -> category map for booru-explorer.
+"""Build a pre-seeded tag -> category map for box.
 
 Pulls the most-used tags from the Danbooru tag index (ordered by post
 count, same category numbering the app already uses: 0=general 1=artist
@@ -26,7 +26,7 @@ import urllib.parse
 import urllib.request
 
 API = "https://danbooru.donmai.us/tags.json"
-UA = "booru-explorer-seed/0.1 (one-time tag seed builder)"
+UA = "box-seed/0.1 (one-time tag seed builder)"
 PER_PAGE = 200  # API max per index page
 
 

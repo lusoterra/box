@@ -1,12 +1,14 @@
 [Desktop Entry]
 Type=Application
 Version=1.0
-Name=booru-explorer
+Name=box
 GenericName=Booru Client
 Comment=Booru client for local archives and online boorus
-Exec=booru-explorer %F
+Exec=box %F
+# Unique icon key: stock themes already ship a generic "box" action icon
+# that would shadow ours in lookup.
 Icon=booru-explorer
 Terminal=false
 Categories=Graphics;Viewer;
 MimeType=inode/directory;
-StartupWMClass=booru-explorer
+StartupWMClass=box

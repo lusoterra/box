@@ -28,7 +28,7 @@ QNetworkRequest timedRequest(const QUrl &url) {
     req.setTransferTimeout(15000);
     RemoteSource::applyCookies(req); // clearance header, if any
     req.setHeader(QNetworkRequest::UserAgentHeader,
-                  QStringLiteral("booru-explorer/0.1 (post meta)"));
+                  QStringLiteral("box/0.1 (post meta)"));
     req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                      QNetworkRequest::NoLessSafeRedirectPolicy);
     return req;

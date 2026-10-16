@@ -318,24 +318,34 @@ VideoView::VideoView(QWidget *parent) : QGraphicsView(parent) {
     setFrameShape(QFrame::NoFrame);
     m_item = new QGraphicsVideoItem();
     m_scene->addItem(m_item);
-    m_scene->setSceneRect(m_item->boundingRect());
     // First real frame sizes the scene; later size changes (stream
     // renegotiation) re-apply the current fit/zoom instead of jumping.
+    // (QGraphicsVideoItem::nativeSizeChanged proves unreliable for this,
+    // so the pane also pushes QMediaMetaData::Resolution via setNativeSize;
+    // both funnels are idempotent.)
     connect(m_item, &QGraphicsVideoItem::nativeSizeChanged, this,
-            [this](const QSizeF &size) {
-                if (size.isEmpty())
-                    return;
-                m_scene->setSceneRect(QRectF(QPointF(), size));
-                if (m_fitted)
-                    fit();
-            });
+            [this](const QSizeF &size) { setNativeSize(size); });
+}
+
+void VideoView::setNativeSize(const QSizeF &size) {
+    if (size.isEmpty())
+        return;
+    m_scene->setSceneRect(QRectF(QPointF(), size));
+    if (m_fitted)
+        fit();
 }
 
 void VideoView::fit() {
     resetTransform();
-    // Empty scene (no frame yet): nothing to fit, stay fitted for later.
-    if (!m_scene->sceneRect().isEmpty())
-        fitInView(m_scene->sceneRect(), Qt::KeepAspectRatio);
+    // Empty scene (no size yet): fall back to the item's own rect when
+    // it has one, so fit degrades to a no-op only while truly sizeless.
+    QRectF r = m_scene->sceneRect();
+    if (r.isEmpty() && m_item && !m_item->boundingRect().isEmpty()) {
+        r = m_item->boundingRect();
+        m_scene->setSceneRect(r);
+    }
+    if (!r.isEmpty())
+        fitInView(r, Qt::KeepAspectRatio);
     m_zoom = transform().m11();
     if (m_zoom <= 0)
         m_zoom = 1.0;
@@ -589,21 +599,21 @@ void VideoPane::setFile(const QString &path) {
     setUrl(QUrl::fromLocalFile(path));
 }
 
-void VideoPane::setUrl(const QUrl &url) {
+void VideoPane::setUrl(const QUrl &url, const Post &post) {
     stop(); // drops any previous temp file / flight first
     m_audio->setMuted(m_muteDefault); // muted by default, every video
     // Fingerprint-walled hosts: QMediaPlayer's plain stack gets wall
     // pages, so buffer through the browser profile, then play local.
-    const RemotePosts::SiteQuirk *wq =
-        !url.isLocalFile() && m_webBackend
-            ? RemotePosts::quirkForHost(url.host().toLower())
-            : nullptr;
-    if (wq && wq->powWall) {
+    // Site-aware (entry base host, not the file URL: media CDNs live
+    // next door) so CDN-hosted videos route too.
+    const bool viaBrowser = !url.isLocalFile() && m_webBackend &&
+                            RemotePosts::needsWebDownload(post);
+    if (viaBrowser) {
         const QString ext = QFileInfo(url.path()).suffix().toLower();
         const QString dir =
             QStandardPaths::writableLocation(
                 QStandardPaths::CacheLocation) +
-            QStringLiteral("/booru-explorer/video-tmp");
+            QStringLiteral("/box/video-tmp");
         QDir().mkpath(dir);
         m_tmpPath =
             dir + u'/' +
@@ -1130,7 +1140,7 @@ void ViewerPage::showCurrent() {
             if (p.fileUrl.isEmpty())
                 showNote(tr("No file URL (login may be required)"));
             else
-                m_video->setUrl(QUrl(p.fileUrl));
+                m_video->setUrl(QUrl(p.fileUrl), p);
         } else {
             m_video->setFile(p.absFile);
         }

@@ -58,7 +58,7 @@ QString ImageCache::targetPath(const QString &url) const {
     if (m_enabled && !m_baseDir.isEmpty())
         return m_baseDir + u'/' + name;
     QString tmp = QStandardPaths::writableLocation(QStandardPaths::TempLocation) +
-                  QStringLiteral("/booru-explorer");
+                  QStringLiteral("/box");
     QDir().mkpath(tmp);
     return tmp + u'/' + name;
 }
@@ -99,7 +99,7 @@ void ImageCache::request(const QString &url, const QString &referer) {
         req.setRawHeader("Referer", referer.toUtf8());
     RemoteSource::applyCookies(req); // clearance header, if any
     req.setHeader(QNetworkRequest::UserAgentHeader,
-                  QStringLiteral("booru-explorer/0.1 (image cache)"));
+                  QStringLiteral("box/0.1 (image cache)"));
     req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                      QNetworkRequest::NoLessSafeRedirectPolicy);
     QNetworkReply *reply = namForProxy(RemotePosts::proxyForUrl(url))->get(req);

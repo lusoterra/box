@@ -49,8 +49,8 @@
     </message>
     <message>
         <location filename="../src/downloadmanager.cpp" line="101" />
-        <source>booru-explorer/0.1 (batch download)</source>
-        <translation>booru-explorer/0.1 (batch download)</translation>
+        <source>box/0.1 (batch download)</source>
+        <translation>box/0.1 (batch download)</translation>
     </message>
     <message>
         <location filename="../src/downloadmanager.cpp" line="157" />
@@ -1672,8 +1672,8 @@ They rebuild on the next scan.</translation>
     <name>WelcomePage</name>
     <message>
         <location filename="../src/welcomepage.cpp" line="34" />
-        <source>booru-explorer</source>
-        <translation>booru-explorer</translation>
+        <source>box</source>
+        <translation>box</translation>
     </message>
     <message>
         <location filename="../src/welcomepage.cpp" line="46" />

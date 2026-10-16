@@ -107,6 +107,56 @@ private slots:
         RemoteSource::setConfiguredBoorus(RemoteSource::presetBoorus());
     }
 
+    void webDownloadRouting() {
+        // Walled entries route by base host, not file host: CDN media
+        // (cdn.*) rides the browser stack like same-host media does.
+        BooruSite atf;
+        atf.key = QStringLiteral("atf");
+        atf.label = QStringLiteral("ATF");
+        atf.baseUrl = QStringLiteral("https://booru.allthefallen.moe");
+        atf.engine = BooruEngine::Shimmie;
+        BooruSite gel;
+        gel.key = QStringLiteral("gelbooru");
+        gel.label = QStringLiteral("Gelbooru");
+        gel.baseUrl = QStringLiteral("https://gelbooru.com");
+        gel.engine = BooruEngine::Gelbooru;
+        RemoteSource::setConfiguredBoorus({atf, gel});
+        Post cdn;
+        cdn.isRemote = true;
+        cdn.siteKey = QStringLiteral("atf");
+        cdn.siteName = QStringLiteral("ATF");
+        cdn.fileUrl = QStringLiteral("https://cdn.allthefallen.moe/x.jpg");
+        QVERIFY(RemotePosts::needsWebDownload(cdn));
+        Post direct = cdn;
+        direct.fileUrl =
+            QStringLiteral("https://booru.allthefallen.moe/x.jpg");
+        QVERIFY(RemotePosts::needsWebDownload(direct));
+        // Label-only rows (favourites) resolve the same way.
+        Post labelled;
+        labelled.isRemote = true;
+        labelled.siteName = QStringLiteral("ATF");
+        labelled.fileUrl = QStringLiteral("https://cdn.allthefallen.moe/y.jpg");
+        QVERIFY(RemotePosts::needsWebDownload(labelled));
+        // Plain sites stay plain, even with CDN file hosts.
+        Post plain;
+        plain.isRemote = true;
+        plain.siteKey = QStringLiteral("gelbooru");
+        plain.fileUrl = QStringLiteral("https://img4.gelbooru.com/x.jpg");
+        QVERIFY(!RemotePosts::needsWebDownload(plain));
+        // Unknown sites fall back to the file host (old behavior).
+        Post stray;
+        stray.isRemote = true;
+        stray.siteName = QStringLiteral("Nope");
+        stray.fileUrl = QStringLiteral("https://booru.allthefallen.moe/z.jpg");
+        QVERIFY(RemotePosts::needsWebDownload(stray));
+        Post outer;
+        outer.isRemote = true;
+        outer.siteName = QStringLiteral("Nope");
+        outer.fileUrl = QStringLiteral("https://example.com/z.jpg");
+        QVERIFY(!RemotePosts::needsWebDownload(outer));
+        RemoteSource::setConfiguredBoorus(RemoteSource::presetBoorus());
+    }
+
     void engineKeysRoundTrip() {        for (BooruEngine e : {BooruEngine::Danbooru, BooruEngine::Gelbooru,
                               BooruEngine::Moebooru, BooruEngine::Szurubooru,
                               BooruEngine::Shimmie}) {

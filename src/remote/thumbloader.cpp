@@ -137,7 +137,7 @@ void ThumbTask::run() {
                 req.setRawHeader("Referer", m_referer.toUtf8());
             RemoteSource::applyCookies(req); // clearance header, if any
             req.setHeader(QNetworkRequest::UserAgentHeader,
-                          QStringLiteral("booru-explorer/0.1 (thumbnail)"));
+                          QStringLiteral("box/0.1 (thumbnail)"));
             req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                              QNetworkRequest::NoLessSafeRedirectPolicy);
             QNetworkReply *reply = nam.get(req);

@@ -184,7 +184,7 @@ QNetworkRequest timedRequest(const QUrl &url) {    QNetworkRequest req(url);
     // Cloudflare flags (measured: generic UA 200s, faked Chrome 403s).
     RemoteSource::applyCookies(req);
     req.setHeader(QNetworkRequest::UserAgentHeader,
-                  QStringLiteral("booru-explorer/0.1 (local booru browser)"));
+                  QStringLiteral("box/0.1 (local booru browser)"));
     req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                      QNetworkRequest::NoLessSafeRedirectPolicy);
     return req;
@@ -669,6 +669,25 @@ QMap<QString, QString> hostKeys() {
             add(*site);
     }
     return out;
+}
+
+bool needsWebDownload(const Post &post) {
+    const QString key = !post.siteKey.isEmpty() ? post.siteKey
+                                                : keyForLabel(post.siteName);
+    if (const BooruSite *site =
+            key.isEmpty() ? nullptr : RemoteSource::siteFor(key)) {
+        if (const SiteQuirk *q = quirkForHost(
+                QUrl(site->baseUrl).host().toLower())) {
+            if (q->powWall)
+                return true;
+        }
+    }
+    if (!post.fileUrl.isEmpty()) {
+        if (const SiteQuirk *q =
+                quirkForHost(QUrl(post.fileUrl).host().toLower()))
+            return q->powWall;
+    }
+    return false;
 }
 
 QString fsTagForPost(const Post &post) {

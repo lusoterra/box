@@ -320,6 +320,10 @@ private:
     ImageCache *m_imgCache = nullptr;
     DownloadManager *m_downloads = nullptr;
     class DownloadsDialog *m_dlDialog = nullptr;
+    // Download destinations written since their tab last scanned
+    // (canonical paths): landing on a dirty local tab rescans it, so new
+    // files show up without a manual F5. Cleared once consumed.
+    QSet<QString> m_dirtyRoots;
     FavDb m_favDb;
     PostRefresher *m_refresher = nullptr;
     // Last browse error with its raw request/response attached. The status

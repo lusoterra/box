@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(BooruExplorer VERSION 0.1.0 LANGUAGES CXX)
+project(Box VERSION 0.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -8,7 +8,7 @@ set(CMAKE_AUTORCC ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Widgets Concurrent Sql Multimedia MultimediaWidgets Network LinguistTools Test WebEngineWidgets WebEngineCore)
 
-add_executable(booru-explorer
+add_executable(box
     src/main.cpp
     src/library/metaparser.cpp
     src/library/scanner.cpp
@@ -53,26 +53,26 @@ add_executable(booru-explorer
     src/seed.qrc
 )
 
-target_include_directories(booru-explorer PRIVATE src src/engines src/remote src/library src/ui)
-target_link_libraries(booru-explorer PRIVATE Qt6::Widgets Qt6::Concurrent Qt6::Sql
+target_include_directories(box PRIVATE src src/engines src/remote src/library src/ui)
+target_link_libraries(box PRIVATE Qt6::Widgets Qt6::Concurrent Qt6::Sql
                                              Qt6::Multimedia Qt6::MultimediaWidgets
                                              Qt6::Network Qt6::WebEngineWidgets Qt6::WebEngineCore)
-target_compile_definitions(booru-explorer PRIVATE
-    BOORU_EXPLORER_VERSION="${PROJECT_VERSION}")
+target_compile_definitions(box PRIVATE
+    BOX_VERSION="${PROJECT_VERSION}")
 
 # i18n: UI strings are tr()-wrapped (English source for now).
 #   cmake --build build --target update_translations  # refresh .ts from sources
-# Translators copy translations/booru-explorer.ts to
-# translations/booru-explorer_<locale>.ts (e.g. _de, _ja) and fill in the
+# Translators copy translations/box.ts to
+# translations/box_<locale>.ts (e.g. _de, _ja) and fill in the
 # translations; the glob below picks new files up on reconfigure, and the
-# matching :/i18n/booru-explorer_<locale>.qm embeds + loads automatically.
+# matching :/i18n/box_<locale>.qm embeds + loads automatically.
 file(GLOB APP_TS_FILES CONFIGURE_DEPENDS
-     ${CMAKE_CURRENT_SOURCE_DIR}/translations/booru-explorer*.ts)
+     ${CMAKE_CURRENT_SOURCE_DIR}/translations/box*.ts)
 if(NOT APP_TS_FILES)
-    file(TOUCH ${CMAKE_CURRENT_SOURCE_DIR}/translations/booru-explorer.ts)
-    set(APP_TS_FILES ${CMAKE_CURRENT_SOURCE_DIR}/translations/booru-explorer.ts)
+    file(TOUCH ${CMAKE_CURRENT_SOURCE_DIR}/translations/box.ts)
+    set(APP_TS_FILES ${CMAKE_CURRENT_SOURCE_DIR}/translations/box.ts)
 endif()
-qt_add_translations(booru-explorer
+qt_add_translations(box
     TS_FILES ${APP_TS_FILES}
     QM_FILES_OUTPUT_VARIABLE APP_QM_FILES
 )
@@ -83,7 +83,7 @@ foreach(qm IN LISTS APP_QM_FILES)
     get_filename_component(qm_name "${qm}" NAME)
     set_source_files_properties("${qm}" PROPERTIES QT_RESOURCE_ALIAS "${qm_name}")
 endforeach()
-qt_add_resources(booru-explorer "app_translations"
+qt_add_resources(box "app_translations"
     PREFIX "/i18n"
     FILES ${APP_QM_FILES}
 )
@@ -91,8 +91,8 @@ qt_add_resources(booru-explorer "app_translations"
 include(GNUInstallDirs)
 include(CTest)
 add_subdirectory(tests)
-install(TARGETS booru-explorer RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-install(FILES packaging/booru-explorer.desktop
+install(TARGETS box RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(FILES packaging/box.desktop
         DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
 install(FILES icon.png
         DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/512x512/apps

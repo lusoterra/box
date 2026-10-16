@@ -1189,7 +1189,7 @@ int detectEngineFor(const QString &base) {
         QNetworkRequest req{QUrl(url)};
         req.setTransferTimeout(10000);
         req.setHeader(QNetworkRequest::UserAgentHeader,
-                      QStringLiteral("booru-explorer/0.1 (engine detect)"));
+                      QStringLiteral("box/0.1 (engine detect)"));
         req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                          QNetworkRequest::NoLessSafeRedirectPolicy);
         QNetworkReply *reply = nam.get(req);

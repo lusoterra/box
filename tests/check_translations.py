@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Translation completeness check, run by ctest.
 
-For every booru-explorer_<locale>.ts: each message must have a non-empty
+For every box_<locale>.ts: each message must have a non-empty
 translation, printf-style placeholders (%1..%9) and & accelerators must
 match the source, and the file must declare its language.
 Usage: check_translations.py <translations-dir>
@@ -19,7 +19,7 @@ MNEMONIC = re.compile(r"&(?!\s)")
 
 def failures(translations_dir: Path) -> list[str]:
     problems: list[str] = []
-    files = sorted(translations_dir.glob("booru-explorer_*.ts"))
+    files = sorted(translations_dir.glob("box_*.ts"))
     if not files:
         return ["no locale .ts files found"]
     for path in files:

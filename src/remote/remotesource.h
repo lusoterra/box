@@ -156,6 +156,12 @@ QString foldedBucketFor(const Post &post, const QString &bucket);
 // requests carry harvested clearance in the Cookie header instead.
 QString captureUserAgent();
 void setCaptureUserAgent(const QString &ua);
+// True when this post's media must ride the browser stack
+// (fingerprint-walled hosts fail plain requests with wall pages).
+// Resolved through the entry behind the post: media CDNs live next
+// door to the walled host, so matching the file URL alone misses them.
+// Unknown sites fall back to the file host (same as before).
+bool needsWebDownload(const Post &post);
 // Proxy for one request URL: the matching configured entry's proxy
 // spec (empty = direct). Host match mirrors applyCookies (subdomains
 // included).

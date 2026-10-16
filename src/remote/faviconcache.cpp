@@ -153,7 +153,7 @@ void FaviconCache::fetchNext() {
     req.setTransferTimeout(15000);
     RemoteSource::applyCookies(req); // clearance header, if any
     req.setHeader(QNetworkRequest::UserAgentHeader,
-                  QStringLiteral("booru-explorer/0.1 (local booru browser)"));
+                  QStringLiteral("box/0.1 (local booru browser)"));
     req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                      QNetworkRequest::NoLessSafeRedirectPolicy);
     m_reply = m_nam->get(req);
@@ -195,7 +195,7 @@ void FaviconCache::finishFetch() {
             req.setTransferTimeout(15000);
             RemoteSource::applyCookies(req); // clearance header, if any
             req.setHeader(QNetworkRequest::UserAgentHeader,
-                          QStringLiteral("booru-explorer/0.1 (local booru browser)"));
+                          QStringLiteral("box/0.1 (local booru browser)"));
             m_reply = m_nam->get(req);
             connect(m_reply, &QNetworkReply::finished, this,
                     &FaviconCache::finishFetch);
@@ -210,7 +210,7 @@ void FaviconCache::finishFetch() {
         req.setTransferTimeout(15000);
         RemoteSource::applyCookies(req); // clearance header, if any
         req.setHeader(QNetworkRequest::UserAgentHeader,
-                      QStringLiteral("booru-explorer/0.1 (local booru browser)"));
+                      QStringLiteral("box/0.1 (local booru browser)"));
         m_reply = m_nam->get(req);
         connect(m_reply, &QNetworkReply::finished, this,
                 &FaviconCache::finishFetch);

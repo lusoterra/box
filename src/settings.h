@@ -1,6 +1,6 @@
 #pragma once
 
-// Persistent options (~/.config/booru-explorer/settings.ini).
+// Persistent options (~/.config/box/settings.ini).
 // Single source of truth: defaults live in AppSettings, the preferences
 // dialog edits a copy, MainWindow applies + saves. Single set of
 // settings + one data dir (LoliSnatcher-style).
@@ -124,7 +124,7 @@ struct AppSettings {
 // Cache bookkeeping (cache.db) lives in the platform cache dir instead.
 inline QString defaultDataDir() {
     return QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) +
-           QStringLiteral("/booru-explorer");
+           QStringLiteral("/box");
 }
 
 inline QString appDataDir() { return defaultDataDir(); }
@@ -234,7 +234,7 @@ inline bool operator!=(const AppSettings &a, const AppSettings &b) {
     return !(a == b);
 }
 
-// Single config file (~/.config/booru-explorer/settings.ini).
+// Single config file (~/.config/box/settings.ini).
 QString settingsFilePath();
 QString appCacheDir(); // QStandardPaths::CacheLocation (includes org/app names)
 AppSettings loadSettings();

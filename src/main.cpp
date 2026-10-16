@@ -32,7 +32,7 @@ void applyStartupTheme(QApplication &app, const AppSettings &s,
 int cliError(const QString &msg) {
     fputs(qPrintable(msg + u'\n'), stderr);
     if (QGuiApplication::platformName() != QStringLiteral("offscreen"))
-        QMessageBox::warning(nullptr, QStringLiteral("booru-explorer"), msg);
+        QMessageBox::warning(nullptr, QStringLiteral("box"), msg);
     return 1;
 }
 } // namespace
@@ -52,13 +52,13 @@ int main(int argc, char *argv[]) {
         qputenv("QTWEBENGINE_CHROMIUM_FLAGS", flags.trimmed());
     }
     QApplication app(argc, argv);
-    app.setApplicationName(QStringLiteral("booru-explorer"));
+    app.setApplicationName(QStringLiteral("box"));
     // No organization name: with org == app the platform cache dir nests
-    // twice (~/.cache/booru-explorer/booru-explorer). Nothing depends on
+    // twice (~/.cache/box/box). Nothing depends on
     // the org name (all paths are explicit).
     app.setWindowIcon(QIcon(QStringLiteral(":/icons/app.png")));
 
-    // i18n: translators add translations/booru-explorer_<locale>.ts and
+    // i18n: translators add translations/box_<locale>.ts and
     // the matching .qm embeds + loads automatically from :/i18n.
     // Preferences → General can pin a locale; otherwise the system wins.
     static QTranslator appTranslator;
@@ -70,7 +70,7 @@ int main(int argc, char *argv[]) {
             << QLocale::system().bcp47Name().split(u'-').first();
     for (const QString &loc : locales) {
         if (!loc.isEmpty() && loc != QStringLiteral("en") &&
-            appTranslator.load(QStringLiteral("booru-explorer_") + loc,
+            appTranslator.load(QStringLiteral("box_") + loc,
                                QStringLiteral(":/i18n"))) {
             app.installTranslator(&appTranslator);
             break;
@@ -113,7 +113,7 @@ int main(int argc, char *argv[]) {
     static QLockFile appLock(appDataDir() + QStringLiteral("/session.lock"));
     if (!appLock.tryLock()) {
         return cliError(QCoreApplication::translate(
-            "CommandLine", "booru-explorer is already running."));
+            "CommandLine", "box is already running."));
     }
     // Theme before the window exists so first paint is already correct.
     const AppSettings settings = loadSettings();

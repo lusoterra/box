@@ -500,22 +500,26 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     if (!rootExplicit && !m_settings.lastRoot.isEmpty() &&
         QDir(m_settings.lastRoot).exists())
         m_root = m_settings.lastRoot;
-    setWindowTitle(QStringLiteral("booru-explorer"));
+    setWindowTitle(QStringLiteral("box"));
     resize(1280, 800);
     if (!m_settings.geometry.isEmpty())
         restoreGeometry(m_settings.geometry);
 
     applyThemeFromSettings();
-    // One-time layout moves: the cache tree used to nest twice
+    // One-time layout moves: the pre-rename cache tree nested twice
     // (~/.cache/booru-explorer/booru-explorer) and cache.db lived in the
     // data dir. Carry both over when the new spots are still empty.
     {
         const QString base = appCacheDir();
+        const QString oldBase =
+            QStandardPaths::writableLocation(QStandardPaths::CacheLocation) +
+            QStringLiteral("/booru-explorer");
         for (const QString &sub :
              {QStringLiteral("thumbs"), QStringLiteral("roots"),
               QStringLiteral("favicons")}) {
             const QString dst = base + u'/' + sub;
-            const QString src = base + QStringLiteral("/booru-explorer/") + sub;
+            const QString src =
+                oldBase + QStringLiteral("/booru-explorer/") + sub;
             if (!QDir(dst).exists() && QDir(src).exists()) {
                 QDir().mkpath(base);
                 QDir().rename(src, dst);
@@ -571,7 +575,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
                         &MainWindow::loadStylesheet);
 
     auto *helpMenu = menuBar()->addMenu(tr("&Help"));
-    helpMenu->addAction(tr("&About booru-explorer"), this, &MainWindow::showAbout);
+    helpMenu->addAction(tr("&About box"), this, &MainWindow::showAbout);
     // Keyboard: arrows navigate the grid natively, Enter opens.
     // "/" focuses search, Esc clears filters (or leaves the viewer).
     auto *focusSearch = new QShortcut(QKeySequence(QStringLiteral("/")), this);
@@ -890,6 +894,13 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
                 // open favourites tab immediately, not after a manual ↺.
                 if (touched)
                     refreshFavTabs();
+                // Local tabs showing this destination are stale now: flag
+                // it so landing on one rescans instead of needing F5.
+                if (!s.downloaded.isEmpty()) {
+                    const QString canon = QDir(dest).canonicalPath();
+                    m_dirtyRoots.insert(
+                        canon.isEmpty() ? QDir(dest).absolutePath() : canon);
+                }
             });
     m_favDb.open(effectiveDataDir(m_settings)); // best effort: store.db lives here
     seedTagTypesOnce(effectiveTagTypesDbPath(m_settings));
@@ -1480,7 +1491,7 @@ void MainWindow::finishActivateTab(int tabIdx) {
     if (t->isFavourites) {
         relinkFavourites(); // point rows at files already on disk (once)
         t->localPosts = m_favDb.list();
-        setWindowTitle(QStringLiteral("booru-explorer - ♥ Favourites"));
+        setWindowTitle(QStringLiteral("box - ♥ Favourites"));
         m_rating = t->rating;
         m_category = t->category;
         m_sort = t->sort;
@@ -1503,8 +1514,23 @@ void MainWindow::finishActivateTab(int tabIdx) {
         }
     } else {
         m_root = t->root;
-        setWindowTitle(QStringLiteral("booru-explorer - %1").arg(m_root));
-        if (t->localPosts.isEmpty()) {
+        setWindowTitle(QStringLiteral("box - %1").arg(m_root));
+        const QString canon = QDir(m_root).canonicalPath();
+        const QString flat =
+            canon.isEmpty() ? QDir(m_root).absolutePath() : canon;
+        // Downloads landed here while we were elsewhere: rescan instead
+        // of showing the stale listing until F5.
+        bool dirty = false;
+        for (auto it = m_dirtyRoots.begin(); it != m_dirtyRoots.end();) {
+            if (*it == flat || flat.startsWith(*it + u'/') ||
+                it->startsWith(flat + u'/')) {
+                dirty = true;
+                it = m_dirtyRoots.erase(it);
+            } else {
+                ++it;
+            }
+        }
+        if (dirty || t->localPosts.isEmpty()) {
             startScan(m_root);
         } else {
             m_index.setPosts(t->localPosts);
@@ -2641,15 +2667,19 @@ void MainWindow::relinkFavourites() {
     const QVector<FavDb::Unlinked> missing = m_favDb.unlinked();
     if (missing.isEmpty())
         return;
-    // Search roots: current download folder plus the legacy default,
-    // where files downloaded by older versions live.
+    // Search roots: current download folder plus legacy defaults,
+    // where files downloaded by older versions live (pre-rename
+    // Pictures/booru-explorer included).
     QStringList roots;
     roots << effectiveDownloadDir(m_settings);
-    const QString legacy = QStandardPaths::writableLocation(
-                               QStandardPaths::PicturesLocation) +
-                           QStringLiteral("/booru-explorer");
-    if (QDir(legacy).exists() && !roots.contains(legacy))
-        roots << legacy;
+    const QString pics = QStandardPaths::writableLocation(
+        QStandardPaths::PicturesLocation);
+    for (const QString &seg :
+         {QStringLiteral("/box"), QStringLiteral("/booru-explorer")}) {
+        const QString legacy = pics + seg;
+        if (QDir(legacy).exists() && !roots.contains(legacy))
+            roots << legacy;
+    }
     // One listing for the whole tree (not one per missing row): fresh
     // imports can leave hundreds unlinked, and entryList per row stalls
     // tab switches. Folder-agnostic on purpose: download folders moved
@@ -3338,7 +3368,7 @@ void MainWindow::showWelcome() {
     m_tabBar->setCurrentIndex(0);
     m_tabBar->blockSignals(false);
     m_stage->setCurrentIndex(0);
-    setWindowTitle(QStringLiteral("booru-explorer"));
+    setWindowTitle(QStringLiteral("box"));
 }
 
 void MainWindow::openFolder() {
@@ -3396,7 +3426,7 @@ void MainWindow::startScan(const QString &root) {
     cancelScan(); // never stack giant scans (quit also relies on this)
     m_root = root;
     m_stage->setCurrentIndex(1);
-    setWindowTitle(QStringLiteral("booru-explorer - %1").arg(root));
+    setWindowTitle(QStringLiteral("box - %1").arg(root));
     statusBar()->showMessage(tr("Scanning %1 …").arg(root));
     auto *scanner = new Scanner;
     auto *watcher = new ScanWatcher;
@@ -4710,7 +4740,7 @@ void MainWindow::applyManualBuckets(BrowserTab *t,
         if (current && gridShowing) {
             // In-memory refresh only: a DB re-list here would drop the
             // just-applied buckets (they are stored now for next time).
-            setWindowTitle(QStringLiteral("booru-explorer - ♥ Favourites"));
+            setWindowTitle(QStringLiteral("box - ♥ Favourites"));
             commitFilter();
         }
     } else {
@@ -4747,8 +4777,8 @@ void MainWindow::applyManualBuckets(BrowserTab *t,
 
 void MainWindow::showAbout() {
     QMessageBox::about(
-        this, tr("About booru-explorer"),
-        QStringLiteral("<h3>booru-explorer %1</h3>"
+        this, tr("About box"),
+        QStringLiteral("<h3>box %1</h3>"
                        "<p>%2</p>"
                        "<p><a href=\"%3\">%3</a><br>"
                        "Copyright (C) 2026 Lev<br>"
@@ -4817,6 +4847,24 @@ void MainWindow::applyPreferences(const AppSettings &app) {
         QSet<QString>(m_settings.explicitTags.begin(), m_settings.explicitTags.end()));
     RemoteSource::setConfiguredBoorus(m_settings.boorus);
     RemotePosts::setDisabledBuckets(m_settings.disabledBuckets);
+    if (old.manualTagTypes != m_settings.manualTagTypes) {
+        // Forced overrides apply on Apply, not on restart: push the new
+        // buckets into every tab's stored posts (current tab refreshes
+        // its grid too). Removed entries need a rescan to fall back.
+        QHash<QString, QString> manual;
+        for (auto it = m_settings.manualTagTypes.begin();
+             it != m_settings.manualTagTypes.end(); ++it)
+            manual.insert(it.key(), it.value());
+        BrowserTab *cur = currentTab();
+        for (BrowserTab *tb : m_tabs) {
+            if (!tb->isRemote && !tb->isFavourites && tb != cur) {
+                // Snapshot-only: the shared index backs the current tab.
+                applyTagBuckets(tb->localPosts, manual);
+                continue;
+            }
+            applyManualBuckets(tb, manual, false);
+        }
+    }
     m_favicons->setCustomDir(effectiveDataDir(m_settings) +
                              QStringLiteral("/favicons"));
     WebApiFetcher::setProfilePath(effectiveDataDir(m_settings) +

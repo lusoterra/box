@@ -4,8 +4,8 @@
 #include <QString>
 
 inline QString appVersion() {
-#ifdef BOORU_EXPLORER_VERSION
-    return QStringLiteral(BOORU_EXPLORER_VERSION);
+#ifdef BOX_VERSION
+    return QStringLiteral(BOX_VERSION);
 #else
     return QStringLiteral("dev");
 #endif

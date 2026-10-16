@@ -31,7 +31,7 @@ build: configure
 	cmake --build $(BUILD_DIR) -j$(JOBS)
 
 run: build
-	./$(BUILD_DIR)/booru-explorer $(ARGS)
+	./$(BUILD_DIR)/box $(ARGS)
 
 test: build
 	ctest --test-dir $(BUILD_DIR) --output-on-failure

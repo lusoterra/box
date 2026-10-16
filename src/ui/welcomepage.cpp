@@ -35,7 +35,7 @@ WelcomePage::WelcomePage(QWidget *parent) : QWidget(parent) {
     QPixmap pm(QStringLiteral(":/icons/app.png"));
     if (!pm.isNull())
         icon->setPixmap(pm.scaled(64, 64, Qt::KeepAspectRatio, Qt::SmoothTransformation));
-    auto *title = new QLabel(tr("booru-explorer"), this);
+    auto *title = new QLabel(tr("box"), this);
     QFont tf = title->font();
     tf.setPointSize(tf.pointSize() + 12);
     tf.setBold(true);

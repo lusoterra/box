@@ -101,17 +101,6 @@ DownloadManager::Flight *DownloadManager::findWebFlight(qint64 webId) {
     return nullptr;
 }
 
-namespace {
-// Fingerprint-walled hosts (Anubis-style) fail plain requests with wall
-// pages while the capture profile passes: their media must ride the
-// browser stack too.
-bool hostNeedsWebDownload(const QString &fileUrl) {
-    const RemotePosts::SiteQuirk *q =
-        RemotePosts::quirkForHost(QUrl(fileUrl).host().toLower());
-    return q && q->powWall;
-}
-} // namespace
-
 QList<DownloadJob> DownloadManager::plan(const QVector<Post> &posts,
                                          const QString &destDir) {
     QList<DownloadJob> jobs;
@@ -253,7 +242,7 @@ void DownloadManager::pump() {
     while (m_active && m_flights.size() < kMaxFlight && !m_queue.isEmpty()) {
         DownloadJob job = m_queue.takeFirst();
         QDir().mkpath(QFileInfo(job.filePath).absolutePath());
-        if (m_webBackend && hostNeedsWebDownload(job.post.fileUrl)) {
+        if (m_webBackend && RemotePosts::needsWebDownload(job.post)) {
             // Fingerprint-walled media: the browser stack downloads
             // with the profile's session (plain requests get wall
             // pages instead of bytes).
@@ -280,7 +269,7 @@ void DownloadManager::pump() {
             req.setRawHeader("Referer", referer.toUtf8());
         RemoteSource::applyCookies(req); // clearance header, if any
         req.setHeader(QNetworkRequest::UserAgentHeader,
-                      QStringLiteral("booru-explorer/0.1 (batch download)"));
+                      QStringLiteral("box/0.1 (batch download)"));
         req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                          QNetworkRequest::NoLessSafeRedirectPolicy);
         auto *flight = new Flight{job, nullptr, file};
