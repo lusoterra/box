@@ -40,11 +40,22 @@
 #include <QUrl>
 #include <QVBoxLayout>
 #include <QWheelEvent>
+#include <QElapsedTimer>
 #include <algorithm>
 #include <climits>
 #include <QtConcurrent>
 
 #include "flowlayout.h"
+
+namespace {
+QString formatBytes(qint64 bytes) {
+    if (bytes < 1024)
+        return QString::number(bytes) + QStringLiteral(" B");
+    if (bytes < 1024 * 1024)
+        return QString::number(bytes / 1024.0, 'f', 1) + QStringLiteral(" KB");
+    return QString::number(bytes / (1024.0 * 1024.0), 'f', 1) + QStringLiteral(" MB");
+}
+} // namespace
 
 // ── ImageView ────────────────────────────────────────────────────
 
@@ -191,8 +202,9 @@ void GifView::setFile(const QString &path) {
         delete m_movie;
         m_movie = nullptr;
         auto *text = m_scene->addText(tr("Cannot play gif"));
+        text->setDefaultTextColor(QColor(0xe0, 0x55, 0x55));
         Q_UNUSED(text);
-        return;
+        return; // nothing to render: leave the scene empty
     }
     // First real frame sizes the scene (header probes misreported 0x0
     // before — this was the blank-gif bug); every frame after that just
@@ -201,6 +213,8 @@ void GifView::setFile(const QString &path) {
     // rects): when the size changes, refresh the scene rect and re-apply
     // the current fit/zoom so scrollbars and the under-mouse anchor don't
     // fight the incoming frame (the still/gif zoom-flicker bug).
+    // A single-frame "gif" is not animated: show it as a still instead of
+    // a frozen movie (QMovie reports frameCount() == 1 for those).
     connect(m_movie, &QMovie::frameChanged, this, [this] {
         if (!m_movie)
             return;
@@ -228,6 +242,16 @@ void GifView::setFile(const QString &path) {
             }
         }
     });
+    if (m_movie->frameCount() <= 1) {
+        // Not actually animated: render the one frame as a still and drop
+        // the movie so there is no dead animation object lingering. Jump to
+        // frame 0 to force a decode; the connected frameChanged handler adds
+        // the pixmap item (and fits) just like the first frame of an anim.
+        m_movie->jumpToFrame(0);
+        delete m_movie;
+        m_movie = nullptr;
+        return;
+    }
     m_movie->start();
 }
 
@@ -502,6 +526,20 @@ VideoPane::VideoPane(QWidget *parent) : QWidget(parent) {
         m_buf->setVisible(buffering);
         if (buffering)
             m_buf->setText(tr("loading…"));
+        if (s == QMediaPlayer::LoadedMedia)
+            m_player->play(); // setSource() is async: play once the source is ready
+        if (s == QMediaPlayer::InvalidMedia) {
+            m_buf->setVisible(true);
+            m_buf->setText(tr("Cannot play this video"));
+            m_buf->setStyleSheet(QStringLiteral("color:#e05555;"));
+        }
+    });
+    connect(m_player, &QMediaPlayer::errorOccurred, this,
+            [this](QMediaPlayer::Error error, const QString &errorString) {
+        Q_UNUSED(error);
+        m_buf->setVisible(true);
+        m_buf->setText(tr("Video error: %1").arg(errorString));
+        m_buf->setStyleSheet(QStringLiteral("color:#e05555;"));
     });
 
     connect(m_muteBtn, &QPushButton::clicked, this, [this] {
@@ -602,6 +640,7 @@ void VideoPane::setFile(const QString &path) {
 void VideoPane::setUrl(const QUrl &url, const Post &post) {
     stop(); // drops any previous temp file / flight first
     m_audio->setMuted(m_muteDefault); // muted by default, every video
+    m_buf->setVisible(false); // clear any stale error/buffering text from stop()
     // Fingerprint-walled hosts: QMediaPlayer's plain stack gets wall
     // pages, so buffer through the browser profile, then play local.
     // Site-aware (entry base host, not the file URL: media CDNs live
@@ -639,7 +678,11 @@ void VideoPane::stop() {
     }
     dropTemp();
     m_player->stop();
-    m_player->setSource(QUrl());
+    // Don't clear the source here: setSource(QUrl()) is async and can emit
+    // InvalidMedia *after* setUrl() has already loaded the next video,
+    // stranding the player in an error state. setUrl()'s setSource(url)
+    // replaces whatever was playing directly.
+    m_buf->setVisible(false); // clear any stale error/buffering text
     if (m_view)
         m_view->fit(); // next video starts fitted, not at the old zoom
 }
@@ -803,6 +846,11 @@ ViewerPage::ViewerPage(QWidget *parent) : QWidget(parent) {
     m_loadBar->setTextVisible(true);
     m_loadBar->setVisible(false);
     bar->addWidget(m_loadBar);
+
+    m_loadInfo = new QLabel(this);
+    m_loadInfo->setStyleSheet(QStringLiteral("color:#4a5068;font-size:11px;"));
+    m_loadInfo->setVisible(false);
+    bar->addWidget(m_loadInfo);
     bar->addStretch(1);
     bar->addWidget(m_postBtn);
     bar->addWidget(m_downloadBtn);
@@ -975,6 +1023,7 @@ void ViewerPage::onCacheFailed(const QString &url, const QString &error) {
         return;
     m_pendingUrl.clear();
     m_loadBar->setVisible(false);
+    m_loadInfo->setVisible(false);
     showNote(tr("Download failed: %1").arg(error));
 }
 
@@ -987,6 +1036,31 @@ void ViewerPage::onCacheProgress(const QString &url, qint64 received, qint64 tot
     } else {
         m_loadBar->setRange(0, 0); // size unknown: busy until it is
     }
+    // Download speed + progress text next to the bar: "1.2MB / 12MB  ·  3.4MB/s"
+    const qint64 now = m_loadTimer.isValid() ? m_loadTimer.elapsed() : 0;
+    if (m_loadLastTime == 0) {
+        m_loadTimer.start();
+        m_loadLastTime = now;
+        m_loadLastReceived = received;
+    }
+    const qint64 dt = now - m_loadLastTime;
+    const qint64 dr = received - m_loadLastReceived;
+    double speedBps = 0.0;
+    if (dt > 100) { // sample no faster than 100ms
+        speedBps = double(dr) / (double(dt) / 1000.0);
+        m_loadLastTime = now;
+        m_loadLastReceived = received;
+    }
+    QString info;
+    if (total > 0) {
+        info = formatBytes(received) + QStringLiteral(" / ") + formatBytes(total);
+    } else {
+        info = formatBytes(received);
+    }
+    if (speedBps > 0.0)
+        info += QStringLiteral("  ·  ") + formatBytes(qint64(speedBps)) + QStringLiteral("/s");
+    m_loadInfo->setText(info);
+    m_loadInfo->setVisible(true);
 }
 
 void ViewerPage::loadLocalImage(const QString &path, int row) {
@@ -999,6 +1073,7 @@ void ViewerPage::loadLocalImage(const QString &path, int row) {
     QFutureWatcher<QImage> *w = new QFutureWatcher<QImage>(this);
     connect(w, &QFutureWatcher<QImage>::finished, this, [this, w, row] {
         m_loadBar->setVisible(false);
+        m_loadInfo->setVisible(false);
         if (row == m_row)
             m_image->setImage(w->result());
         w->deleteLater();
@@ -1061,6 +1136,7 @@ void ViewerPage::showRow(int row) {
     m_pendingUrl.clear();
     m_pendingRow = -1;
     m_loadBar->setVisible(false);
+    m_loadInfo->setVisible(false);
     showNote({});
     m_row = row;
     primeThumb(row);
@@ -1135,6 +1211,7 @@ void ViewerPage::showCurrent() {
 
     if (isVideoExt(p.ext)) {
         m_loadBar->setVisible(false);
+        m_loadInfo->setVisible(false);
         m_stack->setCurrentWidget(m_video);
         if (p.isRemote) {
             if (p.fileUrl.isEmpty())
@@ -1142,10 +1219,19 @@ void ViewerPage::showCurrent() {
             else
                 m_video->setUrl(QUrl(p.fileUrl), p);
         } else {
+            // Local file: bail early with a clear note if the path is
+            // empty or the file is gone.
+            if (p.absFile.isEmpty() || !QFileInfo::exists(p.absFile)) {
+                m_stack->setCurrentWidget(m_video);
+                m_video->stop();
+                showNote(tr("Local file not found: %1").arg(p.absFile));
+                return;
+            }
             m_video->setFile(p.absFile);
         }
     } else if (p.ext == QStringLiteral("gif")) {
         m_loadBar->setVisible(false);
+        m_loadInfo->setVisible(false);
         if (p.isRemote) {
             const QString url = RemotePosts::viewerUrlFor(p);
             if (url.isEmpty() || !m_imgCache) {
@@ -1156,6 +1242,9 @@ void ViewerPage::showCurrent() {
                 m_stack->setCurrentWidget(m_gif);
                 m_pendingUrl = url;
                 m_pendingRow = m_row;
+                m_loadTimer.restart();
+                m_loadLastReceived = 0;
+                m_loadLastTime = 0;
                 m_loadBar->setRange(0, 0); // busy until progress lands
                 m_loadBar->setVisible(true);
                 const QString have = m_imgCache->localPath(url);
@@ -1165,6 +1254,15 @@ void ViewerPage::showCurrent() {
                     m_imgCache->request(url, RemotePosts::mediaRefererFor(p));
             }
         } else {
+            // Local file: bail early with a clear note if the path is
+            // empty or the file is gone (favourites added before download,
+            // or files moved outside the app).
+            if (p.absFile.isEmpty() || !QFileInfo::exists(p.absFile)) {
+                m_stack->setCurrentWidget(m_gif);
+                m_gif->clear();
+                showNote(tr("Local file not found: %1").arg(p.absFile));
+                return;
+            }
             m_stack->setCurrentWidget(m_gif);
             m_gif->setFile(p.absFile);
         }
@@ -1178,6 +1276,7 @@ void ViewerPage::showCurrent() {
                                     : RemotePosts::viewerUrlFor(p);
             if (url.isEmpty() || !m_imgCache) {
                 m_stack->setCurrentWidget(m_image);
+                m_loadInfo->setVisible(false);
                 showNote(url.isEmpty()
                              ? tr("No file URL (login may be required)")
                              : tr("Image cache unavailable"));
@@ -1186,6 +1285,9 @@ void ViewerPage::showCurrent() {
                 stageNotes();
                 m_pendingUrl = url;
                 m_pendingRow = m_row;
+                m_loadTimer.restart();
+                m_loadLastReceived = 0;
+                m_loadLastTime = 0;
                 m_loadBar->setRange(0, 0); // busy until progress lands
                 m_loadBar->setVisible(true);
                 const QString have = m_imgCache->localPath(url);

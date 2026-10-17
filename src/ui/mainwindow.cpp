@@ -691,15 +691,6 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     m_pageLabel = new QLabel(this);
     m_pageLabel->setStyleSheet(QStringLiteral("color:#4a5068;"));
     m_pageLabel->setToolTip(tr("Infinite scroll loads more as you reach the bottom"));
-    m_selectBtn = new QPushButton(tr("Select"), this);
-    m_selectBtn->setCheckable(true);
-    m_selectBtn->setToolTip(tr("Select posts to download (clicks select instead of opening)"));
-    connect(m_selectBtn, &QPushButton::toggled, this, [this](bool on) {
-        m_selectMode = on;
-        if (!on)
-            m_grid->clearSelection();
-        updateDownloadButton();
-    });
     m_downloadSelBtn = new QPushButton(this);
     m_downloadSelBtn->setIcon(UiIcons::icon(QStringLiteral("download")));
     m_downloadSelBtn->setIconSize(QSize(15, 15));
@@ -743,7 +734,6 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     omniLay->addWidget(m_sortBox);
     omniLay->addWidget(m_aspectBox);
     omniLay->addWidget(m_sitesBtn);
-    omniLay->addWidget(m_selectBtn);
     omniLay->addWidget(m_downloadSelBtn);
     omniLay->addWidget(clearBtn);
     omniLay->addWidget(reloadBtn);
@@ -1558,7 +1548,6 @@ void MainWindow::setBrowseUi(bool browse) {
     // (they have their own result line).
     m_countLabel->setVisible(!browse && !favs);
     updateDots(); // separators follow their neighbours, not the mode
-    m_selectBtn->setVisible(downloadable);
     updateDownloadButton(); // owns m_downloadSelBtn visibility + state
     // The archive-total count label is meaningless on browse/fav tabs
     // (they have their own result line).
@@ -4970,8 +4959,6 @@ void MainWindow::onTagClicked() {
 void MainWindow::onGridActivated(const QModelIndex &index) {
     if (!index.isValid())
         return;
-    if (m_selectMode)
-        return; // clicks select (double-click still opens)
     showViewer(index.row());
 }
 

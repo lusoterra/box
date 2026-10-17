@@ -10,6 +10,7 @@
 #include <QScrollArea>
 #include <QVector>
 #include <QWidget>
+#include <QElapsedTimer>
 
 #include <QAudioOutput>
 #include <QGraphicsPixmapItem>
@@ -243,6 +244,10 @@ private:
     QPushButton *m_refreshBtn = nullptr;
     QLabel *m_note = nullptr;
     QProgressBar *m_loadBar;
+    QLabel *m_loadInfo; // "X.YMB / 12MB  ·  3.4MB/s" next to the bar
+    QElapsedTimer m_loadTimer; // download speed sampling
+    qint64 m_loadLastReceived = 0; // bytes at last speed sample
+    qint64 m_loadLastTime = 0; // ms at last speed sample
     QScrollArea *m_tagScroll = nullptr;
     QWidget *m_tagHost = nullptr;
     QBoxLayout *m_tagLayout = nullptr;

@@ -115,10 +115,17 @@ void ImageCache::request(const QString &url, const QString &referer) {
             emit failed(url, reply->errorString());
         } else if (!reply->header(QNetworkRequest::ContentTypeHeader)
                         .toString()
+                        .trimmed()
                         .startsWith(QStringLiteral("image/"),
+                                    Qt::CaseInsensitive) &&
+                   !reply->header(QNetworkRequest::ContentTypeHeader)
+                        .toString()
+                        .trimmed()
+                        .startsWith(QStringLiteral("video/"),
                                     Qt::CaseInsensitive)) {
             // Hotlink walls answer 302-to-HTML when the Referer is missing:
-            // never cache the page as if it were the picture.
+            // never cache the page as if it were the picture. Some servers
+            // serve animated GIFs as video/gif — accept those too.
             emit failed(url, tr("Unexpected content type: %1")
                                  .arg(reply->header(QNetworkRequest::ContentTypeHeader)
                                           .toString()));

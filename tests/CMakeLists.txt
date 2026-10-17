@@ -56,6 +56,24 @@ add_unit_test(test_thumbloader test_thumbloader.cpp ../src/remote/thumbloader.cp
               ../src/library/cachejanitor.cpp ${REMOTE_SOURCES} ../src/settings.cpp)
 target_compile_definitions(test_thumbloader PRIVATE
     TESTFILES_DIR="${CMAKE_SOURCE_DIR}/tests/files")
+add_unit_test(test_gifview test_gifview.cpp ../src/ui/viewerpage.cpp
+              ../src/remote/imagecache.cpp ../src/remote/postmeta.cpp
+              ../src/remote/webdlbackend.h ../src/library/cachejanitor.cpp
+              ../src/ui/progressbar.cpp ../src/ui/flowlayout.cpp
+              ${REMOTE_SOURCES} ../src/settings.cpp)
+target_compile_definitions(test_gifview PRIVATE
+    TESTFILES_DIR="${CMAKE_SOURCE_DIR}/tests/files")
+set_tests_properties(test_gifview PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+add_unit_test(test_videopane test_videopane.cpp ../src/ui/viewerpage.cpp
+              ../src/remote/imagecache.cpp ../src/remote/postmeta.cpp
+              ../src/remote/webdlbackend.h ../src/library/cachejanitor.cpp
+              ../src/ui/progressbar.cpp ../src/ui/flowlayout.cpp
+              ${REMOTE_SOURCES} ../src/settings.cpp)
+target_compile_definitions(test_videopane PRIVATE
+    TESTFILES_DIR="${CMAKE_SOURCE_DIR}/tests/files")
+set_tests_properties(test_videopane PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_unit_test(test_index test_index.cpp ../src/library/index.cpp)
 add_unit_test(test_queryor test_queryor.cpp ../src/library/queryor.cpp)
 add_unit_test(test_scanner test_scanner.cpp ../src/library/scanner.cpp

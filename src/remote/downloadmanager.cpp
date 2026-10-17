@@ -318,11 +318,17 @@ void DownloadManager::onFileReply() {
         const QString ct = reply
                                ->header(QNetworkRequest::ContentTypeHeader)
                                .toString()
+                               .trimmed()
                                .toLower();
-        if (!ct.isEmpty() && !ct.startsWith(QStringLiteral("image/")) &&
-            !ct.startsWith(QStringLiteral("video/")) &&
-            !ct.startsWith(QStringLiteral("application/octet-stream")) &&
-            !ct.startsWith(QStringLiteral("binary/octet-stream"))) {
+        // Accept image/video/octet-stream content types. Some servers emit
+        // whitespace or odd casing around the MIME type; trimmed() + case
+        // handling below keeps wall pages out while letting real media
+        // (e.g. video/webm) through.
+        const bool isMedia = ct.startsWith(QStringLiteral("image/"), Qt::CaseInsensitive) ||
+                             ct.startsWith(QStringLiteral("video/"), Qt::CaseInsensitive) ||
+                             ct.startsWith(QStringLiteral("application/octet-stream"), Qt::CaseInsensitive) ||
+                             ct.startsWith(QStringLiteral("binary/octet-stream"), Qt::CaseInsensitive);
+        if (!ct.isEmpty() && !isMedia) {
             // Wall/login page instead of bytes: never keep it as media.
             ok = false;
             error = tr("Unexpected content type: %1").arg(

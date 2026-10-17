@@ -373,12 +373,10 @@ private:
     QPushButton *m_plusBtn = nullptr;
     QMenu *m_sitesMenu = nullptr;
     QLabel *m_pageLabel = nullptr;
-    QPushButton *m_selectBtn = nullptr;
     QPushButton *m_downloadSelBtn = nullptr;
     QPushButton *m_dlBtn = nullptr;
     QProgressBar *m_dlBar = nullptr; // feedbar: quiet download progress
     QTimer *m_dlHide = nullptr;
-    bool m_selectMode = false;
     QHash<QString, QPixmap> m_thumbCache; // request key -> pixmap
     QList<QString> m_cacheOrder;
     QPixmap m_placeholder;

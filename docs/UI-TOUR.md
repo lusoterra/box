@@ -24,10 +24,10 @@ popup, `/` focuses, Enter searches) → rating dropdown (`All`, default
 label) → sort dropdown (`Recently added`/`Newest`/`Oldest`/`Top
 Rated`/`Low Rated`/`Random` — server-side `order:`/`sort:` tags in browse
 mode, client-side locally) → aspect dropdown (`1:1`, grid cell shape) →
-`Boorus…` (per-tab source picker, multibooru merge) → `Select` (toggle
-mass-select) → `Download (N)` (batch-downloads the selection) → `Clear`
-(resets pills/query) → reload `↺` (`Rescan folder` locally, re-search
-remotely) → `Page 1 · 40 results` → grid-zoom slider (far right).
+`Boorus…` (per-tab source picker, multibooru merge) → `Download (N)`
+(batch-downloads the selection) → `Clear` (resets pills/query) → reload
+`↺` (`Rescan folder` locally, re-search remotely) → `Page 1 · 40 results`
+→ grid-zoom slider (far right).
 
 ## Grid card anatomy (see 19-badge-closeup)
 Thumbnail with, overlaid: top-right media kind (`▶` video / `GIF`);
