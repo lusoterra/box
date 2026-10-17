@@ -638,9 +638,17 @@ void VideoPane::setFile(const QString &path) {
 }
 
 void VideoPane::setUrl(const QUrl &url, const Post &post) {
-    stop(); // drops any previous temp file / flight first
+    // Drop temp file and cancel any in-flight web download before loading
+    // the new source. Do NOT call m_player->stop() here: setSource(url)
+    // stops playback and loads the new source directly; stopping first can
+    // leave the FFmpeg backend in a state where the new source fails.
+    if (m_webId >= 0 && m_webBackend) {
+        m_webBackend->cancel(m_webId);
+        m_webId = -1;
+    }
+    dropTemp();
     m_audio->setMuted(m_muteDefault); // muted by default, every video
-    m_buf->setVisible(false); // clear any stale error/buffering text from stop()
+    m_buf->setVisible(false); // clear any stale error/buffering text
     // Fingerprint-walled hosts: QMediaPlayer's plain stack gets wall
     // pages, so buffer through the browser profile, then play local.
     // Site-aware (entry base host, not the file URL: media CDNs live
