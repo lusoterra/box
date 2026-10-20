@@ -123,8 +123,10 @@ Tab title joins sources (`Safebooru + Danbooru + Favourites`); grid mixes
 per-site results, each card keeping its own origin badge; one failing
 site shows a status-bar error while the rest render.
 
-## 18-favourites — ♥ tab (empty state)
-Same chrome over `store.db` rows (no files): star posts to fill it, then
+## 18-favourites — ♥ tabs (empty state)
+Every `Favourites` action opens a fresh tab; keep several with different
+tags/filters side by side (titles show their filters). Same chrome over
+`store.db` rows (no files): star posts to fill it, then
 mass-download; non-empty rows render identical cards, dead files relink
 by md5. `Delete from disk…` also removes kept favourites left with no
 renderable source (no file, no remote media/post link) instead of leaving

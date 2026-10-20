@@ -1263,7 +1263,6 @@ bool MainWindow::restoreTabs() {
         if (m_settings.savedTabs.isEmpty())
         return false;
     bool any = false;
-    bool favsDone = false;
     m_tabBar->blockSignals(true);
     int current = 0;
     int n = 0;
@@ -1279,10 +1278,7 @@ bool MainWindow::restoreTabs() {
                 continue;
             addRemoteTab(st.sites, st.tags);
         } else if (st.kind == QStringLiteral("favs")) {
-            if (favsDone)
-                continue; // single favourites tab
-            openFavTab();
-            favsDone = true;
+            openFavTab(); // each saved fav tab restores with its own filters
         } else {
             continue;
         }
@@ -3472,12 +3468,10 @@ void MainWindow::openLastPlace() {
     }
 }
 
-void MainWindow::openFavTab() {    for (int i = 0; i < m_tabs.size(); ++i) {
-        if (m_tabs[i]->isFavourites) {
-            m_tabBar->setCurrentIndex(i + 1);
-            return;
-        }
-    }
+void MainWindow::openFavTab() {
+    // Every call opens a fresh tab (like remote tabs): use one per tag set,
+    // e.g. different filters in different tabs. Shared state stays in the
+    // DB; per-tab filters live in the tab struct.
     auto *t = new BrowserTab();
     t->isFavourites = true;
     t->sort = QStringLiteral("added"); // DB order is newest-first
