@@ -52,6 +52,15 @@ int main(int argc, char *argv[]) {
             flags += " --enable-unsafe-swiftshader";
         qputenv("QTWEBENGINE_CHROMIUM_FLAGS", flags.trimmed());
     }
+    // Software video decoding (Qt FFmpeg backend): the VAAPI/hardware
+    // path segfaults on some drivers when a slow/unloading video fails
+    // its surface sync (`AVHWFramesContext ... Failed to sync surface`,
+    // `Cannot map a video frame in ReadOnly mode!` -> SIGSEGV). An empty
+    // device list disables all decoding hardware backends (see Qt docs
+    // "Advanced FFmpeg Configuration"); the thumbnail grabber shares the
+    // process so it is covered too. An explicit user setting wins.
+    if (!qEnvironmentVariableIsSet("QT_FFMPEG_DECODING_HW_DEVICE_TYPES"))
+        qputenv("QT_FFMPEG_DECODING_HW_DEVICE_TYPES", ",");
     QApplication app(argc, argv);
     app.setApplicationName(QStringLiteral("box"));
     // No organization name: with org == app the platform cache dir nests

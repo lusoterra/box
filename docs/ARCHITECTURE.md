@@ -79,7 +79,11 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
 - `src/ui/` — `mainwindow.h:105` `MainWindow` (all tabs, all searches);
   `BrowserTab` session state (`:47-61`); `PendingSite` OR fan-out (`:342-350`).
   - `viewerpage.h:170` `ViewerPage` (same-window viewer; `ImageView` `:33`,
-    `GifView` `:65`, `VideoView` `:93`); `welcomepage` (home + mascot);
+    `GifView` `:65`, `VideoView` `:93`); software video decoding forced in
+    `main.cpp` (`QT_FFMPEG_DECODING_HW_DEVICE_TYPES=,`, user-overridable;
+    the VAAPI/hardware path segfaulted on broken surfaces) and
+    `VideoFrameItem::setFrame` never maps non-readable frames;
+    `welcomepage` (home + mascot);
     `prefsdlg` (tabbed preferences); `straydialog` (Download/Add Stray);
     `flowlayout` (filter pills), `tabbar` (marquee tabs, drag-reorder
     with welcome pinned first), `theme`, `uicons`,

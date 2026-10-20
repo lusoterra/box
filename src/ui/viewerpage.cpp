@@ -343,7 +343,10 @@ void VideoFrameItem::setFrame(const QVideoFrame &frame) {
     if (frame.isValid()) {
         QVideoFrame f(frame); // shared copy; safe past the signal
         img = f.toImage();
-        if (img.isNull() && f.map(QVideoFrame::ReadOnly)) {
+        // Mappable-handle fallback only: map() on a non-readable frame
+        // (broken hardware surfaces) warns `Cannot map ... ReadOnly`
+        // and has preceded a SIGSEGV in the backend — never attempt it.
+        if (img.isNull() && f.isReadable() && f.map(QVideoFrame::ReadOnly)) {
             img = f.toImage(); // mapped-state path for exotic handles
             f.unmap();
         }

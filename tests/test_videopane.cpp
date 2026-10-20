@@ -33,6 +33,14 @@ private slots:
         // Error should be surfaced via errorOccurred, not a crash.
     }
 
+    void invalidFrameDoesNotCrash() {
+        // The broken-hardware-surface path: an invalid frame must clear
+        // the item (never attempt a ReadOnly map on it).
+        VideoFrameItem item;
+        item.setFrame(QVideoFrame());
+        QVERIFY(item.boundingRect().isEmpty());
+    }
+
     void emptyUrlDoesNotCrash() {
         VideoPane pane;
         pane.setUrl(QUrl());
