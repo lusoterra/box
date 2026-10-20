@@ -17,6 +17,8 @@
 #include <QXmlStreamReader>
 #include <QtConcurrent>
 
+#include <algorithm>
+
 namespace {
 QNetworkRequest timedRequest(const QUrl &url) {
     QNetworkRequest req(url);
@@ -71,7 +73,7 @@ QVector<TagSuggestion> parseDanbooru(const QByteArray &body) {
         s.count = o.value(QStringLiteral("post_count")).toInt(0);
         out.append(s);
     }
-    return takeCapped(out);
+    return takeCapped(out, 24);
 }
 
 QVector<TagSuggestion> parseGelbooru(const QByteArray &body) {
@@ -103,7 +105,7 @@ QVector<TagSuggestion> parseGelbooru(const QByteArray &body) {
         s.count = o.value(QStringLiteral("count")).toInt(0);
         out.append(s);
     }
-    return takeCapped(out);
+    return takeCapped(out, 24);
 }
 
 QVector<TagSuggestion> parseGelbooruXmlList(const QByteArray &body) {
@@ -131,7 +133,7 @@ QVector<TagSuggestion> parseGelbooruXmlList(const QByteArray &body) {
         if (out.size() >= 64)
             break; // bounded (takeCapped trims to 12 below)
     }
-    return takeCapped(out);
+    return takeCapped(out, 24);
 }
 
 QVector<TagSuggestion> parseMoebooru(const QByteArray &body) {
@@ -154,7 +156,7 @@ QVector<TagSuggestion> parseMoebooru(const QByteArray &body) {
         s.count = o.value(QStringLiteral("count")).toInt(0);
         out.append(s);
     }
-    return takeCapped(out);
+    return takeCapped(out, 24);
 }
 
 QVector<TagSuggestion> parseSzuru(const QByteArray &body) {
@@ -184,7 +186,7 @@ QVector<TagSuggestion> parseSzuru(const QByteArray &body) {
         s.count = o.value(QStringLiteral("usages")).toInt(0);
         out.append(s);
     }
-    return takeCapped(out);
+    return takeCapped(out, 24);
 }
 } // namespace
 
@@ -213,7 +215,7 @@ QUrl TagSuggester::urlFor(BooruEngine engine, const QString &baseUrl,
         QUrlQuery q;
         q.addQueryItem(QStringLiteral("search[name_matches]"), prefix + u'*');
         q.addQueryItem(QStringLiteral("search[order]"), QStringLiteral("count"));
-        q.addQueryItem(QStringLiteral("limit"), QStringLiteral("12"));
+        q.addQueryItem(QStringLiteral("limit"), QStringLiteral("24"));
         url.setQuery(q);
         return url;
     }
@@ -225,7 +227,7 @@ QUrl TagSuggester::urlFor(BooruEngine engine, const QString &baseUrl,
         q.addQueryItem(QStringLiteral("s"), QStringLiteral("tag"));
         q.addQueryItem(QStringLiteral("q"), QStringLiteral("index"));
         q.addQueryItem(QStringLiteral("name_pattern"), prefix + u'%');
-        q.addQueryItem(QStringLiteral("limit"), QStringLiteral("12"));
+        q.addQueryItem(QStringLiteral("limit"), QStringLiteral("24"));
         q.addQueryItem(QStringLiteral("json"), QStringLiteral("1"));
         if (creds.complete()) {
             q.addQueryItem(QStringLiteral("api_key"), creds.secret);
@@ -239,7 +241,7 @@ QUrl TagSuggester::urlFor(BooruEngine engine, const QString &baseUrl,
         QUrlQuery q;
         q.addQueryItem(QStringLiteral("name"), prefix + u'*');
         q.addQueryItem(QStringLiteral("order"), QStringLiteral("count"));
-        q.addQueryItem(QStringLiteral("limit"), QStringLiteral("12"));
+        q.addQueryItem(QStringLiteral("limit"), QStringLiteral("24"));
         url.setQuery(q);
         return url;
     }
@@ -247,7 +249,7 @@ QUrl TagSuggester::urlFor(BooruEngine engine, const QString &baseUrl,
         QUrl url(baseUrl + QStringLiteral("/api/tags/"));
         QUrlQuery q;
         q.addQueryItem(QStringLiteral("query"), prefix + u'*');
-        q.addQueryItem(QStringLiteral("limit"), QStringLiteral("12"));
+        q.addQueryItem(QStringLiteral("limit"), QStringLiteral("24"));
         url.setQuery(q);
         return url;
     }
@@ -266,7 +268,7 @@ void TagSuggester::suggest(const BooruSite &site, const SiteCreds &creds,
         // Instant offline answers from the local archive; the remote
         // fetch below replaces them when (and if) it arrives.
         QVector<TagSuggestion> local;
-        for (const auto &s : m_localIndex->suggest(prefix, 12)) {
+        for (const auto &s : m_localIndex->suggest(prefix, 24)) {
             TagSuggestion t;
             t.tag = s.tag;
             t.bucket = s.bucket;
@@ -365,6 +367,27 @@ QVector<TagSuggestion> TagSuggester::merge(const QVector<TagSuggestion> &local,
         out.append(s);
     }
     return out;
+}
+
+QVector<TagSuggestion> TagSuggester::rank(const QString &prefix,
+                                             QVector<TagSuggestion> v) {
+    const QString q = prefix.toLower();
+    std::stable_sort(v.begin(), v.end(),
+                     [&q](const TagSuggestion &a, const TagSuggestion &b) {
+                         const QString al = a.tag.toLower(), bl = b.tag.toLower();
+                         const int at = al == q ? 0
+                                        : (al.startsWith(q) ? 1 : 2);
+                         const int bt = bl == q ? 0
+                                        : (bl.startsWith(q) ? 1 : 2);
+                         if (at != bt)
+                             return at < bt;
+                         if (a.count != b.count)
+                             return a.count > b.count;
+                         if (a.tag.size() != b.tag.size())
+                             return a.tag.size() > b.tag.size();
+                         return al < bl;
+                     });
+    return v;
 }
 
 QVector<TagSuggestion> TagSuggester::parse(BooruEngine engine,

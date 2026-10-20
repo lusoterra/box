@@ -39,6 +39,12 @@ public:
     static QVector<TagSuggestion> merge(const QVector<TagSuggestion> &local,
                                         const QVector<TagSuggestion> &remote,
                                         int cap = 12);
+    // Relevance order for one prefix: exact match, then prefix matches by
+    // post count, then the rest (longer tags beat short noise at equal
+    // counts). Pure: unit-tested. Applied to remote answers (API order is
+    // count-only) before merging; local answers arrive ranked already.
+    static QVector<TagSuggestion> rank(const QString &prefix,
+                                       QVector<TagSuggestion> v);
 
 signals:
     void finished(const QString &siteKey, const QString &prefix,

@@ -67,7 +67,7 @@ private slots:
             body += QString(R"({"name":"t%1","category":0,"post_count":%1},)").arg(i).toUtf8();
         body.chop(1);
         body += "]";
-        QCOMPARE(TagSuggester::parse(BooruEngine::Danbooru, body).size(), 12);
+        QCOMPARE(TagSuggester::parse(BooruEngine::Danbooru, body).size(), 24);
     }
 
     void gelbooruXmlFallback() {
@@ -81,6 +81,32 @@ private slots:
         QCOMPARE(out.at(0).bucket, QStringLiteral("general"));
         QCOMPARE(out.at(0).count, 3);
         QCOMPARE(out.at(1).bucket, QStringLiteral("artist"));
+    }
+
+    void rankOrdersExactFirst() {
+        // API order is count-only: ranking lifts the exact tag above
+        // higher-count prefix matches, keeps prefix by count, and sinks
+        // non-matches last (the popup prefix-filters them away anyway).
+        auto sug = [](const char *tag, int count) {
+            TagSuggestion s;
+            s.tag = QString::fromLatin1(tag);
+            s.count = count;
+            return s;
+        };
+        const QVector<TagSuggestion> in = {
+            sug("skyline", 9000), sug("SKY", 30), sug("unrelated", 99999),
+            sug("skydive", 400)};
+        const auto out = TagSuggester::rank(QStringLiteral("sky"), in);
+        QCOMPARE(out.size(), 4);
+        QCOMPARE(out.at(0).tag, QStringLiteral("SKY")); // exact, case-insensitive
+        QCOMPARE(out.at(1).tag, QStringLiteral("skyline")); // prefix by count
+        QCOMPARE(out.at(2).tag, QStringLiteral("skydive"));
+        QCOMPARE(out.at(3).tag, QStringLiteral("unrelated")); // sunk
+        // Longer tags win count ties over short noise.
+        const QVector<TagSuggestion> tied = {sug("sob", 5), sug("sober_long", 5)};
+        QCOMPARE(TagSuggester::rank(QStringLiteral("so"), tied).at(0).tag,
+                 QStringLiteral("sober_long"));
+        QVERIFY(TagSuggester::rank(QStringLiteral("so"), {}).isEmpty());
     }
 
     void mergeKeepsLocalsFirst() {

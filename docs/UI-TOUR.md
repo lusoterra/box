@@ -23,8 +23,8 @@ in multibooru, close a solo tab). Center: post grid. Bottom-left:
 
 ## 03-omnibar — the control row under the tab bar
 Left to right: tag search box (placeholder `Search tags…`, autocomplete
-popup, `/` focuses, Enter searches) → rating dropdown (`All`, default
-label) → sort dropdown (`Recently added`/`Newest`/`Oldest`/`Top
+popup ranked exact-match first, then most-used — `/` focuses, Enter
+searches) → rating dropdown (`All`, default label) → sort dropdown (`Recently added`/`Newest`/`Oldest`/`Top
 Rated`/`Low Rated`/`Random` — server-side `order:`/`sort:` tags in browse
 mode, client-side locally) → aspect dropdown (`1:1`, grid cell shape) →
 `Boorus…` (per-tab source picker, multibooru merge) → `Download (N)`

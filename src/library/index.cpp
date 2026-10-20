@@ -217,44 +217,55 @@ QueryResult Index::query(const QStringList &tags, const QString &rating,
 QVector<Index::Suggestion> Index::suggest(const QString &prefix, int limit) const {
     const QString q = prefix.toLower();
     // Defense in depth: limit arithmetic below multiplies, so clamp the
-    // top (all callers pass 12 today). Zero/negative still means empty.
+    // top (callers pass 24: a wider pool for ranking, trimmed to the
+    // popup cap downstream). Zero/negative still means empty.
     if (q.length() < 2 || limit <= 0)
         return {};
     limit = qMin(limit, 1000);
-    // Prefix matches first (binary-searchable order would need sorting;
-    // a single linear scan over precomputed entries is fast enough and
-    // keeps substring behavior for non-prefix hits).
-    QVector<const SuggestEntry *> hits;
+    // Relevance tiers: the exact tag first, then prefix matches by use
+    // count, then substring matches (longer, more specific tags beat
+    // short noise at equal counts). A linear scan over precomputed
+    // entries is fast enough; the omnibar completer prefix-filters the
+    // model, so substring hits rank strictly last.
+    struct Hit {
+        const SuggestEntry *e;
+        int tier; // 0 = exact, 1 = prefix, 2 = substring
+    };
+    QVector<Hit> hits;
     hits.reserve(qMax(0, limit * 2));
     for (const SuggestEntry &e : m_suggest) {
-        if (e.lower.startsWith(q))
-            hits.append(&e);
+        const int tier =
+            e.lower == q ? 0 : (e.lower.startsWith(q) ? 1 : -1);
+        if (tier >= 0)
+            hits.append({&e, tier});
     }
     if (hits.size() < limit) {
         for (const SuggestEntry &e : m_suggest) {
-            if (!e.lower.startsWith(q) && e.lower.contains(q)) {
-                hits.append(&e);
+            if (e.lower != q && !e.lower.startsWith(q) &&
+                e.lower.contains(q)) {
+                hits.append({&e, 2});
                 if (hits.size() >= limit * 4)
-                    break; // bound the slow path; top-N trims below
+                    break; // bound the slow path; ranking trims below
             }
         }
     }
     if (hits.isEmpty())
         return {};
-    std::nth_element(hits.begin(), hits.begin() + qMin(limit, hits.size()) - 1,
-                     hits.end(), [](const SuggestEntry *a, const SuggestEntry *b) {
-                         return a->count > b->count;
-                     });
+    std::stable_sort(hits.begin(), hits.end(), [](const Hit &a, const Hit &b) {
+        if (a.tier != b.tier)
+            return a.tier < b.tier;
+        if (a.e->count != b.e->count)
+            return a.e->count > b.e->count;
+        if (a.e->tag.size() != b.e->tag.size())
+            return a.e->tag.size() > b.e->tag.size();
+        return a.e->tag < b.e->tag;
+    });
     if (hits.size() > limit)
         hits.resize(limit);
-    std::sort(hits.begin(), hits.end(), [](const SuggestEntry *a,
-                                           const SuggestEntry *b) {
-        return a->count > b->count;
-    });
     QVector<Suggestion> out;
     out.reserve(hits.size());
-    for (const SuggestEntry *e : hits)
-        out.append({e->tag, e->count, e->bucket});
+    for (const Hit &h : hits)
+        out.append({h.e->tag, h.e->count, h.e->bucket});
     return out;
 }
 

@@ -212,6 +212,27 @@ private slots:
         QCOMPARE(idx.bucketOf(QStringLiteral("nope")), QStringLiteral("general"));
     }
 
+    void suggestExactFirst() {
+        // Exact match wins over higher-count prefix siblings: five posts
+        // carry skyline, one carries sky — typing sky still offers sky.
+        Index idx;
+        QVector<Post> posts;
+        for (int i = 0; i < 5; ++i) {
+            Post p;
+            p.tagsGeneral = QStringLiteral("skyline");
+            p.hasMeta = true;
+            posts.append(p);
+        }
+        Post one;
+        one.tagsGeneral = QStringLiteral("sky");
+        one.hasMeta = true;
+        posts.append(one);
+        idx.setPosts(posts);
+        const auto sug = idx.suggest(QStringLiteral("sky"), 12);
+        QVERIFY(sug.size() >= 2);
+        QCOMPARE(sug.first().tag, QStringLiteral("sky"));
+    }
+
     void suggestCarriesBuckets() {
         Index idx;
         Post a;

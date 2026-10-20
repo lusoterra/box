@@ -4815,7 +4815,7 @@ void MainWindow::onSearchEdited(const QString &text) {
         return;
     }
     m_suggester->cancel();
-    const auto sug = m_index.suggest(bare, 12);
+    const auto sug = m_index.suggest(bare, 24);
     QStringList words, buckets;
     for (const auto &s : sug) {
         words << s.tag;
@@ -4870,7 +4870,14 @@ void MainWindow::onRemoteSuggest(const QString &siteKey, const QString &prefix,
     QStringList words, buckets;
     for (int i = 0; i < m_completeModel->rowCount(); ++i) {
         const QModelIndex idx = m_completeModel->index(i, 0);
-        words << idx.data(Qt::DisplayRole).toString();
+        const QString w = idx.data(Qt::DisplayRole).toString();
+        // Prune stale rows: keystrokes outrun fetches, so the model may
+        // still hold the previous prefix's answers. The completer
+        // prefix-filters anyway, so these rows could never display — yet
+        // they would eat merge cap slots and crowd out fresh matches.
+        if (!w.startsWith(bare, Qt::CaseInsensitive))
+            continue;
+        words << w;
         buckets << idx.data(Qt::UserRole + 1).toString();
     }
     // Merge, don't replace: the instant local answers stay on top and
@@ -4886,8 +4893,9 @@ void MainWindow::onRemoteSuggest(const QString &siteKey, const QString &prefix,
                        : QStringLiteral("general");
         local.append(s);
     }
-    const QVector<TagSuggestion> merged =
-        TagSuggester::merge(local, suggestions);
+    const QVector<TagSuggestion> merged = TagSuggester::merge(
+        local, TagSuggester::rank(bare, suggestions)); // API order is
+        // count-only: rank exact-first before merging, never replacing locals
     if (merged.isEmpty())
         return;
     words.clear();
