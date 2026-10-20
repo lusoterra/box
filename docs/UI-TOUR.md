@@ -77,7 +77,8 @@ follows it (removed rows resolve to the nearest surviving post,
 twin copies collapse so stepping never sticks). Media area: wheel-zoom/drag-pan stills, GIFs,
 looping video with seek/volume (a set global proxy, or a failed direct
 stream, buffers through the download stack instead — same referer +
-cookies + proxy as stills). Right: metadata (`#id`, site —
+cookies + proxy as stills; the red error label only appears for terminal
+failures, never while still loading/buffering). Right: metadata (`#id`, site —
 downloaded rows show their booru `Label (Engine)` form —, URLs (the
 post page, not the downloaded file, except strays),
 score, rating with `(inferred)` flag, dimensions, ext) and clickable tag

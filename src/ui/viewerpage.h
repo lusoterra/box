@@ -183,6 +183,7 @@ private:
     Post m_cachePost;     // post behind that fetch (referer)
     bool m_fallbackTried = false; // one cache retry per video max
     bool m_errorShown = false; // sticky red error currently up
+    int m_errorGen = 0;         // cancels deferred error text on nav/stop/frames
     QString m_lastRemoteUrl;      // direct-stream URL (for retry)
     Post m_lastRemotePost;
     QSlider *m_vol;

@@ -38,6 +38,7 @@
 #include <QStandardPaths>
 #include <QStyle>
 #include <QStyleOption>
+#include <QTimer>
 #include <QUrl>
 #include <QVBoxLayout>
 #include <QWheelEvent>
@@ -585,17 +586,33 @@ VideoPane::VideoPane(QWidget *parent) : QWidget(parent) {
         const bool buffering = s == QMediaPlayer::BufferingMedia ||
                                s == QMediaPlayer::StalledMedia ||
                                s == QMediaPlayer::LoadingMedia;
-        m_buf->setVisible(buffering);
-        if (buffering)
-            m_buf->setText(tr("loading…"));
+        // A deferred red error owns the label once shown; transient
+        // loading ticks must not flash over it (or paint red too early).
+        if (!m_errorShown) {
+            m_buf->setVisible(buffering);
+            if (buffering)
+                m_buf->setText(tr("loading…"));
+        }
         if (s == QMediaPlayer::LoadedMedia)
             m_player->play(); // setSource() is async: play once the source is ready
         if (s == QMediaPlayer::InvalidMedia)
             onPlayerError(tr("Cannot play this video"));
+        // EndOfMedia with an active error surfaces via errorOccurred;
+        // a clean loop/end needs no error text.
     });
     connect(m_player, &QMediaPlayer::errorOccurred, this,
             [this](QMediaPlayer::Error error, const QString &errorString) {
-        Q_UNUSED(error);
+        if (error == QMediaPlayer::NoError)
+            return;
+        // Transient backend complaints during start-up/stalls cry wolf
+        // while the stream may still recover: only terminal statuses
+        // (InvalidMedia / EndOfMedia with an error) may paint red.
+        // The matching InvalidMedia tick re-enters here if it is real.
+        const QMediaPlayer::MediaStatus s = m_player->mediaStatus();
+        if (s == QMediaPlayer::LoadingMedia ||
+            s == QMediaPlayer::BufferingMedia ||
+            s == QMediaPlayer::StalledMedia)
+            return;
         onPlayerError(errorString);
     });
 
@@ -723,6 +740,7 @@ void VideoPane::setUrl(const QUrl &url, const Post &post) {
     }
     m_fallbackTried = false;
     m_errorShown = false;
+    ++m_errorGen; // cancel any deferred red from the previous video
     m_lastRemoteUrl.clear();
     dropTemp();
     // Pristine geometry for the incoming video: a stale scene rect
@@ -787,6 +805,7 @@ void VideoPane::stop() {
     }
     dropTemp();
     m_errorShown = false;
+    ++m_errorGen; // cancel any deferred red
     m_player->stop();
     // Don't clear the source here: setSource(QUrl()) is async and can emit
     // InvalidMedia *after* setUrl() has already loaded the next video,
@@ -838,6 +857,7 @@ void VideoPane::onCacheReady(const QString &url, const QString &localPath) {
         return; // stale (navigated away mid-fetch)
     m_cacheUrl.clear();
     m_errorShown = false;
+    ++m_errorGen; // direct-stream error no longer applies
     m_buf->setVisible(false);
     m_player->setSource(QUrl::fromLocalFile(localPath));
     m_player->play();
@@ -867,11 +887,32 @@ void VideoPane::onPlayerError(const QString &error) {
         startCacheFetch(QUrl(m_lastRemoteUrl), m_lastRemotePost);
         return;
     }
-    m_errorShown = true;
-    m_buf->setVisible(true);
-    m_buf->setText(error.isEmpty() ? tr("Cannot play this video")
-                                   : tr("Video error: %1").arg(error));
-    m_buf->setStyleSheet(QStringLiteral("color:#e05555;"));
+    // Defer the red label: slow starts emit terminal-looking errors
+    // while still loading, which used to flash "can't play" over a
+    // video that was about to render. Re-check at paint time and only
+    // keep it for genuinely terminal states with no frames.
+    const int gen = ++m_errorGen;
+    const QString msg =
+        error.isEmpty() ? tr("Cannot play this video") : tr("Video error: %1").arg(error);
+    QTimer::singleShot(650, this, [this, gen, msg] {
+        if (gen != m_errorGen)
+            return; // navigated away / stopped / superseded
+        if (m_view && m_view->hasFrames())
+            return; // recovered while waiting
+        if (m_player) {
+            const QMediaPlayer::MediaStatus s = m_player->mediaStatus();
+            if (s == QMediaPlayer::LoadingMedia ||
+                s == QMediaPlayer::BufferingMedia ||
+                s == QMediaPlayer::StalledMedia ||
+                s == QMediaPlayer::BufferedMedia ||
+                s == QMediaPlayer::LoadedMedia)
+                return; // still (or now) loading: not terminal
+        }
+        m_errorShown = true;
+        m_buf->setVisible(true);
+        m_buf->setText(msg);
+        m_buf->setStyleSheet(QStringLiteral("color:#e05555;"));
+    });
 }
 
 void VideoPane::setWebBackend(WebDownloadBackend *backend) {
