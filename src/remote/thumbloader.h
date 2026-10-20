@@ -33,6 +33,10 @@ public:
     // sent verbatim (hotlink-protected CDNs need it, e.g. Gelbooru).
     void request(const QString &key, const QString &path, qint64 mtime,
                  qint64 size, int longSide = 360, const QString &referer = {});
+    // Drop everything queued (quit path): in-flight tasks are bounded by
+    // their own network timeouts, but nothing new may start — otherwise
+    // the pool destructor's waitForDone holds the close event open.
+    void cancel();
 
 signals:
     void thumbnailReady(const QString &key, const QImage &image);
@@ -82,6 +86,9 @@ public:
     void setCacheDir(const QString &dir);
     void request(const QString &key, const QString &path, qint64 mtime,
                  qint64 size, int longSide = 360);
+    // Quit path: drop the queue and stop the player so neither late
+    // frames nor the timeout can fire after the window is gone.
+    void cancel();
 
 signals:
     void thumbnailReady(const QString &key, const QImage &image);

@@ -5,7 +5,9 @@ archives are read-only; downloads + favourites feed back into offline browsing.
 Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
 
 - Process/thread model: one GUI-thread process (second copy exits,
-  `src/main.cpp:112`).
+  `src/main.cpp:112`). Close is instant: `closeEvent` (`mainwindow.cpp`)
+  hides + blanks the stage first, cancels scans/downloads/fetchers/thumb
+  work, then persists — teardown waits never hold the event open.
   - `Scanner::scan` is blocking, run via `QtConcurrent::run`
     (`src/library/scanner.h:26`); progress via signals on owner.
   - `ThumbLoader` owns a `QThreadPool` (`src/remote/thumbloader.cpp:26`);

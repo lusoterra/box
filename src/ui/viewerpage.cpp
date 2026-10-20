@@ -1222,6 +1222,11 @@ void ViewerPage::setPlaybackDefaults(bool muted, bool loop, int volume) {
     m_video->setDefaults(muted, loop, volume);
 }
 
+void ViewerPage::stopPlayback() {
+    if (m_video)
+        m_video->stop();
+}
+
 void ViewerPage::setMetaCreds(const QString &danUser, const QString &danKey,
                               const QString &gelUser, const QString &gelKey) {
     if (m_meta)

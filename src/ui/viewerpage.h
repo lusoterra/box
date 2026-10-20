@@ -235,6 +235,9 @@ public:
     // file downloads. Replaced by the real media when it arrives.
     void showThumbPreview(const QPixmap &thumb);
     void setPlaybackDefaults(bool muted, bool loop, int volume);
+    // Quit path: halt video playback (and its buffered fetch) now so the
+    // player teardown never holds the close event open.
+    void stopPlayback();
     void setMaxSide(int px) { m_maxSide = qMax(512, px); }
     void setImageCache(ImageCache *cache);
     void setWebBackend(class WebDownloadBackend *backend);

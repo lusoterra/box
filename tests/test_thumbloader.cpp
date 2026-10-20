@@ -57,6 +57,22 @@ private slots:
         QTest::qWait(1500);
         QCOMPARE(ready.size(), 2);
     }
+    void cancelIsSafe() {
+        // Quit path: cancelling an idle loader is a no-op (never crashes),
+        // and a cancelled loader accepts fresh requests afterwards.
+        QVERIFY(!sampleJpg().isEmpty());
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        ThumbLoader loader;
+        loader.setAspect(1, 1);
+        loader.setCacheDir(tmp.path());
+        loader.cancel();
+        QSignalSpy ready(&loader, &ThumbLoader::thumbnailReady);
+        QVERIFY(ready.isValid());
+        loader.request(QStringLiteral("after-cancel"), sampleJpg(), 0, 0, 128);
+        QVERIFY(ready.wait(15000));
+        QCOMPARE(ready.size(), 1);
+    }
 };
 
 int main(int argc, char *argv[]) {

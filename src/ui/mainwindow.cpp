@@ -5370,11 +5370,31 @@ void MainWindow::applyPreferences(const AppSettings &app) {
 }
 
 void MainWindow::closeEvent(QCloseEvent *e) {
+    // Fast close (X / Alt+Q): unmap and blank the UI first so the window
+    // manager responds instantly, then tear down workers without ever
+    // blocking this event. Destruction-time waits (pool drains, player
+    // shutdown) happen after the window is already gone.
+    e->accept();
+    hide();
+    if (m_stage)
+        m_stage->setCurrentIndex(0); // release media widgets, show home
+    if (m_viewer)
+        m_viewer->stopPlayback();
     cancelScan();
     m_downloads->cancel();
     m_fetcher->cancel();
     m_browseFetcher->cancel();
     m_suggester->cancel();
+    if (m_refresher)
+        m_refresher->cancel();
+    for (RemoteSource *s : m_sources) {
+        if (s)
+            s->cancel();
+    }
+    if (m_thumbs)
+        m_thumbs->cancel(); // drop queued decodes (pool wait is bounded)
+    if (m_videoThumbs)
+        m_videoThumbs->cancel();
     m_settings.geometry = saveGeometry();
     if (m_sideSplit)
         m_settings.sideSplitter = m_sideSplit->saveState();

@@ -64,6 +64,15 @@ void ThumbLoader::releaseKey(const QString &key) {
     m_inflight.remove(key);
 }
 
+void ThumbLoader::cancel() {
+    // Queued-but-unstarted runnables never begin; in-flight ones keep
+    // their own (bounded) timeouts. Clears the dedupe set so a later
+    // request for the same key is not mistaken for an active task.
+    m_pool->clear();
+    QMutexLocker lock(&m_inflightMutex);
+    m_inflight.clear();
+}
+
 ThumbTask::ThumbTask(ThumbLoader *loader, QString key, QString path, qint64 mtime,
                      qint64 size, int longSide, QString referer)
     : m_loader(loader), m_key(std::move(key)), m_path(std::move(path)),
@@ -318,4 +327,12 @@ void VideoThumbGrabber::finishCurrent(const QImage &img) {
         out.save(m_diskPath, "JPEG", 82); // best effort
     emit thumbnailReady(m_current.key, out);
     pump();
+}
+
+void VideoThumbGrabber::cancel() {
+    m_queue.clear();
+    m_queued.clear();
+    m_timeout->stop();
+    m_player->stop();
+    m_busy = false;
 }
