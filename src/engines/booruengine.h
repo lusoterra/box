@@ -43,6 +43,10 @@ QString sortSearchTag(const QString &sort, BooruEngine engine);
 bool isTransientSearchError(int httpStatus, const QString &error);
 // Stable slug for a new custom booru ("My Booru" -> "mybooru", deduped).
 QString uniqueBooruKey(const QString &label, const QSet<QString> &taken);
+// Entry default tags onto a query: space-split, appended in order,
+// minus tab-dropped tokens (pill ×). Pure: unit-tested.
+QStringList defaultTagsFor(const QStringList &base, const QString &defaults,
+                           const QSet<QString> &dropped);
 // Per-engine API-object -> Post mapping (pure, unit-tested).
 // Keeps rawJson so the downloader can store the object verbatim.
 Post fromDanbooru(const QJsonObject &o, const QString &baseUrl);

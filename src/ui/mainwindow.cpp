@@ -1981,8 +1981,9 @@ void MainWindow::doBrowseSearch(bool append) {
     // The sort box rides server-side here too (translated per engine;
     // explicit user sort:/order: tokens always win over the box).
     auto siteAndBase = [&](const BooruSite *cfg) {
-        QStringList tags = andBase;
-        tags += cfg->defaultTags.split(QChar::Space, Qt::SkipEmptyParts);
+        QStringList tags =
+            RemotePosts::defaultTagsFor(andBase, cfg->defaultTags,
+                                        t->droppedDefaults);
         const QString serverSort =
             RemotePosts::sortSearchTag(t->sort, cfg->engine);
         if (!serverSort.isEmpty()) {
@@ -4629,6 +4630,44 @@ void MainWindow::updateResultLabel() {
                     updateResultLabel(); // pill vanishes now, fetch lands later
                     commitSearch();
                 });
+    }
+    if (isBrowse()) {
+        // Entry defaults as removable cards: one per unique token across
+        // the tab's sites (minus tab-dropped ones). × drops the token for
+        // this tab (kept in droppedDefaults, skipped by siteAndBase) and
+        // re-searches; typing it again re-adds it as a normal tag.
+        if (const BrowserTab *bt = currentTab(); bt && bt->isRemote) {
+            QStringList shown;
+            for (const QString &key : bt->sites) {
+                const BooruSite *cfg = RemoteSource::siteFor(key);
+                if (!cfg)
+                    continue;
+                for (const QString &tok :
+                     RemotePosts::defaultTagsFor({}, cfg->defaultTags,
+                                                 bt->droppedDefaults)) {
+                    if (!shown.contains(tok))
+                        shown << tok;
+                }
+            }
+            for (const QString &tok : shown) {
+                const QString clean =
+                    tok.startsWith(u'-') && tok.size() > 1 ? tok.mid(1) : tok;
+                const QColor meta = UiIcons::filterTagColor(clean);
+                addPill(QStringLiteral("%1 ×").arg(tok),
+                        tr("Remove default filter"),
+                        meta.isValid()
+                            ? meta
+                            : UiIcons::tagBucketColor(pillBucket(clean)),
+                        [this, tok] {
+                            if (BrowserTab *live = currentTab();
+                                live && live->isRemote) {
+                                live->droppedDefaults.insert(tok);
+                                updateResultLabel();
+                                commitSearch();
+                            }
+                        });
+            }
+        }
     }
     if (!m_searchQuery.trimmed().isEmpty()) {
         // One card per OR-group (a group mixes buckets, so it takes the

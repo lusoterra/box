@@ -51,6 +51,7 @@ struct BrowserTab {
     QString root;              // local
     QStringList sites;         // remote site keys
     QStringList activeTags;
+    QSet<QString> droppedDefaults; // entry defaultTags disabled via pill ×
     QString searchQuery;
     QString rating = QStringLiteral("all");
     QString category;

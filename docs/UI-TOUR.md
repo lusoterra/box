@@ -30,7 +30,9 @@ mode, client-side locally) → aspect dropdown (`1:1`, grid cell shape) →
 `Boorus…` (per-tab source picker, multibooru merge) → `Download (N)`
 (batch-downloads the selection) → `Clear` (resets pills/query) → reload
 `↺` (`Rescan folder` locally, re-search remotely) → `Page 1 · 40 results`
-→ grid-zoom slider (far right).
+→ grid-zoom slider (far right). Below: filter pills — typed tags, query
+groups, rating/source, plus each booru entry's `defaultTags` as removable
+cards (× drops the default for that tab and re-searches).
 
 ## Grid card anatomy (see 19-badge-closeup)
 Thumbnail with, overlaid: top-right media kind (`▶` video / `GIF`);

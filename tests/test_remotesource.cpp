@@ -459,6 +459,27 @@ private slots:
                      "then retry)."));
     }
 
+    void defaultTagsFor() {
+        // Base passes through, defaults append in order, dropped tokens
+        // (pill ×) are skipped.
+        QCOMPARE(RemotePosts::defaultTagsFor(
+                     {QStringLiteral("sky")},
+                     QStringLiteral("rating:safe solo"), {}),
+                 QStringList({QStringLiteral("sky"),
+                              QStringLiteral("rating:safe"),
+                              QStringLiteral("solo")}));
+        QCOMPARE(RemotePosts::defaultTagsFor(
+                     {QStringLiteral("sky")},
+                     QStringLiteral("rating:safe solo"),
+                     {QStringLiteral("solo")}),
+                 QStringList({QStringLiteral("sky"),
+                              QStringLiteral("rating:safe")}));
+        QCOMPARE(RemotePosts::defaultTagsFor(
+                     {}, QStringLiteral("  rating:safe  "), {}),
+                 QStringList({QStringLiteral("rating:safe")}));
+        QVERIFY(RemotePosts::defaultTagsFor({}, {}, {}).isEmpty());
+    }
+
     void danbooruMapping() {
         const Post p = RemotePosts::fromDanbooru(
             danbooruObj(), QStringLiteral("https://danbooru.donmai.us"));

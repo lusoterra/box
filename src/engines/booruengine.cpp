@@ -286,6 +286,17 @@ QString uniqueBooruKey(const QString &label, const QSet<QString> &taken) {
     return key;
 }
 
+QStringList defaultTagsFor(const QStringList &base, const QString &defaults,
+                           const QSet<QString> &dropped) {
+    QStringList tags = base;
+    for (const QString &tok :
+         defaults.split(QChar::Space, Qt::SkipEmptyParts)) {
+        if (!dropped.contains(tok))
+            tags << tok;
+    }
+    return tags;
+}
+
 QString shortFor(const QString &siteLabel) {
     if (siteLabel == QStringLiteral("Danbooru"))
         return QStringLiteral("DAN");
