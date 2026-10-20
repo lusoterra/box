@@ -20,7 +20,7 @@
 #include <QPushButton>
 #include <QSlider>
 #include <QStackedWidget>
-#include <QGraphicsVideoItem>
+#include <QVideoFrame>
 
 class QBoxLayout;
 class QAbstractItemModel;
@@ -87,18 +87,41 @@ private:
     bool m_fitted = true;
 };
 
+// Frame-driven video item: sizes itself from the decoded frames it
+// actually receives. Player metadata / nativeSizeChanged stay silent
+// for some containers, but frames always carry dimensions — so a
+// rendering video can never be stuck sizeless (tiny top-left).
+class VideoFrameItem : public QGraphicsItem {
+public:
+    explicit VideoFrameItem(QGraphicsItem *parent = nullptr);
+    // An invalid frame clears the image (used by resetSize).
+    void setFrame(const QVideoFrame &frame);
+    QRectF boundingRect() const override;
+    void paint(QPainter *painter, const QStyleOptionGraphicsItem *option,
+               QWidget *widget) override;
+
+private:
+    QImage m_image;
+    QSizeF m_size; // display size (pixel-aspect honored)
+};
+
+class QVideoSink;
+
 // mp4/webm playback via Qt Multimedia (FFmpeg backend). No libmpv needed.
-// Zoomable/pannable like stills and gifs: frames land on a graphics video
-// item, so wheel-zoom-at-cursor, drag-pan and double-click fit<->100%
-// behave identically across all three.
+// Zoomable/pannable like stills and gifs: frames land on a graphics item
+// fed by a video sink, so wheel-zoom-at-cursor, drag-pan and double-click
+// fit<->100% behave identically across all three.
 class VideoView : public QGraphicsView {
     Q_OBJECT
 public:
     explicit VideoView(QWidget *parent = nullptr);
-    QGraphicsVideoItem *videoItem() const { return m_item; }
-    // Scene size from the player metadata (preferred) or the video
-    // item's nativeSizeChanged (backup); idempotent, refits when fitted.
-    void setNativeSize(const QSizeF &size);
+    QVideoSink *videoSink() const { return m_sink; }
+    // True once frames have sized the scene (i.e. the stream renders).
+    bool hasFrames() const;
+    // Pristine state for a new video: drops the frame, any stale scene
+    // rect + zoom so the next frames fit cleanly instead of inheriting
+    // the previous video's geometry (small/corner/big flashes).
+    void resetSize();
     void fit();
     void zoom100();
 
@@ -111,7 +134,8 @@ protected:
 private:
     void applyZoom(double f);
     QGraphicsScene *m_scene;
-    QGraphicsVideoItem *m_item = nullptr;
+    VideoFrameItem *m_item = nullptr;
+    QVideoSink *m_sink = nullptr;
     double m_zoom = 1.0;
     bool m_fitted = true;
 };
@@ -129,6 +153,11 @@ public:
     void zoom100View();
     // Browser backend for fingerprint-walled video (null = stream direct).
     void setWebBackend(class WebDownloadBackend *backend);
+    // QNAM-backed fetch for remote videos: used up front when a
+    // global proxy is set (the player stack would bypass it) and as
+    // a fallback when direct streaming errors out (referer/wall/
+    // redirect cases the player cannot ride through itself).
+    void setImageCache(class ImageCache *cache);
 
 protected:
     bool eventFilter(QObject *watched, QEvent *e) override; // click video = pause/resume
@@ -136,6 +165,10 @@ protected:
 private:
     void togglePlayPause();
     void onWebFinished(qint64 id, bool ok, const QString &error);
+    void startCacheFetch(const QUrl &url, const Post &post);
+    void onCacheReady(const QString &url, const QString &localPath);
+    void onCacheFailed(const QString &url, const QString &error);
+    void onPlayerError(const QString &error);
     void dropTemp();
     VideoView *m_view;
     QMediaPlayer *m_player;
@@ -145,6 +178,13 @@ private:
     // Click-vs-pan disambiguation for pause-on-click (see eventFilter).
     QPoint m_pressPos;
     bool m_pressed = false;    QSlider *m_slider;
+    class ImageCache *m_imgCache = nullptr;
+    QString m_cacheUrl;   // remote fetch currently being buffered
+    Post m_cachePost;     // post behind that fetch (referer)
+    bool m_fallbackTried = false; // one cache retry per video max
+    bool m_errorShown = false; // sticky red error currently up
+    QString m_lastRemoteUrl;      // direct-stream URL (for retry)
+    Post m_lastRemotePost;
     QSlider *m_vol;
     QLabel *m_time;
     QLabel *m_buf;
@@ -181,7 +221,14 @@ public:
 
     void setPosts(QVector<Post> posts);
     void showRow(int row);
+    // The post on screen (default Post when the viewer is empty).
+    Post currentPost() const;
+    bool hasCurrent() const;
+    int currentRow() const;
     void setFaved(bool faved);
+    // Status marks next to the title: AI-generated / favourited /
+    // downloaded. Refreshed live while the viewer stays open.
+    void setStatusBadges(bool ai, bool faved, bool downloaded);
     void setRefreshable(bool ok, const QString &reason);
     // Instant prerender: show the (cached) grid thumbnail while the full
     // file downloads. Replaced by the real media when it arrives.
@@ -199,6 +246,8 @@ public:
 signals:
     void back();
     void tagActivated(const QString &tag);
+    // Right-click on a tag button (globalPos for the menu).
+    void tagContextRequested(const QString &tag, const QPoint &globalPos);
     void downloadRequested(const Post &post);
     void favouriteRequested(const Post &post);
     void refreshRequested(const Post &post);
@@ -231,6 +280,9 @@ private:
 
     QVector<Post> m_posts;
     int m_row = 0;
+    QLabel *m_aiBadge = nullptr;
+    QLabel *m_favBadge = nullptr;
+    QLabel *m_dlBadge = nullptr;
     QStackedWidget *m_stack;
     ImageView *m_image;
     GifView *m_gif;

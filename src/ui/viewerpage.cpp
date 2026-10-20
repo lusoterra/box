@@ -19,7 +19,8 @@
 #include <QFutureWatcher>
 #include <QGraphicsEllipseItem>
 #include <QGraphicsRectItem>
-#include <QGraphicsVideoItem>
+#include <QVideoFrame>
+#include <QVideoSink>
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QImageReader>
@@ -332,6 +333,52 @@ void GifView::resizeEvent(QResizeEvent *e) {
 
 // ── VideoView ────────────────────────────────────────────────────
 
+VideoFrameItem::VideoFrameItem(QGraphicsItem *parent) : QGraphicsItem(parent) {
+}
+
+void VideoFrameItem::setFrame(const QVideoFrame &frame) {
+    QImage img;
+    bool portrait = false;
+    if (frame.isValid()) {
+        QVideoFrame f(frame); // shared copy; safe past the signal
+        img = f.toImage();
+        if (img.isNull() && f.map(QVideoFrame::ReadOnly)) {
+            img = f.toImage(); // mapped-state path for exotic handles
+            f.unmap();
+        }
+        img = img.copy(); // detach: the frame dies with the signal
+        // Phone clips arrive sideways with a rotation flag (the old
+        // video item applied this itself); swap to display size.
+        const QtVideo::Rotation rot = f.surfaceFormat().rotation();
+        portrait = rot == QtVideo::Rotation::Clockwise90 ||
+                   rot == QtVideo::Rotation::Clockwise270;
+    }
+    const QSizeF display =
+        img.isNull()
+            ? QSizeF()
+            : portrait ? QSizeF(img.height(), img.width())
+                       : QSizeF(img.size());
+    if (display != m_size) {
+        prepareGeometryChange();
+        m_size = display;
+    }
+    m_image = img;
+    update();
+}
+
+QRectF VideoFrameItem::boundingRect() const {
+    return QRectF(QPointF(), m_size);
+}
+
+void VideoFrameItem::paint(QPainter *painter,
+                           const QStyleOptionGraphicsItem *,
+                           QWidget *) {
+    if (m_image.isNull())
+        return;
+    painter->setRenderHint(QPainter::SmoothPixmapTransform, true);
+    painter->drawImage(boundingRect(), m_image);
+}
+
 VideoView::VideoView(QWidget *parent) : QGraphicsView(parent) {
     m_scene = new QGraphicsScene(this);
     setScene(m_scene);
@@ -340,23 +387,38 @@ VideoView::VideoView(QWidget *parent) : QGraphicsView(parent) {
     setResizeAnchor(QGraphicsView::AnchorViewCenter);
     setBackgroundBrush(QColor(0x0d, 0x0f, 0x14));
     setFrameShape(QFrame::NoFrame);
-    m_item = new QGraphicsVideoItem();
+    m_item = new VideoFrameItem();
     m_scene->addItem(m_item);
-    // First real frame sizes the scene; later size changes (stream
-    // renegotiation) re-apply the current fit/zoom instead of jumping.
-    // (QGraphicsVideoItem::nativeSizeChanged proves unreliable for this,
-    // so the pane also pushes QMediaMetaData::Resolution via setNativeSize;
-    // both funnels are idempotent.)
-    connect(m_item, &QGraphicsVideoItem::nativeSizeChanged, this,
-            [this](const QSizeF &size) { setNativeSize(size); });
+    m_sink = new QVideoSink(this);
+    // Frames carry their own dimensions, so the scene tracks whatever
+    // actually renders: no metadata/native-size event required. The fit
+    // only re-applies while fitted or on a size change, so zoom never
+    // fights the incoming frames.
+    connect(m_sink, &QVideoSink::videoFrameChanged, this,
+            [this](const QVideoFrame &frame) {
+                m_item->setFrame(frame);
+                const QRectF b = m_item->boundingRect();
+                if (b.isEmpty())
+                    return;
+                if (m_scene->sceneRect() != b) {
+                    m_scene->setSceneRect(b);
+                    if (m_fitted)
+                        fit();
+                }
+            });
 }
 
-void VideoView::setNativeSize(const QSizeF &size) {
-    if (size.isEmpty())
-        return;
-    m_scene->setSceneRect(QRectF(QPointF(), size));
-    if (m_fitted)
-        fit();
+bool VideoView::hasFrames() const {
+    return !m_scene->sceneRect().isEmpty();
+}
+
+void VideoView::resetSize() {
+    if (m_item)
+        m_item->setFrame(QVideoFrame());
+    m_scene->setSceneRect(QRectF());
+    resetTransform();
+    m_zoom = 1.0;
+    m_fitted = true;
 }
 
 void VideoView::fit() {
@@ -486,7 +548,7 @@ VideoPane::VideoPane(QWidget *parent) : QWidget(parent) {
     m_audio->setVolume(1.0);
     m_audio->setMuted(true); // muted by default; unmute in the controls
     m_player->setAudioOutput(m_audio);
-    m_player->setVideoOutput(m_view->videoItem());
+    m_player->setVideoOutput(m_view->videoSink());
     m_player->setLoops(QMediaPlayer::Infinite);
 
     auto *ctl = new QHBoxLayout();
@@ -528,18 +590,13 @@ VideoPane::VideoPane(QWidget *parent) : QWidget(parent) {
             m_buf->setText(tr("loading…"));
         if (s == QMediaPlayer::LoadedMedia)
             m_player->play(); // setSource() is async: play once the source is ready
-        if (s == QMediaPlayer::InvalidMedia) {
-            m_buf->setVisible(true);
-            m_buf->setText(tr("Cannot play this video"));
-            m_buf->setStyleSheet(QStringLiteral("color:#e05555;"));
-        }
+        if (s == QMediaPlayer::InvalidMedia)
+            onPlayerError(tr("Cannot play this video"));
     });
     connect(m_player, &QMediaPlayer::errorOccurred, this,
             [this](QMediaPlayer::Error error, const QString &errorString) {
         Q_UNUSED(error);
-        m_buf->setVisible(true);
-        m_buf->setText(tr("Video error: %1").arg(errorString));
-        m_buf->setStyleSheet(QStringLiteral("color:#e05555;"));
+        onPlayerError(errorString);
     });
 
     connect(m_muteBtn, &QPushButton::clicked, this, [this] {
@@ -563,6 +620,18 @@ VideoPane::VideoPane(QWidget *parent) : QWidget(parent) {
                 : QStringLiteral("play")));
     });
     connect(m_player, &QMediaPlayer::positionChanged, this, [this](qint64 p) {
+        // The direct stream recovered after an error (or a fallback
+        // it no longer needs): frames are rendering, so drop the
+        // stale error and stop the redundant buffered fetch.
+        if (m_errorShown && m_view && m_view->hasFrames()) {
+            m_errorShown = false;
+            m_buf->setVisible(false);
+            if (m_imgCache && !m_cacheUrl.isEmpty()) {
+                m_imgCache->cancelUrl(m_cacheUrl);
+                m_cacheUrl.clear();
+            }
+            m_fallbackTried = false;
+        }
         if (!m_slider->isSliderDown())
             m_slider->setValue(int(p));
         const qint64 d = m_player->duration();
@@ -634,6 +703,8 @@ void VideoPane::setDefaults(bool muted, bool loop, int volume) {
 }
 
 void VideoPane::setFile(const QString &path) {
+    if (m_view)
+        m_view->resetSize();
     setUrl(QUrl::fromLocalFile(path));
 }
 
@@ -646,14 +717,40 @@ void VideoPane::setUrl(const QUrl &url, const Post &post) {
         m_webBackend->cancel(m_webId);
         m_webId = -1;
     }
+    if (m_imgCache && !m_cacheUrl.isEmpty()) {
+        m_imgCache->cancelUrl(m_cacheUrl);
+        m_cacheUrl.clear();
+    }
+    m_fallbackTried = false;
+    m_errorShown = false;
+    m_lastRemoteUrl.clear();
     dropTemp();
+    // Pristine geometry for the incoming video: a stale scene rect
+    // from the previous file would frame this one wrong (small or
+    // cropped) until a size event lands.
+    if (m_view)
+        m_view->resetSize();
     m_audio->setMuted(m_muteDefault); // muted by default, every video
     m_buf->setVisible(false); // clear any stale error/buffering text
     // Fingerprint-walled hosts: QMediaPlayer's plain stack gets wall
     // pages, so buffer through the browser profile, then play local.
     // Site-aware (entry base host, not the file URL: media CDNs live
     // next door) so CDN-hosted videos route too.
-    const bool viaBrowser = !url.isLocalFile() && m_webBackend &&
+    const bool remote = !url.isLocalFile();
+    if (remote) {
+        m_lastRemoteUrl = url.toString();
+        m_lastRemotePost = post;
+    }
+    // A configured global proxy covers the QNAM stack only: the
+    // player would stream past it (privacy hole, and often a plain
+    // failure on filtered networks), so buffer through the cache.
+    const bool viaCache = remote && m_imgCache &&
+                          !RemotePosts::globalProxySpec().isEmpty();
+    if (viaCache) {
+        startCacheFetch(url, post);
+        return;
+    }
+    const bool viaBrowser = remote && m_webBackend &&
                             RemotePosts::needsWebDownload(post);
     if (viaBrowser) {
         const QString ext = QFileInfo(url.path()).suffix().toLower();
@@ -684,7 +781,12 @@ void VideoPane::stop() {
         m_webBackend->cancel(m_webId);
         m_webId = -1;
     }
+    if (m_imgCache && !m_cacheUrl.isEmpty()) {
+        m_imgCache->cancelUrl(m_cacheUrl);
+        m_cacheUrl.clear();
+    }
     dropTemp();
+    m_errorShown = false;
     m_player->stop();
     // Don't clear the source here: setSource(QUrl()) is async and can emit
     // InvalidMedia *after* setUrl() has already loaded the next video,
@@ -700,6 +802,76 @@ void VideoPane::dropTemp() {
         QFile::remove(m_tmpPath);
         m_tmpPath.clear();
     }
+}
+
+void VideoPane::setImageCache(ImageCache *cache) {
+    if (m_imgCache == cache)
+        return;
+    if (m_imgCache)
+        disconnect(m_imgCache, nullptr, this, nullptr);
+    m_imgCache = cache;
+    if (!m_imgCache)
+        return;
+    connect(m_imgCache, &ImageCache::ready, this, &VideoPane::onCacheReady);
+    connect(m_imgCache, &ImageCache::failed, this, &VideoPane::onCacheFailed);
+}
+
+void VideoPane::startCacheFetch(const QUrl &url, const Post &post) {
+    // Same hardened stack as stills: referer + cookies + redirects +
+    // proxy, then play the local file. Reuses the disk cache when the
+    // full image cache already fetched this URL.
+    m_cacheUrl = url.toString();
+    m_cachePost = post;
+    m_buf->setText(tr("buffering\u2026"));
+    m_buf->setStyleSheet(QStringLiteral("color:#7c9ef8;"));
+    m_buf->setVisible(true);
+    const QString have = m_imgCache->localPath(m_cacheUrl);
+    if (!have.isEmpty()) {
+        onCacheReady(m_cacheUrl, have);
+        return;
+    }
+    m_imgCache->request(m_cacheUrl, RemotePosts::mediaRefererFor(post));
+}
+
+void VideoPane::onCacheReady(const QString &url, const QString &localPath) {
+    if (url != m_cacheUrl)
+        return; // stale (navigated away mid-fetch)
+    m_cacheUrl.clear();
+    m_errorShown = false;
+    m_buf->setVisible(false);
+    m_player->setSource(QUrl::fromLocalFile(localPath));
+    m_player->play();
+}
+
+void VideoPane::onCacheFailed(const QString &url, const QString &error) {
+    if (url != m_cacheUrl)
+        return;
+    m_cacheUrl.clear();
+    m_errorShown = true;
+    m_buf->setText(error.isEmpty() ? tr("video unavailable") : error);
+    m_buf->setStyleSheet(QStringLiteral("color:#e05555;"));
+    m_buf->setVisible(true);
+}
+
+void VideoPane::onPlayerError(const QString &error) {
+    // Frames are (or were) on screen: the stream renders, so this is
+    // a blip (player backends cry wolf on seeks/stalls), not a
+    // failure. Never yank playback or stick an error over video.
+    if (m_view && m_view->hasFrames())
+        return;
+    // Direct streaming failed (referer walls, redirects, filtered
+    // networks): retry once through the cached QNAM fetch instead of
+    // leaving a dead pane.
+    if (!m_fallbackTried && m_imgCache && !m_lastRemoteUrl.isEmpty()) {
+        m_fallbackTried = true;
+        startCacheFetch(QUrl(m_lastRemoteUrl), m_lastRemotePost);
+        return;
+    }
+    m_errorShown = true;
+    m_buf->setVisible(true);
+    m_buf->setText(error.isEmpty() ? tr("Cannot play this video")
+                                   : tr("Video error: %1").arg(error));
+    m_buf->setStyleSheet(QStringLiteral("color:#e05555;"));
 }
 
 void VideoPane::setWebBackend(WebDownloadBackend *backend) {
@@ -893,6 +1065,32 @@ ViewerPage::ViewerPage(QWidget *parent) : QWidget(parent) {
         l->setStyleSheet(QStringLiteral("color:#7880a0;font-size:11px;"));
     pl->addWidget(m_idLabel);
     pl->addWidget(m_titleLabel);
+    auto *badgeRow = new QWidget(this);
+    auto *badgeLay = new QHBoxLayout(badgeRow);
+    badgeLay->setContentsMargins(0, 2, 0, 2);
+    badgeLay->setSpacing(4);
+    badgeLay->addStretch(0);
+    const QString badgeStyle =
+        QStringLiteral("color:white;border-radius:4px;padding:1px 7px;"
+                       "font-size:10px;background:%1;");
+    m_aiBadge = new QLabel(QStringLiteral("AI"), this);
+    m_aiBadge->setStyleSheet(
+        badgeStyle.arg(QStringLiteral("#7c4dff")));
+    m_aiBadge->setToolTip(tr("AI-generated"));
+    m_favBadge = new QLabel(QStringLiteral("\u2665"), this);
+    m_favBadge->setStyleSheet(badgeStyle.arg(
+        UiIcons::favRed().name(QColor::HexRgb)));
+    m_favBadge->setToolTip(tr("Favourited"));
+    m_dlBadge = new QLabel(QStringLiteral("\u2193"), this);
+    m_dlBadge->setStyleSheet(
+        badgeStyle.arg(QStringLiteral("#2e8b6e")));
+    m_dlBadge->setToolTip(tr("Downloaded"));
+    for (auto *b : {m_aiBadge, m_favBadge, m_dlBadge}) {
+        b->setVisible(false);
+        badgeLay->addWidget(b);
+    }
+    badgeLay->addStretch(1);
+    pl->addWidget(badgeRow);
     pl->addWidget(m_dateLabel);
     pl->addWidget(m_pathLabel);
     auto *grid = new QGridLayout();
@@ -998,6 +1196,8 @@ void ViewerPage::setImageCache(ImageCache *cache) {
     if (m_imgCache)
         disconnect(m_imgCache, nullptr, this, nullptr);
     m_imgCache = cache;
+    if (m_video)
+        m_video->setImageCache(cache);
     if (!m_imgCache)
         return;
     connect(m_imgCache, &ImageCache::ready, this, &ViewerPage::onCacheReady);
@@ -1098,6 +1298,27 @@ void ViewerPage::loadLocalImage(const QString &path, int row) {
         }
         return reader.read();
     }));
+}
+
+Post ViewerPage::currentPost() const {
+    return hasCurrent() ? m_posts.at(m_row) : Post();
+}
+
+bool ViewerPage::hasCurrent() const {
+    return m_row >= 0 && m_row < m_posts.size();
+}
+
+int ViewerPage::currentRow() const {
+    return m_row;
+}
+
+void ViewerPage::setStatusBadges(bool ai, bool faved, bool downloaded) {
+    if (m_aiBadge)
+        m_aiBadge->setVisible(ai);
+    if (m_favBadge)
+        m_favBadge->setVisible(faved);
+    if (m_dlBadge)
+        m_dlBadge->setVisible(downloaded);
 }
 
 void ViewerPage::setFaved(bool faved) {
@@ -1332,11 +1553,24 @@ void ViewerPage::showCurrent() {
         } else {
             m_titleLabel->setText(p.siteName);
         }
+    } else if (const BooruSite *entry = RemotePosts::entryForPost(p)) {
+        // Downloaded posts keep their booru: same "Label (Engine)"
+        // form as remote rows (the artist/title live in the tags).
+        if (!entry->label.isEmpty())
+            m_titleLabel->setText(
+                QStringLiteral("%1 <span style=\"font-weight:normal;"
+                               "font-size:small;\">(%2)</span>")
+                    .arg(entry->label.toHtmlEscaped(),
+                         RemotePosts::engineLabel(entry->engine)));
+        else
+            m_titleLabel->setText(p.title);
     } else {
         m_titleLabel->setText(p.title);
     }
     m_dateLabel->setText(p.date);
-    m_pathLabel->setText(p.isRemote ? p.postUrl : p.file);
+    // The link stays on the post page even after a download links the
+    // row to disk; strays (no post URL) keep the local file.
+    m_pathLabel->setText(!p.postUrl.isEmpty() ? p.postUrl : p.file);
     m_scoreLabel->setText(p.hasMeta ? QStringLiteral("%1%2")
                                           .arg(p.score > 0 ? QStringLiteral("+")
                                                            : QStringLiteral(""))
@@ -1498,6 +1732,11 @@ void ViewerPage::addTagGroup(QBoxLayout *lay, const QString &name, const QString
         b->setStyleSheet(
             QStringLiteral("text-align:left;color:%1;padding:2px 6px;").arg(color));
         connect(b, &QPushButton::clicked, this, [this, t] { emit tagActivated(t); });
+        b->setContextMenuPolicy(Qt::CustomContextMenu);
+        connect(b, &QPushButton::customContextMenuRequested, this,
+                [this, t, b](const QPoint &pos) {
+                    emit tagContextRequested(t, b->mapToGlobal(pos));
+                });
         flow->addWidget(b);
     }
     lay->addLayout(flow);
