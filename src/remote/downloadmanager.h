@@ -37,7 +37,7 @@ struct DownloadSummary {
     int skipped = 0; // already on disk
     int failed = 0;
     QStringList errors;
-    QVector<Post> downloaded; // successfully saved posts (for auto-favourite)
+    QVector<Post> downloaded; // saved or already-on-disk posts (for auto-favourite)
     // Final on-disk paths by file URL (after any md5 rename below).
     QList<QPair<QString, QString>> finalPaths;
 };

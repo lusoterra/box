@@ -101,6 +101,48 @@ DownloadManager::Flight *DownloadManager::findWebFlight(qint64 webId) {
     return nullptr;
 }
 
+namespace {
+// Sidecar enrichment: the raw API object wins, but favourited rows
+// re-listed from the DB carry no API object at all. Backfill the
+// gallery-dl-style fields from the parsed post so every sidecar is a
+// complete record (rescan, relink and the file name all read these).
+void enrichSidecarRaw(QJsonObject &raw, const Post &p) {
+    auto putNum = [&](const char *k, qint64 v) {
+        if (v == 0)
+            return;
+        const QString key = QString::fromLatin1(k);
+        if (raw.value(key).toVariant().toLongLong() == 0)
+            raw[key] = v;
+    };
+    auto putStr = [&](const char *k, const QString &v) {
+        if (v.isEmpty())
+            return;
+        const QString key = QString::fromLatin1(k);
+        if (raw.value(key).isNull() || raw.value(key).toString().isEmpty())
+            raw[key] = v;
+    };
+    putNum("id", p.id);
+    putNum("score", p.score);
+    putNum("width", p.width);
+    putNum("height", p.height);
+    putStr("file_ext", p.ext);
+    putStr("file_url", p.fileUrl);
+    putStr("sample_url", p.sampleUrl);
+    putStr("preview_url", p.previewUrl);
+    putStr("post_url", p.postUrl);
+    putStr("rating", p.rating);
+    putStr("source", p.source);
+    putStr("title", p.title);
+    putStr("date", p.date);
+    putStr("tags", p.tags);
+    putStr("tags_artist", p.tagsArtist);
+    putStr("tags_character", p.tagsCharacter);
+    putStr("tags_copyright", p.tagsCopyright);
+    putStr("tags_general", p.tagsGeneral);
+    putStr("tags_metadata", p.tagsMeta);
+}
+} // namespace
+
 QList<DownloadJob> DownloadManager::plan(const QVector<Post> &posts,
                                          const QString &destDir) {
     QList<DownloadJob> jobs;
@@ -129,6 +171,7 @@ QList<DownloadJob> DownloadManager::plan(const QVector<Post> &posts,
             else
                 raw[QStringLiteral("file_url")] = p.fileUrl;
         }
+        enrichSidecarRaw(raw, p);
         const QString tag = RemotePosts::fsTagForPost(p);
         const QString dir = destDir + u'/' + safeSiteDir(tag);
         QString name = RemotePosts::downloadFileName(tag, raw);
@@ -160,6 +203,11 @@ void DownloadManager::enqueue(const QList<DownloadJob> &jobs) {
     for (const DownloadJob &j : jobs) {
         if (QFile::exists(j.filePath)) {
             m_summary.skipped++;
+            // Already on disk still counts as downloaded for the
+            // favourite coupling (otherwise re-downloads never get
+            // favourited/linked and Downloads/Favourites diverge).
+            m_summary.downloaded.append(j.post);
+            m_summary.finalPaths.append({j.post.fileUrl, j.filePath});
             skipped.append(j);
             continue;
         }
@@ -330,8 +378,19 @@ void DownloadManager::onFileReply() {
                              ct.startsWith(QStringLiteral("binary/octet-stream"), Qt::CaseInsensitive);
         if (!ct.isEmpty() && !isMedia) {
             // Wall/login page instead of bytes: never keep it as media.
+            // Sniff the head off disk (the body already streamed into
+            // the file) so the error names a captcha/wall and points
+            // at cookie capture instead of quoting a content type.
             ok = false;
-            error = tr("Unexpected content type: %1").arg(
+            flight->file->write(reply->readAll());
+            flight->file->close();
+            flight->file = nullptr; // closed+kept: cleanup below only deletes
+            QByteArray head;
+            QFile probe(job.filePath);
+            if (probe.open(QIODevice::ReadOnly))
+                head = probe.read(65536);
+            error = RemotePosts::wallAwareMediaError(
+                QUrl(job.post.fileUrl).host(), head,
                 reply->header(QNetworkRequest::ContentTypeHeader).toString());
         } else {
             flight->file->write(reply->readAll()); // trailing bytes
