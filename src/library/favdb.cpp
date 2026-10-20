@@ -18,6 +18,16 @@
 #include <cstring>
 
 namespace {
+// Scheme check without pulling the engine layer into favdb: only http(s)
+// values are post pages; anything else in the post_url column is a
+// backing file (strays) or legacy data and must never surface as the
+// post link.
+bool isHttpLike(const QString &s) {
+    const QString head = s.left(8).toLower();
+    return head.startsWith(QStringLiteral("http://")) ||
+           head.startsWith(QStringLiteral("https://"));
+}
+
 // Stable 63-bit id from a string (SHA1 prefix): unlike qHash, identical
 // across processes and Qt versions, so hash-based favourite identities
 // survive restarts and upgrades.
@@ -314,6 +324,19 @@ bool FavDb::isFavourite(const QString &site, qint64 postId) {
     return q.exec() && q.next();
 }
 
+QHash<QPair<QString, qint64>, QString> FavDb::localPaths() {
+    QHash<QPair<QString, qint64>, QString> out;
+    if (!m_open)
+        return out;
+    QSqlQuery q(QSqlDatabase::database(m_conn));
+    if (!q.exec(QStringLiteral("SELECT site, post_id, local_path FROM favourites")))
+        return out;
+    while (q.next())
+        out.insert({q.value(0).toString(), q.value(1).toLongLong()},
+                   q.value(2).toString());
+    return out;
+}
+
 bool FavDb::add(const Post &post) {
     if (!m_open)
         return false;
@@ -445,10 +468,18 @@ static Post rowToPost(const QSqlQuery &q) {
     p.sampleUrl = q.value(12).toString();
     p.previewUrl = q.value(13).toString();
     const QString url = q.value(14).toString();
-    if (p.isRemote)
-        p.postUrl = url;
-    else
+    if (p.isRemote) {
+        // The post page survives a download linking the row to disk (the
+        // local_path override below flips isRemote but keeps postUrl):
+        // only http(s) values are post links; strays carry a backing
+        // file here instead and must keep pointing at it.
+        if (isHttpLike(url))
+            p.postUrl = url;
+        else if (!url.isEmpty())
+            p.absFile = url;
+    } else {
         p.absFile = url;
+    }
     p.file = p.isRemote ? QString() : url;
     p.width = q.value(15).toInt();
     p.height = q.value(16).toInt();

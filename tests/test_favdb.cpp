@@ -428,6 +428,65 @@ private slots:
         QSqlDatabase::removeDatabase(QStringLiteral("healcheck"));
     }
 
+    void localPathsMap() {
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        FavDb db;
+        QVERIFY(db.open(tmp.path()));
+        Post p = samplePost();
+        Post q = samplePost();
+        q.id = 555;
+        QVERIFY(db.add(p));
+        QVERIFY(db.add(q));
+        auto paths = db.localPaths();
+        QCOMPARE(paths.size(), 2);
+        // Nothing linked yet: both rows map to empty.
+        QVERIFY(paths.value({QStringLiteral("Gelbooru"), p.id}).isEmpty());
+        const QString real = tmp.filePath(QStringLiteral("pic.jpg"));
+        QVERIFY(db.setLocalPath(QStringLiteral("Gelbooru"), q.id, real));
+        paths = db.localPaths();
+        QCOMPARE(paths.value({QStringLiteral("Gelbooru"), q.id}), real);
+        QVERIFY(paths.value({QStringLiteral("Gelbooru"), p.id}).isEmpty());
+    }
+
+    void postUrlSurvivesLocalLink() {
+        // The post page stays the post page after a download links
+        // the row to disk (viewer/grid keep pointing at the URL).
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        FavDb db;
+        QVERIFY(db.open(tmp.path()));
+        const QString real = tmp.filePath(QStringLiteral("pic.jpg"));
+        QFile f(real);
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write("jpeg");
+        f.close();
+        Post p = samplePost();
+        QVERIFY(db.add(p));
+        QVERIFY(db.setLocalPath(QStringLiteral("Gelbooru"), p.id, real));
+        const Post back = db.list().first();
+        QVERIFY(!back.isRemote);
+        QCOMPARE(back.absFile, real);
+        QCOMPARE(back.postUrl, p.postUrl);
+    }
+
+    void strayBackingFileNeverBecomesPostUrl() {
+        // Non-http values in the post_url column are backing files
+        // (strays), never post links.
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        FavDb db;
+        QVERIFY(db.open(tmp.path()));
+        Post p = samplePost();
+        p.siteName = QStringLiteral("_Stray");
+        p.postUrl.clear();
+        p.absFile = tmp.filePath(QStringLiteral("stray.jpg"));
+        QVERIFY(db.add(p));
+        const Post back = db.list().first();
+        QVERIFY(back.postUrl.isEmpty());
+        QCOMPARE(back.absFile, p.absFile);
+    }
+
     void localPostsUseAbsFile() {        QTemporaryDir tmp;
         QVERIFY(tmp.isValid());
         FavDb db;

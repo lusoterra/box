@@ -35,6 +35,10 @@ public:
     void close();
 
     bool isFavourite(const QString &site, qint64 postId);
+    // Every row's download location: (site, post_id) -> local_path
+    // (empty when never linked). One query backing the grid's
+    // downloaded/favourite marks.
+    QHash<QPair<QString, qint64>, QString> localPaths();
     // Remember where a favourite lives on disk (download/import target).
     // rowToPost serves it as a local post when the file exists.
     bool setLocalPath(const QString &site, qint64 postId, const QString &path);
