@@ -15,7 +15,8 @@ pins bottom-right behind everything (double-click cycles size; setting
 ## 02-browse-grid — booru tab (browse mode, `MainWindow`, `src/ui/mainwindow.cpp`)
 One tab per archive/site set. Tab bar button shows favicon + label + ✕.
 Left: sidebar tag sections (COPYRIGHT, CHARACTERS, ARTISTS, TAGS, META)
-with counts; click toggles filter pills. Center: post grid. Bottom-left:
+with counts, each tinted in its bucket colour like the filter pills;
+click toggles filter pills. Center: post grid. Bottom-left:
 `40 results · page 1` and infinite scroll (more loads at the bottom).
 
 ## 03-omnibar — the control row under the tab bar

@@ -2411,17 +2411,18 @@ void MainWindow::rebuildBrowseSidebar() {
     };
     rebuildTagTab(m_copyList, hidden.contains(QStringLiteral("copyright"))
                                    ? QVector<QPair<QString, int>>()
-                                   : top(counts[QStringLiteral("copyright")]));
+                                   : top(counts[QStringLiteral("copyright")]), QStringLiteral("copyright"));
     rebuildTagTab(m_charList, hidden.contains(QStringLiteral("character"))
                                    ? QVector<QPair<QString, int>>()
-                                   : top(counts[QStringLiteral("character")]));
+                                   : top(counts[QStringLiteral("character")]), QStringLiteral("character"));
     rebuildTagTab(m_artistList, hidden.contains(QStringLiteral("artist"))
                                     ? QVector<QPair<QString, int>>()
-                                    : top(counts[QStringLiteral("artist")]));
-    rebuildTagTab(m_tagList, top(counts[QStringLiteral("general")]));
+                                    : top(counts[QStringLiteral("artist")]), QStringLiteral("artist"));
+    rebuildTagTab(m_tagList, top(counts[QStringLiteral("general")]),
+                    QStringLiteral("general"));
     rebuildTagTab(m_metaList, hidden.contains(QStringLiteral("meta"))
                                   ? QVector<QPair<QString, int>>()
-                                  : top(counts[QStringLiteral("meta")]));
+                                  : top(counts[QStringLiteral("meta")]), QStringLiteral("meta"));
 }
 
 void MainWindow::onViewerPastEnd() {
@@ -4180,19 +4181,22 @@ void MainWindow::rebuildSidebar() {
     for (int i = 0; i < m_sideSplit->count(); ++i)
         m_sideSplit->widget(i)->setVisible(true);
     const Stats s = m_index.stats();
-    rebuildTagTab(m_copyList, s.topCopyrights);
-    rebuildTagTab(m_charList, s.topCharacters);
-    rebuildTagTab(m_artistList, s.topArtists);
-    rebuildTagTab(m_tagList, s.topGeneral);
-    rebuildTagTab(m_metaList, s.topMeta);
+    rebuildTagTab(m_copyList, s.topCopyrights, QStringLiteral("copyright"));
+    rebuildTagTab(m_charList, s.topCharacters, QStringLiteral("character"));
+    rebuildTagTab(m_artistList, s.topArtists, QStringLiteral("artist"));
+    rebuildTagTab(m_tagList, s.topGeneral, QStringLiteral("general"));
+    rebuildTagTab(m_metaList, s.topMeta, QStringLiteral("meta"));
 }
 
 void MainWindow::rebuildTagTab(QListWidget *list,
-                               const QVector<QPair<QString, int>> &entries) {
+                               const QVector<QPair<QString, int>> &entries,
+                               const QString &bucket) {
     list->clear();
+    const QColor color = UiIcons::tagBucketColor(bucket);
     for (const auto &[tag, n] : entries) {
         auto *it = new QListWidgetItem(QStringLiteral("%1  (%2)").arg(tag).arg(n));
         it->setData(Qt::UserRole, tag);
+        it->setForeground(color);
         if (m_activeTags.contains(tag)) {
             QFont f = it->font();
             f.setBold(true);

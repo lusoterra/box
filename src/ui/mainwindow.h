@@ -260,7 +260,10 @@ private:
     void showDlDialog();
     void updateDownloadButton();
     void rebuildCombos();
-    void rebuildTagTab(QListWidget *list, const QVector<QPair<QString, int>> &entries);
+    // Sidebar section fill: entries render in the section's bucket colour
+    // (same palette as the filter pills and the suggest popup).
+    void rebuildTagTab(QListWidget *list, const QVector<QPair<QString, int>> &entries,
+                       const QString &bucket);
     void commitSearch();
     void commitFilter();
     void saveTabState();

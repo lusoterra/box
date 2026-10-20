@@ -76,6 +76,7 @@ set_tests_properties(test_videopane PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_unit_test(test_index test_index.cpp ../src/library/index.cpp)
 add_unit_test(test_queryor test_queryor.cpp ../src/library/queryor.cpp)
+add_unit_test(test_tagcolors test_tagcolors.cpp)
 add_unit_test(test_tabbar test_tabbar.cpp ../src/ui/tabbar.cpp)
 set_tests_properties(test_tabbar PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
