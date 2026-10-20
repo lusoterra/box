@@ -5,3 +5,4 @@ packaging/pkg/
 packaging/build-pkg/
 *.pkg.tar.zst
 *.db
+PENDING_TASKS.md
