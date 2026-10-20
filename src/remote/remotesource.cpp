@@ -20,6 +20,7 @@ RemoteSource::WebFetchFn RemoteSource::webFetcher() {
     return webFetcherSlot();
 }
 
+#include <QCoreApplication>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QEventLoop>
@@ -77,6 +78,23 @@ void RemoteSource::setConfiguredBoorus(const QList<BooruSite> &boorus) {
 
 namespace RemotePosts {
 
+namespace {
+// Process-wide default proxy (Preferences -> Browse -> Global proxy).
+// Read on every lookup so Apply takes effect without a restart.
+QString &globalProxySlot() {
+    static QString spec;
+    return spec;
+}
+} // namespace
+
+void setGlobalProxy(const QString &spec) {
+    globalProxySlot() = spec.trimmed();
+}
+
+QString globalProxySpec() {
+    return globalProxySlot();
+}
+
 QString proxyForUrl(const QString &url) {
     const QString host = QUrl(url).host().toLower();
     if (host.isEmpty())
@@ -94,9 +112,22 @@ QString proxyForUrl(const QString &url) {
 }
 
 QNetworkProxy proxyFromSpec(const QString &spec) {
-    const QUrl url(spec.trimmed(), QUrl::StrictMode);
+    // Empty per-entry spec falls back to the global proxy, so every
+    // consumer (site QNAMs included) honors one setting. Explicit
+    // per-entry specs always win; "direct" opts one entry back out.
+    QString use = spec.trimmed();
+    if (use.isEmpty())
+        use = globalProxySlot();
+    if (use.compare(QStringLiteral("direct"), Qt::CaseInsensitive) == 0 ||
+        use.compare(QStringLiteral("none"), Qt::CaseInsensitive) == 0)
+        return QNetworkProxy();
+    const QUrl url(use, QUrl::StrictMode);
     if (!url.isValid() || url.host().isEmpty() || url.port() <= 0)
         return QNetworkProxy();
+    // NOTE: Socks5Proxy resolves the target hostname through the
+    // proxy (Qt sends the domain name in the SOCKS handshake, like
+    // curl --socks5-hostname); nothing leaks to local DNS. HttpProxy
+    // likewise hands the proxy the hostname (absolute URI/CONNECT).
     QNetworkProxy::ProxyType type = QNetworkProxy::NoProxy;
     const QString scheme = url.scheme().toLower();
     if (scheme == QStringLiteral("http") || scheme == QStringLiteral("https"))
@@ -190,6 +221,10 @@ QNetworkRequest timedRequest(const QUrl &url) {    QNetworkRequest req(url);
     return req;
 }
 
+} // namespace
+
+namespace RemotePosts {
+
 // Cloudflare "Just a moment" walls (403 interactive challenge, or 200
 // HTML instead of data). The body is markup soup, so recognize the wall
 // and say what to do instead of quoting it.
@@ -217,7 +252,31 @@ bool looksLikeChallengePage(const QByteArray &body) {
             text.contains(QStringLiteral("powSeed")) ||
             text.contains(QStringLiteral("cloudflare"), Qt::CaseInsensitive));
 }
-} // namespace
+
+// One-line, actionable media error for an HTML body where bytes
+// were expected: names a recognized wall and points at cookie
+// capture, else falls back to the bare content type.
+QString wallAwareMediaError(const QString &host, const QByteArray &body,
+                            const QString &contentType) {
+    if (RemotePosts::looksLikeCloudflareWall(body) || looksLikeChallengePage(body)) {
+        const QString where =
+            host.isEmpty()
+                ? QCoreApplication::translate("RemotePosts", "The server")
+                : QCoreApplication::translate("RemotePosts",
+                                             "Challenge page from %1")
+                      .arg(host);
+        return QCoreApplication::translate(
+                   "RemotePosts",
+"%1 instead of media (captcha/wall still active \u2014 "
+                  "solve it once in the Booru manager \u2192 Capture in "
+                  "browser\u2026, Apply, then retry).")
+            .arg(where);
+    }
+    return QCoreApplication::translate("RemotePosts",
+                                     "Unexpected content type: %1")
+        .arg(contentType);
+}
+} // namespace RemotePosts
 
 QUrl RemoteSource::buildUrl(const QStringList &tags, int page, int limit) const {
     return engineOps(m_site.engine)->searchUrl(opsContext(), tags, page, limit);
@@ -286,7 +345,7 @@ void RemoteSource::search(const QStringList &tags, int page, int limit) {
                           : QStringLiteral("Network error: %1")
                                 .arg(reply->errorString());
             if (http == 403 &&
-                (looksLikeCloudflareWall(body) ||
+                (RemotePosts::looksLikeCloudflareWall(body) ||
                  QString::fromUtf8(body).contains(QStringLiteral("captcha"),
                                                   Qt::CaseInsensitive))) {
                 // Challenge wall (Cloudflare "Just a moment", captchas,
@@ -335,7 +394,7 @@ void RemoteSource::search(const QStringList &tags, int page, int limit) {
             // HTTP-200 walls (JS proof-of-work pages like ATF's): the parse
             // fails, but the body names the real cause - say so instead of
             // "unparseable response".
-            if (!result.ok() && looksLikeChallengePage(body)) {
+            if (!result.ok() && RemotePosts::looksLikeChallengePage(body)) {
                 const QString host = QUrl(m_baseUrl).host();
                 QString webNote;
                 if (tryWebRetry(webNote)) {
@@ -669,6 +728,49 @@ QMap<QString, QString> hostKeys() {
             add(*site);
     }
     return out;
+}
+
+const BooruSite *entryForPost(const Post &post) {
+    if (post.isRemote) {
+        if (!post.siteKey.isEmpty()) {
+            if (const BooruSite *e = RemoteSource::siteFor(post.siteKey))
+                return e;
+        }
+        const QString key = keyForLabel(post.siteName);
+        return key.isEmpty() ? nullptr : RemoteSource::siteFor(key);
+    }
+    // Strays and plain library folders resolve to nothing.
+    if (post.category.isEmpty() || post.category == QStringLiteral("_Stray"))
+        return nullptr;
+    // Legacy label folders first, then host-named download folders.
+    const QString labelKey = keyForLabel(post.category);
+    if (!labelKey.isEmpty()) {
+        if (const BooruSite *e = RemoteSource::siteFor(labelKey))
+            return e;
+    }
+    return RemoteSource::siteFor(
+        hostKeys().value(post.category.toLower()));
+}
+
+QString postPageUrlFor(const BooruSite &site, qint64 id) {
+    if (site.baseUrl.isEmpty() || id <= 0)
+        return {};
+    const QString base = site.baseUrl;
+    switch (site.engine) {
+    case BooruEngine::Danbooru:
+        return base + QStringLiteral("/posts/") + QString::number(id);
+    case BooruEngine::Moebooru:
+        return base + QStringLiteral("/post/show/") + QString::number(id);
+    case BooruEngine::Szurubooru:
+        return base + QStringLiteral("/post/") + QString::number(id);
+    case BooruEngine::Shimmie:
+        return base + QStringLiteral("/post/view/") + QString::number(id);
+    case BooruEngine::Gelbooru:
+    case BooruEngine::Safebooru:
+        return base + QStringLiteral("/index.php?page=post&s=view&id=") +
+               QString::number(id);
+    }
+    return {};
 }
 
 bool needsWebDownload(const Post &post) {

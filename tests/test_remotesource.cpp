@@ -107,6 +107,46 @@ private slots:
         RemoteSource::setConfiguredBoorus(RemoteSource::presetBoorus());
     }
 
+    void entryForPostResolvesDownloads() {
+        BooruSite dan;
+        dan.key = QStringLiteral("danbooru");
+        dan.label = QStringLiteral("Danbooru");
+        dan.shortName = QStringLiteral("DAN");
+        dan.baseUrl = QStringLiteral("https://danbooru.donmai.us");
+        dan.engine = BooruEngine::Danbooru;
+        RemoteSource::setConfiguredBoorus({dan});
+        // Remote posts resolve via site name...
+        Post r;
+        r.isRemote = true;
+        r.siteName = QStringLiteral("Danbooru");
+        QCOMPARE(RemotePosts::entryForPost(r)->key, QStringLiteral("danbooru"));
+        // ...and downloaded rows resolve via their host folder.
+        Post l;
+        l.isRemote = false;
+        l.category = QStringLiteral("danbooru.donmai.us");
+        l.absFile = QStringLiteral("/dl/danbooru.donmai.us/x.jpg");
+        const BooruSite *e = RemotePosts::entryForPost(l);
+        QVERIFY(e != nullptr);
+        QCOMPARE(e->key, QStringLiteral("danbooru"));
+        // Legacy label folders resolve too.
+        l.category = QStringLiteral("Danbooru");
+        QCOMPARE(RemotePosts::entryForPost(l)->key, QStringLiteral("danbooru"));
+        // Engine-shaped post URLs for downloads missing one.
+        QCOMPARE(RemotePosts::postPageUrlFor(*e, 123),
+                 QStringLiteral("https://danbooru.donmai.us/posts/123"));
+        QVERIFY(RemotePosts::postPageUrlFor(*e, 0).isEmpty());
+        // Strays and plain folders resolve to nothing.
+        Post stray;
+        stray.isRemote = false;
+        stray.category = QStringLiteral("_Stray");
+        QVERIFY(RemotePosts::entryForPost(stray) == nullptr);
+        Post lib;
+        lib.isRemote = false;
+        lib.category = QStringLiteral("vacation");
+        QVERIFY(RemotePosts::entryForPost(lib) == nullptr);
+        RemoteSource::setConfiguredBoorus(RemoteSource::presetBoorus());
+    }
+
     void webDownloadRouting() {
         // Walled entries route by base host, not file host: CDN media
         // (cdn.*) rides the browser stack like same-host media does.
@@ -855,6 +895,38 @@ private slots:
         QCOMPARE(socks.port(), 1080);
         QCOMPARE(socks.user(), QStringLiteral("u"));
         QCOMPARE(socks.password(), QStringLiteral("p"));
+        // socks5h parses to the same remote-DNS SOCKS5 type.
+        const QNetworkProxy socksH =
+            proxyFromSpec(QStringLiteral("socks5h://127.0.0.1:9050"));
+        QCOMPARE(socksH.type(), QNetworkProxy::Socks5Proxy);
+        QCOMPARE(socksH.hostName(), QStringLiteral("127.0.0.1"));
+        QCOMPARE(socksH.port(), 9050);
+    }
+
+    void globalProxyFallback() {
+        using RemotePosts::proxyFromSpec;
+        RemotePosts::setGlobalProxy(QString());
+        // No global: empty stays direct (default proxy).
+        QCOMPARE(proxyFromSpec(QString()).type(),
+                 QNetworkProxy().type());
+        // Global set: empty specs ride it, explicit specs win.
+        RemotePosts::setGlobalProxy(QStringLiteral("socks5h://127.0.0.1:9050"));
+        const QNetworkProxy g = proxyFromSpec(QString());
+        QCOMPARE(g.type(), QNetworkProxy::Socks5Proxy);
+        QCOMPARE(g.hostName(), QStringLiteral("127.0.0.1"));
+        QCOMPARE(g.port(), 9050);
+        const QNetworkProxy site =
+            proxyFromSpec(QStringLiteral("http://127.0.0.1:8080"));
+        QCOMPARE(site.type(), QNetworkProxy::HttpProxy);
+        QCOMPARE(site.port(), 8080);
+        // "direct" opts one entry back out of a set global.
+        // (QNetworkProxy() default-constructs to DefaultProxy,
+        // which QNAM treats as direct.)
+        QCOMPARE(proxyFromSpec(QStringLiteral("direct")).type(),
+                 QNetworkProxy().type());
+        QCOMPARE(proxyFromSpec(QStringLiteral("NONE")).type(),
+                 QNetworkProxy().type());
+        RemotePosts::setGlobalProxy(QString());
     }
 
     void proxyForUrl() {        BooruSite proxied;

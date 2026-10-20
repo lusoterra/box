@@ -131,6 +131,21 @@ QString fsTagForPost(const Post &post);
 // host -> key for every configured + preset entry. Lets sidecar refresh
 // resolve host-named folders back to sites.
 QMap<QString, QString> hostKeys();
+// Entry behind any post: remote posts via siteKey/siteName, downloaded
+// (locally linked) posts via their folder host or legacy label. Null
+// for strays and plain library folders. Backs grid origin badges and
+// viewer titles for downloaded posts.
+const BooruSite *entryForPost(const Post &post);
+// Post page for one entry + id, shaped by the entry engine so custom
+// instances map like their family presets. Empty when unresolvable.
+QString postPageUrlFor(const BooruSite &site, qint64 id);
+// Wall detectors over a fetched body (Cloudflare "Just a moment",
+// JS PoW / captcha pages). Media paths use these to name the
+// wall and point at cookie capture instead of quoting markup.
+bool looksLikeCloudflareWall(const QByteArray &body);
+bool looksLikeChallengePage(const QByteArray &body);
+QString wallAwareMediaError(const QString &host, const QByteArray &body,
+                            const QString &contentType);
 // Referer required by hotlink-protected media hosts (Gelbooru-family
 // CDNs 302 to hotlink.php without one). Empty when unneeded.
 QString mediaReferer(const QString &siteKey);
@@ -166,6 +181,13 @@ bool needsWebDownload(const Post &post);
 // spec (empty = direct). Host match mirrors applyCookies (subdomains
 // included).
 QString proxyForUrl(const QString &url);
+// Global fallback for every proxy consumer below (QNAM stacks,
+// tag suggest, post meta, favicons, thumbs, downloads, refreshes).
+// Empty = direct everywhere. A non-empty per-booru spec always wins;
+// the literal "direct"/"none" forces one entry back to direct.
+void setGlobalProxy(const QString &spec);
+// Empty when no global proxy is configured.
+QString globalProxySpec();
 // Parse a proxy spec (http://[user:pass@]host:port, socks5://...).
 // Default-constructed (direct) when empty or unparseable.
 QNetworkProxy proxyFromSpec(const QString &spec);

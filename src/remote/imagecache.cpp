@@ -123,12 +123,15 @@ void ImageCache::request(const QString &url, const QString &referer) {
                         .trimmed()
                         .startsWith(QStringLiteral("video/"),
                                     Qt::CaseInsensitive)) {
-            // Hotlink walls answer 302-to-HTML when the Referer is missing:
-            // never cache the page as if it were the picture. Some servers
-            // serve animated GIFs as video/gif — accept those too.
-            emit failed(url, tr("Unexpected content type: %1")
-                                 .arg(reply->header(QNetworkRequest::ContentTypeHeader)
-                                          .toString()));
+            // Hotlink/wall pages answer HTML (or 302-to-HTML) when the
+            // request lacks clearance: never cache the page as if it
+            // were the picture. Some servers serve animated GIFs as
+            // video/gif — accept those too. Name a recognized wall
+            // and point at cookie capture instead of quoting markup.
+            const QString ct =
+                reply->header(QNetworkRequest::ContentTypeHeader).toString();
+            emit failed(url, RemotePosts::wallAwareMediaError(
+                                 QUrl(url).host(), reply->readAll(), ct));
         } else {
             QFile f(dest);
             if (f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
