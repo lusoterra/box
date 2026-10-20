@@ -84,18 +84,21 @@ inline void szuruPlace(SzuruSplit &s, const QString &name, const QString &cat) {
         s.custom[cat] << name;
 }
 // every tag blob. Drives the grid "AI" chip; nothing else keys off it.
-inline bool isAiPost(const Post &post) {
-    static const QSet<QString> ai = {QStringLiteral("ai_generated"),
+inline const QStringList &aiContentTags() {
+    static const QStringList tags = {QStringLiteral("ai_generated"),
                                      QStringLiteral("ai_created"),
                                      QStringLiteral("ai_assisted"),
                                      QStringLiteral("ai_art")};
+    return tags;
+}
+inline bool isAiPost(const Post &post) {
     const QString blobs[] = {post.tags,        post.tagsArtist,
                              post.tagsCharacter, post.tagsCopyright,
                              post.tagsMeta,    post.tagsGeneral,
                              post.untyped};
     for (const QString &blob : blobs) {
         for (const QString &tok : blob.split(QChar::Space, Qt::SkipEmptyParts)) {
-            if (ai.contains(tok.toLower().replace(u'-', u'_')))
+            if (aiContentTags().contains(tok.toLower().replace(u'-', u'_')))
                 return true;
         }
     }

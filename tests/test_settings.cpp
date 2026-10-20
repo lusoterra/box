@@ -24,6 +24,7 @@ private slots:
     void defaultsSane() {
         const AppSettings s;
         QVERIFY(s.indexCache && s.thumbCache);
+        QVERIFY(!s.hideAi); // AI-content filter defaults OFF
         QVERIFY(!s.fullCache); // silent full downloads default OFF
         QCOMPARE(s.cacheLimitMB, 10240);
         QVERIFY(s.videoMuted && s.videoLoop);
@@ -53,6 +54,7 @@ private slots:
         s.favAutoFav = true;
         s.unfavDeletesFile = true;
         s.deleteUnfavs = true;
+        s.hideAi = true;
         s.blacklist = {QStringLiteral("loli"), QStringLiteral("shota")};
         s.browseSites = {QStringLiteral("danbooru")};
         BooruSite custom;
@@ -104,6 +106,7 @@ private slots:
         QVERIFY(back.favAutoFav);
         QVERIFY(back.unfavDeletesFile);
         QVERIFY(back.deleteUnfavs);
+        QVERIFY(back.hideAi);
         QCOMPARE(back.blacklist, s.blacklist);
         QCOMPARE(back.browseSites, QStringList({QStringLiteral("danbooru")}));
         QCOMPARE(back.boorus.size(), 1);

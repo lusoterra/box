@@ -788,6 +788,24 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     omniLay->addWidget(m_searchEdit, 1);
     omniLay->addWidget(m_ratingBox);
     omniLay->addWidget(m_categoryBox);
+    // One-click AI-content filter: hides ai_generated/ai_created/
+    // ai_assisted/ai_art everywhere (server -exclusions + client net).
+    auto *aiBtn = new QPushButton(tr("AI"), this);
+    aiBtn->setCheckable(true);
+    aiBtn->setChecked(m_settings.hideAi);
+    aiBtn->setFixedWidth(36);
+    aiBtn->setToolTip(tr("Hide AI-generated content"));
+    aiBtn->setCursor(Qt::PointingHandCursor);
+    connect(aiBtn, &QPushButton::toggled, this, [this, aiBtn](bool on) {
+        m_settings.hideAi = on;
+        saveSettings(m_settings);
+        aiBtn->setToolTip(on ? tr("Show AI-generated content")
+                             : tr("Hide AI-generated content"));
+        if (isBrowse())
+            commitSearch(); // refetch with -ai_* exclusions
+        else
+            commitFilter();
+    });
     omniLay->addWidget(m_sortBox);
     omniLay->addWidget(m_aspectBox);
     omniLay->addWidget(m_sitesBtn);
@@ -1986,6 +2004,11 @@ void MainWindow::doBrowseSearch(bool append) {
         if (!b.isEmpty())
             andBase << QStringLiteral("-") + b;
     }
+    // One-click AI filter: same -exclusion mechanism as the blacklist.
+    if (m_settings.hideAi) {
+        for (const QString &ai : aiContentTags())
+            andBase << QStringLiteral("-") + ai;
+    }
     // Rating is server-side in browse mode (translated per engine at
     // pump time): a change refetches like a new search instead of
     // filtering the loaded pages.
@@ -2432,6 +2455,12 @@ void MainWindow::applyBrowseFilter() {
         // Safety net (server-side -exclusion is in the query already).
         posts.erase(std::remove_if(posts.begin(), posts.end(),
                                    [&](const Post &p) { return blacklisted(p, banned); }),
+                    posts.end());
+    }
+    if (m_settings.hideAi) {
+        // Safety net for merged pages (server-side -ai_* is in the query).
+        posts.erase(std::remove_if(posts.begin(), posts.end(),
+                                   [](const Post &p) { return isAiPost(p); }),
                     posts.end());
     }
     if (t && t->rating != QStringLiteral("all")) {
@@ -4341,6 +4370,8 @@ void MainWindow::applyFilter() {
         for (const Post &p : t->localPosts) {
             if (m_rating != QStringLiteral("all") && p.rating != m_rating)
                 continue;
+            if (m_settings.hideAi && isAiPost(p))
+                continue;
             if (blacklisted(p, banned))
                 continue;
             if (matchesTokens(p, inc, exc))
@@ -4358,6 +4389,10 @@ void MainWindow::applyFilter() {
     for (const QString &b : m_settings.blacklist) {
         if (!b.isEmpty())
             tokens << QStringLiteral("-") + b;
+    }
+    if (m_settings.hideAi) {
+        for (const QString &ai : aiContentTags())
+            tokens << QStringLiteral("-") + ai;
     }
     const QueryResult r =
         m_index.query(tokens, m_rating, m_category, m_sort, 1, INT_MAX);

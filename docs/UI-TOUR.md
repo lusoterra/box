@@ -28,7 +28,8 @@ popup ranked exact-match first, then starred tags, then most-used — `/` focuse
 searches) → rating dropdown (`All`, default label) → sort dropdown (`Recently added`/`Newest`/`Oldest`/`Top
 Rated`/`Low Rated`/`Random` — server-side `order:`/`sort:` tags in browse
 mode, client-side locally) → aspect dropdown (`1:1`, grid cell shape) →
-`Boorus…` (per-tab source picker, multibooru merge) → `Download (N)`
+`Boorus…` (per-tab source picker, multibooru merge) → `AI` (one-click
+filter hiding AI-generated posts) → `Download (N)`
 (batch-downloads the selection) → `Clear` (resets pills/query) → reload
 `↺` (`Rescan folder` locally, re-search remotely) → `Page 1 · 40 results`
 → grid-zoom slider (far right). Below: filter pills — typed tags, query
