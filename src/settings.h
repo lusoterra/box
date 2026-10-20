@@ -241,6 +241,12 @@ inline bool operator!=(const AppSettings &a, const AppSettings &b) {
 
 // Single config file (~/.config/box/settings.ini).
 QString settingsFilePath();
+// Previous-good copy (settings.ini.bak): rotated on every atomic save,
+// restored when the main file is missing or truncated by a crash.
+QString settingsBackupFilePath();
+// Copy the backup over the main file when the main file is missing or
+// empty (crash mid-rotate). Called at the top of loadSettings().
+void restoreSettingsBackupIfNeeded();
 QString appCacheDir(); // QStandardPaths::CacheLocation (includes org/app names)
 AppSettings loadSettings();
 void saveSettings(const AppSettings &s);

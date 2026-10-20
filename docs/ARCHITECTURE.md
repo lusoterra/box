@@ -153,11 +153,15 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
 (`src/settings.cpp:10`); defaults in `AppSettings`
 (`src/settings.h:19`); `loadSettings`/`saveSettings`
 (`src/settings.cpp:25,169`); booru registry under `boorus/order` +
-`boorus/<key>` groups (`settings.cpp:265,346`).
+`boorus/<key>` groups (`settings.cpp:265,346`). `saveSettings` is
+atomic (tmp-file stage + rename) and rotates the replaced file to
+`settings.ini.bak`; `loadSettings` heals a missing/truncated ini from
+the backup. Tab add/close/move persist synchronously (`saveTabsNow`);
+switches/edits coalesce 1500 ms (`saveTabs`).
 
 | Kind    | Path | Notes |
 |---|---|---|
-| Config  | `~/.config/box/settings.ini` | all keys below; `boorus/*` registry |
+| Config  | `~/.config/box/settings.ini` (+ `.bak` last-good backup, `.tmp` stage) | all keys below; `boorus/*` registry; atomic tmp+rename writes |
 | Data    | `~/.local/share/box/` (or `storage/dataDir`) | `store.db` favs, `tag_types.db` verdicts, `downloads/`, `session.lock`, `box.log[.1-.3]` rotating logs (`src/applog.cpp`) (`settings.h:122-167`, `main.cpp:112`) |
 | Cache   | `~/.cache/box/` (`appCacheDir`, `settings.cpp:15`) | `roots/` scan index, `thumbs/`, full-image cache, `cache.db`; `clearCaches()` drops `roots/`+`thumbs/` (`settings.cpp:250`) |
 

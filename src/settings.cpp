@@ -2,6 +2,8 @@
 #include "tagtypes.h"
 
 #include <QDir>
+#include <QFile>
+#include <QFileInfo>
 #include <QSettings>
 #include <QStandardPaths>
 
@@ -10,6 +12,22 @@
 QString settingsFilePath() {
     return QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) +
            QStringLiteral("/box/settings.ini");
+}
+
+QString settingsBackupFilePath() {
+    return settingsFilePath() + QStringLiteral(".bak");
+}
+
+void restoreSettingsBackupIfNeeded() {
+    const QString path = settingsFilePath();
+    const QFileInfo info(path);
+    if (info.exists() && info.size() > 0)
+        return; // main file intact: nothing to heal
+    if (!QFile::exists(settingsBackupFilePath()))
+        return; // nothing to restore from
+    if (info.exists())
+        QFile::remove(path); // truncated/empty husk
+    QFile::copy(settingsBackupFilePath(), path);
 }
 
 QString appCacheDir() {
@@ -23,6 +41,7 @@ QSettings openSettings() {
 } // namespace
 
 AppSettings loadSettings() {
+    restoreSettingsBackupIfNeeded();
     AppSettings s;
     QSettings c = openSettings();
     s.indexCache = c.value(QStringLiteral("cache/index"), s.indexCache).toBool();
@@ -167,8 +186,10 @@ AppSettings loadSettings() {
     return s;
 }
 
-void saveSettings(const AppSettings &s) {
-    QSettings c = openSettings();
+namespace {
+// Full ini content; target file supplied by the caller so saveSettings()
+// can stage through a temp file (atomic replace, see below).
+void writeSettingsTo(QSettings &c, const AppSettings &s) {
     c.setValue(QStringLiteral("cache/index"), s.indexCache);
     c.setValue(QStringLiteral("cache/thumbs"), s.thumbCache);
     c.setValue(QStringLiteral("cache/full"), s.fullCache);
@@ -247,6 +268,30 @@ void saveSettings(const AppSettings &s) {
     c.setValue(QStringLiteral("viewer/maxSide"), s.viewerMaxSide);
     c.remove(QStringLiteral("privacy/paranoia")); // retired: false promise
     c.sync();
+}
+} // namespace
+
+void saveSettings(const AppSettings &s) {
+    // Atomic replace + last-good backup: stage the full ini to a temp
+    // file, then rotate (current -> .bak, temp -> current). The renames
+    // are atomic, so a crash can never leave a truncated settings.ini;
+    // at worst the main file is missing and loadSettings() heals it
+    // from the backup.
+    const QString path = settingsFilePath();
+    const QString tmp = path + QStringLiteral(".tmp");
+    const QString bak = settingsBackupFilePath();
+    QFile::remove(tmp);
+    {
+        QSettings c(tmp, QSettings::IniFormat);
+        writeSettingsTo(c, s);
+        c.sync();
+    }
+    if (!QFile::exists(tmp))
+        return; // staging failed: leave the current file alone
+    QFile::remove(bak);
+    if (QFile::exists(path))
+        QFile::rename(path, bak);
+    QFile::rename(tmp, path);
 }
 
 void clearCaches() {

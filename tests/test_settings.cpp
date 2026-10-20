@@ -6,6 +6,8 @@
 
 #include <QTemporaryDir>
 #include <QCoreApplication>
+#include <QFile>
+#include <QFileInfo>
 #include <QSettings>
 #include <QtTest>
 
@@ -224,6 +226,52 @@ private slots:
         QCOMPARE(back.savedTabs.at(1).query, QStringLiteral("sky"));
         QCOMPARE(back.savedTabs.at(2).kind, QStringLiteral("favs"));
         QCOMPARE(back.savedTabCurrent, 2);
+    }
+
+    void atomicSaveRotatesBackup() {
+        // Two saves: the main file holds the newest tabs, the .bak the
+        // previous (last-good) ones. Proves the tmp+rename rotation.
+        AppSettings s = loadSettings();
+        AppSettings::SavedTab first;
+        first.kind = QStringLiteral("browse");
+        first.sites = {QStringLiteral("danbooru")};
+        s.savedTabs = {first};
+        s.savedTabCurrent = 0;
+        saveSettings(s);
+        AppSettings::SavedTab second;
+        second.kind = QStringLiteral("favs");
+        s.savedTabs = {second};
+        saveSettings(s);
+        QVERIFY(QFile::exists(settingsFilePath()));
+        QVERIFY(QFile::exists(settingsBackupFilePath()));
+        QCOMPARE(loadSettings().savedTabs.size(), 1);
+        QCOMPARE(loadSettings().savedTabs.first().kind, QStringLiteral("favs"));
+        QSettings bak(settingsBackupFilePath(), QSettings::IniFormat);
+        bak.beginGroup(QStringLiteral("tabs/saved/0"));
+        QCOMPARE(bak.value(QStringLiteral("kind")).toString(),
+                 QStringLiteral("browse"));
+        QCOMPARE(bak.value(QStringLiteral("sites")).toStringList(),
+                 QStringList({QStringLiteral("danbooru")}));
+    }
+
+    void emptyMainRestoresFromBackup() {
+        // A crash that leaves a truncated settings.ini heals from the
+        // backup on the next load (tabs survive).
+        AppSettings s = loadSettings();
+        AppSettings::SavedTab favs;
+        favs.kind = QStringLiteral("favs");
+        favs.sort = QStringLiteral("added");
+        s.savedTabs = {favs};
+        s.savedTabCurrent = 0;
+        saveSettings(s); // also refreshes the .bak chain
+        saveSettings(s); // .bak now holds the favs tab too
+        QFile main(settingsFilePath());
+        QVERIFY(main.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        main.close();
+        QCOMPARE(QFileInfo(settingsFilePath()).size(), 0);
+        const AppSettings back = loadSettings();
+        QCOMPARE(back.savedTabs.size(), 1);
+        QCOMPARE(back.savedTabs.first().kind, QStringLiteral("favs"));
     }
 
     void effectiveDirs() {

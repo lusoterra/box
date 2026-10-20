@@ -1205,10 +1205,22 @@ BrowserTab *MainWindow::currentTab() {
 
 void MainWindow::saveTabs() {
     stageTabs();
-    // Coalesce the ini write: switches come in bursts and nothing reads
-    // the file back mid-session. Quit/restart flush immediately.
+    // Coalesce the ini write: switches and filter edits come in bursts
+    // and nothing reads the file back mid-session. Structural changes
+    // (add/close/move) bypass this via saveTabsNow(). Quit/restart
+    // flush immediately.
     if (m_saveTimer && !m_saveTimer->isActive())
         m_saveTimer->start();
+}
+
+void MainWindow::saveTabsNow() {
+    // Tab structure changed: persist synchronously so a crash inside
+    // the 1500 ms coalesce window can't lose the new layout. saveSettings
+    // is atomic (tmp+rename) with a .bak of the last-good file.
+    if (m_saveTimer)
+        m_saveTimer->stop();
+    stageTabs();
+    saveSettings(m_settings);
 }
 
 void MainWindow::flushSavedTabs() {
@@ -1427,7 +1439,7 @@ void MainWindow::addLocalTab(const QString &root) {
     m_tabBar->addTab(QString());
     updateTabTitle(m_tabs.size() - 1);
     m_tabBar->setCurrentIndex(m_tabs.size()); // +1: tab 0 is welcome
-    saveTabs();
+    saveTabsNow();
 }
 
 void MainWindow::addRemoteTab(const QStringList &sites, const QStringList &tags) {
@@ -1440,7 +1452,7 @@ void MainWindow::addRemoteTab(const QStringList &sites, const QStringList &tags)
     m_tabBar->addTab(QString());
     updateTabTitle(m_tabs.size() - 1);
     m_tabBar->setCurrentIndex(m_tabs.size());
-    saveTabs();
+    saveTabsNow();
 }
 
 void MainWindow::onTabChanged(int index) {
@@ -1483,7 +1495,7 @@ void MainWindow::onTabClosed(int index) {
     } else if (m_curTab > tabIdx) {
         m_curTab--;
     }
-    saveTabs();
+    saveTabsNow();
 }
 
 void MainWindow::onTabMoved(int from, int to) {
@@ -1506,7 +1518,7 @@ void MainWindow::onTabMoved(int from, int to) {
             updateTabTitle(i);
         m_tabBar->setCurrentIndex(m_curTab < 0 ? 0 : m_curTab + 1);
         m_tabBar->blockSignals(false);
-        saveTabs();
+        saveTabsNow();
         return;
     }
     const int a = from - 1, b = to - 1;
@@ -1524,7 +1536,7 @@ void MainWindow::onTabMoved(int from, int to) {
     }
     // The bar moved its own text/icons/tooltips with the tab; only
     // the data order (and the session save) needs updating here.
-    saveTabs();
+    saveTabsNow();
 }
 
 void MainWindow::activateTab(int tabIdx) {
@@ -3398,7 +3410,7 @@ void MainWindow::openLastPlace() {
             activateTab(favIdx); // already there: refresh in place
         else
             m_tabBar->setCurrentIndex(favIdx + 1);
-        saveTabs();
+        saveTabsNow();
         return;
     }
     if (lp.kind == QStringLiteral("browse") && !lp.sites.isEmpty()) {
@@ -3428,7 +3440,7 @@ void MainWindow::openLastPlace() {
         m_tabBar->addTab(QString());
         updateTabTitle(m_tabs.size() - 1);
         m_tabBar->setCurrentIndex(m_tabs.size()); // +1: tab 0 is welcome
-        saveTabs();
+        saveTabsNow();
         return;
     }
     if (lp.kind == QStringLiteral("local") && !lp.root.isEmpty()) {
@@ -3464,7 +3476,7 @@ void MainWindow::openLastPlace() {
         m_tabBar->addTab(QString());
         updateTabTitle(m_tabs.size() - 1);
         m_tabBar->setCurrentIndex(m_tabs.size()); // +1: tab 0 is welcome
-        saveTabs();
+        saveTabsNow();
     }
 }
 
@@ -3480,7 +3492,7 @@ void MainWindow::openFavTab() {
     m_tabBar->addTab(QString());
     updateTabTitle(m_tabs.size() - 1);
     m_tabBar->setCurrentIndex(m_tabs.size());
-    saveTabs();
+    saveTabsNow();
 }
 
 // ── Tag refresh ──────────────────────────────────────────────

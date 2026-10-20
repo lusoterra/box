@@ -147,7 +147,8 @@ private slots:
     void onTabClosed(int index);
     void showViewerTagMenu(const QString &tag, const QPoint &globalPos);
     void onTabMoved(int from, int to); // drag-reorder: keep m_tabs parallel
-    void saveTabs();   // persist open tabs for session restore
+    void saveTabs();   // persist open tabs (coalesced; for switches/edits)
+    void saveTabsNow(); // same, but synchronous (tab add/close/move: no crash window)
     void stageTabs();  // in-memory snapshot; the ini write is coalesced
     void flushSavedTabs(); // immediate settings.ini write (quit/restart)
     // Skeleton-first activation: activateTab paints the switch now,
