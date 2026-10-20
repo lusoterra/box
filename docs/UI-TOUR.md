@@ -32,7 +32,11 @@ mode, client-side locally) → aspect dropdown (`1:1`, grid cell shape) →
 `↺` (`Rescan folder` locally, re-search remotely) → `Page 1 · 40 results`
 → grid-zoom slider (far right). Below: filter pills — typed tags, query
 groups, rating/source, plus each booru entry's `defaultTags` as removable
-cards (× drops the default for that tab and re-searches).
+cards (× drops the default for that tab and re-searches). The
+rating/category dropdowns are shortcuts for typing: a rating choice renders
+as a `rating:<value>` pill, a source choice as a plain pill — same look and
+× behavior as typed tags (typing a `rating:` tag clears the box to `All`
+so the two never stack).
 
 ## Grid card anatomy (see 19-badge-closeup)
 Thumbnail with, overlaid: top-right media kind (`▶` video / `GIF`);

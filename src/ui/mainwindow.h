@@ -272,6 +272,10 @@ private:
                        const QString &bucket);
     void commitSearch();
     void commitFilter();
+    // Typed rating:/safety: tags own the filter (the rating box is only a
+    // shortcut): a committed typed token clears the box to "All" so the
+    // two can never AND each other into an empty grid.
+    void normalizeTypedRating();
     void saveTabState();
     void updateResultLabel();
     void showViewer(int row);

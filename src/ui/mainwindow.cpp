@@ -4703,8 +4703,12 @@ void MainWindow::updateResultLabel() {
         }
     }
     if (m_rating != QStringLiteral("all")) {
-        addPill(QStringLiteral("[%1] ×").arg(m_rating), tr("Clear rating"),
-                accent, [this] {
+        // Looks exactly like a typed rating: tag (same rose): the box is
+        // only a shortcut that sets the same filter.
+        const QString tok = QStringLiteral("rating:") + m_rating;
+        const QColor meta = UiIcons::filterTagColor(tok);
+        addPill(tok + QStringLiteral(" ×"), tr("Clear rating"),
+                meta.isValid() ? meta : accent, [this] {
                     m_rating = QStringLiteral("all");
                     updateResultLabel();
                     if (isBrowse())
@@ -4714,8 +4718,11 @@ void MainWindow::updateResultLabel() {
                 });
     }
     if (!m_category.isEmpty()) {
-        addPill(QStringLiteral("{%1} ×").arg(m_category),
-                tr("Clear source"), accent, [this] {
+        // Source filter dressed as a plain tag pill (there is no tag
+        // syntax for origins): same look, same × behavior.
+        addPill(m_category + QStringLiteral(" ×"),
+                tr("Clear source"),
+                UiIcons::tagBucketColor(QStringLiteral("general")), [this] {
                     m_category.clear();
                     updateResultLabel();
                     commitFilter();
@@ -4955,6 +4962,7 @@ void MainWindow::removeQueryGroup(int gi) {
 
 void MainWindow::commitSearch() {
     // Tags or query text changed: save to tab, refetch remote / refilter local.
+    normalizeTypedRating();
     saveTabState();
     if (isBrowse()) {
         if (BrowserTab *t = currentTab())
@@ -4969,6 +4977,7 @@ void MainWindow::commitSearch() {
 
 void MainWindow::commitFilter() {
     // Sort/rating changed: client-side in both modes, no refetch.
+    normalizeTypedRating();
     saveTabState();
     // Sync combos in case the change came from pills, not the combos.
     m_ratingBox->blockSignals(true);
@@ -5012,11 +5021,39 @@ void MainWindow::onCompleterActivated(const QString &text) {
 
 void MainWindow::onRatingChanged() {
     m_rating = m_ratingBox->currentData().toString();
+    // The box is a single-select shortcut for typing a rating: tag: a
+    // fresh choice replaces any committed typed rating:/safety: tags
+    // (they would AND with the box and empty everything).
+    for (int i = m_activeTags.size() - 1; i >= 0; --i) {
+        const QString t = m_activeTags.at(i);
+        const QString low = t.toLower();
+        if (isRatingToken(t) ||
+            (low.startsWith(u'-') && isRatingToken(t.mid(1))))
+            m_activeTags.removeAt(i);
+    }
     if (isBrowse()) {
         commitSearch(); // refetch with the rating in the query + busy bar
         return;
     }
     commitFilter();
+}
+
+void MainWindow::normalizeTypedRating() {
+    // A committed typed rating:/safety: tag clears the rating box to
+    // "All": the tag carries the filter now, and the box must not
+    // re-apply its own value on top of it.
+    for (const QString &t : m_activeTags) {
+        if (!isRatingToken(t))
+            continue;
+        if (m_rating != QStringLiteral("all")) {
+            m_rating = QStringLiteral("all");
+            m_ratingBox->blockSignals(true);
+            m_ratingBox->setCurrentIndex(
+                qMax(0, m_ratingBox->findData(m_rating)));
+            m_ratingBox->blockSignals(false);
+        }
+        return;
+    }
 }
 
 void MainWindow::onCategoryChanged() {
