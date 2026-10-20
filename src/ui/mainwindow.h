@@ -123,6 +123,11 @@ private slots:
     void runClassifyPopup();
     void reload();
     void relinkFavourites(); // match unlinked favs to files on disk
+    // Manual re-pull of favourited files deleted outside the app
+    // (File menu; moves already healed by relinkFavourites). No schema
+    // needed: local_path is the was-downloaded flag, the fav row the
+    // isFavourite.
+    void redownloadMissingFiles();
     void onClassifyProgress(int done, int total);
     bool classifyUiTick(int done, int total); // progress UI throttle
     // Waterfall: streaming verdicts land here, accumulate, and flush to
@@ -140,6 +145,8 @@ private slots:
     void onBrowseClassifyFinished(const QHash<QString, QString> &buckets);
     void onTabChanged(int index);
     void onTabClosed(int index);
+    void showViewerTagMenu(const QString &tag, const QPoint &globalPos);
+    void onTabMoved(int from, int to); // drag-reorder: keep m_tabs parallel
     void saveTabs();   // persist open tabs for session restore
     void stageTabs();  // in-memory snapshot; the ini write is coalesced
     void flushSavedTabs(); // immediate settings.ini write (quit/restart)
@@ -230,10 +237,24 @@ private:
     void sortPosts(QVector<Post> &posts, const QString &sort);
     void fillModel();
     void rebuildBrowseSidebar();
+    // Fill in missing booru post URLs on scanned downloads (site + id ->
+    // post page), except strays. Runs on the UI thread after each scan.
+    void healLocalPosts(QVector<Post> &posts);
+    // True when the post has a copy under the download folder (local
+    // posts) or a linked favourite file (remote posts). Pass the
+    // fillModel-time localPaths() map in loops; null queries the DB.
+    bool isPostDownloaded(const Post &post,
+                          const QHash<QPair<QString, qint64>, QString> *favLocal);
+    // Refresh the viewer AI/favourite/downloaded marks for its current
+    // post (call after fav/download changes while the viewer is open).
+    void updateViewerBadges();
+    // Re-point an open viewer at the rebuilt grid (see fillModel).
+    void syncViewerToGrid();
     void setBrowseUi(bool browse);
     RemoteSource *sourceFor(const QString &key);
     struct SiteCreds credsFor(const QString &key) const;
     void downloadPosts(const QVector<Post> &posts);
+    void addTagToSearch(const QString &tag); // viewer tag click/menu
     void downloadSelected();
     void showDlDialog();
     void updateDownloadButton();

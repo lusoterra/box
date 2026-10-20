@@ -206,20 +206,11 @@ void ThumbTask::run() {
 
 VideoThumbGrabber::VideoThumbGrabber(QObject *parent) : QObject(parent) {
     m_player = new QMediaPlayer(this);
-    m_sink = new QVideoSink(this);
-    m_player->setVideoOutput(m_sink); // no audio output: silent by construction
+    // No audio output: silent by construction. The video sink is created
+    // fresh per job in pump() (see below).
     m_timeout = new QTimer(this);
     m_timeout->setSingleShot(true);
     m_timeout->setInterval(8000);
-    connect(m_sink, &QVideoSink::videoFrameChanged, this,
-            [this](const QVideoFrame &f) {
-                if (!m_busy)
-                    return;
-                QVideoFrame copy(f);
-                const QImage conv = copy.toImage();
-                if (!conv.isNull())
-                    finishCurrent(conv.convertToFormat(QImage::Format_RGB32));
-            });
     connect(m_timeout, &QTimer::timeout, this, [this] {
         if (!m_busy)
             return;
@@ -249,7 +240,9 @@ QString videoDiskPath(const QString &cacheDir, const QString &path, qint64 mtime
                       qint64 size, int num, int den, int longSide) {
     if (cacheDir.isEmpty())
         return {};
-    const QByteArray id = QStringLiteral("%1|%2|%3|%4x%5|%6")
+    // "|v2": per-job sinks fixed late frames landing on the wrong video;
+    // re-key once so thumbnails poisoned by that bug are regenerated.
+    const QByteArray id = QStringLiteral("%1|%2|%3|%4x%5|%6|v2")
                               .arg(path)
                               .arg(mtime)
                               .arg(size)
@@ -291,6 +284,23 @@ void VideoThumbGrabber::pump() {
     m_diskPath = videoDiskPath(m_cacheDir, m_current.path, m_current.mtime,
                                m_current.size, m_aspectNum, m_aspectDen,
                                m_current.longSide);
+    // Fresh sink per job: frames decoded for the previous video but
+    // delivered late must never be attributed to this job (a wrong
+    // thumbnail here is then frozen by the disk cache). A late emission
+    // targets the retired sink, whose sender check below drops it.
+    if (m_sink)
+        m_sink->deleteLater();
+    m_sink = new QVideoSink(this);
+    connect(m_sink, &QVideoSink::videoFrameChanged, this,
+            [this](const QVideoFrame &f) {
+                if (!m_busy || sender() != m_sink)
+                    return;
+                QVideoFrame copy(f);
+                const QImage conv = copy.toImage();
+                if (!conv.isNull())
+                    finishCurrent(conv.convertToFormat(QImage::Format_RGB32));
+            });
+    m_player->setVideoOutput(m_sink);
     m_player->setSource(m_current.path.startsWith(QStringLiteral("http"))
                             ? QUrl(m_current.path)
                             : QUrl::fromLocalFile(m_current.path));

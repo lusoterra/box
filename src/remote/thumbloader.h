@@ -104,7 +104,10 @@ private:
     QString m_diskPath;
     double m_want = 1.0;
     QMediaPlayer *m_player;
-    QVideoSink *m_sink;
+    // Fresh object per job (see pump()): late frames from the previous
+    // video arrive on the retired sink and are dropped by sender check,
+    // so they can never become this job's thumbnail.
+    QVideoSink *m_sink = nullptr;
     QTimer *m_timeout;
     int m_aspectNum = 1;
     int m_aspectDen = 1;

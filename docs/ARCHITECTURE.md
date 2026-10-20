@@ -37,7 +37,9 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     `probeCredentials`/`testCredentials` (`:52-66`), cookie attach
     `applyCookies`, browser fallback `WebFetchFn` for PoW walls (`:72-79`).
   - `remotesource.h:120` `RemotePosts`: `fsTagForPost` (host-based folder
-    tag, `:130`), `hostKeys`, `mediaReferer(For)`, `engineForSiteKey`,
+    tag, `:130`), `hostKeys`, `entryForPost` (downloaded/local rows
+    resolve via folder host or legacy label, strays/library null),
+    `postPageUrlFor` (engine-shaped post links), `mediaReferer(For)`, `engineForSiteKey`,
     `skipAutoClassify` (`:147`), `foldedBucketFor`, `proxyForUrl/FromSpec`,
     `redactSecrets`, `probeReportText`/`showProbeDialog` (`:170-172`);
     `RefreshTarget` (`:176`) + `resolveRefreshTarget` + `PostRefresher`
@@ -79,7 +81,8 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
   - `viewerpage.h:170` `ViewerPage` (same-window viewer; `ImageView` `:33`,
     `GifView` `:65`, `VideoView` `:93`); `welcomepage` (home + mascot);
     `prefsdlg` (tabbed preferences); `straydialog` (Download/Add Stray);
-    `flowlayout` (filter pills), `tabbar` (marquee tabs), `theme`, `uicons`,
+    `flowlayout` (filter pills), `tabbar` (marquee tabs, drag-reorder
+    with welcome pinned first), `theme`, `uicons`,
     `progressbar`.
 - `src/post.h:11` `Post`: shared record (local + remote + fav rows);
   `tagTokenOk/cleanTagTokens` hygiene (`:110-128`), `isAiPost` (`:87`).
@@ -106,15 +109,24 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     (`downloadmanager.h:28`): `dest/<host>/<host>_<md5>.<ext>` + `.json`;
     host folder via `fsTagForPost` (`mainwindow.cpp:884,3261`).
   - `completeJob`: content sniff, md5 hash-and-rename for nameless files,
-    pretty-printed raw-API sidecar write; summary carries `downloaded` for
-    auto-favourite (`downloadmanager.h:35`).
+    pretty-printed raw-API sidecar write (backfilled from the parsed post
+    to a full gallery-dl-style record: urls, buckets, dims, ids);
+    summary carries `downloaded` for auto-favourite (`downloadmanager.h:35`).
 - Favourites (`src/library/favdb.h`):
   - Identity = site+id (`pidFor`, `:24`); id-less strays key by URL hash,
     pure-local rows by path hash; `migrateHashIds()` heals unstable rows
     (`favdb.cpp:80`).
   - `relinkFavourites()` (`mainwindow.cpp:2642`, once per launch at `:1485`)
     matches `unlinked()` rows to files on disk via `setLocalPaths`;
-    `rowToPost` serves favs as local posts when the file exists.
+    `rowToPost` serves favs as local posts when the file exists
+    (keeping the http post URL; strays keep the file), `localPaths`
+    feeds the grid/viewer downloaded+favourite marks (downloaded always
+    implies the file exists). Grid drops local rows whose file is gone
+    instead of carding blanks; the DB rows stay for relink.
+    `redownloadMissingFiles()` (File menu) re-pulls missing files that
+    still have a source URL — previously-downloaded rows only,
+    never-downloaded favourites are never fetched unasked
+    (same gate on stray regen).
   - Explicit-rating healing on fav list (`favdb.cpp:467,505`,
     `ratingInferred` flag).
 - Tag classification waterfall (`src/library/tagtypes.h:112` `TagTypeFetcher`):

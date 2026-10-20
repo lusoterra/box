@@ -31,13 +31,19 @@ mode, client-side locally) → aspect dropdown (`1:1`, grid cell shape) →
 
 ## Grid card anatomy (see 19-badge-closeup)
 Thumbnail with, overlaid: top-right media kind (`▶` video / `GIF`);
-top-left purple robot = AI-generated (`isAiPost`); bottom-left origin
-badge = site favicon + short name (`DAN`/`SFW`/…); below, info card with
-rating chip (`G`), score (`+12`), `#postid`, and the file name.
+top-left status boxes, left to right: purple robot = AI-generated
+(`isAiPost`), red `♥` = favourited, green `↓` = downloaded;
+bottom-left origin badge = site favicon + short name (`DAN`/`SFW`/…)
+— downloaded rows resolve their folder back to the entry, so they
+keep the badge; below, info card with rating chip (`G`), score
+(`+12`), `#postid`, and the file name. The tooltip and the viewer
+link stay on the booru post page after a download (strays keep the
+local file). Tabs drag to reorder (welcome stays first).
 
 ## 04-file-menu — File
 `Open ▸` (folder picker), `Browse Downloads`, `Import LoliSnatcher
-backup…`, `Download/Add Stray…`, `Update downloaded sidecars…`, `Quit`.
+backup…`, `Download/Add Stray…`, `Update downloaded sidecars…`,
+`Redownload missing files…`, `Quit`.
 
 ## 05-tabs-menu — Tabs
 `Close Folder`, `♥ Favourites` (database-only tab), `Reload` (`F5` —
@@ -64,11 +70,20 @@ set re-searches immediately (`onSitesChanged`).
 ## 11-viewer — same-window post viewer (`ViewerPage`, `src/ui/viewerpage.cpp`)
 Toolbar: `Back`, `‹ 8 / 40 ›` stepping, `Fit`, `100%`, `Open post`
 (site page, http(s) only), `Download`, `Tags` (toggle panel), refresh,
-`Open file`, `Copy path`. Media area: wheel-zoom/drag-pan stills, GIFs,
-looping video with seek/volume. Right: metadata (`#id`, site, URLs,
+`Open file`, `Copy path`. Below the title: `AI` / `♥` / `↓`
+badges mirroring the grid marks. Downloading or (un)favouriting from
+the viewer never leaves it; the grid refreshes behind and the viewer
+follows it (removed rows resolve to the nearest surviving post,
+twin copies collapse so stepping never sticks). Media area: wheel-zoom/drag-pan stills, GIFs,
+looping video with seek/volume (a set global proxy, or a failed direct
+stream, buffers through the download stack instead — same referer +
+cookies + proxy as stills). Right: metadata (`#id`, site —
+downloaded rows show their booru `Label (Engine)` form —, URLs (the
+post page, not the downloaded file, except strays),
 score, rating with `(inferred)` flag, dimensions, ext) and clickable tag
 groups (Artist/Character/Copyright/General/Meta + native custom
-categories), then notes + comments on remote posts.
+categories; right-click a tag for `Add to search` or `Search in
+new tab` per booru), then notes + comments on remote posts.
 
 ## 12-prefs-general — Preferences → General
 `Default tab`, `Language`, `Always load last session on startup`,
@@ -83,7 +98,10 @@ classification, `Cache size limit`, `Thumbnail size`, `Clear caches…`.
 
 ## 14-prefs-browse — Preferences → Browse
 `Page size`, `Default boorus` checklist (new tabs + fallbacks), `Data
-folder` / `Download folder` (empty = XDG defaults under `box/`), Booru
+folder` / `Download folder` (empty = XDG defaults under `box/`),
+`Global proxy` (all traffic; `socks5h://` routes hostnames through
+the proxy like curl, per-booru proxy overrides it, `direct` bypasses),
+Booru
 manager: entry list + `Name`/`short` (grid badge text)/`Badge color`/`Base
 URL`/`Type` (engine) editor with cookie capture + favicon override.
 
@@ -106,7 +124,15 @@ site shows a status-bar error while the rest render.
 ## 18-favourites — ♥ tab (empty state)
 Same chrome over `store.db` rows (no files): star posts to fill it, then
 mass-download; non-empty rows render identical cards, dead files relink
-by md5.
+by md5. `Delete from disk…` also removes kept favourites left with no
+renderable source (no file, no remote media/post link) instead of leaving
+empty cards; post-linked rows stay (viewer refresh can heal them). Files
+removed outside the app hide from the grid the same way (never marked
+downloaded) until they return. File -> `Redownload missing files…`
+re-pulls missing favourites with a download source on demand;
+sourceless ones just stay hidden. GUI deletes
+also forget the download link, so the action only ever covers files
+deleted behind the app's back.
 
 ## 19-badge-closeup — origin badge detail
 16px site favicon (auto-fetched to `favicons/auto/`, overridable in the

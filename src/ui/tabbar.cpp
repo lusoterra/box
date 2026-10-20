@@ -1,5 +1,6 @@
 #include "tabbar.h"
 
+#include <QApplication>
 #include <QStyleOptionTab>
 #include <QStylePainter>
 
@@ -12,17 +13,71 @@ MarqueeTabBar::MarqueeTabBar(QWidget *parent) : QTabBar(parent) {
         m_offset = 0;
         m_timer->start();
     });
+    connect(this, &QTabBar::tabMoved, this, &MarqueeTabBar::onTabMoved);
 }
 
 void MarqueeTabBar::setFullTitle(int index, const QString &title) {
-    m_titles[index] = title;
+    if (index < 0)
+        return;
+    while (m_fullTitles.size() <= index)
+        m_fullTitles.append(QString());
+    m_fullTitles[index] = title;
     setTabText(index, title); // eliding still sizes the tab sanely
     setTabToolTip(index, title);
     m_timer->start();
 }
 
 QString MarqueeTabBar::fullTitle(int index) const {
-    return m_titles.value(index, tabText(index));
+    if (index < 0 || index >= m_fullTitles.size() ||
+        m_fullTitles.at(index).isEmpty())
+        return tabText(index);
+    return m_fullTitles.at(index);
+}
+
+void MarqueeTabBar::tabInserted(int index) {
+    m_fullTitles.insert(qBound(0, index, m_fullTitles.size()), QString());
+}
+
+void MarqueeTabBar::tabRemoved(int index) {
+    if (index >= 0 && index < m_fullTitles.size())
+        m_fullTitles.removeAt(index);
+    m_offset = 0;
+}
+
+void MarqueeTabBar::onTabMoved(int from, int to) {
+    m_dragging = false;
+    if (from < 0 || to < 0 || from >= m_fullTitles.size() ||
+        to >= m_fullTitles.size() || from == to)
+        return;
+    m_fullTitles.move(from, to);
+    m_offset = 0;
+}
+
+void MarqueeTabBar::mousePressEvent(QMouseEvent *e) {
+    if (e->button() == Qt::LeftButton && isMovable()) {
+        m_pressed = true;
+        m_pressPos = e->pos();
+    }
+    QTabBar::mousePressEvent(e);
+}
+
+void MarqueeTabBar::mouseMoveEvent(QMouseEvent *e) {
+    if (m_pressed && isMovable() &&
+        (e->pos() - m_pressPos).manhattanLength() >=
+            QApplication::startDragDistance()) {
+        m_dragging = true;
+        update();
+    }
+    QTabBar::mouseMoveEvent(e);
+}
+
+void MarqueeTabBar::mouseReleaseEvent(QMouseEvent *e) {
+    m_pressed = false;
+    if (m_dragging) {
+        m_dragging = false;
+        update();
+    }
+    QTabBar::mouseReleaseEvent(e);
 }
 
 namespace {
@@ -74,12 +129,28 @@ void MarqueeTabBar::onTick() {
     }
 }
 
-void MarqueeTabBar::paintEvent(QPaintEvent *) {
+void MarqueeTabBar::paintEvent(QPaintEvent *e) {
+    if (m_dragging) {
+        // Reorder in flight: the native style owns the dragged-tab
+        // pixmap and the drop indicator, so let it paint.
+        QTabBar::paintEvent(e);
+        return;
+    }
     QStylePainter p(this);
     for (int i = 0; i < count(); ++i) {
         QStyleOptionTab opt;
         initStyleOption(&opt, i);
         p.drawControl(QStyle::CE_TabBarTabShape, opt);
+        const bool selected = opt.state & QStyle::State_Selected;
+        if (selected) {
+            // Accent bar along the bottom edge: the native selected-shape
+            // wash is too subtle at a glance, this reads instantly.
+            const QColor acc = opt.palette.color(QPalette::Highlight);
+            const QRect r = opt.rect;
+            p.fillRect(QRect(r.left() + 4, r.bottom() - 3,
+                             r.width() - 8, 3),
+                       acc);
+        }
         const QString full = fullTitle(i);
         QRect textRect = style()->subElementRect(QStyle::SE_TabBarTabText, &opt, this);
         // Tab icon (CE_TabBarTabLabel is skipped, so draw it ourselves).
@@ -103,6 +174,11 @@ void MarqueeTabBar::paintEvent(QPaintEvent *) {
             (opt.state & QStyle::State_Selected) ? QPalette::HighlightedText
                                                  : QPalette::WindowText));
         const QFontMetrics fm = opt.fontMetrics;
+        if (selected) {
+            QFont f = p.font();
+            f.setBold(true);
+            p.setFont(f);
+        }
         const int fw = fm.horizontalAdvance(full);
         if (fw > textR.width()) {
             // Scroll with wraparound ("title    title") and a dwell pause

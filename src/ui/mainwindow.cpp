@@ -115,7 +115,30 @@ namespace {
 std::pair<QString, qint64> favIdentity(const Post &p) {
     if (!p.siteName.isEmpty() || p.isRemote)
         return {p.siteName, FavDb::pidFor(p)};
-    return {QStringLiteral("local"), static_cast<qint64>(qHash(p.absFile))};
+    return {QStringLiteral("local"), FavDb::pidFor(p)};
+}
+
+// Identity for list dedupe: remote rows by site+id (id-less by site+
+// file URL so distinct login-walled rows never collapse); downloaded
+// rows by their resolved entry label+id so remote/local twins of one
+// post merge into a single card; plain files by path. Empty = unknown,
+// never deduped. This is what makes stepping past a gif never show
+// "the same post twice" and keeps deleted rows from shadowing.
+QString dedupeKeyFor(const Post &post) {
+    if (post.isRemote) {
+        if (post.id != 0)
+            return post.siteName + u'#' + QString::number(post.id);
+        if (!post.fileUrl.isEmpty())
+            return post.siteName + u'#' + post.fileUrl;
+        return {};
+    }
+    if (post.id > 0) {
+        if (const BooruSite *e = RemotePosts::entryForPost(post))
+            return e->label + u'#' + QString::number(post.id);
+    }
+    if (!post.absFile.isEmpty())
+        return QStringLiteral("file#") + post.absFile;
+    return {};
 }
 
 // Veto key for an explicit unfavourite: a download finishing later must
@@ -280,6 +303,19 @@ void GalleryDelegate::paint(QPainter *painter, const QStyleOptionViewItem &optio
         painter->drawText(kb, Qt::AlignCenter, kind);
     }
 
+    // Status boxes, top-left over the image, left to right: purple
+    // robot = AI-generated, red heart = favourited, green down
+    // arrow = downloaded. Same marks as the viewer title badges.
+    int markX = imgR.left() + 4;
+    auto markBox = [&](const QColor &bg, const QString &glyph) {
+        const QRect mb(markX, imgR.top() + 4, 30, 18);
+        painter->setPen(Qt::NoPen);
+        painter->setBrush(bg);
+        painter->drawRoundedRect(mb, 4, 4);
+        painter->setPen(Qt::white);
+        painter->drawText(mb, Qt::AlignCenter, glyph);
+        markX += 34;
+    };
     // AI badge (top-left over image, mirrors the kind badge):
     // a robot glyph, not text.
     if (index.data(Qt::UserRole + 9).toBool()) {
@@ -302,7 +338,14 @@ void GalleryDelegate::paint(QPainter *painter, const QStyleOptionViewItem &optio
         painter->setBrush(glass);
         painter->drawEllipse(QPoint(cx - 3, ab.top() + 9), 1, 1);
         painter->drawEllipse(QPoint(cx + 3, ab.top() + 9), 1, 1);
+        markX += 34;
     }
+    if (index.data(Qt::UserRole + 12).toBool())
+        markBox(QColor(UiIcons::favRed().red(), UiIcons::favRed().green(),
+                      UiIcons::favRed().blue(), 210),
+                QStringLiteral("\u2665"));
+    if (index.data(Qt::UserRole + 13).toBool())
+        markBox(QColor(0x2e, 0x8b, 0x6e, 210), QStringLiteral("\u2193"));
 
     // Origin badge for remote posts (bottom-left over image):
     // site favicon + short text.
@@ -494,6 +537,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     connect(m_favicons, &FaviconCache::ready, this, &MainWindow::onFaviconReady);
     RemoteSource::setConfiguredBoorus(m_settings.boorus);
     RemotePosts::setDisabledBuckets(m_settings.disabledBuckets);
+    RemotePosts::setGlobalProxy(m_settings.globalProxy);
     prefetchFavicons();
     // Remembered folder wins when no explicit root was given on the CLI.
     m_root = root;
@@ -555,6 +599,8 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
                         &MainWindow::openStrayDialog);
     fileMenu->addAction(tr("Update downloaded sidecars…"), this,
                         &MainWindow::updateDownloadSidecars);
+    fileMenu->addAction(tr("Redownload missing files…"), this,
+                        &MainWindow::redownloadMissingFiles);
     fileMenu->addSeparator();
     fileMenu->addAction(QStringLiteral("&Quit"), qApp, &QApplication::quit);
 
@@ -853,6 +899,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
                 const QString dest =
                     effectiveDownloadDir(m_settings);
                 bool touched = false;
+                int favAdded = 0;
                 for (const Post &p : s.downloaded) {
                     const auto [site, pid] = favIdentity(p);
                     // Strays follow their own toggle (default on): they have
@@ -865,7 +912,8 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
                     // download they were part of lands afterwards.
                     if (autoFav && !m_favDb.isFavourite(site, pid) &&
                         !m_unfavVeto.contains(favVetoKey(site, pid))) {
-                        m_favDb.add(p);
+                        if (m_favDb.add(p))
+                            favAdded++;
                         touched = true;
                     }
                     // Point favourites at the file just written (or an
@@ -884,6 +932,13 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
                 // open favourites tab immediately, not after a manual ↺.
                 if (touched)
                     refreshFavTabs();
+                if (favAdded > 0)
+                    statusBar()->showMessage(
+                        tr("Favourited %1 download(s)").arg(favAdded), 6000);
+                // The viewer stays open now: refresh its marks (a new
+                // auto-favourite fills the heart, the link the box).
+                if (m_pages->currentIndex() == 1)
+                    updateViewerBadges();
                 // Local tabs showing this destination are stale now: flag
                 // it so landing on one rescans instead of needing F5.
                 if (!s.downloaded.isEmpty()) {
@@ -919,17 +974,10 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
             &MainWindow::onRefreshFailed);
     connect(m_viewer, &ViewerPage::favouriteRequested, this,
             &MainWindow::toggleFavourite);
-    connect(m_viewer, &ViewerPage::tagActivated, this, [this](const QString &tag) {
-        if (!m_activeTags.contains(tag))
-            m_activeTags.append(tag);
-        if (isBrowse()) {
-            commitSearch();
-        } else {
-            rebuildSidebar();
-            applyFilter();
-        }
-        backToGrid();
-    });
+    connect(m_viewer, &ViewerPage::tagActivated, this,
+            &MainWindow::addTagToSearch);
+    connect(m_viewer, &ViewerPage::tagContextRequested, this,
+            &MainWindow::showViewerTagMenu);
     m_pages->addWidget(m_grid);
     m_pages->addWidget(m_viewer);
 
@@ -986,6 +1034,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     m_tabBar->setTabButton(0, QTabBar::LeftSide, nullptr);
     connect(m_tabBar, &QTabBar::currentChanged, this, &MainWindow::onTabChanged);
     connect(m_tabBar, &QTabBar::tabCloseRequested, this, &MainWindow::onTabClosed);
+    connect(m_tabBar, &QTabBar::tabMoved, this, &MainWindow::onTabMoved);
     auto *plusBtn = new QPushButton(QStringLiteral("+"), this);
     plusBtn->setFixedWidth(32);
     plusBtn->setToolTip(tr("New tab"));
@@ -1121,6 +1170,10 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
         m_tabBar->setCurrentIndex(0);
         showWelcome();
     }
+    // Missing-download offer at startup: favourited files deleted outside
+    // the app get a redownload prompt once per launch (deferred past show;
+    // relinkFavourites heals moved files first so only true losses prompt).
+    QTimer::singleShot(0, this, [this] { relinkFavourites(); });
 }
 
 // ── Tabs ─────────────────────────────────────────────────────
@@ -1382,7 +1435,7 @@ void MainWindow::addLocalTab(const QString &root) {
 }
 
 void MainWindow::addRemoteTab(const QStringList &sites, const QStringList &tags) {
-        auto *t = new BrowserTab();
+    auto *t = new BrowserTab();
     t->isRemote = true;
     t->sites = sites.isEmpty() ? m_settings.browseSites : sites;
     t->activeTags = tags;
@@ -1437,6 +1490,47 @@ void MainWindow::onTabClosed(int index) {
     saveTabs();
 }
 
+void MainWindow::onTabMoved(int from, int to) {
+    // Bar index 0 is the welcome tab: it stays put (every mapping
+    // assumes index 0 == home), so drags touching it bounce back.
+    if (from == 0 || to == 0) {
+        m_tabBar->blockSignals(true);
+        if (m_tabBar->count() > 1) {
+            if (from == 0 && to > 0 && to < m_tabBar->count())
+                m_tabBar->moveTab(to, 0);
+            else if (to == 0 && from > 0 && from < m_tabBar->count())
+                m_tabBar->moveTab(0, from);
+        }
+        // The bounce-back moveTab was silenced above, but the first
+        // drag already reordered the bar titles (including slot 0,
+        // which updateTabTitle never touches): re-assign every
+        // title so the bar and m_tabs agree again.
+        m_tabBar->setFullTitle(0, tr("Home"));
+        for (int i = 0; i < m_tabs.size(); ++i)
+            updateTabTitle(i);
+        m_tabBar->setCurrentIndex(m_curTab < 0 ? 0 : m_curTab + 1);
+        m_tabBar->blockSignals(false);
+        saveTabs();
+        return;
+    }
+    const int a = from - 1, b = to - 1;
+    if (a < 0 || b < 0 || a >= m_tabs.size() || b >= m_tabs.size() ||
+        a == b)
+        return;
+    m_tabs.move(a, b);
+    if (m_curTab == a) {
+        m_curTab = b;
+    } else if (a < b) {
+        if (m_curTab > a && m_curTab <= b)
+            m_curTab--;
+    } else if (m_curTab >= b && m_curTab < a) {
+        m_curTab++;
+    }
+    // The bar moved its own text/icons/tooltips with the tab; only
+    // the data order (and the session save) needs updating here.
+    saveTabs();
+}
+
 void MainWindow::activateTab(int tabIdx) {
     if (tabIdx < 0 || tabIdx >= m_tabs.size())
         return;
@@ -1458,6 +1552,14 @@ void MainWindow::activateTab(int tabIdx) {
     m_sortBox->setCurrentIndex(qMax(0, m_sortBox->findData(m_sort)));
     m_sortBox->blockSignals(false);
     setBrowseUi(t->isRemote);
+    // Sync the shared browse buffer now: saveTabs()/stageTabs() runs
+    // synchronously inside onTabChanged, before the deferred
+    // finishActivateTab. Without this, a fresh remote tab inherits the
+    // previous tab's browseMerged via saveCurrentTab and never searches.
+    if (t->isRemote)
+        m_browseMerged = t->browseMerged;
+    else
+        m_browseMerged.clear();
     // Skeleton first: the tab bar + stage paint NOW; the DB/scan/filter
     // rebuild runs on the next event-loop turn so no switch ever blocks
     // on it. Superseded switches abort in finishActivateTab.
@@ -2117,26 +2219,32 @@ void MainWindow::onRemoteFinished() {
     m_pendingSites.clear();
     m_loadingPage = false;
     m_scanBar->setVisible(false); // page landed (classify re-shows if needed)
-    // Dedupe by site+id across OR-alternatives (and, on append, against
-    // the posts already showing).
+    // Dedupe across OR-alternatives (and, on append, against
+    // the posts already showing). Remote/local twins share a key
+    // via dedupeKeyFor, so a downloaded gif never cards twice.
     QSet<QString> seen;
     if (m_appendResults && t->page > 1) {
         // Infinite scroll: append, skipping duplicates.
-        for (const Post &p : t->browseMerged)
-            seen.insert(p.siteName + u'#' + QString::number(p.id));
-        for (const Post &p : merged) {
-            const QString k = p.siteName + u'#' + QString::number(p.id);
-            if (!seen.contains(k)) {
+        for (const Post &p : t->browseMerged) {
+            const QString k = dedupeKeyFor(p);
+            if (!k.isEmpty())
                 seen.insert(k);
+        }
+        for (const Post &p : merged) {
+            const QString k = dedupeKeyFor(p);
+            if (k.isEmpty() || !seen.contains(k)) {
+                if (!k.isEmpty())
+                    seen.insert(k);
                 t->browseMerged.append(p);
             }
         }
     } else {
         t->browseMerged.clear();
         for (const Post &p : merged) {
-            const QString k = p.siteName + u'#' + QString::number(p.id);
-            if (!seen.contains(k)) {
-                seen.insert(k);
+            const QString k = dedupeKeyFor(p);
+            if (k.isEmpty() || !seen.contains(k)) {
+                if (!k.isEmpty())
+                    seen.insert(k);
                 t->browseMerged.append(p);
             }
         }
@@ -2382,6 +2490,7 @@ void MainWindow::toggleFavourite(const Post &post) {
         if (!post.fileUrl.isEmpty())
             m_downloads->cancelUrls({post.fileUrl});
         m_viewer->setFaved(false);
+        updateViewerBadges();
         maybeDeleteUnfavFile(post);
         statusBar()->showMessage(tr("Removed from favourites"), 3000);
     } else {
@@ -2391,12 +2500,25 @@ void MainWindow::toggleFavourite(const Post &post) {
         }
         m_unfavVeto.remove(favVetoKey(site, pid));
         m_viewer->setFaved(true);
+        updateViewerBadges();
         statusBar()->showMessage(tr("♥ Favourited"), 3000);
         if (m_settings.favAutoDownload && post.isRemote && !post.fileUrl.isEmpty())
             downloadPosts({post});
     }
     // Refresh every open favourites tab (not just the current one).
     refreshFavTabs();
+    // Paint the new mark onto the visible grid immediately instead of
+    // waiting for the next refill (fillModel recomputes it anyway).
+    {
+        const auto ident = favIdentity(post);
+        const bool faved = m_favDb.isOpen() && m_favDb.isFavourite(site, pid);
+        for (int row = 0; row < m_model->rowCount() && row < m_current.size();
+             ++row) {
+            if (favIdentity(m_current.at(row)) == ident)
+                m_model->setData(m_model->index(row, 0), faved,
+                                 Qt::UserRole + 12);
+        }
+    }
 }
 
 // Delete the downloaded copy behind an unfavourite when the option is on.
@@ -2570,6 +2692,28 @@ void MainWindow::showGridMenu(const QPoint &pos) {
         // (warned), vs sidecar must survive (staying favourited AND
         // regenerable: the sidecar is the re-download manifest).
         QSet<QString> doomed, keepSidecar;
+        // Path -> fav keys pointing at it (recorded before deletion,
+        // while canonicalization still resolves). Local scanned posts
+        // carry a ("local", file-hash) identity that never matches
+        // their ("Site", id) favourite rows, so identity alone misses
+        // Downloads-tab deletes and the startup offer comes back.
+        const QHash<QPair<QString, qint64>, QString> recordedPaths =
+            m_favDb.localPaths();
+        QHash<QString, QList<QPair<QString, qint64>>> byCanonPath;
+        for (auto it = recordedPaths.begin(); it != recordedPaths.end();
+             ++it) {
+            if (it.value().isEmpty())
+                continue;
+            QString canon = QFileInfo(it.value()).canonicalFilePath();
+            if (canon.isEmpty())
+                canon = QFileInfo(it.value()).absoluteFilePath();
+            if (!canon.isEmpty())
+                byCanonPath[canon].append(it.key());
+        }
+        QHash<QPair<QString, qint64>, Post> favByKey;
+        for (const Post &p : m_favDb.list())
+            favByKey.insert(favIdentity(p), p);
+        QSet<QString> warned;
         for (const Post &p : targets) {
             if (p.absFile.isEmpty())
                 continue;
@@ -2580,9 +2724,27 @@ void MainWindow::showGridMenu(const QPoint &pos) {
             const auto [site, pid] = favIdentity(p);
             if (!m_favDb.isFavourite(site, pid) || unfav)
                 continue; // gone from favourites too: nothing to warn about
+            warned.insert(favVetoKey(site, pid));
             const bool regen =
                 p.isRemote ? !p.fileUrl.isEmpty() : !sidecarUrl(abs).isEmpty();
             (regen ? keepSidecar : doomed).insert(abs);
+        }
+        // Path-linked favourites missed above (Downloads-tab locals):
+        // warn/keep by the DB row's own source link.
+        for (const QString &abs : anyFiles) {
+            for (const auto &key : byCanonPath.value(abs)) {
+                const QString veto = favVetoKey(key.first, key.second);
+                if (warned.contains(veto) ||
+                    !m_favDb.isFavourite(key.first, key.second) || unfav)
+                    continue;
+                warned.insert(veto);
+                const Post db = favByKey.value(key);
+                const bool regen =
+                    (!db.fileUrl.isEmpty() &&
+                     RemotePosts::isHttpUrl(db.fileUrl)) ||
+                    !sidecarUrl(abs).isEmpty();
+                (regen ? keepSidecar : doomed).insert(abs);
+            }
         }
         QString question =
             unfav ? tr("Permanently delete %1 file(s) from disk and remove "
@@ -2623,17 +2785,103 @@ void MainWindow::showGridMenu(const QPoint &pos) {
         int unfaved = 0;
         if (m_settings.deleteUnfavs) {
             QSet<QString> urls;
+            QSet<QString> removed;
             for (const Post &p : targets) {
                 const auto [site, pid] = favIdentity(p);
                 if (m_favDb.remove(site, pid)) {
+                    removed.insert(favVetoKey(site, pid));
                     m_unfavVeto.insert(favVetoKey(site, pid));
                     if (!p.fileUrl.isEmpty())
                         urls.insert(p.fileUrl);
                     unfaved++;
                 }
             }
+            // Path-linked rows missed by identity (Downloads-tab locals).
+            for (const QString &abs : anyFiles) {
+                for (const auto &key : byCanonPath.value(abs)) {
+                    const QString veto = favVetoKey(key.first, key.second);
+                    if (removed.contains(veto))
+                        continue;
+                    if (m_favDb.remove(key.first, key.second)) {
+                        removed.insert(veto);
+                        m_unfavVeto.insert(veto);
+                        const Post db = favByKey.value(key);
+                        if (!db.fileUrl.isEmpty())
+                            urls.insert(db.fileUrl);
+                        unfaved++;
+                    }
+                }
+            }
             if (!urls.isEmpty())
                 m_downloads->cancelUrls(urls);
+        } else {
+            // A kept favourite whose file is gone and which has no
+            // remote media or post link left can never render again:
+            // leaving it behind is a permanent empty card, so drop it
+            // (reported below like any other favourite removal).
+            //
+            // Every other kept favourite loses its download link here:
+            // files deleted through the GUI must not come back via the
+            // startup missing-download offer (that offer is only for
+            // files deleted behind the app's back). The favourite
+            // itself stays and falls back to remote.
+            QSet<QString> handled;
+            for (const Post &p : targets) {
+                if (p.absFile.isEmpty() || QFileInfo::exists(p.absFile))
+                    continue;
+                const auto [site, pid] = favIdentity(p);
+                handled.insert(favVetoKey(site, pid));
+                if (!m_favDb.isFavourite(site, pid))
+                    continue;
+                const bool dead =
+                    p.fileUrl.isEmpty() && p.sampleUrl.isEmpty() &&
+                    p.previewUrl.isEmpty() &&
+                    !p.postUrl.startsWith(QStringLiteral("http://")) &&
+                    !p.postUrl.startsWith(QStringLiteral("https://"));
+                if (dead) {
+                    // Viewer refresh can't heal these either.
+                    if (m_favDb.remove(site, pid)) {
+                        m_unfavVeto.insert(favVetoKey(site, pid));
+                        unfaved++;
+                    }
+                } else {
+                    m_favDb.setLocalPath(site, pid, QString());
+                }
+            }
+            // Path-linked favourites missed by identity
+            // (Downloads-tab locals): forget the download link by path
+            // so the startup offer stays silent for GUI deletes.
+            for (const QString &abs : anyFiles) {
+                for (const auto &key : byCanonPath.value(abs)) {
+                    const QString veto = favVetoKey(key.first, key.second);
+                    if (handled.contains(veto))
+                        continue;
+                    handled.insert(veto);
+                    if (!m_favDb.isFavourite(key.first, key.second))
+                        continue;
+                    const Post db = favByKey.value(key);
+                    const bool dead =
+                        db.fileUrl.isEmpty() && db.sampleUrl.isEmpty() &&
+                        db.previewUrl.isEmpty() &&
+                        !db.postUrl.startsWith(QStringLiteral("http://")) &&
+                        !db.postUrl.startsWith(QStringLiteral("https://"));
+                    if (dead) {
+                        if (m_favDb.remove(key.first, key.second)) {
+                            m_unfavVeto.insert(veto);
+                            unfaved++;
+                        }
+                    } else {
+                        m_favDb.setLocalPath(key.first, key.second, QString());
+                    }
+                }
+            }
+        }
+        // Other local tabs showing these folders are stale now: flag
+        // them so landing on one rescans (mirrors the download path).
+        for (const QString &f : anyFiles) {
+            const QString parent = QFileInfo(f).absolutePath();
+            const QString canon = QDir(parent).canonicalPath();
+            m_dirtyRoots.insert(canon.isEmpty() ? parent : canon);
         }
         refreshFavTabs();
         if (m_curTab >= 0 && !currentTab()->isRemote &&
@@ -2708,17 +2956,23 @@ void MainWindow::relinkFavourites() {
     }
     const int n = m_favDb.setLocalPaths(found);
     // Regeneration: favourited strays whose file is gone but whose source
-    // URL survives re-download into place (kept favourites only). Once
+    // URL survives re-download into place (kept favourites only). Only
+    // rows that previously had a file (recorded local_path now missing):
+    // never-downloaded rows are not the app's to fetch unasked. Once
     // per session per row; failures simply retry next launch. Never
     // preempts an active download batch.
     QVector<Post> regen;
     if (m_downloads && !m_downloads->isActive()) {
+        const QHash<QPair<QString, qint64>, QString> recorded =
+            m_favDb.localPaths();
         for (const FavDb::Unlinked &u : missing) {
             if (u.site != Stray::dirName() || u.fileUrl.isEmpty() ||
                 !RemotePosts::isHttpUrl(u.fileUrl))
                 continue;
             if (found.contains({u.site, u.id}))
                 continue;
+            if (recorded.value(QPair<QString, qint64>(u.site, u.id)).isEmpty())
+                continue; // never had a file: nothing was deleted
             const QString key =
                 u.site + u'#' + QString::number(u.id) + u'|' + u.fileUrl;
             if (m_regenTried.contains(key))
@@ -2748,6 +3002,77 @@ void MainWindow::relinkFavourites() {
         statusBar()->showMessage(
             tr("Linked %1 favourites to files on disk.").arg(n), 6000);
     }
+}
+
+// Manual re-pull (File menu): favourited files deleted outside the app
+// (moves already healed by relinkFavourites above). Only rows that
+// previously had a file (recorded local_path now missing) qualify:
+// never-downloaded favourites are not the app's to fetch unasked. Rows
+// with no download source stay hidden in the grid (never marked
+// downloaded) until the file returns; the prompt says so when any exist.
+void MainWindow::redownloadMissingFiles() {
+    if (!m_favDb.isOpen())
+        return;
+    const QHash<QPair<QString, qint64>, QString> paths = m_favDb.localPaths();
+    // Entry behind a file URL: exact host first, then media CDNs living
+    // next door (subdomain of an entry host). The entry picks the folder,
+    // referer, cookies and proxy, so the re-pull lands where the first
+    // download did (stamping siteKey is what makes that happen).
+    auto keyForFileHost = [](const QString &fileHost) -> QString {
+        if (fileHost.isEmpty())
+            return {};
+        const QMap<QString, QString> hosts = RemotePosts::hostKeys();
+        if (hosts.contains(fileHost))
+            return hosts.value(fileHost);
+        for (auto it = hosts.begin(); it != hosts.end(); ++it) {
+            if (fileHost.endsWith(u'.' + it.key()))
+                return it.value();
+        }
+        return {};
+    };
+    // Re-pull the stored DB rows themselves (not bare reconstructions),
+    // so names, tags and the sidecar come back complete.
+    QVector<Post> redl;
+    int unregen = 0;
+    for (Post p : m_favDb.list()) {
+        if (p.siteName == Stray::dirName())
+            continue; // stray regen path owns these (retries next launch)
+        const QString recorded = paths.value(favIdentity(p));
+        if (recorded.isEmpty() || QFileInfo::exists(recorded))
+            continue; // never downloaded, or still on disk
+        if (p.fileUrl.isEmpty() || !RemotePosts::isHttpUrl(p.fileUrl)) {
+            unregen++;
+            continue;
+        }
+        const QString key =
+            keyForFileHost(QUrl(p.fileUrl).host().toLower());
+        const BooruSite *entry =
+            key.isEmpty() ? nullptr : RemoteSource::siteFor(key);
+        if (!entry || entry->baseUrl.isEmpty()) {
+            unregen++; // URL but no configured booru to pull it through
+            continue;
+        }
+        p.isRemote = true;
+        p.siteKey = key;
+        redl.append(p);
+    }
+    if (redl.isEmpty()) {
+        statusBar()->showMessage(tr("No missing downloaded files"), 6000);
+        return;
+    }
+    QString q = tr("%1 favourited file(s) are missing from disk. "
+                   "Redownload them?")
+                    .arg(redl.size());
+    if (unregen > 0)
+        q += tr("\n\n%1 other(s) have no download source and stay hidden.")
+                 .arg(unregen);
+    if (QMessageBox::question(this, tr("Missing downloads"), q,
+                              QMessageBox::Yes | QMessageBox::No,
+                              QMessageBox::Yes) != QMessageBox::Yes)
+        return;
+    downloadPosts(redl);
+    statusBar()->showMessage(
+        tr("Re-downloading %1 missing file(s)…").arg(redl.size()), 8000);
 }
 
 void MainWindow::setAsMascot(const Post &post) {
@@ -3015,9 +3340,17 @@ void MainWindow::refreshFavTabs() {
         m_tabs[i]->localPosts = favs;
         updateTabTitle(i);
     }
-    // The visible tab re-filters too (activateTab re-lists again; cheap).
-    if (BrowserTab *t = currentTab(); t && t->isFavourites)
-        activateTab(m_curTab);
+    // The visible tab re-filters too. This used to activateTab(),
+    // which tears the viewer down mid-look (favourite/download from
+    // the post view kicked back to the grid); instead rebuild the
+    // data in place and let fillModel reconcile the viewer.
+    if (BrowserTab *t = currentTab(); t && t->isFavourites) {
+        if (m_pages->currentIndex() == 1)
+            commitFilter();
+        else
+            activateTab(m_curTab);
+    }
+    updateViewerBadges();
 }
 
 QString MainWindow::describeLastPlace() const {
@@ -3434,7 +3767,9 @@ void MainWindow::startScan(const QString &root) {
                 }
                 m_scanWatcher = nullptr;
                 m_scanner = nullptr;
-                m_index.setPosts(watcher->result());
+                QVector<Post> scanned = watcher->result();
+                healLocalPosts(scanned);
+                m_index.setPosts(scanned);
                 watcher->deleteLater();
                 scanner->deleteLater();
                 onScanFinished();
@@ -3904,8 +4239,93 @@ void MainWindow::applyFilter() {
     updateTabTitle(m_curTab);
 }
 
+// Downloaded posts keep their booru: host/label folders resolve
+// back to the entry behind the download (null = stray/library).
+void MainWindow::healLocalPosts(QVector<Post> &posts) {
+    for (Post &p : posts) {
+        if (p.isRemote || !p.postUrl.isEmpty() || p.id <= 0)
+            continue;
+        if (Stray::isStrayPath(p.absFile))
+            continue;
+        const BooruSite *e = RemotePosts::entryForPost(p);
+        if (!e)
+            continue;
+        const QString url = RemotePosts::postPageUrlFor(*e, p.id);
+        if (!url.isEmpty())
+            p.postUrl = url;
+    }
+}
+
+bool MainWindow::isPostDownloaded(
+    const Post &post,
+    const QHash<QPair<QString, qint64>, QString> *favLocal) {
+    if (!post.isRemote) {
+        // On disk under the download folder counts; plain library
+        // folders are archives, not downloads. The file must actually
+        // be there: a deleted-but-favourited row is not downloaded.
+        if (post.absFile.isEmpty() || !QFileInfo::exists(post.absFile))
+            return false;
+        const QString dlRoot =
+            QDir(effectiveDownloadDir(m_settings)).absolutePath();
+        const QString abs = QFileInfo(post.absFile).absolutePath();
+        return abs == dlRoot || abs.startsWith(dlRoot + u'/');
+    }
+    // Remote posts count when a favourite row links a file that is
+    // still on disk (re-downloads and moved files heal via relink).
+    QHash<QPair<QString, qint64>, QString> fresh;
+    if (!favLocal) {
+        if (!m_favDb.isOpen())
+            return false;
+        fresh = m_favDb.localPaths();
+        favLocal = &fresh;
+    }
+    const auto it = favLocal->find(favIdentity(post));
+    return it != favLocal->end() && !it.value().isEmpty() &&
+           QFileInfo::exists(it.value());
+}
+
+void MainWindow::updateViewerBadges() {
+    if (!m_viewer || !m_viewer->hasCurrent())
+        return;
+    const Post p = m_viewer->currentPost();
+    const auto [site, pid] = favIdentity(p);
+    const bool faved =
+        m_favDb.isOpen() && m_favDb.isFavourite(site, pid);
+    m_viewer->setStatusBadges(isAiPost(p), faved,
+                              isPostDownloaded(p, nullptr));
+}
+
 void MainWindow::fillModel() {
+    // Twins (remote/local copies of one post) card twice and make
+    // viewer stepping stutter on "the same post", so collapse them
+    // here at the single funnel every grid rebuild passes through.
+    // Local rows whose file is gone can render nothing (the thumb
+    // loader skips missing files below): drop them instead of leaving
+    // blank cards. Remote rows always stay: they fall back to their
+    // URLs (or a viewer refresh when only the post link is left).
+    {
+        QSet<QString> seen;
+        QVector<Post> unique;
+        unique.reserve(m_current.size());
+        for (const Post &post : m_current) {
+            if (!post.isRemote &&
+                (post.absFile.isEmpty() || !QFileInfo::exists(post.absFile)))
+                continue;
+            const QString k = dedupeKeyFor(post);
+            if (k.isEmpty() || !seen.contains(k)) {
+                if (!k.isEmpty())
+                    seen.insert(k);
+                unique.append(post);
+            }
+        }
+        m_current.swap(unique);
+    }
     m_model->clear();
+    // One query per refill (not per row): favourite links back the
+    // downloaded/favourited marks below.
+    const QHash<QPair<QString, qint64>, QString> favLocal =
+        m_favDb.isOpen() ? m_favDb.localPaths()
+                         : QHash<QPair<QString, qint64>, QString>();
     for (const Post &p : m_current) {
         auto *item = new QStandardItem();
         QString key;
@@ -3949,15 +4369,7 @@ void MainWindow::fillModel() {
         // instead.
         QString badge, badgeColor, badgeKey;
         QPixmap badgeFav;
-        if (p.isRemote) {
-            const BooruSite *entry = nullptr;
-            if (!p.siteKey.isEmpty())
-                entry = RemoteSource::siteFor(p.siteKey);
-            if (!entry) {
-                const QString k = RemotePosts::keyForLabel(p.siteName);
-                entry = k.isEmpty() ? nullptr : RemoteSource::siteFor(k);
-            }
-            if (entry) {
+        if (const BooruSite *entry = RemotePosts::entryForPost(p)) {
                 badge = entry->shortName.isEmpty() ? p.siteShort
                                                    : entry->shortName;
                 badgeColor = entry->badgeColor;
@@ -3966,21 +4378,63 @@ void MainWindow::fillModel() {
                 // lands via onFaviconReady (rows update in place).
                 badgeFav = m_favicons->iconFor(entry->key, entry->baseUrl)
                                .pixmap(16, 16);
-            } else {
+            } else if (p.isRemote) {
                 badge = p.siteShort;
             }
-        }
         item->setData(badge, Qt::UserRole + 7);
         item->setData(badgeColor, Qt::UserRole + 8);
         if (!badgeFav.isNull())
             item->setData(badgeFav, Qt::UserRole + 10);
         item->setData(badgeKey, Qt::UserRole + 11);
         item->setData(isAiPost(p), Qt::UserRole + 9); // grid "AI" chip
+        // Downloaded (under the download folder / linked favourite
+        // file) and favourited marks, next to the AI chip.
+        const auto ident = favIdentity(p);
+        item->setData(favLocal.contains(ident), Qt::UserRole + 12);
+        item->setData(isPostDownloaded(p, &favLocal), Qt::UserRole + 13);
         item->setEditable(false);
-        item->setToolTip(p.isRemote ? p.postUrl : p.file);
+        // The tooltip stays on the post page even after a download
+        // links the row to disk; strays (no post URL) keep the file.
+        item->setToolTip(!p.postUrl.isEmpty() ? p.postUrl : p.file);
         m_model->appendRow(item);
     }
+    syncViewerToGrid();
     requestVisibleThumbs();
+}
+
+// The grid behind an open viewer changed (unfavourite, delete,
+// filter): point the viewer at the same post in the new list so
+// deleted rows stop showing as blank ghosts and twins stop making
+// stepping stutter. Untouched when the current post sits at the
+// same index, so playback never restarts for unrelated refills.
+void MainWindow::syncViewerToGrid() {
+    if (!m_viewer || m_pages->currentIndex() != 1 ||
+        !m_viewer->hasCurrent())
+        return;
+    const auto ident = favIdentity(m_viewer->currentPost());
+    int found = -1;
+    for (int i = 0; i < m_current.size(); ++i) {
+        if (favIdentity(m_current.at(i)) == ident) {
+            found = i;
+            break;
+        }
+    }
+    if (found == m_viewer->currentRow())
+        return; // same post, same slot: leave playback alone
+    if (m_current.isEmpty()) {
+        backToGrid(); // nothing left to show
+        return;
+    }
+    const int row = found >= 0 ? found
+                              : qMin(m_viewer->currentRow(), m_current.size() - 1);
+    m_viewer->setPosts(m_current);
+    m_viewer->showRow(row);
+    const Post &p = m_current.at(row);
+    const auto [site, pid] = favIdentity(p);
+    m_viewer->setFaved(m_favDb.isOpen() && m_favDb.isFavourite(site, pid));
+    const QString reason = refreshReason(p);
+    m_viewer->setRefreshable(reason.isEmpty(), reason);
+    updateViewerBadges();
 }
 
 void MainWindow::updateResultLabel() {
@@ -4836,6 +5290,7 @@ void MainWindow::applyPreferences(const AppSettings &app) {
         QSet<QString>(m_settings.explicitTags.begin(), m_settings.explicitTags.end()));
     RemoteSource::setConfiguredBoorus(m_settings.boorus);
     RemotePosts::setDisabledBuckets(m_settings.disabledBuckets);
+    RemotePosts::setGlobalProxy(m_settings.globalProxy);
     if (old.manualTagTypes != m_settings.manualTagTypes) {
         // Forced overrides apply on Apply, not on restart: push the new
         // buckets into every tab's stored posts (current tab refreshes
@@ -4996,6 +5451,41 @@ void MainWindow::updateDownloadButton() {
     m_downloadSelBtn->setEnabled(n > 0);
 }
 
+void MainWindow::addTagToSearch(const QString &tag) {
+    if (!m_activeTags.contains(tag))
+        m_activeTags.append(tag);
+    if (isBrowse()) {
+        commitSearch();
+    } else {
+        rebuildSidebar();
+        applyFilter();
+    }
+    backToGrid();
+}
+
+void MainWindow::showViewerTagMenu(const QString &tag, const QPoint &globalPos) {
+    QMenu menu;
+    QAction *addAct = menu.addAction(tr("Add to search"));
+    connect(addAct, &QAction::triggered, this,
+            [this, tag] { addTagToSearch(tag); });
+    QMenu *newTab = menu.addMenu(tr("Search in new tab"));
+    // One entry per configured booru: opens a fresh browse tab limited to
+    // that site with the tag already filled in.
+    for (const BooruSite &site : m_settings.boorus) {
+        if (site.key.isEmpty())
+            continue;
+        const QString label =
+            site.label.isEmpty() ? site.key : site.label;
+        QAction *a = newTab->addAction(label);
+        connect(a, &QAction::triggered, this, [this, key = site.key, tag] {
+            addRemoteTab({key}, {tag});
+        });
+    }
+    if (newTab->isEmpty())
+        newTab->setEnabled(false);
+    menu.exec(globalPos);
+}
+
 void MainWindow::showViewer(int row) {
     const QModelIndex idx = m_model->index(row, 0);
     m_viewer->showThumbPreview(
@@ -5006,6 +5496,7 @@ void MainWindow::showViewer(int row) {
         const Post &p = m_current[row];
         const auto [site, pid] = favIdentity(p);
         m_viewer->setFaved(m_favDb.isOpen() && m_favDb.isFavourite(site, pid));
+        updateViewerBadges();
         const QString reason = refreshReason(p);
         m_viewer->setRefreshable(reason.isEmpty(), reason);
     }
