@@ -158,7 +158,7 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
 | Kind    | Path | Notes |
 |---|---|---|
 | Config  | `~/.config/box/settings.ini` | all keys below; `boorus/*` registry |
-| Data    | `~/.local/share/box/` (or `storage/dataDir`) | `store.db` favs, `tag_types.db` verdicts, `downloads/`, `session.lock` (`settings.h:122-167`, `main.cpp:112`) |
+| Data    | `~/.local/share/box/` (or `storage/dataDir`) | `store.db` favs, `tag_types.db` verdicts, `downloads/`, `session.lock`, `box.log[.1-.3]` rotating logs (`src/applog.cpp`) (`settings.h:122-167`, `main.cpp:112`) |
 | Cache   | `~/.cache/box/` (`appCacheDir`, `settings.cpp:15`) | `roots/` scan index, `thumbs/`, full-image cache, `cache.db`; `clearCaches()` drops `roots/`+`thumbs/` (`settings.cpp:250`) |
 
 Key `settings.ini` groups: `cache/` (index, thumbs, full, limitMB,

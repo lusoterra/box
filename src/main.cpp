@@ -1,4 +1,5 @@
 #include "mainwindow.h"
+#include "applog.h"
 #include "settings.h"
 #include "theme.h"
 
@@ -120,7 +121,10 @@ int main(int argc, char *argv[]) {
     // Custom data dir (databases + downloads): make sure it exists too.
     // The global lock above stays at the default location so two
     // instances can never share settings.ini either.
+    // Structured log from here on: condensed levels on stderr plus a
+    // rotating box.log in the data dir (128 MB default cap).
     QDir().mkpath(effectiveDataDir(settings));
+    AppLog::install(effectiveDataDir(settings) + QStringLiteral("/box.log"));
     applyStartupTheme(app, settings, cli.value(styleOpt), cli.isSet(nativeOpt));
 
     const QStringList pos = cli.positionalArguments();

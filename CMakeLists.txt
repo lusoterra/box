@@ -10,6 +10,7 @@ find_package(Qt6 REQUIRED COMPONENTS Widgets Concurrent Sql Multimedia Multimedi
 
 add_executable(box
     src/main.cpp
+    src/applog.cpp
     src/library/metaparser.cpp
     src/library/scanner.cpp
     src/library/cache.cpp
