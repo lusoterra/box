@@ -45,6 +45,9 @@ struct AppSettings {
     bool strayAutoFav = true;
     // Blacklisted tags: hidden everywhere (local + browse).
     QStringList blacklist;
+    // Favourite tags (starred via sidebar/viewer right-click): they rank
+    // first in search suggestions and sit behind the omnibar ★ menu.
+    QStringList favTags;
     // Online tag-category lookup for untyped tags (cached forever).
     bool classifyTags = false;
     // Manual tag -> bucket overrides (tag type overrides in Preferences).
@@ -215,6 +218,7 @@ inline bool operator==(const AppSettings &a, const AppSettings &b) {
            a.unfavDeletesFile == b.unfavDeletesFile &&
            a.deleteUnfavs == b.deleteUnfavs && a.strayAutoFav == b.strayAutoFav &&
            a.blacklist == b.blacklist &&
+           a.favTags == b.favTags &&
            a.classifyTags == b.classifyTags && a.manualTagTypes == b.manualTagTypes &&
            a.disabledBuckets == b.disabledBuckets &&
            a.browseMode == b.browseMode && a.browseSites == b.browseSites &&

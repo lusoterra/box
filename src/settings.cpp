@@ -78,6 +78,8 @@ AppSettings loadSettings() {
     if (c.contains(QStringLiteral("filter/blacklist")))
         s.blacklist =
             normalizeExplicitTags(c.value(QStringLiteral("filter/blacklist")).toStringList());
+    if (c.contains(QStringLiteral("fav/tags")))
+        s.favTags = c.value(QStringLiteral("fav/tags")).toStringList();
     s.classifyTags =
         c.value(QStringLiteral("classify/enabled"), s.classifyTags).toBool();
     if (c.contains(QStringLiteral("tagtypes/manual")))
@@ -205,6 +207,7 @@ void writeSettingsTo(QSettings &c, const AppSettings &s) {
     c.setValue(QStringLiteral("fav/deleteUnfavs"), s.deleteUnfavs);
     c.setValue(QStringLiteral("stray/autoFav"), s.strayAutoFav);
     c.setValue(QStringLiteral("filter/blacklist"), s.blacklist);
+    c.setValue(QStringLiteral("fav/tags"), s.favTags);
     c.setValue(QStringLiteral("classify/enabled"), s.classifyTags);
     c.setValue(QStringLiteral("tagtypes/manual"),
                  TagTypes::serializeTagOverrides(s.manualTagTypes));

@@ -3,6 +3,7 @@
 #include "post.h"
 
 #include <QHash>
+#include <QSet>
 #include <QString>
 #include <QStringList>
 #include <QVector>
@@ -44,7 +45,8 @@ public:
         int count = 0;
         QString bucket = QStringLiteral("general"); // for suggestion colors
     };
-    QVector<Suggestion> suggest(const QString &prefix, int limit = 15) const;
+    QVector<Suggestion> suggest(const QString &prefix, int limit = 15,
+                               const QSet<QString> &favTags = {}) const;
 
     Stats stats() const;
 

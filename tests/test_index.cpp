@@ -233,6 +233,30 @@ private slots:
         QCOMPARE(sug.first().tag, QStringLiteral("sky"));
     }
 
+    void suggestFavFirst() {
+        // Starred tags outrank higher-count plain prefix matches: five
+        // posts carry skyline, one carries skirt, skirt is starred.
+        Index idx;
+        QVector<Post> posts;
+        for (int i = 0; i < 5; ++i) {
+            Post p;
+            p.tagsGeneral = QStringLiteral("skyline");
+            p.hasMeta = true;
+            posts.append(p);
+        }
+        Post one;
+        one.tagsGeneral = QStringLiteral("skirt");
+        one.hasMeta = true;
+        posts.append(one);
+        idx.setPosts(posts);
+        const auto plain = idx.suggest(QStringLiteral("sk"), 12);
+        QCOMPARE(plain.first().tag, QStringLiteral("skyline"));
+        const auto starred =
+            idx.suggest(QStringLiteral("sk"), 12, {QStringLiteral("skirt")});
+        QVERIFY(starred.size() >= 2);
+        QCOMPARE(starred.first().tag, QStringLiteral("skirt"));
+    }
+
     void suggestCarriesBuckets() {
         Index idx;
         Post a;

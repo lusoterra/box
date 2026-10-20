@@ -174,6 +174,17 @@ private slots:
                  QStringLiteral("copyright"));
     }
 
+    void favTagsRoundTrip() {
+        AppSettings s = loadSettings();
+        s.favTags = {QStringLiteral("hatsune_miku"),
+                     QStringLiteral("1girl")};
+        saveSettings(s);
+        QCOMPARE(loadSettings().favTags, s.favTags);
+        s.favTags.clear();
+        saveSettings(s);
+        QVERIFY(loadSettings().favTags.isEmpty());
+    }
+
     void legacyCredsMigrateToBoorus() {
         // Simulate a pre-registry config: legacy keys, no boorus/order.
         // Fresh profiles seed Safebooru-only now; legacy credentials for

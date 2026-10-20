@@ -109,6 +109,27 @@ private slots:
         QVERIFY(TagSuggester::rank(QStringLiteral("so"), {}).isEmpty());
     }
 
+    void rankFavTagsFirst() {
+        // Starred prefix matches outrank higher-count plain ones; the
+        // exact tag still wins over a starred non-exact tag.
+        auto sug = [](const char *tag, int count) {
+            TagSuggestion s;
+            s.tag = QString::fromLatin1(tag);
+            s.count = count;
+            return s;
+        };
+        const QSet<QString> fav = {QStringLiteral("skydive")};
+        const QVector<TagSuggestion> in = {
+            sug("skyline", 9000), sug("skydive", 400), sug("sky", 30)};
+        const auto out = TagSuggester::rank(QStringLiteral("sky"), in, fav);
+        QCOMPARE(out.at(0).tag, QStringLiteral("sky")); // exact still first
+        QCOMPARE(out.at(1).tag, QStringLiteral("skydive")); // starred prefix
+        QCOMPARE(out.at(2).tag, QStringLiteral("skyline"));
+        // No favs: previous order stands.
+        const auto plain = TagSuggester::rank(QStringLiteral("sky"), in);
+        QCOMPARE(plain.at(1).tag, QStringLiteral("skyline"));
+    }
+
     void mergeKeepsLocalsFirst() {
         // Remote extras append below locals; dupes collapse (local wins);
         // an empty remote never blanks good local answers.

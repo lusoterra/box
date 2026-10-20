@@ -664,6 +664,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     m_searchEdit->setCompleter(m_completer);
     m_suggester = new TagSuggester(this);
     m_suggester->setLocalIndex(&m_index); // offline answers from your archive
+    m_suggester->setFavTags(favTagSet()); // starred tags outrank the rest
     connect(m_suggester, &TagSuggester::finished, this,
             &MainWindow::onRemoteSuggest);
     m_completeTimer = new QTimer(this);
@@ -774,6 +775,16 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     m_dotCount = new QLabel(QStringLiteral("·"), this);
     m_dotCount->setStyleSheet(QStringLiteral("color:#4a5068;"));
 
+    // Starred tags menu (right-click any tag to star it): click a star
+    // to add it to the search, like picking a suggestion.
+    auto *favBtn = new QPushButton(QStringLiteral("★"), this);
+    favBtn->setFixedWidth(32);
+    favBtn->setToolTip(tr("Favourite tags"));
+    favBtn->setCursor(Qt::PointingHandCursor);
+    connect(favBtn, &QPushButton::clicked, this,
+            &MainWindow::showFavTagsMenu);
+
+    omniLay->addWidget(favBtn);
     omniLay->addWidget(m_searchEdit, 1);
     omniLay->addWidget(m_ratingBox);
     omniLay->addWidget(m_categoryBox);
@@ -825,6 +836,9 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
         m_sideSplit->addWidget(sec);
         m_sideSplit->setStretchFactor(m_sideSplit->count() - 1, 1);
         connect(list, &QListWidget::itemClicked, this, &MainWindow::onTagClicked);
+        list->setContextMenuPolicy(Qt::CustomContextMenu);
+        connect(list, &QListWidget::customContextMenuRequested, this,
+                &MainWindow::onTagContextMenu);
     }
     m_sideSplit->setChildrenCollapsible(false); // sections never snap shut
     if (!m_settings.sideSplitter.isEmpty())
@@ -4822,7 +4836,7 @@ void MainWindow::onSearchEdited(const QString &text) {
         return;
     }
     m_suggester->cancel();
-    const auto sug = m_index.suggest(bare, 24);
+    const auto sug = m_index.suggest(bare, 24, favTagSet());
     QStringList words, buckets;
     for (const auto &s : sug) {
         words << s.tag;
@@ -4901,8 +4915,8 @@ void MainWindow::onRemoteSuggest(const QString &siteKey, const QString &prefix,
         local.append(s);
     }
     const QVector<TagSuggestion> merged = TagSuggester::merge(
-        local, TagSuggester::rank(bare, suggestions)); // API order is
-        // count-only: rank exact-first before merging, never replacing locals
+        local, TagSuggester::rank(bare, suggestions, favTagSet())); // API order is
+        // count-only: rank exact-first (starred tags win ties) before merging, never replacing locals
     if (merged.isEmpty())
         return;
     words.clear();
@@ -5628,6 +5642,100 @@ void MainWindow::onTagClicked() {
     commitSearch();
 }
 
+QSet<QString> MainWindow::favTagSet() const {
+    QSet<QString> out;
+    for (const QString &t : m_settings.favTags) {
+        if (!t.trimmed().isEmpty())
+            out.insert(t.trimmed().toLower());
+    }
+    return out;
+}
+
+bool MainWindow::isFavTag(const QString &tag) const {
+    return favTagSet().contains(tag.trimmed().toLower());
+}
+
+void MainWindow::toggleFavTag(const QString &tag) {
+    const QString clean = tag.trimmed();
+    if (clean.isEmpty())
+        return;
+    const bool wasFav = isFavTag(clean);
+    if (wasFav) {
+        for (int i = m_settings.favTags.size() - 1; i >= 0; --i) {
+            if (m_settings.favTags.at(i).trimmed().compare(
+                    clean, Qt::CaseInsensitive) == 0)
+                m_settings.favTags.removeAt(i);
+        }
+    } else {
+        m_settings.favTags.append(clean);
+    }
+    saveSettings(m_settings);
+    m_suggester->setFavTags(favTagSet());
+    statusBar()->showMessage(
+        wasFav ? tr("★ %1 removed from favourite tags").arg(clean)
+               : tr("★ %1 added to favourite tags").arg(clean),
+        3000);
+}
+
+void MainWindow::onTagContextMenu(const QPoint &pos) {
+    auto *list = qobject_cast<QListWidget *>(sender());
+    if (!list)
+        return;
+    QListWidgetItem *it = list->itemAt(pos);
+    if (!it)
+        return;
+    const QString tag = it->data(Qt::UserRole).toString();
+    if (tag.isEmpty())
+        return;
+    QMenu menu;
+    QAction *addAct = menu.addAction(tr("Add to search"));
+    connect(addAct, &QAction::triggered, this, [this, tag] {
+        if (!m_activeTags.contains(tag))
+            m_activeTags.append(tag);
+        commitSearch();
+    });
+    const bool fav = isFavTag(tag);
+    QAction *favAct = menu.addAction(
+        fav ? tr("★ Remove from favourite tags")
+            : tr("★ Add to favourite tags"));
+    connect(favAct, &QAction::triggered, this,
+            [this, tag] { toggleFavTag(tag); });
+    menu.exec(list->mapToGlobal(pos));
+}
+
+void MainWindow::showFavTagsMenu() {
+    QMenu menu(this);
+    QStringList tags = m_settings.favTags;
+    std::sort(tags.begin(), tags.end(), [](const QString &a, const QString &b) {
+        return a.compare(b, Qt::CaseInsensitive) < 0;
+    });
+    if (tags.isEmpty()) {
+        QAction *none = menu.addAction(
+            tr("No favourite tags yet — right-click a tag to star it"));
+        none->setEnabled(false);
+    }
+    for (const QString &tag : tags) {
+        if (tag.trimmed().isEmpty())
+            continue;
+        QAction *a = menu.addAction(QStringLiteral("★ ") + tag);
+        connect(a, &QAction::triggered, this,
+                [this, tag] { addTagToSearch(tag); });
+    }
+    if (!tags.isEmpty()) {
+        menu.addSeparator();
+        QAction *clear = menu.addAction(tr("Clear favourite tags"));
+        connect(clear, &QAction::triggered, this, [this] {
+            m_settings.favTags.clear();
+            saveSettings(m_settings);
+            m_suggester->setFavTags(favTagSet());
+        });
+    }
+    if (QWidget *w = qobject_cast<QWidget *>(sender()))
+        menu.exec(w->mapToGlobal(QPoint(0, w->height())));
+    else
+        menu.exec(QCursor::pos());
+}
+
 void MainWindow::onGridActivated(const QModelIndex &index) {
     if (!index.isValid())
         return;
@@ -5682,6 +5790,13 @@ void MainWindow::addTagToSearch(const QString &tag) {
 
 void MainWindow::showViewerTagMenu(const QString &tag, const QPoint &globalPos) {
     QMenu menu;
+    const bool fav = isFavTag(tag);
+    QAction *favAct = menu.addAction(
+        fav ? tr("★ Remove from favourite tags")
+            : tr("★ Add to favourite tags"));
+    connect(favAct, &QAction::triggered, this,
+            [this, tag] { toggleFavTag(tag); });
+    menu.addSeparator();
     QAction *addAct = menu.addAction(tr("Add to search"));
     connect(addAct, &QAction::triggered, this,
             [this, tag] { addTagToSearch(tag); });

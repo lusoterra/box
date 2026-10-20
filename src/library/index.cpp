@@ -214,7 +214,8 @@ QueryResult Index::query(const QStringList &tags, const QString &rating,
     return out;
 }
 
-QVector<Index::Suggestion> Index::suggest(const QString &prefix, int limit) const {
+QVector<Index::Suggestion> Index::suggest(const QString &prefix, int limit,
+                                             const QSet<QString> &favTags) const {
     const QString q = prefix.toLower();
     // Defense in depth: limit arithmetic below multiplies, so clamp the
     // top (callers pass 24: a wider pool for ranking, trimmed to the
@@ -222,20 +223,26 @@ QVector<Index::Suggestion> Index::suggest(const QString &prefix, int limit) cons
     if (q.length() < 2 || limit <= 0)
         return {};
     limit = qMin(limit, 1000);
-    // Relevance tiers: the exact tag first, then prefix matches by use
-    // count, then substring matches (longer, more specific tags beat
-    // short noise at equal counts). A linear scan over precomputed
-    // entries is fast enough; the omnibar completer prefix-filters the
-    // model, so substring hits rank strictly last.
+    // Relevance tiers: the exact tag first, then favourite tags (starred
+    // by the user), then prefix matches by use count, then substring
+    // matches (longer, more specific tags beat short noise at equal
+    // counts). A linear scan over precomputed entries is fast enough; the
+    // omnibar completer prefix-filters the model, so substring hits rank
+    // strictly last.
     struct Hit {
         const SuggestEntry *e;
-        int tier; // 0 = exact, 1 = prefix, 2 = substring
+        int tier; // 0 = exact, 1 = favourite, 2 = prefix, 3 = substring
     };
     QVector<Hit> hits;
     hits.reserve(qMax(0, limit * 2));
     for (const SuggestEntry &e : m_suggest) {
-        const int tier =
-            e.lower == q ? 0 : (e.lower.startsWith(q) ? 1 : -1);
+        int tier = -1;
+        if (e.lower == q)
+            tier = 0;
+        else if (favTags.contains(e.lower))
+            tier = e.lower.startsWith(q) ? 1 : -1; // favs must still match
+        else if (e.lower.startsWith(q))
+            tier = 2;
         if (tier >= 0)
             hits.append({&e, tier});
     }

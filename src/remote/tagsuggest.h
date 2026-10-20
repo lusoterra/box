@@ -7,6 +7,7 @@
 // map like post tags. Shimmie exposes no tag API: always empty.
 #include <QObject>
 #include <QHash>
+#include <QSet>
 #include <QString>
 #include <QVector>
 
@@ -32,6 +33,9 @@ public:
     // (offline completion from your own vocabulary); the remote fetch
     // MERGES into them when it lands (never replaces). Not owned.
     void setLocalIndex(const Index *index);
+    // Starred tags (lowercased by the caller): they outrank plain prefix
+    // matches in both the instant local answers and the merged remote ones.
+    void setFavTags(const QSet<QString> &fav) { m_favTags = fav; }
 
     static QVector<TagSuggestion> parse(BooruEngine engine, const QByteArray &body);
     // Merge policy for one prefix: local rows first (your vocabulary wins
@@ -39,12 +43,14 @@ public:
     static QVector<TagSuggestion> merge(const QVector<TagSuggestion> &local,
                                         const QVector<TagSuggestion> &remote,
                                         int cap = 12);
-    // Relevance order for one prefix: exact match, then prefix matches by
-    // post count, then the rest (longer tags beat short noise at equal
-    // counts). Pure: unit-tested. Applied to remote answers (API order is
-    // count-only) before merging; local answers arrive ranked already.
+    // Relevance order for one prefix: exact match, then favourite tags,
+    // then prefix matches by post count, then the rest (longer tags beat
+    // short noise at equal counts). Pure: unit-tested. Applied to remote
+    // answers (API order is count-only) before merging; local answers
+    // arrive ranked already.
     static QVector<TagSuggestion> rank(const QString &prefix,
-                                       QVector<TagSuggestion> v);
+                                       QVector<TagSuggestion> v,
+                                       const QSet<QString> &favTags = {});
 
 signals:
     void finished(const QString &siteKey, const QString &prefix,
@@ -57,6 +63,7 @@ private:
     class QNetworkReply *m_reply = nullptr;
     QString m_siteKey; // site key of the in-flight request
     QString m_prefix;  // its prefix
+    QSet<QString> m_favTags; // starred tags, lowercased (suggestion boost)
     // Memory-only cache (cleared past a few hundred entries).
     QHash<QString, QVector<TagSuggestion>> m_cache;
     const Index *m_localIndex = nullptr;

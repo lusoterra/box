@@ -16,14 +16,15 @@ pins bottom-right behind everything (double-click cycles size; setting
 One tab per archive/site set. Tab bar button shows favicon + label + ✕.
 Left: sidebar tag sections (COPYRIGHT, CHARACTERS, ARTISTS, TAGS, META)
 with counts, each tinted in its bucket colour like the filter pills;
-click toggles filter pills. A captcha/PoW wall failure pops a small menu:
+click toggles filter pills, right-click stars/un-stars favourite tags. A captcha/PoW wall failure pops a small menu:
 solve the challenge in the capture browser, or drop the booru (deselect
 in multibooru, close a solo tab). Center: post grid. Bottom-left:
 `40 results · page 1` and infinite scroll (more loads at the bottom).
 
 ## 03-omnibar — the control row under the tab bar
-Left to right: tag search box (placeholder `Search tags…`, autocomplete
-popup ranked exact-match first, then most-used — `/` focuses, Enter
+Left to right: `★` favourite-tags menu (click a star to add it to the
+search) → tag search box (placeholder `Search tags…`, autocomplete
+popup ranked exact-match first, then starred tags, then most-used — `/` focuses, Enter
 searches) → rating dropdown (`All`, default label) → sort dropdown (`Recently added`/`Newest`/`Oldest`/`Top
 Rated`/`Low Rated`/`Random` — server-side `order:`/`sort:` tags in browse
 mode, client-side locally) → aspect dropdown (`1:1`, grid cell shape) →

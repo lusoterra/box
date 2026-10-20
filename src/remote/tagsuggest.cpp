@@ -268,7 +268,7 @@ void TagSuggester::suggest(const BooruSite &site, const SiteCreds &creds,
         // Instant offline answers from the local archive; the remote
         // fetch below replaces them when (and if) it arrives.
         QVector<TagSuggestion> local;
-        for (const auto &s : m_localIndex->suggest(prefix, 24)) {
+        for (const auto &s : m_localIndex->suggest(prefix, 24, m_favTags)) {
             TagSuggestion t;
             t.tag = s.tag;
             t.bucket = s.bucket;
@@ -370,15 +370,20 @@ QVector<TagSuggestion> TagSuggester::merge(const QVector<TagSuggestion> &local,
 }
 
 QVector<TagSuggestion> TagSuggester::rank(const QString &prefix,
-                                             QVector<TagSuggestion> v) {
+                                             QVector<TagSuggestion> v,
+                                             const QSet<QString> &favTags) {
     const QString q = prefix.toLower();
     std::stable_sort(v.begin(), v.end(),
-                     [&q](const TagSuggestion &a, const TagSuggestion &b) {
+                     [&q, &favTags](const TagSuggestion &a, const TagSuggestion &b) {
                          const QString al = a.tag.toLower(), bl = b.tag.toLower();
-                         const int at = al == q ? 0
-                                        : (al.startsWith(q) ? 1 : 2);
-                         const int bt = bl == q ? 0
-                                        : (bl.startsWith(q) ? 1 : 2);
+                         const auto tierOf = [&q, &favTags](const QString &l) {
+                             if (l == q)
+                                 return 0;
+                             if (favTags.contains(l))
+                                 return l.startsWith(q) ? 1 : 3;
+                             return l.startsWith(q) ? 2 : 3;
+                         };
+                         const int at = tierOf(al), bt = tierOf(bl);
                          if (at != bt)
                              return at < bt;
                          if (a.count != b.count)

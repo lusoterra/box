@@ -204,6 +204,12 @@ private slots:
     void onCategoryChanged();
     void onAspectChanged();
     void onTagClicked();
+    void onTagContextMenu(const QPoint &pos); // sidebar right-click: fav toggle
+    // Starred tags (lowercased) for suggestion priority + the ★ menu.
+    QSet<QString> favTagSet() const;
+    bool isFavTag(const QString &tag) const;
+    void toggleFavTag(const QString &tag);
+    void showFavTagsMenu(); // omnibar ★: starred tags, click adds to search
     void onGridActivated(const QModelIndex &index);
     void onThumbnailReady(const QString &key, const QImage &image);
     void onScanFinished();
