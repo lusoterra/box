@@ -422,6 +422,43 @@ private slots:
             0, QStringLiteral("cancelled")));
     }
 
+    void wallDetectors() {
+        // Cloudflare "Just a moment" walls (403 + HTML body).
+        QVERIFY(RemotePosts::looksLikeCloudflareWall(
+            QByteArray("<html><title>Just a moment...</title>"
+                       "<div id=\"challenge-platform\"></div></html>")));
+        QVERIFY(RemotePosts::looksLikeCloudflareWall(
+            QByteArray("<script src=\"/cdn-cgi/challenges.cloudflare.com"
+                       "/turnstile.js\"></script>")));
+        // JS proof-of-work / captcha pages (HTTP 200 + HTML body).
+        QVERIFY(RemotePosts::looksLikeChallengePage(
+            QByteArray("<html>Solve the captcha to continue</html>")));
+        QVERIFY(RemotePosts::looksLikeChallengePage(
+            QByteArray("<html>Verification required: challenge powSeed "
+                       "abc123</html>")));
+        // Negatives: real payloads, empty and oversized bodies.
+        QVERIFY(!RemotePosts::looksLikeCloudflareWall(QByteArray()));
+        QVERIFY(!RemotePosts::looksLikeChallengePage(QByteArray()));
+        QVERIFY(!RemotePosts::looksLikeCloudflareWall(
+            QByteArray("[{\"id\":1}]")));
+        QVERIFY(!RemotePosts::looksLikeChallengePage(
+            QByteArray("[{\"id\":1}]")));
+        QVERIFY(!RemotePosts::looksLikeCloudflareWall(
+            QByteArray(200000, 'x')));
+        QVERIFY(!RemotePosts::looksLikeChallengePage(
+            QByteArray(70000, 'x')));
+        // The actionable media error names the wall (not the markup).
+        QCOMPARE(RemotePosts::wallAwareMediaError(
+                     QStringLiteral("booru.example"),
+                     QByteArray("<html>captcha</html>"),
+                     QStringLiteral("text/html")),
+                 QString::fromUtf8(
+                     "Challenge page from booru.example instead of media "
+                     "(captcha/wall still active \u2014 solve it once in the "
+                     "Booru manager \u2192 Capture in browser\u2026, Apply, "
+                     "then retry)."));
+    }
+
     void danbooruMapping() {
         const Post p = RemotePosts::fromDanbooru(
             danbooruObj(), QStringLiteral("https://danbooru.donmai.us"));

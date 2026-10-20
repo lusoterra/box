@@ -36,6 +36,10 @@ public:
     const QString &siteKey() const { return m_site.key; }
     const QVector<Post> &lastPosts() const { return m_lastPosts; }
     const QString &lastError() const { return m_lastError; }
+    // True when the last search failed on a captcha/PoW challenge wall
+    // (HTTP 403 challenge or HTTP 200 verification page). Drives the
+    // solve-in-browser menu; plain auth errors stay false.
+    bool lastWall() const { return m_lastWall; }
     int lastHttp() const { return m_lastHttp; }
     const QByteArray &lastBody() const { return m_lastBody; }
     QUrl lastUrl() const { return m_lastUrl; }
@@ -107,6 +111,7 @@ private:
     class QNetworkReply *m_reply = nullptr;
     QVector<Post> m_lastPosts;
     QString m_lastError;
+    bool m_lastWall = false; // last search died on a challenge wall
     int m_lastHttp = 0;
     QByteArray m_lastBody; // raw body of the last search, capped
     QUrl m_lastUrl;        // exact request URL of the last search

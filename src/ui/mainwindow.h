@@ -234,6 +234,11 @@ private:
     BrowserTab *currentTab();
     void doBrowseSearch(bool append = false);
     void pumpSiteSearch(const QString &key); // next queued OR-alternative
+    // Captcha/PoW wall menu for wall-blocked sites: solve in the capture
+    // browser, or drop the booru (deselect in multibooru, close tab solo).
+    void showWallMenu(const QStringList &wallSites);
+    void solveWallInBrowser(const QString &siteKey);
+    void dropWallSites(const QStringList &siteKeys);
     void applyBrowseFilter();
     void sortPosts(QVector<Post> &posts, const QString &sort);
     void fillModel();
@@ -375,6 +380,7 @@ private:
         QString error;                 // first error text (if any)
         QString probe;                 // its raw diagnostics section
         bool transientError = false;   // any completion looked retryable
+        bool wall = false; // any completion died on a captcha/PoW wall
     };
     QHash<QString, PendingSite> m_pendingSites;
     // Fetched classify verdicts, applied per host group so buckets a host

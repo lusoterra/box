@@ -2120,11 +2120,14 @@ void MainWindow::onRemoteFinished() {
             // Retryable completions (rate limits, 5xx, timeouts) mark the
             // site: a fresh search that lands nothing but these gets one
             // delayed retry instead of a dead empty grid. Auth/wall/bad
-            // filter errors (401/403/400) never retry.
+            // filter errors (401/403/400) never retry. Challenge walls
+            // mark the site separately for the solve-in-browser menu.
             if (!done->lastError().isEmpty() &&
                 RemotePosts::isTransientSearchError(done->lastHttp(),
                                                     done->lastError()))
                 ps.transientError = true;
+            if (done->lastWall())
+                ps.wall = true;
             break;
         }
     }
@@ -2138,6 +2141,7 @@ void MainWindow::onRemoteFinished() {
     m_searchTab = nullptr;
     if (!t)
         return;
+    const bool wasAppend = m_appendResults; // reset below; gates the wall menu
     QVector<Post> merged;
     QStringList errors;
     QStringList probeSections; // raw request/response per failing site
@@ -2217,12 +2221,20 @@ void MainWindow::onRemoteFinished() {
         }
     }
     bool anyTransient = false;
+    QStringList wallSites;
     for (auto bit = m_pendingSites.begin(); bit != m_pendingSites.end();
          ++bit) {
         if (bit->transientError) {
             anyTransient = true;
             break;
         }
+    }
+    for (const QString &key : sites) {
+        if (isVirtualSource(key))
+            continue;
+        const auto bit = m_pendingSites.constFind(key);
+        if (bit != m_pendingSites.constEnd() && bit->wall)
+            wallSites << key;
     }
     m_pendingSites.clear();
     m_loadingPage = false;
@@ -2275,6 +2287,10 @@ void MainWindow::onRemoteFinished() {
             msg += tr(" · %1 login-walled hidden").arg(hiddenWalled);
         statusBar()->showMessage(msg, 5000);
     }
+    // Captcha/PoW wall: offer the solve-or-drop menu on fresh searches
+    // only (infinite-scroll appends must never steal focus with popups).
+    if (!wasAppend && t->page <= 1 && !wallSites.isEmpty())
+        showWallMenu(wallSites);
     // Fresh search, nothing landed, failures look transient (rate limits,
     // 5xx, timeouts — never auth/walls): one delayed retry instead of a
     // dead empty grid. Appends never retry (existing rows stay put) and
@@ -2303,6 +2319,93 @@ void MainWindow::onRemoteFinished() {
         else
             statusBar()->showMessage(tr("No more posts"), 4000);
     }
+}
+
+void MainWindow::showWallMenu(const QStringList &wallSites) {
+    BrowserTab *t = currentTab();
+    if (!t || !t->isRemote || wallSites.isEmpty())
+        return;
+    QMenu menu(this);
+    for (const QString &key : wallSites) {
+        const BooruSite *cfg = RemoteSource::siteFor(key);
+        const QString label = cfg ? cfg->label : key;
+        QAction *solve = menu.addAction(
+            tr("Solve %1 challenge in browser…").arg(label));
+        connect(solve, &QAction::triggered, this,
+                [this, key] { solveWallInBrowser(key); });
+    }
+    menu.addSeparator();
+    const int liveSites = t->sites.size();
+    if (liveSites <= 1) {
+        QAction *close = menu.addAction(tr("Close tab"));
+        connect(close, &QAction::triggered, this, [this] {
+            if (m_curTab >= 0)
+                onTabClosed(m_curTab + 1); // bar index 0 is welcome
+        });
+    } else if (wallSites.size() == 1) {
+        const BooruSite *cfg = RemoteSource::siteFor(wallSites.first());
+        QAction *drop = menu.addAction(
+            tr("Search without %1").arg(cfg ? cfg->label : wallSites.first()));
+        connect(drop, &QAction::triggered, this,
+                [this, wallSites] { dropWallSites(wallSites); });
+    } else {
+        QAction *drop = menu.addAction(tr("Search without blocked boorus"));
+        connect(drop, &QAction::triggered, this,
+                [this, wallSites] { dropWallSites(wallSites); });
+    }
+    menu.exec(QCursor::pos());
+}
+
+void MainWindow::solveWallInBrowser(const QString &siteKey) {
+    int idx = -1;
+    for (int i = 0; i < m_settings.boorus.size(); ++i) {
+        if (m_settings.boorus.at(i).key == siteKey) {
+            idx = i;
+            break;
+        }
+    }
+    if (idx < 0)
+        return;
+    BooruSite &entry = m_settings.boorus[idx];
+    if (entry.baseUrl.isEmpty()) {
+        statusBar()->showMessage(
+            tr("%1 needs an instance URL first").arg(entry.label), 6000);
+        return;
+    }
+    CookieGrabDialog dlg(entry.label, entry.baseUrl,
+                         effectiveDataDir(m_settings) +
+                             QStringLiteral("/webprofile"),
+                         this);
+    if (dlg.exec() == QDialog::Accepted && !dlg.cookies().isEmpty()) {
+        entry.cookies = dlg.cookies();
+        saveSettings(m_settings);
+        RemoteSource::setConfiguredBoorus(m_settings.boorus);
+        applyBooruCreds();
+        statusBar()->showMessage(
+            tr("✓ %1: %2 cookie(s) captured — retrying search")
+                .arg(entry.label)
+                .arg(entry.cookies.size()),
+            6000);
+        if (BrowserTab *t = currentTab(); t && t->isRemote)
+            doBrowseSearch(false);
+    }
+}
+
+void MainWindow::dropWallSites(const QStringList &siteKeys) {
+    BrowserTab *t = currentTab();
+    if (!t || !t->isRemote)
+        return;
+    for (const QString &key : siteKeys)
+        t->sites.removeAll(key);
+    if (t->sites.isEmpty()) {
+        // Nothing left to search: close instead of idling on an empty tab.
+        if (m_curTab >= 0)
+            onTabClosed(m_curTab + 1); // bar index 0 is welcome
+        return;
+    }
+    updateTabTitle(m_curTab);
+    saveTabsNow();
+    doBrowseSearch(false);
 }
 
 void MainWindow::applyBrowseFilter() {

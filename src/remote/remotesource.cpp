@@ -289,6 +289,10 @@ void RemoteSource::search(const QStringList &tags, int page, int limit) {
     m_webRetried = false;
     m_lastUrl.clear();
     m_lastBody.clear();
+    m_lastError.clear();
+    m_lastPosts.clear();
+    m_lastHttp = 0;
+    m_lastWall = false;
     if (!m_baseUrl.isEmpty() && !RemotePosts::isHttpUrl(m_baseUrl)) {
         SearchResult result;
         result.site = m_site.key;
@@ -375,6 +379,7 @@ void RemoteSource::search(const QStringList &tags, int page, int limit) {
                            "retry.")
                             .arg(QUrl(m_baseUrl).host());
                 }
+                m_lastWall = true;
                 if (!webNote.isEmpty())
                     result.error += u' ' + webNote;
                 if (m_baseUrl.contains(QStringLiteral("rule34.xxx")))
@@ -408,6 +413,7 @@ void RemoteSource::search(const QStringList &tags, int page, int limit) {
                        "data. Solve it in the capture browser (Booru manager "
                        "→ Capture in browser…), then retry.")
                         .arg(host);
+                m_lastWall = true;
                 if (const RemotePosts::SiteQuirk *q =
                         RemotePosts::quirkForHost(host.toLower())) {
                     if (q->powWall)
