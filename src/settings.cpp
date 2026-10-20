@@ -123,6 +123,7 @@ AppSettings loadSettings() {
             c.value(QStringLiteral("last/sort"), QStringLiteral("id-desc")).toString();
     }
     s.downloadDir = c.value(QStringLiteral("downloads/dir")).toString();
+    s.globalProxy = c.value(QStringLiteral("network/proxy")).toString();
     s.dataDir = c.value(QStringLiteral("storage/dataDir")).toString();
     s.tabsDefault = c.value(QStringLiteral("startup/defaultTab"), s.tabsDefault).toString();
     if (!c.contains(QStringLiteral("startup/defaultTab")) && s.restoreSession)
@@ -222,6 +223,7 @@ void saveSettings(const AppSettings &s) {
         c.setValue(QStringLiteral("last/sort"), s.lastPlace.sort);
     }
     c.setValue(QStringLiteral("downloads/dir"), s.downloadDir);
+    c.setValue(QStringLiteral("network/proxy"), s.globalProxy);
     c.setValue(QStringLiteral("storage/dataDir"), s.dataDir);
     c.setValue(QStringLiteral("startup/defaultTab"), s.tabsDefault);
     c.setValue(QStringLiteral("window/geometry"), s.geometry);

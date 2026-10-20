@@ -65,6 +65,11 @@ struct AppSettings {
     int browseLimit = 40;
     QString dataDir; // empty = default data dir (all DBs + downloads live here)
     QString downloadDir; // empty = <datadir>/downloads
+    // Global proxy for all app traffic (http:// or socks5:// host:port).
+    // SOCKS5 resolves hostnames through the proxy (curl socks5h
+    // behavior), never locally. Empty = direct; a per-booru proxy
+    // overrides this one; "direct" forces that booru direct.
+    QString globalProxy;
     // Open tabs for session restore (local roots, browse sessions,
     // favourites). Saved on every tab change; capped when writing.
     struct SavedTab {
@@ -214,7 +219,7 @@ inline bool operator==(const AppSettings &a, const AppSettings &b) {
            a.disabledBuckets == b.disabledBuckets &&
            a.browseMode == b.browseMode && a.browseSites == b.browseSites &&
            a.browseLimit == b.browseLimit && a.dataDir == b.dataDir &&
-           a.downloadDir == b.downloadDir &&
+           a.downloadDir == b.downloadDir && a.globalProxy == b.globalProxy &&
            a.savedTabCurrent == b.savedTabCurrent &&
            a.explicitTags == b.explicitTags && a.themeMode == b.themeMode &&
            a.accent == b.accent && a.stylesheet == b.stylesheet &&

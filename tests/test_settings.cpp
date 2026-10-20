@@ -46,6 +46,7 @@ private slots:
         s.history = {QStringLiteral("/pics/a"), QStringLiteral("/pics/b")};
         s.downloadDir = QStringLiteral("/tmp/be-dl");
         s.dataDir = QStringLiteral("/tmp/be-data");
+        s.globalProxy = QStringLiteral("socks5h://127.0.0.1:9050");
         s.favAutoDownload = true;
         s.favAutoFav = true;
         s.unfavDeletesFile = true;
@@ -95,6 +96,8 @@ private slots:
         QCOMPARE(back.history, s.history);
         QCOMPARE(back.downloadDir, QStringLiteral("/tmp/be-dl"));
         QCOMPARE(back.dataDir, QStringLiteral("/tmp/be-data"));
+        QCOMPARE(back.globalProxy,
+                 QStringLiteral("socks5h://127.0.0.1:9050"));
         QVERIFY(back.favAutoDownload);
         QVERIFY(back.favAutoFav);
         QVERIFY(back.unfavDeletesFile);

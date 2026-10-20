@@ -473,6 +473,20 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
         "Defaults to downloads/ inside the data folder. Downloads save full "
         "quality as <Site>_<md5>.<ext> plus the raw API "
         "JSON sidecar, so they browse seamlessly offline.")));
+    m_globalProxy = new QLineEdit(current.globalProxy, this);
+    m_globalProxy->setPlaceholderText(QStringLiteral("socks5h://127.0.0.1:9050"));
+    m_globalProxy->setToolTip(tr("Global proxy for all traffic "
+                                "(http:// or socks5:// host:port). SOCKS5 routes "
+                                "the hostname through the proxy too, like curl "
+                                "socks5h — nothing leaks to local DNS. A per-booru "
+                                "proxy overrides this one; \"direct\" forces that "
+                                "booru direct. Empty = direct."));
+    connect(m_globalProxy, &QLineEdit::textChanged, this,
+            &PrefsDialog::updateApplyState);
+    browseLay->addRow(tr("Global proxy:"), m_globalProxy);
+    browseLay->addRow(QStringLiteral(""), note(tr(
+        "Applies to searches, media, tags, favicons and downloads. "
+        "A proxy set on one booru (below) wins for that booru only.")));
     browsePage->addWidget(browse);
 
     // ── Booru manager: presets + user-added instances ──
@@ -568,7 +582,8 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     m_booruProxy = new QLineEdit(this);
     m_booruProxy->setPlaceholderText(tr("http://127.0.0.1:8080"));
     m_booruProxy->setToolTip(tr("Proxy for this booru's traffic "
-                                "(http:// or socks5://, empty = direct)."));
+                                "(http:// or socks5://; empty = global proxy, "
+                                "\"direct\" = bypass it)."));
     accForm->addRow(tr("Name:"), m_booruName);
     m_booruShort = new QLineEdit(this);
     m_booruShort->setMaxLength(6);
@@ -1736,6 +1751,8 @@ void PrefsDialog::harvestInto(AppSettings &out) {
         out.downloadDir.chop(1);
     if (out.downloadDir == effectiveDownloadDir(out))
         out.downloadDir.clear(); // default stays implicit
+    out.globalProxy = m_globalProxy ? m_globalProxy->text().trimmed()
+                                    : QString();
     saveBooruEditor();
     out.boorus = m_booruEdits;
     out.fullCache = m_fullCache->isChecked();
