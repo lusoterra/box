@@ -30,6 +30,25 @@ const SiteQuirk *quirkForUrl(const QString &baseUrl) {
     return quirkForHost(QUrl(baseUrl).host());
 }
 
+QString defaultBadgeColor(const QString &baseUrl, BooruEngine engine) {
+    const QString h = QUrl(baseUrl).host().trimmed().toLower();
+    auto subOf = [&](const QString &domain) {
+        return !h.isEmpty() && (h == domain || h.endsWith(u'.' + domain));
+    };
+    if (subOf(QStringLiteral("gelbooru.com")))
+        return QStringLiteral("#0870fa");
+    if (subOf(QStringLiteral("rule34.xxx")))
+        return QStringLiteral("#55aa00");
+    if (subOf(QStringLiteral("aibooru.online")))
+        return QStringLiteral("#44cc00");
+    if (subOf(QStringLiteral("danbooru.donmai.us")) ||
+        subOf(QStringLiteral("safebooru.org")))
+        return QStringLiteral("#daac82");
+    if (engine == BooruEngine::Shimmie)
+        return QStringLiteral("#7f7f7f");
+    return QStringLiteral("#3a7ec2");
+}
+
 bool isHttpUrl(const QString &url) {
     const QString scheme = QUrl(url).scheme().toLower();
     return scheme == QStringLiteral("http") || scheme == QStringLiteral("https");

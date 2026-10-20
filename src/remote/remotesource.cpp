@@ -41,7 +41,9 @@ QList<BooruSite> RemoteSource::presetBoorus() {
     // whatever they already have).
     return {
         {QStringLiteral("safebooru"), QStringLiteral("Safebooru"),
-         QStringLiteral("SFW"), QStringLiteral("#3a7ec2"),
+         QStringLiteral("SFW"),
+         RemotePosts::defaultBadgeColor(QStringLiteral("https://safebooru.org"),
+                                        BooruEngine::Gelbooru),
          QStringLiteral("https://safebooru.org"), BooruEngine::Gelbooru},
     };
 }

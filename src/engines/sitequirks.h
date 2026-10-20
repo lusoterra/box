@@ -46,6 +46,12 @@ QStringList seedQuirkCookies(const QStringList &current, const QString &host);
 // subdomain match, later values win, garbage dropped). Pure.
 QStringList harvestCookies(const QList<QNetworkCookie> &seen,
                            const QString &host);
+// Default grid-badge background for an entry: well-known hosts get their
+// house colors (gelbooru.com blue, rule34.xxx family green, aibooru.online
+// green, danbooru/safebooru tan, any shimmie beige-gray), everything else
+// the neutral blue. Pure: user-picked colors are never touched by this,
+// callers stamp it onto fresh entries only.
+QString defaultBadgeColor(const QString &baseUrl, BooruEngine engine);
 // Host matching for one cookie (exact, subdomain either way, or
 // host-only session cookies).
 bool cookieBelongsTo(const QNetworkCookie &cookie, const QString &host);

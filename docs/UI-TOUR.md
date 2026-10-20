@@ -102,7 +102,9 @@ folder` / `Download folder` (empty = XDG defaults under `box/`),
 `Global proxy` (all traffic; `socks5h://` routes hostnames through
 the proxy like curl, per-booru proxy overrides it, `direct` bypasses),
 Booru
-manager: entry list + `Name`/`short` (grid badge text)/`Badge color`/`Base
+manager: entry list + `Name`/`short` (grid badge text)/`Badge color`
+(known hosts get house colors: gelbooru blue, rule34 green, aibooru green,
+danbooru/safebooru tan, shimmie gray; editable anytime)/`Base
 URL`/`Type` (engine) editor with cookie capture + favicon override.
 
 ## 15-prefs-tags — Preferences → Tags

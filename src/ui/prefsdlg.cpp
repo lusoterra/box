@@ -1425,6 +1425,15 @@ void PrefsDialog::commitBooruEditor(const QString &key) {
         b.skipAutoClassify = m_booruNoClassify->isChecked();
         b.defaultTags = m_booruTags->text().trimmed();
         b.proxy = m_booruProxy->text().trimmed();
+        // Fresh entries still wearing the generic blue inherit the new
+        // host's house color (explicit picks and existing entries are
+        // untouched: this only fires while the color is still default).
+        if (b.badgeColor.compare(QStringLiteral("#3a7ec2"),
+                                 Qt::CaseInsensitive) == 0 &&
+            QRegularExpression(QStringLiteral("^newbooru\\d*$"))
+                .match(b.key)
+                .hasMatch())
+            b.badgeColor = RemotePosts::defaultBadgeColor(b.baseUrl, b.engine);
         // Unchecked buckets fold into general for this host only.
         b.disabledBuckets.clear();
         for (auto it = m_booruBuckets.begin(); it != m_booruBuckets.end();

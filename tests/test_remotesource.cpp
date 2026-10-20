@@ -60,6 +60,39 @@ private slots:
         QVERIFY(RemoteSource::siteFor(QStringLiteral("nope")) == nullptr);
     }
 
+    void badgeColorDefaults() {
+        using RemotePosts::defaultBadgeColor;
+        QCOMPARE(defaultBadgeColor(QStringLiteral("https://gelbooru.com"),
+                                   BooruEngine::Gelbooru),
+                 QStringLiteral("#0870fa"));
+        QCOMPARE(defaultBadgeColor(QStringLiteral("https://rule34.xxx"),
+                                   BooruEngine::Gelbooru),
+                 QStringLiteral("#55aa00"));
+        QCOMPARE(defaultBadgeColor(QStringLiteral("https://aibooru.online"),
+                                   BooruEngine::Danbooru),
+                 QStringLiteral("#44cc00"));
+        QCOMPARE(defaultBadgeColor(QStringLiteral("https://danbooru.donmai.us"),
+                                   BooruEngine::Danbooru),
+                 QStringLiteral("#daac82"));
+        QCOMPARE(defaultBadgeColor(QStringLiteral("https://safebooru.org"),
+                                   BooruEngine::Gelbooru),
+                 QStringLiteral("#daac82"));
+        QCOMPARE(defaultBadgeColor(QStringLiteral("https://shimmie.example"),
+                                   BooruEngine::Shimmie),
+                 QStringLiteral("#7f7f7f"));
+        // Unknown hosts keep the neutral blue; shimmie rule needs the
+        // engine (a danbooru on the same host is not a shimmie).
+        QCOMPARE(defaultBadgeColor(QStringLiteral("https://unknown.example"),
+                                   BooruEngine::Danbooru),
+                 QStringLiteral("#3a7ec2"));
+        QCOMPARE(defaultBadgeColor(QStringLiteral("https://shimmie.example"),
+                                   BooruEngine::Danbooru),
+                 QStringLiteral("#3a7ec2"));
+        // The shipped preset already wears its house color.
+        QCOMPARE(RemoteSource::presetBoorus().first().badgeColor,
+                 QStringLiteral("#daac82"));
+    }
+
     void configuredShadowsPresets() {
         BooruSite custom;
         custom.key = QStringLiteral("gelbooru");
