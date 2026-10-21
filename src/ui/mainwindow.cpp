@@ -543,6 +543,10 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     m_settings = loadSettings();
     setActiveExplicitTags(
         QSet<QString>(m_settings.explicitTags.begin(), m_settings.explicitTags.end()));
+    // Before the first QWebEngine* object (webDownloads below): route the
+    // embedded browser through the proxy, else .onion hosts fail there
+    // with ERR_NAME_NOT_RESOLVED (QNetworkProxy never reaches Chromium).
+    RemotePosts::applyWebEngineProxy(m_settings.globalProxy, m_settings.boorus);
     m_favicons = new FaviconCache(appCacheDir() + QStringLiteral("/favicons"), this);
     m_favicons->setCustomDir(effectiveDataDir(m_settings) +
                              QStringLiteral("/favicons"));
@@ -5966,6 +5970,24 @@ void MainWindow::applyPreferences(const AppSettings &app) {
     RemoteSource::setConfiguredBoorus(m_settings.boorus);
     RemotePosts::setDisabledBuckets(m_settings.disabledBuckets);
     RemotePosts::setGlobalProxy(m_settings.globalProxy);
+    // The embedded browser (capture, PoW walls, onion sites) reads the
+    // proxy once at startup: a changed proxy needs a restart there,
+    // while searches/downloads ride it immediately.
+    auto proxiesOf = [](const QList<BooruSite> &bs) {
+        QStringList out;
+        for (const BooruSite &b : bs)
+            out << b.key + u'=' + b.proxy;
+        return out;
+    };
+    if (old.globalProxy != m_settings.globalProxy ||
+        proxiesOf(old.boorus) != proxiesOf(m_settings.boorus)) {
+        if (effectiveDataDir(m_settings) == oldDataDir)
+            statusBar()->showMessage(
+                tr("Proxy changed. Searches and downloads use it now; "
+                   "the embedded browser (captcha/PoW walls, onion sites) "
+                   "picks it up after a restart."),
+                10000);
+    }
     if (old.manualTagTypes != m_settings.manualTagTypes) {
         // Forced overrides apply on Apply, not on restart: push the new
         // buckets into every tab's stored posts (current tab refreshes

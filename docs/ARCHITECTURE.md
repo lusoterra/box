@@ -35,7 +35,11 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     instance + I2P mirror; plain fetches need the Tor stack); `terms=`
     search with `id:` refresh narrowing, `/api/tag/complete` suggestions,
     letter ratings, relative file URLs; md5 normalized into `rawJson`
-    when the hash is md5.
+    when the hash is md5. The API sits behind an HBS anti-bot wall (302
+    to `/hbs/verify`, captcha clearance cookie): QNAM reports the wall
+    and the browser-backed stack retries it, so the embedded browser
+    must ride the same proxy (`applyWebEngineProxy`, `--proxy-server`
+    at startup) or onion hosts fail it with ERR_NAME_NOT_RESOLVED.
     Nuuru notes: plain fetches hit a PoW wall (`pow_required`), so traffic
     rides the browser-backed stack (`powWall` quirk on `soybooru.com`);
     files at `/api/booru/posts/<id>/file`, thumbs at `…/thumbnail`, native

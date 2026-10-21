@@ -196,6 +196,18 @@ QString globalProxySpec();
 // Parse a proxy spec (http://[user:pass@]host:port, socks5://...).
 // Default-constructed (direct) when empty or unparseable.
 QNetworkProxy proxyFromSpec(const QString &spec);
+// Chromium --proxy-server value for one box proxy spec ("" / "direct" ->
+// ""). socks5h normalizes to Chromium's socks5 (same remote-DNS behavior).
+QString chromiumProxyServer(const QString &spec);
+// Stamp --proxy-server=... into QTWEBENGINE_CHROMIUM_FLAGS before the first
+// WebEngine object exists, so the capture browser, PoW fetches and media
+// downloads ride the proxy too (QNetworkProxy never reaches Chromium's
+// stack — without this, .onion hosts fail in WebEngine views with
+// ERR_NAME_NOT_RESOLVED). No-op when a --proxy-server flag is already set
+// (explicit user flags win) or when no proxy parses. Global wins;
+// otherwise the first usable per-entry proxy is used (process-global flag).
+void applyWebEngineProxy(const QString &globalProxy,
+                         const QList<BooruSite> &boorus);
 // Redact credential values from a request URL for display
 // (api_key=SECRET -> api_key=<redacted>). The request itself is untouched.
 QString redactSecrets(const QString &url);

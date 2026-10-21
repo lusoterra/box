@@ -121,7 +121,9 @@ folder` / `Download folder` (empty = XDG defaults under `box/`),
 `Ugoira downloads` (animated webp / animated jxl / keep zip; needs
 ffmpeg in PATH, +cjxl for jxl) + `Ugoira frame delay` (fallback when the
 API omits pixiv frame timing), `Global proxy` (all traffic; `socks5h://` routes hostnames through
-the proxy like curl, per-booru proxy overrides it, `direct` bypasses),
+the proxy like curl, per-booru proxy overrides it, `direct` bypasses;
+the embedded browser — capture, PoW walls, onion sites — reads it at
+startup, so restart after changing it),
 Booru
 manager: entry list + `Name`/`short` (grid badge text)/`Badge color`
 (known hosts get house colors: gelbooru blue, rule34 green, aibooru green,

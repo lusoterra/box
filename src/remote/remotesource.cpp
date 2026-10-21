@@ -145,6 +145,52 @@ QNetworkProxy proxyFromSpec(const QString &spec) {
     return proxy;
 }
 
+QString chromiumProxyServer(const QString &spec) {
+    const QString use = spec.trimmed();
+    if (use.isEmpty() || use.compare(QStringLiteral("direct"),
+                                     Qt::CaseInsensitive) == 0 ||
+        use.compare(QStringLiteral("none"), Qt::CaseInsensitive) == 0)
+        return {};
+    const QUrl url(use, QUrl::StrictMode);
+    if (!url.isValid() || url.host().isEmpty() || url.port() <= 0)
+        return {};
+    // Chromium schemes: http/https/socks/socks4/socks5. socks5h is a box
+    // spelling for remote-DNS SOCKS5, which is what Chromium's socks5 does.
+    QString scheme = url.scheme().toLower();
+    if (scheme == QStringLiteral("socks5h") ||
+        scheme == QStringLiteral("socks"))
+        scheme = QStringLiteral("socks5");
+    if (scheme != QStringLiteral("http") &&
+        scheme != QStringLiteral("https") &&
+        scheme != QStringLiteral("socks5"))
+        return {};
+    return scheme + QStringLiteral("://") + url.authority();
+}
+
+void applyWebEngineProxy(const QString &globalProxy,
+                         const QList<BooruSite> &boorus) {
+    // Must run before the first QWebEngine* object (WebEngine reads the
+    // flags once, at init). After that only a restart re-routes it.
+    const QByteArray env = qgetenv("QTWEBENGINE_CHROMIUM_FLAGS");
+    if (env.contains("--proxy-server"))
+        return; // explicit user flag wins
+    QString value = chromiumProxyServer(globalProxy);
+    if (value.isEmpty()) {
+        for (const BooruSite &b : boorus) {
+            value = chromiumProxyServer(b.proxy);
+            if (!value.isEmpty())
+                break;
+        }
+    }
+    if (value.isEmpty())
+        return;
+    QByteArray flags = env;
+    if (!flags.trimmed().isEmpty())
+        flags += ' ';
+    flags += "--proxy-server=" + value.toLatin1();
+    qputenv("QTWEBENGINE_CHROMIUM_FLAGS", flags);
+}
+
 } // namespace RemotePosts
 
 const BooruSite *RemoteSource::siteFor(const QString &key) {

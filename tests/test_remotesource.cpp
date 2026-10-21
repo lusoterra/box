@@ -1090,6 +1090,44 @@ private slots:
         RemotePosts::setGlobalProxy(QString());
     }
 
+    void webEngineProxyFlag() {
+        using RemotePosts::chromiumProxyServer;
+        // Unusable specs map to empty (WebEngine stays direct).
+        QCOMPARE(chromiumProxyServer(QString()), QString());
+        QCOMPARE(chromiumProxyServer(QStringLiteral("direct")), QString());
+        QCOMPARE(chromiumProxyServer(QStringLiteral("NONE")), QString());
+        QCOMPARE(chromiumProxyServer(QStringLiteral("ftp://h:21")), QString());
+        QCOMPARE(chromiumProxyServer(QStringLiteral("socks5h://host:1080")),
+                 QStringLiteral("socks5://host:1080"));
+        QCOMPARE(chromiumProxyServer(QStringLiteral("socks://host:1080")),
+                 QStringLiteral("socks5://host:1080"));
+        QCOMPARE(chromiumProxyServer(QStringLiteral("http://127.0.0.1:8080")),
+                 QStringLiteral("http://127.0.0.1:8080"));
+        QCOMPARE(chromiumProxyServer(QStringLiteral("socks5h://u:p@127.0.0.1:9050")),
+                 QStringLiteral("socks5://u:p@127.0.0.1:9050"));
+        // Env plumbing: stamps --proxy-server once, never duplicates,
+        // never overrides an explicit user flag. Restored afterwards.
+        const QByteArray saved = qgetenv("QTWEBENGINE_CHROMIUM_FLAGS");
+        qputenv("QTWEBENGINE_CHROMIUM_FLAGS", QByteArray());
+        RemotePosts::applyWebEngineProxy(QStringLiteral("socks5h://127.0.0.1:9050"), {});
+        QVERIFY(qgetenv("QTWEBENGINE_CHROMIUM_FLAGS")
+                    .contains("--proxy-server=socks5://127.0.0.1:9050"));
+        RemotePosts::applyWebEngineProxy(QStringLiteral("http://127.0.0.1:8080"), {});
+        QCOMPARE(qgetenv("QTWEBENGINE_CHROMIUM_FLAGS").count("--proxy-server"), 1);
+        qputenv("QTWEBENGINE_CHROMIUM_FLAGS",
+                QByteArray("--proxy-server=socks5://127.0.0.1:9051"));
+        RemotePosts::applyWebEngineProxy(QStringLiteral("socks5h://127.0.0.1:9050"), {});
+        QVERIFY(!qgetenv("QTWEBENGINE_CHROMIUM_FLAGS").contains("9050"));
+        BooruSite entry;
+        entry.key = QStringLiteral("hiddenbooru");
+        entry.proxy = QStringLiteral("socks5h://127.0.0.1:9050");
+        qputenv("QTWEBENGINE_CHROMIUM_FLAGS", QByteArray());
+        RemotePosts::applyWebEngineProxy(QString(), {entry});
+        QVERIFY(qgetenv("QTWEBENGINE_CHROMIUM_FLAGS")
+                    .contains("--proxy-server=socks5://127.0.0.1:9050"));
+        qputenv("QTWEBENGINE_CHROMIUM_FLAGS", saved);
+    }
+
     void proxyForUrl() {        BooruSite proxied;
         proxied.key = QStringLiteral("proxied");
         proxied.label = QStringLiteral("Proxied");

@@ -507,7 +507,9 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
                                 "the hostname through the proxy too, like curl "
                                 "socks5h — nothing leaks to local DNS. A per-booru "
                                 "proxy overrides this one; \"direct\" forces that "
-                                "booru direct. Empty = direct."));
+                                "booru direct. Empty = direct. The embedded "
+                                "browser (capture, PoW walls, onion sites) "
+                                "reads it at startup — restart after changing it."));
     connect(m_globalProxy, &QLineEdit::textChanged, this,
             &PrefsDialog::updateApplyState);
     browseLay->addRow(tr("Global proxy:"), m_globalProxy);
