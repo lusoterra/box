@@ -905,6 +905,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     omniLay->addWidget(m_sortBox);
     omniLay->addWidget(m_aspectBox);
     omniLay->addWidget(m_sitesBtn);
+    omniLay->addWidget(aiBtn);
     omniLay->addWidget(m_downloadSelBtn);
     omniLay->addWidget(clearBtn);
     omniLay->addWidget(reloadBtn);
