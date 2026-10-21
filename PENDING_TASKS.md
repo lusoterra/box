@@ -199,15 +199,17 @@
       in `commitSearch`/`commitFilter`; pill restyles in `updateResultLabel`.
 - [x] Build + `ctest` (+ docs).
 
-## 22. LoliSnatcher feature parity check
+## 22. LoliSnatcher feature parity check — DONE (mirror surveyed;
+##    writeup in `docs/LOSNSNATCHER-PARITY.md` with ADOPT/WONT-DO/PICK;
+##    adopt-items filed as tasks 31–32; engines left for user picks)
 - Mirror: `https://git.lusosterone.net/mirrors/LoliSnatcher_Droid` (use the
   mirror, not github).
 - Compare this app's features against LoliSnatcher's and record parity gaps.
   Many gaps will be deliberate non-goals — mark each as adopt or wont-do
   with a one-line reason, so the list stays a decision log, not a todo pile.
-- [ ] Survey LoliSnatcher features (search, filters, downloads, favourites,
+- [x] Survey LoliSnatcher features (search, filters, downloads, favourites,
       tags, viewer, settings, booru coverage); write up parity notes.
-- [ ] File adopt-items as follow-up tasks; wont-do items stay documented.
+- [x] File adopt-items as follow-up tasks; wont-do items stay documented.
 
 ## 23. Nuuru (Soybooru) engine support
 - Instance: `https://soybooru.com/` (soyjak.st's proprietary custom booru;
@@ -350,7 +352,19 @@
 - [x] Stop playback when returning to the grid or home.
 - [x] Build + `ctest`.
 
-## 31. Shrink the codebase (dead-code cleanup, very last)
+## 31. Settings backup/restore (JSON export/import)
+- Offline answer to LoliSync-as-backup (parity task 22): export boorus,
+  settings, fav tags and favourites to one JSON file; import merges it
+  back (tabs optional). No server, no account.
+- [ ] Export/import round-trip ( prefs dialog or File menu); fixtures;
+      build + `ctest` (+ docs).
+
+## 32. Video playback speed control
+- Viewer video menu: playback rate (0.25×–2×) via `QMediaPlayer::setPlaybackRate`.
+  Tiny, complements the Image-search menu.
+- [ ] Rate menu + persist per session; build + `ctest` (+ docs).
+
+## 33. Shrink the codebase (dead-code cleanup, very last)
 - The codebase has grown big: audit for dead code, retired helpers,
   unused settings/strings, and machinery made obsolete by earlier tasks,
   and remove it. Behaviour must not change. Allowed lever: bump the
