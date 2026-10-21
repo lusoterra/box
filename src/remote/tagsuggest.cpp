@@ -52,6 +52,7 @@ QVector<TagSuggestion> takeCapped(QVector<TagSuggestion> v, int cap = 12) {
 }
 
 QVector<TagSuggestion> parseGelbooruXmlList(const QByteArray &body);
+QVector<TagSuggestion> parseHybooru(const QByteArray &body);
 
 QVector<TagSuggestion> parseDanbooru(const QByteArray &body) {
     // [{name, category, post_count}] - category is danbooru numbering.
@@ -188,6 +189,51 @@ QVector<TagSuggestion> parseSzuru(const QByteArray &body) {
     }
     return takeCapped(out, 24);
 }
+QVector<TagSuggestion> parseHybooru(const QByteArray &body) {
+    // {"tags": {name: usage-count}, ...} — namespaces mirror the detail
+    // objects; buckets follow the same mapping as fromHybooru.
+    QVector<TagSuggestion> out;
+    QJsonParseError err;
+    const QJsonDocument doc = QJsonDocument::fromJson(body, &err);
+    if (err.error != QJsonParseError::NoError || !doc.isObject())
+        return out;
+    const QJsonValue tags = doc.object().value(QStringLiteral("tags"));
+    if (!tags.isObject())
+        return out;
+    const QJsonObject tagObj = tags.toObject();
+    for (auto it = tagObj.begin(); it != tagObj.end(); ++it) {
+        const QString name = it.key().trimmed();
+        if (name.isEmpty())
+            continue;
+        TagSuggestion s;
+        const int colon = name.indexOf(u':');
+        const QString ns =
+            colon > 0 ? name.left(colon).toLower() : QString();
+        if (ns == QStringLiteral("character")) {
+            s.tag = name.mid(colon + 1).trimmed();
+            s.bucket = QStringLiteral("character");
+        } else if (ns == QStringLiteral("creator")) {
+            s.tag = name.mid(colon + 1).trimmed();
+            s.bucket = QStringLiteral("artist");
+        } else if (ns == QStringLiteral("series")) {
+            s.tag = name.mid(colon + 1).trimmed();
+            s.bucket = QStringLiteral("copyright");
+        } else if (ns == QStringLiteral("medium") ||
+                   ns == QStringLiteral("meta") ||
+                   ns == QStringLiteral("title")) {
+            s.tag = name.mid(colon + 1).trimmed();
+            s.bucket = QStringLiteral("meta");
+        } else {
+            s.tag = name;
+            s.bucket = QStringLiteral("general");
+        }
+        if (s.tag.isEmpty())
+            continue;
+        s.count = it.value().toInt(0);
+        out.append(s);
+    }
+    return takeCapped(out, 24);
+}
 } // namespace
 
 TagSuggester::TagSuggester(QObject *parent)
@@ -250,6 +296,15 @@ QUrl TagSuggester::urlFor(BooruEngine engine, const QString &baseUrl,
         QUrlQuery q;
         q.addQueryItem(QStringLiteral("query"), prefix + u'*');
         q.addQueryItem(QStringLiteral("limit"), QStringLiteral("24"));
+        url.setQuery(q);
+        return url;
+    }
+    if (engine == BooruEngine::Hybooru) {
+        // {"tags": {name: usage-count}}; instance ignores unknown params,
+        // so no limit is sent (client trims to the popup cap).
+        QUrl url(baseUrl + QStringLiteral("/api/tags"));
+        QUrlQuery q;
+        q.addQueryItem(QStringLiteral("query"), prefix);
         url.setQuery(q);
         return url;
     }
@@ -407,6 +462,8 @@ QVector<TagSuggestion> TagSuggester::parse(BooruEngine engine,
         return parseMoebooru(body);
     case BooruEngine::Szurubooru:
         return parseSzuru(body);
+    case BooruEngine::Hybooru:
+        return parseHybooru(body);
     case BooruEngine::Shimmie:
         return {};
     }

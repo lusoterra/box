@@ -43,6 +43,11 @@ QString sortSearchTag(const QString &sort, BooruEngine engine);
 bool isTransientSearchError(int httpStatus, const QString &error);
 // Stable slug for a new custom booru ("My Booru" -> "mybooru", deduped).
 QString uniqueBooruKey(const QString &label, const QSet<QString> &taken);
+// HyBooru search/detail shapes (custom Hydrus-network engine).
+// Summaries carry no tags (lazy detail via refresh); namespaces map to
+// buckets with natives preserved.
+Post fromHybooruSummary(const QJsonObject &o, const QString &baseUrl);
+Post fromHybooru(const QJsonObject &o, const QString &baseUrl);
 // Entry default tags onto a query: space-split, appended in order,
 // minus tab-dropped tokens (pill ×). Pure: unit-tested.
 QStringList defaultTagsFor(const QStringList &base, const QString &defaults,

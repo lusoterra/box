@@ -29,7 +29,11 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
   `parseSingle`/`applyAuth`; `engineOps()` at `:121`).
   - Pure shared helpers in `RemotePosts`: `translateSearchTags`,
     `sortSearchTag`, `isTransientSearchError`, `fromDanbooru/Gelbooru/Moebooru/
-    Szuru/Shimmie`, `parseShimmieXml` (`src/engines/booruengine.h:26-60`).
+    Szuru/Shimmie/Hybooru`, `parseShimmieXml` (`src/engines/booruengine.h:26-60`).
+    HyBooru notes: summaries are tagless (viewer lazy-fetches detail on
+    open); `rating` is a star score (all posts read `general`, server
+    `rating:`/`sort:` tokens stripped); files at `/files/f{sha}{ext}`,
+    thumbs at `/files/t{sha}.thumbnail`, posts at `/posts/<id>`.
   - `sitequirks.h` = per-host quirks (api subdomain, cookies, PoW walls).
   - `boorutypes.h` = `BooruEngine` enum, `BooruSite`, `SiteCreds`,
     `SearchResult`.

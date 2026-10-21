@@ -3690,6 +3690,8 @@ Post remapFresh(const QJsonObject &raw, const RefreshTarget &t) {
         return RemotePosts::fromGelbooru(raw, t.baseUrl);
     case BooruEngine::Szurubooru:
         return RemotePosts::fromSzuru(raw, t.baseUrl);
+    case BooruEngine::Hybooru:
+        return RemotePosts::fromHybooru(raw, t.baseUrl);
     case BooruEngine::Shimmie: {
         QMap<QString, QString> attrs;
         for (auto it = raw.begin(); it != raw.end(); ++it)
@@ -3728,6 +3730,7 @@ void MainWindow::onRefreshDone(qint64 reqId,
         // In-memory update (+ downloaded copy's sidecar, if present).
         Post merged = fresh;
         merged.category = orig.category;
+        merged.siteKey = siteKey; // refresh targets resolve exactly, twice
         auto replaceIn = [&](QVector<Post> &vec) {
             for (Post &p : vec) {
                 if (p.isRemote && p.siteName == orig.siteName && p.id == orig.id)

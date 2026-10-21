@@ -1417,10 +1417,31 @@ void ViewerPage::showRow(int row) {
     m_loadInfo->setVisible(false);
     showNote({});
     m_row = row;
+    maybeFetchHybooruDetail();
     primeThumb(row);
     showCurrent();
     preloadNeighbours();
     setFocus();
+}
+
+void ViewerPage::maybeFetchHybooruDetail() {
+    // HyBooru search summaries carry no tags: backfill them the first
+    // time such a post opens, through the normal single-post refresh
+    // (tags paint on arrival via onRefreshDone). Session-guarded so
+    // genuinely tagless posts never refetch.
+    if (m_row < 0 || m_row >= m_posts.size())
+        return;
+    const Post &p = m_posts.at(m_row);
+    if (!p.isRemote || !p.tags.trimmed().isEmpty())
+        return;
+    const BooruSite *entry = RemotePosts::entryForPost(p);
+    if (!entry || entry->engine != BooruEngine::Hybooru)
+        return;
+    const QString key = entry->key + u'#' + QString::number(p.id);
+    if (m_detailFetched.contains(key))
+        return;
+    m_detailFetched.insert(key);
+    emit refreshRequested(p);
 }
 
 void ViewerPage::primeThumb(int row) {

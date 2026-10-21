@@ -18,7 +18,7 @@
 - Conventions (`tests/CMakeLists.txt:1-2`): Qt Test, headless
   (`QCoreApplication` only), temp dirs, no network.
 - Remote tests link the split set (`REMOTE_SOURCES`, `:20-28`):
-  `sitequirks` + `booruengine` + 5 engine impls + `remotesource.cpp`.
+  `sitequirks` + `booruengine` + 6 engine impls + `remotesource.cpp`.
 - Files: `test_cachejanitor/downloadplan/explicittags/favdb/favicon/
   filehash/index/losnimport/metaparser/queryor/remotesource/scanner/
   security/settings/sidecarrefresh/tagsuggest/tagtypes/thumbloader`

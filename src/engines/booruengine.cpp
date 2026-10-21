@@ -149,6 +149,7 @@ QString engineKey(BooruEngine engine) {
     case BooruEngine::Moebooru: return QStringLiteral("moebooru");
     case BooruEngine::Szurubooru: return QStringLiteral("szurubooru");
     case BooruEngine::Shimmie: return QStringLiteral("shimmie");
+    case BooruEngine::Hybooru: return QStringLiteral("hybooru");
     case BooruEngine::Safebooru: return QStringLiteral("gelbooru"); // dapi family
     }
     return QStringLiteral("danbooru");
@@ -163,6 +164,8 @@ BooruEngine engineForKey(const QString &key) {
         return BooruEngine::Szurubooru;
     if (key == QStringLiteral("shimmie"))
         return BooruEngine::Shimmie;
+    if (key == QStringLiteral("hybooru"))
+        return BooruEngine::Hybooru;
     return BooruEngine::Danbooru;
 }
 
@@ -173,6 +176,7 @@ QString engineLabel(BooruEngine engine) {
     case BooruEngine::Moebooru: return QStringLiteral("Moebooru");
     case BooruEngine::Szurubooru: return QStringLiteral("Szurubooru");
     case BooruEngine::Shimmie: return QStringLiteral("Shimmie");
+    case BooruEngine::Hybooru: return QStringLiteral("HyBooru");
     case BooruEngine::Safebooru: return QStringLiteral("Safebooru");
     }
     return QStringLiteral("Danbooru");
@@ -217,6 +221,20 @@ QStringList translateSearchTags(const QStringList &tags, BooruEngine engine) {
                                Qt::CaseInsensitive) == 0 &&
                    engine == BooruEngine::Szurubooru) {
             tok = QStringLiteral("safety:safe");
+        }
+        if (engine == BooruEngine::Hybooru) {
+            // HyBooru rating: is a 0-100 star filter (not a content
+            // rating) and it exposes no native sort tags: content-rating
+            // and sort tokens would silently mis-filter, so drop them —
+            // sorting stays client-side.
+            const int ci = tok.indexOf(u':');
+            const QString head =
+                (ci > 0 ? tok.left(ci) : QString()).toLower();
+            if (head == QStringLiteral("rating") ||
+                head == QStringLiteral("safety") ||
+                head == QStringLiteral("sort") ||
+                head == QStringLiteral("order"))
+                continue;
         }
         out << tok;
     }
@@ -430,6 +448,7 @@ const BooruEngineOps *gelbooruOps();
 const BooruEngineOps *moebooruOps();
 const BooruEngineOps *szurubooruOps();
 const BooruEngineOps *shimmieOps();
+const BooruEngineOps *hybooruOps();
 } // namespace EngineInternal
 
 const BooruEngineOps *engineOps(BooruEngine engine) {
@@ -443,6 +462,8 @@ const BooruEngineOps *engineOps(BooruEngine engine) {
         return EngineInternal::szurubooruOps();
     case BooruEngine::Shimmie:
         return EngineInternal::shimmieOps();
+    case BooruEngine::Hybooru:
+        return EngineInternal::hybooruOps();
     case BooruEngine::Danbooru:
         return EngineInternal::danbooruOps();
     }

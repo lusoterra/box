@@ -452,7 +452,9 @@ QJsonObject PostRefresher::parseSingle(BooruEngine engine,
 RefreshTarget resolveRefreshTarget(const Post &post) {
     RefreshTarget t;
     if (post.isRemote) {
-        const QString key = RemotePosts::keyForLabel(post.siteName);
+        QString key = RemotePosts::keyForLabel(post.siteName);
+        if (key.isEmpty() || !RemoteSource::siteFor(key))
+            key = post.siteKey; // stamped browse rows carry the exact key
         const BooruSite *site = key.isEmpty() ? nullptr : RemoteSource::siteFor(key);
         if (!site)
             return t;
@@ -773,6 +775,8 @@ QString postPageUrlFor(const BooruSite &site, qint64 id) {
         return base + QStringLiteral("/post/") + QString::number(id);
     case BooruEngine::Shimmie:
         return base + QStringLiteral("/post/view/") + QString::number(id);
+    case BooruEngine::Hybooru:
+        return base + QStringLiteral("/posts/") + QString::number(id);
     case BooruEngine::Gelbooru:
     case BooruEngine::Safebooru:
         return base + QStringLiteral("/index.php?page=post&s=view&id=") +

@@ -30,6 +30,7 @@ add_executable(box
     src/engines/engine_moebooru.cpp
     src/engines/engine_szurubooru.cpp
     src/engines/engine_shimmie.cpp
+    src/engines/engine_hybooru.cpp
     src/remote/remotesource.cpp
     src/remote/downloadmanager.cpp
     src/remote/imagecache.cpp

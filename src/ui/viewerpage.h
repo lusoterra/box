@@ -8,6 +8,7 @@
 #include <QMovie>
 #include <QProgressBar>
 #include <QScrollArea>
+#include <QSet>
 #include <QVector>
 #include <QWidget>
 #include <QElapsedTimer>
@@ -238,6 +239,9 @@ public:
     // Quit path: halt video playback (and its buffered fetch) now so the
     // player teardown never holds the close event open.
     void stopPlayback();
+    // HyBooru summaries carry no tags: fetch the detail object the first
+    // time such a post opens (normal refresh path paints tags on arrival).
+    void maybeFetchHybooruDetail();
     void setMaxSide(int px) { m_maxSide = qMax(512, px); }
     void setImageCache(ImageCache *cache);
     void setWebBackend(class WebDownloadBackend *backend);
@@ -312,6 +316,9 @@ private:
     PostMetaFetcher *m_meta = nullptr;
     // (site#id) -> notes+comments, so back/forth never refetches.
     QHash<QString, QPair<QVector<PostNote>, QVector<PostComment>>> m_metaCache;
+    // HyBooru details already fetched this session (site#id): genuinely
+    // tagless posts must not refetch on every open.
+    QSet<QString> m_detailFetched;
     QString m_pendingUrl; // remote file currently being fetched
     int m_pendingRow = -1;
     QPixmap m_pendingThumb; // grid thumbnail shown until the full file lands
