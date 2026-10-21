@@ -236,6 +236,12 @@ QStringList translateSearchTags(const QStringList &tags, BooruEngine engine) {
                 head == QStringLiteral("order"))
                 continue;
         }
+        if (engine != BooruEngine::Danbooru && isFiletypeToken(tok)) {
+            // Only Danbooru's filetype: support is verified: elsewhere the
+            // token would silently mis-filter (literal tag match, usually
+            // empty), so drop it — the client-side net still filters.
+            continue;
+        }
         out << tok;
     }
     return out;

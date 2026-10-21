@@ -2,6 +2,7 @@
 #include "tagtypes.h"
 
 #include <QFileInfo>
+#include <QList>
 #include <QRandomGenerator>
 #include <QRegularExpression>
 #include <QSet>
@@ -99,6 +100,7 @@ QueryResult Index::query(const QStringList &tags, const QString &rating,
                          int page, int perPage) const {
     QStringList inc, exc;
     QStringList incRating, excRating; // rating:g/s/q/e (and safety:) filter
+    QList<QSet<QString>> incFiletype, excFiletype; // filetype:a,b ext sets
     auto ratingValue = [](const QString &tok) { // the post's rating field
         const QString v = tok.mid(tok.indexOf(u':') + 1).toLower();
         if (v == QStringLiteral("general") || v == QStringLiteral("g") ||
@@ -121,6 +123,9 @@ QueryResult Index::query(const QStringList &tags, const QString &rating,
         const QString rv = isRate ? ratingValue(tok) : QString();
         if (isRate && !rv.isEmpty()) {
             (neg ? excRating : incRating) << rv;
+        } else if (isFiletypeToken(t)) {
+            // Media-kind filter (extension sets, not tags).
+            (neg ? excFiletype : incFiletype).append(filetypeExtSet(t));
         } else if (neg) {
             exc << t.mid(1);
         } else if (!t.isEmpty()) {
@@ -151,6 +156,8 @@ QueryResult Index::query(const QStringList &tags, const QString &rating,
             }
         }
         if (!rateOk)
+            continue;
+        if (!filetypeExtOk(p.ext, incFiletype, excFiletype))
             continue;
         if (!inc.isEmpty() || !exc.isEmpty()) {
             // Set lookup, split once: the old per-token contains() on a

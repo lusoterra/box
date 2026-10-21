@@ -25,14 +25,17 @@ in multibooru, close a solo tab). Center: post grid. Bottom-left:
 Left to right: `★` favourite-tags menu (click a star to add it to the
 search) → tag search box (placeholder `Search tags…`, autocomplete
 popup ranked exact-match first, then starred tags, then most-used — `/` focuses, Enter
-searches) → rating dropdown (`All`, default label) → sort dropdown (`Recently added`/`Newest`/`Oldest`/`Top
+searches) → rating dropdown (`All`, default label) → media dropdown
+(stills / animated GIFs / anything animated / videos / sound, adds a
+`filetype:` tag) → sort dropdown (`Recently added`/`Newest`/`Oldest`/`Top
 Rated`/`Low Rated`/`Random` — server-side `order:`/`sort:` tags in browse
 mode, client-side locally) → aspect dropdown (`1:1`, grid cell shape) →
 `Boorus…` (per-tab source picker, multibooru merge) → `AI` (one-click
 filter hiding AI-generated posts) → `Download (N)`
 (batch-downloads the selection) → `Clear` (resets pills/query) → reload
 `↺` (`Rescan folder` locally, re-search remotely) → `Page 1 · 40 results`
-→ grid-zoom slider (far right). Below: filter pills — typed tags, query
+→ grid-zoom slider (far right). Below: filter pills — typed tags
+(including `rating:` and `filetype:` media kinds), query
 groups, rating/source, plus each booru entry's `defaultTags` as removable
 cards (× drops the default for that tab and re-searches). The
 rating/category dropdowns are shortcuts for typing: a rating choice renders

@@ -257,6 +257,44 @@ private slots:
         QCOMPARE(starred.first().tag, QStringLiteral("skirt"));
     }
 
+    void filetypeTokensFilterByExt() {
+        // filetype: tokens match post extensions (comma = OR), including
+        // the negated stills form; plain tags are unaffected.
+        QVERIFY(isFiletypeToken(QStringLiteral("filetype:gif,webp")));
+        QVERIFY(isFiletypeToken(QStringLiteral("-filetype:mp4")));
+        QVERIFY(!isFiletypeToken(QStringLiteral("gif")));
+        Index idx;
+        Post gif;
+        gif.tags = gif.tagsGeneral = QStringLiteral("1girl");
+        gif.ext = QStringLiteral("gif");
+        gif.hasMeta = true;
+        Post movie;
+        movie.tags = movie.tagsGeneral = QStringLiteral("1girl");
+        movie.ext = QStringLiteral("mp4");
+        movie.hasMeta = true;
+        Post still;
+        still.tags = still.tagsGeneral = QStringLiteral("1girl");
+        still.ext = QStringLiteral("jpg");
+        still.hasMeta = true;
+        idx.setPosts({gif, movie, still});
+        QCOMPARE(idx.query({QStringLiteral("1girl"),
+                            QStringLiteral("filetype:gif")},
+                           QStringLiteral("all"), {}, QStringLiteral("id-desc"),
+                           1, 100)
+                     .posts.size(),
+                 1);
+        QCOMPARE(idx.query({QStringLiteral("1girl"),
+                            QStringLiteral("-filetype:gif,mp4")},
+                           QStringLiteral("all"), {}, QStringLiteral("id-desc"),
+                           1, 100)
+                     .posts.size(),
+                 1);
+        QCOMPARE(idx.query({QStringLiteral("1girl")}, QStringLiteral("all"),
+                           {}, QStringLiteral("id-desc"), 1, 100)
+                     .posts.size(),
+                 3);
+    }
+
     void suggestCarriesBuckets() {
         Index idx;
         Post a;

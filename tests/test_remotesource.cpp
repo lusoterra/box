@@ -480,6 +480,27 @@ private slots:
         QVERIFY(RemotePosts::defaultTagsFor({}, {}, {}).isEmpty());
     }
 
+    void filetypeKeptOnlyOnDanbooru() {
+        // filetype: support is verified on Danbooru only: other engines
+        // get it stripped (literal-tag match would silently empty).
+        QCOMPARE(RemotePosts::translateSearchTags(
+                     {QStringLiteral("sky"),
+                      QStringLiteral("filetype:gif,webp")},
+                     BooruEngine::Danbooru),
+                 QStringList({QStringLiteral("sky"),
+                              QStringLiteral("filetype:gif,webp")}));
+        QCOMPARE(RemotePosts::translateSearchTags(
+                     {QStringLiteral("sky"),
+                      QStringLiteral("filetype:gif,webp")},
+                     BooruEngine::Gelbooru),
+                 QStringList({QStringLiteral("sky")}));
+        QCOMPARE(RemotePosts::translateSearchTags(
+                     {QStringLiteral("sky"),
+                      QStringLiteral("-filetype:mp4")},
+                     BooruEngine::Moebooru),
+                 QStringList({QStringLiteral("sky")}));
+    }
+
     void reverseSearchUrls() {
         const QString file =
             QStringLiteral("https://cdn.donmai.us/a/b.jpg?x=1&y=2");

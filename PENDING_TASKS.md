@@ -282,7 +282,10 @@
       verify Tor/I2P twins collapse without touching distinct posts.
 - [ ] Build + `ctest`.
 
-## 26. Media-type filter dropdown (stills / GIF / animated / video / sound)
+## 26. Media-type filter dropdown (stills / GIF / animated / video / sound) — DONE
+##    (dropdown writes single `filetype:` tag pills; client matching in
+##    `matchesTokens`/`index.query`/browse net; Danbooru-only passthrough;
+##    combos `AdjustToContents`; filetype tests; docs; 25/25 tests)
 - Quick dropdown next to the omnibar: still images, animated GIFs
   (ugoira + animated webp/jxl all count as GIF — no separate ugoira
   kind), anything animated, videos, sound (implies video: audio-carrying
@@ -294,11 +297,57 @@
   video). Server passes `filetype:` through on Danbooru only (verified
   support); stripped elsewhere with the client net covering. Buttons that
   elide their text get `AdjustToContents` widths.
-- [ ] Media dropdown + `filetype:` client matching (`matchesTokens`,
+- [x] Media dropdown + `filetype:` client matching (`matchesTokens`,
       `index.query`, browse net); per-engine pass/strip; pill + tests.
+- [x] Build + `ctest` (+ docs).
+
+## 27. File > Open history (recent folders)
+- `library/history` exists but is write-only legacy (pruned in
+  `showWelcome`, cleared in prefs, never appended; welcome shows last
+  place instead). Put it to work, mouse-first: File > Open lists just
+  the last ~5 folders inline (click reopens as a tab), then `Folder…`
+  (browse) and `Open history…` (full-list picker). Record every folder
+  opened via File > Open (prepend, dedupe, cap 10, persist); prune dead
+  entries when the menu shows.
+- [ ] Append on `openFolder`; history submenu (5 inline + Folder… +
+      Open history… picker); prune missing on show.
 - [ ] Build + `ctest` (+ docs).
 
-## 27. Shrink the codebase (dead-code cleanup, very last)
+## 28. Windowed grid (don't hold everything in memory)
+- A 700-pic read-only archive fills memory: `fillModel` cards every row
+  and infinite scroll only ever appends (`browseMerged` grows without
+  bound; thumbs are LRU-capped at 600 but rows/pixmaps/delegate work
+  are not). Same on endless online scrolling.
+- Direction: window the grid model (~100-200 rows around the viewport):
+  keep loading ahead on scroll-down as today, but drop rows far behind
+  (stable scroll anchor required), same cap for browse appends. Watch
+  out for: scrollbar jumps, text-find across the window edge, multi-
+  select and viewer stepping across dropped rows.
+- [ ] Windowed `fillModel`/append path with anchor-stable unload;
+      verify a 700-pic archive stays flat while scrolling both ways.
+- [ ] Build + `ctest`.
+
+## 29. Ugoira downloads as animated webp/jxl (never gif)
+- Treat all animated pictures (ugoira, gifs, webps, …) as GIFs for
+  classification/filtering — but never convert anything TO gif (poor
+  colouring, dithering).
+- Download ugoira as animated webp or animated jxl instead (user choice
+  in Preferences — easier on disk, loads faster). Open question: how to
+  detect the framerate (frame delays live in pixiv metadata, not the
+  zip — check what Danbooru exposes, else a fixed default + setting).
+- [ ] Ugoira detection at download time; webp/jxl encode choice in
+      prefs; framerate source decided; verify playback + thumbs.
+- [ ] Build + `ctest` (+ docs).
+
+## 30. Video audio keeps playing after leaving the viewer — DONE
+##    (`backToGrid` + `showWelcome` now call `ViewerPage::stopPlayback`;
+##    the player used to live on after its page hid; build OK, 25/25 tests)
+- [x] Stop playback when returning to the grid or home.
+- [x] Build + `ctest`.
+- [x] Stop playback when returning to the grid or home.
+- [x] Build + `ctest`.
+
+## 31. Shrink the codebase (dead-code cleanup, very last)
 - The codebase has grown big: audit for dead code, retired helpers,
   unused settings/strings, and machinery made obsolete by earlier tasks,
   and remove it. Behaviour must not change. Allowed lever: bump the

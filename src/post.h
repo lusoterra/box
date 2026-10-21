@@ -2,8 +2,10 @@
 
 #include <QString>
 #include <QJsonObject>
+#include <QList>
 #include <QMap>
 #include <QSet>
+#include <QStringList>
 
 // Post record. Mirrors the fields the Python prototypes exposed
 // (local archives, remote API results, favourites rows).
@@ -55,6 +57,60 @@ struct Post {
 
 inline bool isVideoExt(const QString &ext) {
     return ext == QStringLiteral("mp4") || ext == QStringLiteral("webm");
+}
+
+// Media-kind extension sets for the omnibar media filter. Animated
+// pictures (ugoira, animated webp/jxl) count as GIFs — never the reverse
+// (gif conversion is lossy). Mirrors the grid's own video/GIF chips.
+inline const QStringList &gifLikeExts() {
+    static const QStringList exts = {QStringLiteral("gif"),
+                                     QStringLiteral("webp"),
+                                     QStringLiteral("jxl")};
+    return exts;
+}
+inline const QStringList &videoExts() {
+    static const QStringList exts = {QStringLiteral("mp4"),
+                                     QStringLiteral("webm")};
+    return exts;
+}
+// `filetype:a,b,c` (leading `-` tolerated): Danbooru-style media filter
+// tags. The ext list is comma-OR; the token matches post extensions.
+inline bool isFiletypeToken(const QString &tok) {
+    QString low = tok.toLower();
+    if (low.startsWith(u'-'))
+        low = low.mid(1);
+    return low.startsWith(QStringLiteral("filetype:"));
+}
+inline QSet<QString> filetypeExtSet(const QString &tok) {
+    QString t = tok.toLower();
+    if (t.startsWith(u'-'))
+        t = t.mid(1);
+    QSet<QString> out;
+    const int colon = t.indexOf(u':');
+    if (colon < 0)
+        return out;
+    for (const QString &e : t.mid(colon + 1).split(u',')) {
+        const QString c = e.trimmed();
+        if (!c.isEmpty())
+            out.insert(c);
+    }
+    return out;
+}
+// Post extension against filetype: token groups (AND across include
+// groups, excluded by none). Empty includes pass.
+inline bool filetypeExtOk(const QString &ext,
+                           const QList<QSet<QString>> &inc,
+                           const QList<QSet<QString>> &exc) {
+    const QString e = ext.toLower();
+    for (const QSet<QString> &s : inc) {
+        if (!s.contains(e))
+            return false;
+    }
+    for (const QSet<QString> &s : exc) {
+        if (s.contains(e))
+            return false;
+    }
+    return true;
 }
 
 // Szurubooru-style native category split. Instances define their own

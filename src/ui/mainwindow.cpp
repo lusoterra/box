@@ -208,12 +208,27 @@ bool ratingMatches(const QString &postRating, const QString &tok) {
 
 bool matchesTokens(const Post &p, const QStringList &inc, const QStringList &exc) {
     const QStringList pt = p.tags.split(QChar::Space, Qt::SkipEmptyParts);
+    // filetype: tokens match the extension, not tags (comma = OR within
+    // one token, AND across tokens, like rating: above).
+    QList<QSet<QString>> ftInc, ftExc;
+    for (const QString &x : inc) {
+        if (isFiletypeToken(x))
+            ftInc.append(filetypeExtSet(x));
+    }
+    for (const QString &x : exc) {
+        if (isFiletypeToken(x))
+            ftExc.append(filetypeExtSet(x));
+    }
+    if (!filetypeExtOk(p.ext, ftInc, ftExc))
+        return false;
     for (const QString &x : inc) {
         if (isRatingToken(x)) {
             if (!ratingMatches(p.rating, x))
                 return false;
             continue;
         }
+        if (isFiletypeToken(x))
+            continue; // handled above
         if (!pt.contains(x))
             return false;
     }
@@ -223,6 +238,8 @@ bool matchesTokens(const Post &p, const QStringList &inc, const QStringList &exc
                 return false;
             continue;
         }
+        if (isFiletypeToken(x))
+            continue; // handled above
         if (pt.contains(x))
             return false;
     }
@@ -683,6 +700,23 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     // once data arrives ("All (12)"); same data value, same semantics.
     m_ratingBox->addItem(tr("All"), QStringLiteral("all"));
     m_categoryBox = new QComboBox(this);
+    // Media-kind shortcut: writes a filetype: tag like typing it (stills
+    // exclude GIF-likes + videos; ugoira/animated webp/jxl count as GIF;
+    // sound is the audio-carrying container). Single-select like rating.
+    m_mediaBox = new QComboBox(this);
+    m_mediaBox->setToolTip(tr("Filter by media kind (adds a filetype: tag)"));
+    m_mediaBox->addItem(tr("All media"), QString());
+    const QString gifTok =
+        QStringLiteral("filetype:") + gifLikeExts().join(u',');
+    const QString vidTok =
+        QStringLiteral("filetype:") + videoExts().join(u',');
+    const QString animTok =
+        QStringLiteral("filetype:") + (gifLikeExts() + videoExts()).join(u',');
+    m_mediaBox->addItem(tr("Still images"), QStringLiteral("-") + animTok);
+    m_mediaBox->addItem(tr("Animated GIFs"), gifTok);
+    m_mediaBox->addItem(tr("Anything animated"), animTok);
+    m_mediaBox->addItem(tr("Videos"), vidTok);
+    m_mediaBox->addItem(tr("Sound"), QStringLiteral("filetype:mp4"));
     m_sortBox = new QComboBox(this);
     m_sortBox->addItem(tr("Recently added"), QStringLiteral("added"));
     m_sortBox->addItem(tr("Newest"), QStringLiteral("id-desc"));
@@ -709,6 +743,8 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
             &MainWindow::onRatingChanged);
     connect(m_categoryBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
             &MainWindow::onCategoryChanged);
+    connect(m_mediaBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+            &MainWindow::onMediaChanged);
     connect(m_aspectBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
             &MainWindow::onAspectChanged);
     m_sizeSlider = new QSlider(Qt::Horizontal, this);
@@ -762,10 +798,13 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
         }
     });
     connect(reloadBtn, &QPushButton::clicked, this, &MainWindow::reload);
-    // Filter combos ignore the wheel until clicked (same as Preferences).
+    // Filter combos ignore the wheel until clicked (same as Preferences),
+    // and size to their content: translated labels must never elide.
     auto *wheelGuard = new WheelGuard(this);
-    for (QComboBox *cb : {m_ratingBox, m_categoryBox, m_sortBox, m_aspectBox})
+    for (QComboBox *cb : {m_ratingBox, m_categoryBox, m_mediaBox, m_sortBox, m_aspectBox}) {
         cb->installEventFilter(wheelGuard);
+        cb->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+    }
     m_countLabel = new QLabel(this);
     m_countLabel->setStyleSheet(QStringLiteral("color:#4a5068;"));
     m_resultLabel = new QLabel(this);
@@ -788,6 +827,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     omniLay->addWidget(m_searchEdit, 1);
     omniLay->addWidget(m_ratingBox);
     omniLay->addWidget(m_categoryBox);
+    omniLay->addWidget(m_mediaBox);
     // One-click AI-content filter: hides ai_generated/ai_created/
     // ai_assisted/ai_art everywhere (server -exclusions + client net).
     auto *aiBtn = new QPushButton(tr("AI"), this);
@@ -1588,6 +1628,7 @@ void MainWindow::activateTab(int tabIdx) {
     m_rating = t->rating;
     m_category = t->category;
     m_sort = t->sort;
+    syncMediaBox(); // media filter state lives in the tab's tags
     m_sortBox->blockSignals(true);
     m_sortBox->setCurrentIndex(qMax(0, m_sortBox->findData(m_sort)));
     m_sortBox->blockSignals(false);
@@ -2467,6 +2508,27 @@ void MainWindow::applyBrowseFilter() {
         posts.erase(std::remove_if(posts.begin(), posts.end(),
                                    [&](const Post &p) { return p.rating != t->rating; }),
                     posts.end());
+    }
+    // Media-kind net (filetype: tags): engines without verified support
+    // get the tokens stripped server-side, so filter client-side here.
+    // (Danbooru answers natively; the net is a no-op there.)
+    if (t) {
+        QList<QSet<QString>> ftInc, ftExc;
+        const QStringList ftToks =
+            t->activeTags + t->searchQuery.split(QChar::Space, Qt::SkipEmptyParts);
+        for (const QString &tok : ftToks) {
+            if (!isFiletypeToken(tok))
+                continue;
+            const bool neg = tok.startsWith(u'-') && tok.size() > 1;
+            (neg ? ftExc : ftInc).append(filetypeExtSet(tok));
+        }
+        if (!ftInc.isEmpty() || !ftExc.isEmpty()) {
+            posts.erase(std::remove_if(posts.begin(), posts.end(),
+                                       [&](const Post &p) {
+                                           return !filetypeExtOk(p.ext, ftInc, ftExc);
+                                       }),
+                        posts.end());
+        }
     }
     sortPosts(posts, t ? t->sort : m_sort);
     m_current = posts;
@@ -3991,6 +4053,8 @@ void MainWindow::showWelcome() {
     m_welcome->setRestore(m_settings.tabsDefault == QStringLiteral("last"));
     m_welcome->setLastPlace(describeLastPlace());
     m_curTab = -1;
+    if (m_viewer)
+        m_viewer->stopPlayback(); // home hides the viewer: same audio leak
     m_tabBar->blockSignals(true);
     m_tabBar->setCurrentIndex(0);
     m_tabBar->blockSignals(false);
@@ -5164,6 +5228,7 @@ void MainWindow::removeQueryGroup(int gi) {
 void MainWindow::commitSearch() {
     // Tags or query text changed: save to tab, refetch remote / refilter local.
     normalizeTypedRating();
+    normalizeTypedFiletype();
     saveTabState();
     if (isBrowse()) {
         if (BrowserTab *t = currentTab())
@@ -5179,6 +5244,7 @@ void MainWindow::commitSearch() {
 void MainWindow::commitFilter() {
     // Sort/rating changed: client-side in both modes, no refetch.
     normalizeTypedRating();
+    normalizeTypedFiletype();
     saveTabState();
     // Sync combos in case the change came from pills, not the combos.
     m_ratingBox->blockSignals(true);
@@ -5260,6 +5326,51 @@ void MainWindow::normalizeTypedRating() {
 void MainWindow::onCategoryChanged() {
     m_category = m_categoryBox->currentData().toString();
     applyFilter();
+}
+
+void MainWindow::onMediaChanged() {
+    // Single-select shortcut for typing a filetype: tag: a fresh choice
+    // replaces any committed filetype: tokens (they would AND with the
+    // box and empty everything).
+    for (int i = m_activeTags.size() - 1; i >= 0; --i) {
+        if (isFiletypeToken(m_activeTags.at(i)))
+            m_activeTags.removeAt(i);
+    }
+    const QString v = m_mediaBox->currentData().toString();
+    if (!v.isEmpty())
+        m_activeTags.append(v);
+    if (isBrowse())
+        commitSearch();
+    else
+        commitFilter();
+}
+
+void MainWindow::syncMediaBox() {
+    // The box follows the committed tags: an exact token match selects
+    // the entry, anything else (none, custom) shows All media.
+    if (!m_mediaBox)
+        return;
+    int idx = 0;
+    for (const QString &t : m_activeTags) {
+        if (!isFiletypeToken(t))
+            continue;
+        for (int i = 0; i < m_mediaBox->count(); ++i) {
+            if (m_mediaBox->itemData(i).toString().compare(
+                    t, Qt::CaseInsensitive) == 0) {
+                idx = i;
+                break;
+            }
+        }
+        break; // first token decides (single-select box)
+    }
+    m_mediaBox->blockSignals(true);
+    m_mediaBox->setCurrentIndex(idx);
+    m_mediaBox->blockSignals(false);
+}
+
+void MainWindow::normalizeTypedFiletype() {
+    // A typed filetype: tag owns the filter (the box is only a shortcut).
+    syncMediaBox();
 }
 
 void MainWindow::onAspectChanged() {
@@ -6023,6 +6134,10 @@ void MainWindow::showViewer(int row) {
 }
 
 void MainWindow::backToGrid() {
+    // Leaving the viewer must halt playback now: audio kept going over
+    // the grid (the player lives on after its page hides).
+    if (m_viewer)
+        m_viewer->stopPlayback();
     m_pages->setCurrentIndex(0);
     m_grid->setFocus();
     requestVisibleThumbs();

@@ -221,6 +221,11 @@ private slots:
                                   const QList<QStringList> &groups);
     void onRatingChanged();
     void onCategoryChanged();
+    void onMediaChanged();
+    // Media-kind box follows the committed filetype: tags (single-select
+    // shortcut like the rating box): exact token match selects, else All.
+    void syncMediaBox();
+    void normalizeTypedFiletype();
     void onAspectChanged();
     void onTagClicked();
     void onTagContextMenu(const QPoint &pos); // sidebar right-click: fav toggle
@@ -331,6 +336,7 @@ private:
     QTimer *m_thumbTimer = nullptr;
     QComboBox *m_ratingBox = nullptr;
     QComboBox *m_categoryBox = nullptr;
+    QComboBox *m_mediaBox = nullptr; // stills/GIF/animated/video/sound filter
     QComboBox *m_sortBox = nullptr;
     QComboBox *m_aspectBox = nullptr;
     QSlider *m_sizeSlider = nullptr;
