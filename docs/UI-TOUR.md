@@ -17,10 +17,7 @@ picker) for mouse-driven reopening.
 One tab per archive/site set. Tab bar button shows favicon + label + ✕.
 Left: sidebar tag sections (COPYRIGHT, CHARACTERS, ARTISTS, TAGS, META)
 with counts, each tinted in its bucket colour like the filter pills;
-click toggles filter pills, right-click stars/un-stars favourite tags. A captcha/PoW wall failure pops a small menu:
-solve the challenge in the capture browser, or drop the booru (deselect
-in multibooru, close a solo tab). Center: post grid. Bottom-left:
-`40 results · page 1` and infinite scroll (more loads at the bottom).
+click toggles filter pills, right-click stars/un-stars favourite tags. A captcha/PoW wall failure pops the solve browser open (opt out in Preferences → Browse, back to a small menu: solve the challenge in the capture browser, or drop the booru (deselect in multibooru, close a solo tab)). Center: post grid. Bottom-left: `40 results · page 1` and infinite scroll (more loads at the bottom); a failed query leaves its one-liner there (click = full server response) plus a `Solve … in browser…` button while walls are reported.
 
 ## 03-omnibar — the control row under the tab bar
 Left to right: `★` favourite-tags menu (click a star to add it to the

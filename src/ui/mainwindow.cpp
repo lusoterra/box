@@ -1244,6 +1244,16 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     connect(m_dlBtn, &QPushButton::clicked, this, &MainWindow::showDlDialog);
     statusBar()->addPermanentWidget(m_dlBar);
     statusBar()->addPermanentWidget(m_dlBtn);
+    // One-click wall solver: sits with the failed-query info while a
+    // search reports captcha/PoW walls. Permanent (right end): temporary
+    // messages cover left-docked widgets, which would hide it exactly
+    // when it is needed.
+    m_wallSolveBtn = new QPushButton(this);
+    m_wallSolveBtn->setVisible(false);
+    m_wallSolveBtn->setCursor(Qt::PointingHandCursor);
+    connect(m_wallSolveBtn, &QPushButton::clicked, this,
+            &MainWindow::solveWallFromButton);
+    statusBar()->addPermanentWidget(m_wallSolveBtn);
     m_dlHide = new QTimer(this);
     m_dlHide->setSingleShot(true);
     m_dlHide->setInterval(6000);
@@ -2085,6 +2095,8 @@ void MainWindow::doBrowseSearch(bool append) {
     if (!t || !t->isRemote)
         return;
     clearStatusProbe(); // a new search invalidates the old error details
+    m_wallSites.clear();
+    updateWallButton();
     m_appendResults = append;
     m_searchRetried = false; // each search earns its own single retry
     m_loadingPage = true;
@@ -2424,6 +2436,8 @@ void MainWindow::onRemoteFinished() {
             msg += tr(" · %1 login-walled hidden").arg(hiddenWalled);
         statusBar()->showMessage(msg, 5000);
     }
+    m_wallSites = wallSites;
+    updateWallButton();
     // Captcha/PoW wall on fresh searches only (infinite-scroll appends
     // must never steal focus with popups): pop the solve browser open by
     // default, or just offer the solve-or-drop menu when opted out.
@@ -2531,6 +2545,47 @@ void MainWindow::solveWallInBrowser(const QString &siteKey) {
         if (BrowserTab *t = currentTab(); t && t->isRemote)
             doBrowseSearch(false);
     }
+}
+
+void MainWindow::updateWallButton() {
+    if (!m_wallSolveBtn)
+        return;
+    if (m_wallSites.isEmpty()) {
+        m_wallSolveBtn->setVisible(false);
+        return;
+    }
+    if (m_wallSites.size() == 1) {
+        const BooruSite *cfg = RemoteSource::siteFor(m_wallSites.first());
+        m_wallSolveBtn->setText(
+            tr("Solve %1 in browser…")
+                .arg(cfg ? cfg->label : m_wallSites.first()));
+    } else {
+        m_wallSolveBtn->setText(
+            tr("Solve walls (%1)…").arg(m_wallSites.size()));
+    }
+    m_wallSolveBtn->setToolTip(
+        tr("Open the capture browser: grab cookies, ride PoW, solve "
+           "the challenge"));
+    m_wallSolveBtn->setVisible(true);
+}
+
+void MainWindow::solveWallFromButton() {
+    if (m_wallSites.isEmpty())
+        return;
+    if (m_wallSites.size() == 1) {
+        solveWallInBrowser(m_wallSites.first());
+        return;
+    }
+    QMenu menu(this);
+    for (const QString &key : m_wallSites) {
+        const BooruSite *cfg = RemoteSource::siteFor(key);
+        QAction *solve = menu.addAction(
+            tr("Solve %1 challenge in browser…")
+                .arg(cfg ? cfg->label : key));
+        connect(solve, &QAction::triggered, this,
+                [this, key] { solveWallInBrowser(key); });
+    }
+    menu.exec(QCursor::pos());
 }
 
 void MainWindow::dropWallSites(const QStringList &siteKeys) {

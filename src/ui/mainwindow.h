@@ -402,6 +402,10 @@ private:
     QString m_statusProbeTitle;
     QString m_statusProbeText;
     bool m_statusProbeValid = false;
+    QPushButton *m_wallSolveBtn = nullptr; // status-bar one-click wall solver
+    QStringList m_wallSites; // walled sites from the last finished search
+    void updateWallButton(); // visibility + label follow m_wallSites
+    void solveWallFromButton(); // first site, or a menu when several
     Post m_refreshPost; // post currently being tag-refreshed
     RefreshTarget m_refreshTarget;
     BrowserTab *m_searchTab = nullptr; // tab that owns the in-flight search
