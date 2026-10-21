@@ -1,0 +1,3 @@
+# Vendored single-file libraries: excluded from language stats and
+# collapsed in diffs (upstream miniz, kept pristine under src/library).
+/src/library/miniz/* linguist-vendored
