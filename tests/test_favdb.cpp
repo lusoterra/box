@@ -50,6 +50,20 @@ private slots:
         QCOMPARE(db.count(), 0);
     }
 
+    void removeMissingReportsFalse() {
+        // Callers (bulk unfavourite) must tell a real removal from an
+        // identity miss: local cards key ("local", hash), DB rows key
+        // ("Site", id), so a miss used to read as success and strand rows.
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        FavDb db;
+        QVERIFY(db.open(tmp.path()));
+        QVERIFY(!db.remove(QStringLiteral("Gelbooru"), 123));
+        QVERIFY(db.add(samplePost()));
+        QVERIFY(!db.remove(QStringLiteral("Gelbooru"), 999));
+        QVERIFY(db.remove(QStringLiteral("Gelbooru"), 7103104));
+    }
+
     void idlessImportsKeyByUrl() {
         // Stray link posts all carry id 0: they must favourite (and
         // un-favourite) independently by URL hash, not collide on (site, 0).

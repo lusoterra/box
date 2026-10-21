@@ -2631,18 +2631,106 @@ void MainWindow::showDlDialog() {
 }
 
 
+// Recorded download links inverted to canonical paths: local scanned
+// posts carry ("local", file-hash) identities that never match their
+// ("Site", id) favourite rows, so grid fav/delete actions resolve by
+// path instead of identity alone. Missing files fall back to absolute
+// paths (canonicalization only resolves what is still on disk).
+QHash<QString, QList<QPair<QString, qint64>>> MainWindow::favKeysByPath(
+    const QHash<QPair<QString, qint64>, QString> &recorded) const {
+    QHash<QString, QList<QPair<QString, qint64>>> byCanonPath;
+    for (auto it = recorded.begin(); it != recorded.end(); ++it) {
+        if (it.value().isEmpty())
+            continue;
+        QString canon = QFileInfo(it.value()).canonicalFilePath();
+        if (canon.isEmpty())
+            canon = QFileInfo(it.value()).absoluteFilePath();
+        if (!canon.isEmpty())
+            byCanonPath[canon].append(it.key());
+    }
+    return byCanonPath;
+}
+
+QList<QPair<QString, qint64>> MainWindow::favKeysFor(
+    const Post &p,
+    const QHash<QString, QList<QPair<QString, qint64>>> &byPath) const {
+    QList<QPair<QString, qint64>> out;
+    out.append(favIdentity(p));
+    if (!p.absFile.isEmpty()) {
+        QString canon = QFileInfo(p.absFile).canonicalFilePath();
+        if (canon.isEmpty())
+            canon = QFileInfo(p.absFile).absoluteFilePath();
+        for (const auto &key : byPath.value(canon)) {
+            if (!out.contains(key))
+                out.append(key);
+        }
+    }
+    return out;
+}
+
+bool MainWindow::isFavMarked(
+    const Post &p,
+    const QHash<QPair<QString, qint64>, QString> &favLocal,
+    const QHash<QString, QList<QPair<QString, qint64>>> &byPath) const {
+    if (favLocal.contains(favIdentity(p)))
+        return true;
+    if (p.absFile.isEmpty())
+        return false;
+    QString canon = QFileInfo(p.absFile).canonicalFilePath();
+    if (canon.isEmpty())
+        canon = QFileInfo(p.absFile).absoluteFilePath();
+    return byPath.contains(canon);
+}
+
+void MainWindow::repaintFavMarks() {
+    // Recompute the current tab's ♥/↓ marks in place (bulk fav/unfav must
+    // not wait for the next refill) and refresh the viewer badges + fav
+    // toggle for whatever post is on screen.
+    if (!m_favDb.isOpen() || !m_model)
+        return;
+    const QHash<QPair<QString, qint64>, QString> favLocal =
+        m_favDb.localPaths();
+    const auto byPath = favKeysByPath(favLocal);
+    for (int row = 0; row < m_model->rowCount() && row < m_current.size();
+         ++row) {
+        const Post &p = m_current.at(row);
+        m_model->setData(m_model->index(row, 0),
+                         isFavMarked(p, favLocal, byPath),
+                         Qt::UserRole + 12);
+        m_model->setData(m_model->index(row, 0),
+                         isPostDownloaded(p, &favLocal), Qt::UserRole + 13);
+    }
+    if (m_viewer && m_viewer->hasCurrent()) {
+        const Post &cur = m_viewer->currentPost();
+        const auto [site, pid] = favIdentity(cur);
+        m_viewer->setFaved(m_favDb.isFavourite(site, pid));
+    }
+    updateViewerBadges();
+}
+
 void MainWindow::toggleFavourite(const Post &post) {
     if (!m_favDb.isOpen()) {
         statusBar()->showMessage(tr("Favourites unavailable"), 4000);
         return;
     }
-    const auto [site, pid] = favIdentity(post);
-    if (m_favDb.isFavourite(site, pid)) {
-        m_favDb.remove(site, pid);
-        // Explicit removal wins over the automatic coupling: a download
-        // finishing later must not resurrect the row (nor the file, when
-        // the option deletes it).
-        m_unfavVeto.insert(favVetoKey(site, pid));
+    const auto keys =
+        favKeysFor(post, favKeysByPath(m_favDb.localPaths()));
+    bool faved = false;
+    for (const auto &key : keys) {
+        if (m_favDb.isFavourite(key.first, key.second)) {
+            faved = true;
+            break;
+        }
+    }
+    if (faved) {
+        for (const auto &key : keys) {
+            if (m_favDb.remove(key.first, key.second)) {
+                // Explicit removal wins over the automatic coupling: a
+                // download finishing later must not resurrect the row
+                // (nor the file, when the option deletes it).
+                m_unfavVeto.insert(favVetoKey(key.first, key.second));
+            }
+        }
         if (!post.fileUrl.isEmpty())
             m_downloads->cancelUrls({post.fileUrl});
         m_viewer->setFaved(false);
@@ -2654,27 +2742,19 @@ void MainWindow::toggleFavourite(const Post &post) {
             statusBar()->showMessage(tr("Could not favourite"), 4000);
             return;
         }
-        m_unfavVeto.remove(favVetoKey(site, pid));
+        for (const auto &key : keys)
+            m_unfavVeto.remove(favVetoKey(key.first, key.second));
         m_viewer->setFaved(true);
         updateViewerBadges();
         statusBar()->showMessage(tr("♥ Favourited"), 3000);
         if (m_settings.favAutoDownload && post.isRemote && !post.fileUrl.isEmpty())
             downloadPosts({post});
     }
-    // Refresh every open favourites tab (not just the current one).
+    // Refresh every open favourites tab (not just the current one), then
+    // repaint the current tab's marks in place (fillModel recomputes them
+    // on the next refill anyway).
     refreshFavTabs();
-    // Paint the new mark onto the visible grid immediately instead of
-    // waiting for the next refill (fillModel recomputes it anyway).
-    {
-        const auto ident = favIdentity(post);
-        const bool faved = m_favDb.isOpen() && m_favDb.isFavourite(site, pid);
-        for (int row = 0; row < m_model->rowCount() && row < m_current.size();
-             ++row) {
-            if (favIdentity(m_current.at(row)) == ident)
-                m_model->setData(m_model->index(row, 0), faved,
-                                 Qt::UserRole + 12);
-        }
-    }
+    repaintFavMarks();
 }
 
 // Delete the downloaded copy behind an unfavourite when the option is on.
@@ -2715,12 +2795,21 @@ void MainWindow::showGridMenu(const QPoint &pos) {
     }
     if (targets.isEmpty() || !m_favDb.isOpen())
         return;
+    // Path-linked rows for Downloads locals (see favKeysByPath): identity
+    // alone misses ("Site", id) rows behind ("local", hash) cards.
+    const auto byPath = favKeysByPath(m_favDb.localPaths());
     bool allFav = true;
     bool anyRemote = false;
     QStringList anyFiles;
     for (const Post &p : targets) {
-        const auto [site, pid] = favIdentity(p);
-        if (!m_favDb.isFavourite(site, pid))
+        bool marked = false;
+        for (const auto &key : favKeysFor(p, byPath)) {
+            if (m_favDb.isFavourite(key.first, key.second)) {
+                marked = true;
+                break;
+            }
+        }
+        if (!marked)
             allFav = false;
         if (p.isRemote && !p.fileUrl.isEmpty())
             anyRemote = true;
@@ -2731,38 +2820,78 @@ void MainWindow::showGridMenu(const QPoint &pos) {
     QMenu menu(this);
     if (allFav) {
         QAction *unfav = menu.addAction(tr("♡ Unfavourite"));
-        connect(unfav, &QAction::triggered, this, [this, targets] {
+        connect(unfav, &QAction::triggered, this, [this, targets, byPath] {
             QSet<QString> urls;
+            int removed = 0;
+            // DB rows for path-linked keys (fileUrl for download cancels).
+            QHash<QPair<QString, qint64>, Post> favByKey;
+            bool needRows = false;
             for (const Post &p : targets) {
-                const auto [site, pid] = favIdentity(p);
-                if (m_favDb.remove(site, pid)) {
-                    // Explicit removal vetoes any later auto-favourite,
-                    // and drops in-flight downloads of the same file.
-                    m_unfavVeto.insert(favVetoKey(site, pid));
-                    if (!p.fileUrl.isEmpty())
-                        urls.insert(p.fileUrl);
-                    maybeDeleteUnfavFile(p);
+                if (favKeysFor(p, byPath).size() > 1) {
+                    needRows = true;
+                    break;
                 }
+            }
+            if (needRows) {
+                for (const Post &p : m_favDb.list())
+                    favByKey.insert(favIdentity(p), p);
+            }
+            for (const Post &p : targets) {
+                bool touched = false;
+                for (const auto &key : favKeysFor(p, byPath)) {
+                    if (m_favDb.remove(key.first, key.second)) {
+                        // Explicit removal vetoes any later auto-favourite.
+                        m_unfavVeto.insert(
+                            favVetoKey(key.first, key.second));
+                        touched = true;
+                    }
+                }
+                if (!touched)
+                    continue;
+                removed++;
+                if (!p.fileUrl.isEmpty())
+                    urls.insert(p.fileUrl);
+                else {
+                    // Local card: the row holds the remote URL, if any.
+                    for (const auto &key : favKeysFor(p, byPath)) {
+                        const Post db = favByKey.value(key);
+                        if (!db.fileUrl.isEmpty())
+                            urls.insert(db.fileUrl);
+                    }
+                }
+                maybeDeleteUnfavFile(p);
             }
             if (!urls.isEmpty())
                 m_downloads->cancelUrls(urls);
             refreshFavTabs();
+            repaintFavMarks();
             statusBar()->showMessage(tr("Removed %1 from favourites")
-                                         .arg(targets.size()),
+                                         .arg(removed),
                                      4000);
         });
     } else {
         QAction *fav = menu.addAction(tr("♥ Favourite"));
-        connect(fav, &QAction::triggered, this, [this, targets] {
+        connect(fav, &QAction::triggered, this, [this, targets, byPath] {
             int added = 0;
             for (const Post &p : targets) {
+                bool already = false;
+                for (const auto &key : favKeysFor(p, byPath)) {
+                    if (m_favDb.isFavourite(key.first, key.second)) {
+                        already = true;
+                        break;
+                    }
+                }
+                if (already)
+                    continue; // path-linked row exists: no duplicate
                 if (m_favDb.add(p)) {
-                    const auto [site, pid] = favIdentity(p);
-                    m_unfavVeto.remove(favVetoKey(site, pid));
+                    for (const auto &key : favKeysFor(p, byPath))
+                        m_unfavVeto.remove(
+                            favVetoKey(key.first, key.second));
                     added++;
                 }
             }
             refreshFavTabs();
+            repaintFavMarks();
             statusBar()->showMessage(
                 tr("♥ Favourited %1").arg(added), 4000);
         });
@@ -2855,17 +2984,7 @@ void MainWindow::showGridMenu(const QPoint &pos) {
         // Downloads-tab deletes and the startup offer comes back.
         const QHash<QPair<QString, qint64>, QString> recordedPaths =
             m_favDb.localPaths();
-        QHash<QString, QList<QPair<QString, qint64>>> byCanonPath;
-        for (auto it = recordedPaths.begin(); it != recordedPaths.end();
-             ++it) {
-            if (it.value().isEmpty())
-                continue;
-            QString canon = QFileInfo(it.value()).canonicalFilePath();
-            if (canon.isEmpty())
-                canon = QFileInfo(it.value()).absoluteFilePath();
-            if (!canon.isEmpty())
-                byCanonPath[canon].append(it.key());
-        }
+        const auto byCanonPath = favKeysByPath(recordedPaths);
         QHash<QPair<QString, qint64>, Post> favByKey;
         for (const Post &p : m_favDb.list())
             favByKey.insert(favIdentity(p), p);
@@ -4492,6 +4611,7 @@ void MainWindow::fillModel() {
     const QHash<QPair<QString, qint64>, QString> favLocal =
         m_favDb.isOpen() ? m_favDb.localPaths()
                          : QHash<QPair<QString, qint64>, QString>();
+    const auto favByPath = favKeysByPath(favLocal);
     for (const Post &p : m_current) {
         auto *item = new QStandardItem();
         QString key;
@@ -4555,8 +4675,8 @@ void MainWindow::fillModel() {
         item->setData(isAiPost(p), Qt::UserRole + 9); // grid "AI" chip
         // Downloaded (under the download folder / linked favourite
         // file) and favourited marks, next to the AI chip.
-        const auto ident = favIdentity(p);
-        item->setData(favLocal.contains(ident), Qt::UserRole + 12);
+        item->setData(isFavMarked(p, favLocal, favByPath),
+                      Qt::UserRole + 12);
         item->setData(isPostDownloaded(p, &favLocal), Qt::UserRole + 13);
         item->setEditable(false);
         // The tooltip stays on the post page even after a download

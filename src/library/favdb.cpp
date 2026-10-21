@@ -435,7 +435,10 @@ bool FavDb::remove(const QString &site, qint64 postId) {
     q.prepare(QStringLiteral("DELETE FROM favourites WHERE site=? AND post_id=?"));
     q.addBindValue(site);
     q.addBindValue(postId);
-    return q.exec();
+    // Report whether a row actually died: callers keying a local post by
+    // ("local", file-hash) otherwise believe they removed its ("Site",
+    // id) row when nothing happened.
+    return q.exec() && q.numRowsAffected() > 0;
 }
 
 int FavDb::count() {

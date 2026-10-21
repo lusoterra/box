@@ -177,6 +177,25 @@ private slots:
     void openLastPlace(); // home resume button: reopen the last live tab
     QString describeLastPlace() const; // short label for the resume button
     void refreshFavTabs(); // re-list the DB into every open fav tab
+    // Download links (site, id) -> local_path, inverted: local scanned
+    // posts carry ("local", file-hash) identities that never match their
+    // ("Site", id) favourite rows, so grid fav/delete actions resolve by
+    // canonical path instead of identity alone.
+    QHash<QString, QList<QPair<QString, qint64>>> favKeysByPath(
+        const QHash<QPair<QString, qint64>, QString> &recorded) const;
+    // Every DB identity a grid post answers to: its own, plus the
+    // recorded download links behind its path.
+    QList<QPair<QString, qint64>>
+    favKeysFor(const Post &p,
+               const QHash<QString, QList<QPair<QString, qint64>>> &byPath) const;
+    // A grid post counts as favourited when any of its identities has a
+    // row (covers Downloads cards behind ("Site", id) rows).
+    bool isFavMarked(const Post &p,
+                     const QHash<QPair<QString, qint64>, QString> &favLocal,
+                     const QHash<QString, QList<QPair<QString, qint64>>> &byPath) const;
+    // Recompute the current tab's ♥/↓ marks in place (bulk fav/unfav must
+    // not wait for the next refill) and refresh the viewer badges.
+    void repaintFavMarks();
     void showGridMenu(const QPoint &pos); // right-click actions on posts
     void maybeDeleteUnfavFile(const Post &post); // unfav-deletes-file option
     void importLosnBackup();
