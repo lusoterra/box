@@ -153,6 +153,8 @@ public:
     void setUrl(const QUrl &url, const Post &post = {});
     void stop();
     void setDefaults(bool muted, bool loop, int volume);
+    // Playback rate for the session (sticks across videos until changed).
+    void setRate(double rate);
     // Zoom controls for the toolbar (route to the live video view).
     void fitView();
     void zoom100View();
@@ -192,6 +194,8 @@ private:
     QString m_lastRemoteUrl;      // direct-stream URL (for retry)
     Post m_lastRemotePost;
     QSlider *m_vol;
+    QPushButton *m_rateBtn = nullptr;
+    double m_rate = 1.0; // session playback rate, applied on every load
     QLabel *m_time;
     QLabel *m_buf;
     bool m_muteDefault = true;

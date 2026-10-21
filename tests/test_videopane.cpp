@@ -45,6 +45,14 @@ private slots:
         VideoPane pane;
         pane.setUrl(QUrl());
     }
+
+    void setRateDoesNotCrash() {
+        VideoPane pane;
+        pane.setRate(1.5);
+        pane.setRate(0.1); // clamps to 0.25
+        pane.setRate(9.0); // clamps to 2.0
+        pane.setFile(QString::fromLatin1(TESTFILES_DIR) + u"/test_video.mp4");
+    }
 };
 
 int main(int argc, char *argv[]) {

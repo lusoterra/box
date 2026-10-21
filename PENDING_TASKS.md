@@ -372,10 +372,12 @@
 - [x] Export/import round-trip ( prefs dialog or File menu); fixtures;
       build + `ctest` (+ docs).
 
-## 33. Video playback speed control
+## 33. Video playback speed control — DONE (rate menu button in the
+##    video controls, 0.25×–2× via `setPlaybackRate`, session-sticky
+##    across videos; crash-safety test; docs; build OK, 30/30 tests)
 - Viewer video menu: playback rate (0.25×–2×) via `QMediaPlayer::setPlaybackRate`.
   Tiny, complements the Image-search menu.
-- [ ] Rate menu + persist per session; build + `ctest` (+ docs).
+- [x] Rate menu + persist per session; build + `ctest` (+ docs).
 
 ## 34. Shrink the codebase (dead-code cleanup, very last)
 - The codebase has grown big: audit for dead code, retired helpers,

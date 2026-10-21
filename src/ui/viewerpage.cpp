@@ -590,6 +590,24 @@ VideoPane::VideoPane(QWidget *parent) : QWidget(parent) {
     m_vol->setValue(100);
     m_vol->setFixedWidth(80);
     m_vol->setToolTip(tr("Volume (system audio device)"));
+    m_rateBtn = new QPushButton(QStringLiteral("1×"), this);
+    m_rateBtn->setToolTip(tr("Playback speed"));
+    m_rateBtn->setFixedWidth(44);
+    {
+        auto *rateMenu = new QMenu(m_rateBtn);
+        m_rateBtn->setMenu(rateMenu);
+        connect(rateMenu, &QMenu::aboutToShow, this, [this, rateMenu] {
+            rateMenu->clear();
+            for (const double r : {0.25, 0.5, 1.0, 1.5, 2.0}) {
+                QAction *a = rateMenu->addAction(
+                    QStringLiteral("%1×").arg(r));
+                a->setCheckable(true);
+                a->setChecked(qFuzzyCompare(r + 1.0, m_rate + 1.0));
+                connect(a, &QAction::triggered, this,
+                        [this, r] { setRate(r); });
+            }
+        });
+    }
     m_buf = new QLabel(this);
     m_buf->setStyleSheet(QStringLiteral("color:#7c9ef8;"));
     m_buf->setVisible(false);
@@ -599,6 +617,7 @@ VideoPane::VideoPane(QWidget *parent) : QWidget(parent) {
     ctl->addWidget(m_buf);
     ctl->addWidget(m_muteBtn);
     ctl->addWidget(m_vol);
+    ctl->addWidget(m_rateBtn);
     lay->addLayout(ctl);
 
     connect(m_player, &QMediaPlayer::mediaStatusChanged, this,
@@ -613,8 +632,10 @@ VideoPane::VideoPane(QWidget *parent) : QWidget(parent) {
             if (buffering)
                 m_buf->setText(tr("loading…"));
         }
-        if (s == QMediaPlayer::LoadedMedia)
+        if (s == QMediaPlayer::LoadedMedia) {
+            m_player->setPlaybackRate(m_rate); // stick across videos in-session
             m_player->play(); // setSource() is async: play once the source is ready
+        }
         if (s == QMediaPlayer::InvalidMedia)
             onPlayerError(tr("Cannot play this video"));
         // EndOfMedia with an active error surfaces via errorOccurred;
@@ -737,6 +758,13 @@ void VideoPane::setDefaults(bool muted, bool loop, int volume) {
     m_audio->setVolume(qBound(0, volume, 100) / 100.0);
     m_vol->setValue(qBound(0, volume, 100));
     m_player->setLoops(loop ? QMediaPlayer::Infinite : 1);
+}
+
+void VideoPane::setRate(double rate) {
+    m_rate = qBound(0.25, rate, 2.0);
+    m_player->setPlaybackRate(m_rate);
+    if (m_rateBtn)
+        m_rateBtn->setText(QString::number(m_rate) + QChar(0xD7)); // 1×
 }
 
 void VideoPane::setFile(const QString &path) {
