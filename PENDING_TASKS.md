@@ -211,42 +211,16 @@
       tags, viewer, settings, booru coverage); write up parity notes.
 - [x] File adopt-items as follow-up tasks; wont-do items stay documented.
 
-## 23. Nuuru (Soybooru) engine support
-- Instance: `https://soybooru.com/` (soyjak.st's proprietary custom booru;
-  probably the only instance ever — name it `Nuuru (Soybooru)` in the
-  Booru manager `Type` list).
-- No public API docs known: RE needed (page-embedded JSON? XHR endpoints?
-  `/api/...`? view-source + devtools on search pages first).
-  Early probe (2026-10-20): `/api/docs` and `/api/posts` both answer HTTP 449
-  to plain fetches — edge filtering, so RE needs a real browser session.
-  Check first whether the UI calls same-origin XHR we can mirror (plus what
-  auth/cookies it needs).
-- Defenses (2026-10-20 note): aggressive PoW captcha stacked on Cloudflare —
-  plan on the existing `powWall` quirk path from day one (browser-backed
-  media fetch + cookie capture, like booru.allthefallen.moe), not the plain
-  QNAM stack.
-- Tags are meme-chaos (cf. glegle.gallery today): default the entry with
-  `skipAutoClassify = true` (existing per-entry opt-out, prefs checkbox),
-  so tags stay exactly as the API gives them instead of being force-fit
-  into anime buckets.
-  CORRECTION (2026-10-20, tag taxonomy spotted in the wild): soybooru tags
-  are actually well-sorted — native categories Flag / Media / Meta /
-  Series / Subvariant / Trend / Variant / Uncategorized (e.g. Variant:
-  chudjak, cobson; Series: sidejaks; Meta: dailyjak). So do NOT blanket
-  skip: preserve the native categories via the `customTags` mechanism
-  (same as Szurubooru native categories), mapping only the obvious ones
-  (Series->copyright, Variant/Subvariant->character, Uncategorized->general/
-  untyped) and keeping the rest verbatim. `skipAutoClassify` stays available
-  as a user fallback, but the default should keep this taxonomy.
-  Display (checked 2026-10-20): right/viewer side needs no work — every
-  `customTags` entry already renders as its own labeled group
-  (`viewerpage.cpp:1613`). Left/sidebar side has only the five fixed
-  buckets (`mainwindow.cpp:2340`): native tags fold into General there
-  (and into one shared General in multibooru). A dedicated sixth sidebar
-  section for native categories is optional extra work, not required.
-- [ ] RE the search/post JSON shape (endpoints, paging, tags, file URLs).
-- [ ] Add `BooruEngine::Nuuru` mapping behind `BooruEngineOps` + manager entry.
-- [ ] Fixtures + unit tests (no network); build + `ctest` (+ docs).
+## 23. Nuuru (Soybooru) engine support — DONE (RE'd live HTML/JS + SSR
+##    embeds: `/api/booru/posts` search (1-indexed), single, tags/search,
+##    comments; `/api/booru/posts/<id>/file|/thumbnail`; `/post/view/<id>`;
+##    native taxonomy in `customTags` with Series→copyright,
+##    Variant/Subvariant→character, rest→general; `powWall` quirk;
+##    prefs Type + bucket grid; `test_nuuru` real-shape fixtures; docs;
+##    26/26 tests)
+- [x] RE the search/post JSON shape (endpoints, paging, tags, file URLs).
+- [x] Add `BooruEngine::Nuuru` mapping behind `BooruEngineOps` + manager entry.
+- [x] Fixtures + unit tests (no network); build + `ctest` (+ docs).
 
 ## 24. HiddenBooru engine support (Tor hidden service, single instance)
 - Instance: anime booru, Tor-first (I2P is extremely slow, use only as

@@ -49,6 +49,12 @@ QString uniqueBooruKey(const QString &label, const QSet<QString> &taken);
 // buckets with natives preserved.
 Post fromHybooruSummary(const QJsonObject &o, const QString &baseUrl);
 Post fromHybooru(const QJsonObject &o, const QString &baseUrl);
+// Nuuru (Soybooru) shapes: /api/booru/posts search/detail, native
+// Flag/Media/Meta/Series/Subvariant/Trend/Variant/Uncategorized taxonomy
+// preserved via customTags; plain fetches hit a PoW wall, so traffic
+// rides the browser-backed stack (powWall quirk).
+Post fromNuuruSummary(const QJsonObject &o, const QString &baseUrl);
+Post fromNuuru(const QJsonObject &o, const QString &baseUrl);
 // Entry default tags onto a query: space-split, appended in order,
 // minus tab-dropped tokens (pill ×). Pure: unit-tested.
 QStringList defaultTagsFor(const QStringList &base, const QString &defaults,

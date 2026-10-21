@@ -4,7 +4,9 @@
 // gelbooru.com expects a fringeBenefits cookie for restricted content,
 // rule34.xxx serves its captcha wall on the main host (API calls go to
 // the api subdomain), booru.allthefallen.moe guards its API with a
-// proof-of-work challenge that re-appears roughly daily even for logins.
+// proof-of-work challenge that re-appears roughly daily even for logins,
+// soybooru.com stacks the same JS wall on Cloudflare (plain fetches get
+// HTTP 449 / pow_required).
 // Pure functions over the host: no registry, no network.
 #include <QList>
 #include <QNetworkCookie>

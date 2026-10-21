@@ -11,6 +11,7 @@ QList<SiteQuirk> siteQuirks() {
          QStringLiteral("https://api.rule34.xxx"), {}, false},
         {QStringLiteral("booru.allthefallen.moe"), QString(), {},
          true},
+        {QStringLiteral("soybooru.com"), QString(), {}, true},
     };
 }
 

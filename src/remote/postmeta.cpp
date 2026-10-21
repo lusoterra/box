@@ -128,8 +128,8 @@ QUrl notesUrl(BooruEngine engine, const QString &baseUrl, qint64 postId,
               const QString &gelUser, const QString &gelKey) {
     const QString id = QString::number(postId);
     if (engine == BooruEngine::Szurubooru || engine == BooruEngine::Shimmie ||
-        engine == BooruEngine::Hybooru)
-        return {}; // no separate notes endpoint on these engines
+        engine == BooruEngine::Hybooru || engine == BooruEngine::Nuuru)
+        return {}; // no notes endpoint on these engines
     if (engine == BooruEngine::Danbooru) {
         QUrl url(baseUrl + QStringLiteral("/notes.json"));
         QUrlQuery q;
@@ -170,6 +170,15 @@ QUrl commentsUrl(BooruEngine engine, const QString &baseUrl, qint64 postId,
     }
     if (engine == BooruEngine::Shimmie || engine == BooruEngine::Hybooru)
         return {}; // no comment API on these engines (v1 / unknown shape)
+    if (engine == BooruEngine::Nuuru) {
+        QUrl url(baseUrl + QStringLiteral("/api/booru/posts/") + id +
+                 QStringLiteral("/comments"));
+        QUrlQuery q;
+        q.addQueryItem(QStringLiteral("page"), QStringLiteral("1"));
+        q.addQueryItem(QStringLiteral("pageSize"), QStringLiteral("50"));
+        url.setQuery(q);
+        return url;
+    }
     if (engine == BooruEngine::Danbooru) {
         QUrl url(baseUrl + QStringLiteral("/comments.json"));
         QUrlQuery q;

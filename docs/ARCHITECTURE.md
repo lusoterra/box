@@ -29,7 +29,12 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
   `parseSingle`/`applyAuth`; `engineOps()` at `:121`).
   - Pure shared helpers in `RemotePosts`: `translateSearchTags`,
     `sortSearchTag`, `isTransientSearchError`, `fromDanbooru/Gelbooru/Moebooru/
-    Szuru/Shimmie/Hybooru`, `parseShimmieXml` (`src/engines/booruengine.h:26-60`).
+    Szuru/Shimmie/Hybooru/Nuuru`, `parseShimmieXml` (`src/engines/booruengine.h:26-60`).
+    Nuuru notes: plain fetches hit a PoW wall (`pow_required`), so traffic
+    rides the browser-backed stack (`powWall` quirk on `soybooru.com`);
+    files at `/api/booru/posts/<id>/file`, thumbs at `…/thumbnail`, native
+    Flag/Media/Meta/Series/Subvariant/Trend/Variant/Uncategorized taxonomy
+    in `customTags`.
     HyBooru notes: summaries are tagless (viewer lazy-fetches detail on
     open); `rating` is a star score (all posts read `general`, server
     `rating:`/`sort:` tokens stripped); files at `/files/f{sha}{ext}`,

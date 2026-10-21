@@ -28,7 +28,7 @@ struct SearchResult {
 };
 
 // Engine taxonomy (mirrors LoliSnatcher's BooruType for these families).
-enum class BooruEngine { Danbooru, Gelbooru, Moebooru, Safebooru, Szurubooru, Shimmie, Hybooru };
+enum class BooruEngine { Danbooru, Gelbooru, Moebooru, Safebooru, Szurubooru, Shimmie, Hybooru, Nuuru };
 
 struct BooruSite {
     QString key;      // stable id: "danbooru", "gelbooru", "yandere", ...

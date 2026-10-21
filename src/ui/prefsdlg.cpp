@@ -386,6 +386,7 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
         {BooruEngine::Szurubooru, RemotePosts::engineLabel(BooruEngine::Szurubooru)},
         {BooruEngine::Shimmie, RemotePosts::engineLabel(BooruEngine::Shimmie)},
         {BooruEngine::Hybooru, RemotePosts::engineLabel(BooruEngine::Hybooru)},
+        {BooruEngine::Nuuru, RemotePosts::engineLabel(BooruEngine::Nuuru)},
     };
     const QList<QPair<QString, QString>> buckets = {
         {QStringLiteral("artist"), tr("Artist")},
@@ -573,6 +574,8 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
                            RemotePosts::engineKey(BooruEngine::Shimmie));
     m_booruEngine->addItem(RemotePosts::engineLabel(BooruEngine::Hybooru),
                            RemotePosts::engineKey(BooruEngine::Hybooru));
+    m_booruEngine->addItem(RemotePosts::engineLabel(BooruEngine::Nuuru),
+                           RemotePosts::engineKey(BooruEngine::Nuuru));
     m_booruUser = new QLineEdit(this);
     m_booruSecret = new QLineEdit(this);
     m_booruSecret->setEchoMode(QLineEdit::Password);

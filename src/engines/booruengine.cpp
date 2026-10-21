@@ -150,6 +150,7 @@ QString engineKey(BooruEngine engine) {
     case BooruEngine::Szurubooru: return QStringLiteral("szurubooru");
     case BooruEngine::Shimmie: return QStringLiteral("shimmie");
     case BooruEngine::Hybooru: return QStringLiteral("hybooru");
+    case BooruEngine::Nuuru: return QStringLiteral("nuuru");
     case BooruEngine::Safebooru: return QStringLiteral("gelbooru"); // dapi family
     }
     return QStringLiteral("danbooru");
@@ -166,6 +167,8 @@ BooruEngine engineForKey(const QString &key) {
         return BooruEngine::Shimmie;
     if (key == QStringLiteral("hybooru"))
         return BooruEngine::Hybooru;
+    if (key == QStringLiteral("nuuru"))
+        return BooruEngine::Nuuru;
     return BooruEngine::Danbooru;
 }
 
@@ -177,6 +180,7 @@ QString engineLabel(BooruEngine engine) {
     case BooruEngine::Szurubooru: return QStringLiteral("Szurubooru");
     case BooruEngine::Shimmie: return QStringLiteral("Shimmie");
     case BooruEngine::Hybooru: return QStringLiteral("HyBooru");
+    case BooruEngine::Nuuru: return QStringLiteral("Nuuru (Soybooru)");
     case BooruEngine::Safebooru: return QStringLiteral("Safebooru");
     }
     return QStringLiteral("Danbooru");
@@ -222,11 +226,11 @@ QStringList translateSearchTags(const QStringList &tags, BooruEngine engine) {
                    engine == BooruEngine::Szurubooru) {
             tok = QStringLiteral("safety:safe");
         }
-        if (engine == BooruEngine::Hybooru) {
-            // HyBooru rating: is a 0-100 star filter (not a content
-            // rating) and it exposes no native sort tags: content-rating
-            // and sort tokens would silently mis-filter, so drop them —
-            // sorting stays client-side.
+        if (engine == BooruEngine::Hybooru || engine == BooruEngine::Nuuru) {
+            // Neither engine exposes a verified content-rating or sort
+            // spelling (HyBooru rating: is a 0-100 star filter): such
+            // tokens would silently mis-filter, so drop them — sorting
+            // stays client-side, rating filters client-side.
             const int ci = tok.indexOf(u':');
             const QString head =
                 (ci > 0 ? tok.left(ci) : QString()).toLower();
@@ -486,6 +490,7 @@ const BooruEngineOps *moebooruOps();
 const BooruEngineOps *szurubooruOps();
 const BooruEngineOps *shimmieOps();
 const BooruEngineOps *hybooruOps();
+const BooruEngineOps *nuuruOps();
 } // namespace EngineInternal
 
 const BooruEngineOps *engineOps(BooruEngine engine) {
@@ -501,6 +506,8 @@ const BooruEngineOps *engineOps(BooruEngine engine) {
         return EngineInternal::shimmieOps();
     case BooruEngine::Hybooru:
         return EngineInternal::hybooruOps();
+    case BooruEngine::Nuuru:
+        return EngineInternal::nuuruOps();
     case BooruEngine::Danbooru:
         return EngineInternal::danbooruOps();
     }

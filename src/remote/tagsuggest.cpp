@@ -53,6 +53,7 @@ QVector<TagSuggestion> takeCapped(QVector<TagSuggestion> v, int cap = 12) {
 
 QVector<TagSuggestion> parseGelbooruXmlList(const QByteArray &body);
 QVector<TagSuggestion> parseHybooru(const QByteArray &body);
+QVector<TagSuggestion> parseNuuru(const QByteArray &body);
 
 QVector<TagSuggestion> parseDanbooru(const QByteArray &body) {
     // [{name, category, post_count}] - category is danbooru numbering.
@@ -189,6 +190,7 @@ QVector<TagSuggestion> parseSzuru(const QByteArray &body) {
     }
     return takeCapped(out, 24);
 }
+
 QVector<TagSuggestion> parseHybooru(const QByteArray &body) {
     // {"tags": {name: usage-count}, ...} — namespaces mirror the detail
     // objects; buckets follow the same mapping as fromHybooru.
@@ -201,8 +203,7 @@ QVector<TagSuggestion> parseHybooru(const QByteArray &body) {
     if (!tags.isObject())
         return out;
     const QJsonObject tagObj = tags.toObject();
-    for (auto it = tagObj.begin(); it != tagObj.end(); ++it) {
-        const QString name = it.key().trimmed();
+    for (auto it = tagObj.begin(); it != tagObj.end(); ++it) {        const QString name = it.key().trimmed();
         if (name.isEmpty())
             continue;
         TagSuggestion s;
@@ -230,6 +231,50 @@ QVector<TagSuggestion> parseHybooru(const QByteArray &body) {
         if (s.tag.isEmpty())
             continue;
         s.count = it.value().toInt(0);
+        out.append(s);
+    }
+    return takeCapped(out, 24);
+}
+
+QVector<TagSuggestion> parseNuuru(const QByteArray &body) {
+    // Shape unobserved live (search needs a browser session); tolerant:
+    // [{name, category, postCount?}] or {"tags": [...]}, mirroring the
+    // native taxonomy of the detail objects.
+    QVector<TagSuggestion> out;
+    QJsonParseError err;
+    const QJsonDocument doc = QJsonDocument::fromJson(body, &err);
+    if (err.error != QJsonParseError::NoError)
+        return out;
+    QJsonArray arr;
+    if (doc.isArray())
+        arr = doc.array();
+    else if (doc.isObject())
+        arr = doc.object().value(QStringLiteral("tags")).toArray();
+    for (const QJsonValue &v : arr) {
+        if (!v.isObject())
+            continue;
+        const QJsonObject o = v.toObject();
+        const QString name = o.value(QStringLiteral("name")).toString().trimmed();
+        if (name.isEmpty())
+            continue;
+        TagSuggestion s;
+        s.tag = name;
+        // Same folds as fromNuuru: variant/subvariant read as character.
+        const QString ns = o.value(QStringLiteral("category")).toString().toLower();
+        if (ns == QStringLiteral("character") || ns == QStringLiteral("variant") ||
+            ns == QStringLiteral("subvariant"))
+            s.bucket = QStringLiteral("character");
+        else if (ns == QStringLiteral("series"))
+            s.bucket = QStringLiteral("copyright");
+        else if (ns == QStringLiteral("artist"))
+            s.bucket = QStringLiteral("artist");
+        else if (ns == QStringLiteral("meta") || ns == QStringLiteral("medium") ||
+                 ns == QStringLiteral("title"))
+            s.bucket = QStringLiteral("meta");
+        else
+            s.bucket = QStringLiteral("general");
+        s.count = o.value(QStringLiteral("postCount")).toInt(
+            o.value(QStringLiteral("usages")).toInt(0));
         out.append(s);
     }
     return takeCapped(out, 24);
@@ -305,6 +350,14 @@ QUrl TagSuggester::urlFor(BooruEngine engine, const QString &baseUrl,
         QUrl url(baseUrl + QStringLiteral("/api/tags"));
         QUrlQuery q;
         q.addQueryItem(QStringLiteral("query"), prefix);
+        url.setQuery(q);
+        return url;
+    }
+    if (engine == BooruEngine::Nuuru) {
+        QUrl url(baseUrl + QStringLiteral("/api/booru/tags/search"));
+        QUrlQuery q;
+        q.addQueryItem(QStringLiteral("query"), prefix);
+        q.addQueryItem(QStringLiteral("limit"), QStringLiteral("24"));
         url.setQuery(q);
         return url;
     }
@@ -464,6 +517,8 @@ QVector<TagSuggestion> TagSuggester::parse(BooruEngine engine,
         return parseSzuru(body);
     case BooruEngine::Hybooru:
         return parseHybooru(body);
+    case BooruEngine::Nuuru:
+        return parseNuuru(body);
     case BooruEngine::Shimmie:
         return {};
     }
