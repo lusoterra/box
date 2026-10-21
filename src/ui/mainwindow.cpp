@@ -1281,6 +1281,36 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
                     doneMsg += tr(" (%1 already downloaded)").arg(sum.skipped);
                 statusBar()->showMessage(doneMsg, 8000);
                 m_dlHide->start();
+                // Media walls join the Solve button (kept apart from search
+                // walls: no auto-popup, no drop/close); a later success for
+                // the same site clears them again.
+                if (!sum.wallTargets.isEmpty()) {
+                    for (const auto &wt : sum.wallTargets) {
+                        bool known = false;
+                        for (const auto &have : m_mediaWalls) {
+                            if (have.first == wt.first) {
+                                known = true;
+                                break;
+                            }
+                        }
+                        if (!known)
+                            m_mediaWalls.append(wt);
+                    }
+                    updateWallButton();
+                }
+                for (const Post &post : sum.downloaded) {
+                    if (post.siteKey.isEmpty())
+                        continue;
+                    bool changed = false;
+                    for (int i = m_mediaWalls.size() - 1; i >= 0; --i) {
+                        if (m_mediaWalls.at(i).first == post.siteKey) {
+                            m_mediaWalls.removeAt(i);
+                            changed = true;
+                        }
+                    }
+                    if (changed)
+                        updateWallButton();
+                }
             });
     statusBar()->showMessage(tr("Ready"));
     statusBar()->installEventFilter(this); // click errors -> response viewer
@@ -2097,6 +2127,7 @@ void MainWindow::doBrowseSearch(bool append) {
     clearStatusProbe(); // a new search invalidates the old error details
     m_wallSites.clear();
     m_wallKinds.clear();
+    m_wallFailUrls.clear();
     updateWallButton();
     m_appendResults = append;
     m_searchRetried = false; // each search earns its own single retry
@@ -2297,6 +2328,9 @@ void MainWindow::onRemoteFinished() {
                 ps.wall = true;
             if (done->lastWall() && ps.wallKind.isEmpty())
                 ps.wallKind = done->lastWallKind();
+            if (done->lastWall() && ps.failUrl.isEmpty() &&
+                done->lastUrl().isValid())
+                ps.failUrl = done->lastUrl();
             break;
         }
     }
@@ -2399,6 +2433,7 @@ void MainWindow::onRemoteFinished() {
         }
     }
     QHash<QString, QString> wallKinds;
+    QHash<QString, QUrl> wallFailUrls;
     for (const QString &key : sites) {
         if (isVirtualSource(key))
             continue;
@@ -2408,6 +2443,8 @@ void MainWindow::onRemoteFinished() {
         wallSites << key;
         if (!bit->wallKind.isEmpty())
             wallKinds.insert(key, bit->wallKind);
+        if (!bit->failUrl.isEmpty())
+            wallFailUrls.insert(key, bit->failUrl);
     }
     m_pendingSites.clear();
     m_loadingPage = false;
@@ -2462,6 +2499,7 @@ void MainWindow::onRemoteFinished() {
     }
     m_wallSites = wallSites;
     m_wallKinds = wallKinds;
+    m_wallFailUrls = wallFailUrls;
     updateWallButton();
     // Captcha/PoW wall on fresh searches only (infinite-scroll appends
     // must never steal focus with popups): pop the solve browser open by
@@ -2476,7 +2514,8 @@ void MainWindow::onRemoteFinished() {
                 5 * 60 * 1000) {
                 m_lastWallPopup.insert(wallSites.first(), now);
                 solveWallInBrowser(wallSites.first(),
-                                   m_wallKinds.value(wallSites.first()));
+                                   m_wallKinds.value(wallSites.first()),
+                                   m_wallFailUrls.value(wallSites.first()));
             }
         } else {
             showWallMenu(wallSites);
@@ -2524,7 +2563,8 @@ void MainWindow::showWallMenu(const QStringList &wallSites) {
             tr("Solve %1 challenge in browser…").arg(label));
         connect(solve, &QAction::triggered, this,
                 [this, key] {
-                    solveWallInBrowser(key, m_wallKinds.value(key));
+                    solveWallInBrowser(key, m_wallKinds.value(key),
+                                       wallStartUrl(key));
                 });
     }
     menu.addSeparator();
@@ -2550,7 +2590,8 @@ void MainWindow::showWallMenu(const QStringList &wallSites) {
 }
 
 void MainWindow::solveWallInBrowser(const QString &siteKey,
-                                      const QString &wallKind) {
+                                      const QString &wallKind,
+                                      const QUrl &startUrl) {
     int idx = -1;
     for (int i = 0; i < m_settings.boorus.size(); ++i) {
         if (m_settings.boorus.at(i).key == siteKey) {
@@ -2569,8 +2610,14 @@ void MainWindow::solveWallInBrowser(const QString &siteKey,
     CookieGrabDialog dlg(entry.label, entry.baseUrl,
                          effectiveDataDir(m_settings) +
                              QStringLiteral("/webprofile"),
-                         this, wallKind);
+                         this, wallKind, startUrl);
     if (dlg.exec() == QDialog::Accepted && !dlg.cookies().isEmpty()) {
+        // A solved media wall clears too (same entry, file-host page).
+        for (int i = m_mediaWalls.size() - 1; i >= 0; --i) {
+            if (m_mediaWalls.at(i).first == siteKey)
+                m_mediaWalls.removeAt(i);
+        }
+        updateWallButton();
         entry.cookies = dlg.cookies();
         saveSettings(m_settings);
         RemoteSource::setConfiguredBoorus(m_settings.boorus);
@@ -2585,21 +2632,42 @@ void MainWindow::solveWallInBrowser(const QString &siteKey,
     }
 }
 
+QUrl MainWindow::wallStartUrl(const QString &siteKey) const {
+    if (m_wallFailUrls.contains(siteKey))
+        return m_wallFailUrls.value(siteKey);
+    for (const auto &wt : m_mediaWalls) {
+        if (wt.first == siteKey)
+            return QUrl(wt.second);
+    }
+    return {};
+}
+
+static QStringList wallKeysOf(const QStringList &search,
+                              const QList<QPair<QString, QString>> &media) {
+    QStringList keys = search;
+    for (const auto &wt : media) {
+        if (!keys.contains(wt.first))
+            keys.append(wt.first);
+    }
+    return keys;
+}
+
 void MainWindow::updateWallButton() {
     if (!m_wallSolveBtn)
         return;
-    if (m_wallSites.isEmpty()) {
+    const QStringList keys = wallKeysOf(m_wallSites, m_mediaWalls);
+    if (keys.isEmpty()) {
         m_wallSolveBtn->setVisible(false);
         return;
     }
-    if (m_wallSites.size() == 1) {
-        const BooruSite *cfg = RemoteSource::siteFor(m_wallSites.first());
+    if (keys.size() == 1) {
+        const BooruSite *cfg = RemoteSource::siteFor(keys.first());
         m_wallSolveBtn->setText(
             tr("Solve %1 in browser…")
-                .arg(cfg ? cfg->label : m_wallSites.first()));
+                .arg(cfg ? cfg->label : keys.first()));
     } else {
         m_wallSolveBtn->setText(
-            tr("Solve walls (%1)…").arg(m_wallSites.size()));
+            tr("Solve walls (%1)…").arg(keys.size()));
     }
     m_wallSolveBtn->setToolTip(
         tr("Open the capture browser: grab cookies, ride PoW, solve "
@@ -2608,22 +2676,24 @@ void MainWindow::updateWallButton() {
 }
 
 void MainWindow::solveWallFromButton() {
-    if (m_wallSites.isEmpty())
+    const QStringList keys = wallKeysOf(m_wallSites, m_mediaWalls);
+    if (keys.isEmpty())
         return;
-    if (m_wallSites.size() == 1) {
-        solveWallInBrowser(m_wallSites.first(),
-                           m_wallKinds.value(m_wallSites.first()));
+    if (keys.size() == 1) {
+        solveWallInBrowser(keys.first(), m_wallKinds.value(keys.first()),
+                           wallStartUrl(keys.first()));
         return;
     }
     QMenu menu(this);
-    for (const QString &key : m_wallSites) {
+    for (const QString &key : keys) {
         const BooruSite *cfg = RemoteSource::siteFor(key);
         QAction *solve = menu.addAction(
             tr("Solve %1 challenge in browser…")
                 .arg(cfg ? cfg->label : key));
         connect(solve, &QAction::triggered, this,
                 [this, key] {
-                    solveWallInBrowser(key, m_wallKinds.value(key));
+                    solveWallInBrowser(key, m_wallKinds.value(key),
+                                       wallStartUrl(key));
                 });
     }
     menu.exec(QCursor::pos());

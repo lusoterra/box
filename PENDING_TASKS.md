@@ -465,3 +465,14 @@
   auto-popup against repeat firing (5 min per site).
 - [x] Solver + 449 integration + entry backfill + popup guard; tests.
 - [x] Build + `ctest` (+ docs).
+
+## 40. Solve browser opens where the wall is (failing-URL capture) — DONE
+##    (dialog startUrl + search failUrl + download wallTargets; atf-anti-bot
+##    finding recorded; build OK, 31/31 tests)
+- Homepage capture mints nothing when the wall lives on another endpoint
+  (ATF: API/file hosts challenge while `/` lets you through; a saved
+  `atf-anti-bot` cookie even reads as a false solve). Thread the failing
+  URL into the dialog: search walls pass the failed request URL, media
+  walls pass the failed file URL (recorded in the download summary).
+- [x] startUrl plumbing (dialog + solve entry points + summary wall targets).
+- [x] Build + `ctest` (+ docs).

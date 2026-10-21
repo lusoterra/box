@@ -274,7 +274,11 @@ private:
     // browser, or drop the booru (deselect in multibooru, close tab solo).
     void showWallMenu(const QStringList &wallSites);
     void solveWallInBrowser(const QString &siteKey,
-                                const QString &wallKind = {});
+                                const QString &wallKind = {},
+                                const QUrl &startUrl = {});
+    // Start page for the solve browser: the failing request URL when the
+    // wall was observed, else a media-wall file URL, else empty (homepage).
+    QUrl wallStartUrl(const QString &siteKey) const;
     void dropWallSites(const QStringList &siteKeys);
     void applyBrowseFilter();
     void sortPosts(QVector<Post> &posts, const QString &sort);
@@ -406,6 +410,11 @@ private:
     QPushButton *m_wallSolveBtn = nullptr; // status-bar one-click wall solver
     QStringList m_wallSites; // walled sites from the last finished search
     QHash<QString, QString> m_wallKinds; // site key -> pow/captcha/challenge
+    QHash<QString, QUrl> m_wallFailUrls; // site key -> failing request URL
+    // Media walls (downloaded HTML instead of bytes): (siteKey, file URL).
+    // Kept apart from search walls (no auto-popup, no drop/close actions);
+    // the Solve button covers the union of both.
+    QList<QPair<QString, QString>> m_mediaWalls;
     QHash<QString, qint64> m_lastWallPopup; // site key -> last auto-popup
                                            // (loop breaker: a solve that
                                            // doesn't stick must not summon
@@ -433,6 +442,7 @@ private:
         bool transientError = false;   // any completion looked retryable
         bool wall = false; // any completion died on a captcha/PoW wall
         QString wallKind; // pow | captcha | challenge (first wins)
+        QUrl failUrl;   // exact request URL that walled (dialog start page)
     };
     QHash<QString, PendingSite> m_pendingSites;
     // Fetched classify verdicts, applied per host group so buckets a host

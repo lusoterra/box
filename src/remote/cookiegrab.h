@@ -136,7 +136,8 @@ class CookieGrabDialog : public QDialog {
 public:
     CookieGrabDialog(const QString &siteLabel, const QString &baseUrl,
                      const QString &profilePath, QWidget *parent = nullptr,
-                     const QString &wallKind = {});
+                     const QString &wallKind = {},
+                     const QUrl &startUrl = {});
     // Wall that triggered this capture ("pow" | "captcha" | "challenge"):
     // tailors the in-dialog guidance (PoW self-solves on bundle pages,
     // captchas need a human) because the wall often only fires once the

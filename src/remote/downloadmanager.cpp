@@ -392,14 +392,31 @@ void DownloadManager::onFileReply() {
             QFile probe(job.filePath);
             if (probe.open(QIODevice::ReadOnly))
                 head = probe.read(65536);
+            const bool isWall =
+                RemotePosts::looksLikeChallengePage(head) ||
+                RemotePosts::looksLikeCloudflareWall(head);
             error = RemotePosts::wallAwareMediaError(
                 QUrl(job.post.fileUrl).host(), head,
                 reply->header(QNetworkRequest::ContentTypeHeader).toString());
+            if (isWall) {
+                QFile::remove(job.filePath);
+                reply->deleteLater();
+                finishJob(job, false, error, true);
+                delete flight;
+                return;
+            }
         } else {
             flight->file->write(reply->readAll()); // trailing bytes
             flight->file->close();
-            if (!completeJob(job, &error))
+            bool walled = false;
+            if (!completeJob(job, &error, &walled))
                 ok = false;
+            if (walled) {
+                reply->deleteLater();
+                finishJob(job, ok, error, true);
+                delete flight;
+                return;
+            }
         }
     } else if (!ok) {
         const int http =
@@ -433,9 +450,10 @@ void DownloadManager::onWebFinished(qint64 id, bool ok, const QString &errorIn) 
     delete flight;
     QString error = errorIn;
     // The backend drops partial files itself on failure.
-    if (ok && !completeJob(job, &error))
+    bool walled = false;
+    if (ok && !completeJob(job, &error, &walled))
         ok = false;
-    finishJob(job, ok, error);
+    finishJob(job, ok, error, walled);
     pump();
 }
 
@@ -487,11 +505,14 @@ bool DownloadManager::convertUgoiraZip(DownloadJob &job, QJsonObject &raw,
     return true;
 }
 
-bool DownloadManager::completeJob(DownloadJob &job, QString *error) {
+bool DownloadManager::completeJob(DownloadJob &job, QString *error,
+                                   bool *walled) {
     // Last line of defense on every path: a wall page saved as media is
     // worse than a clear failure (it poisons the library silently).
     if (fileLooksLikeHtml(job.filePath)) {
         QFile::remove(job.filePath);
+        if (walled)
+            *walled = true;
         if (error)
             *error = tr("Server returned a page, not media (challenge "
                         "still active — solve once in Capture in browser…)");
@@ -555,7 +576,14 @@ bool DownloadManager::completeJob(DownloadJob &job, QString *error) {
     return false;
 }
 
-void DownloadManager::finishJob(const DownloadJob &job, bool ok, const QString &error) {
+void DownloadManager::finishJob(const DownloadJob &job, bool ok,
+                                 const QString &error, bool walled) {
+    if (!ok && walled) {
+        // HTML-where-media-was-expected: remember where, so the solve
+        // browser opens AT the wall instead of the homepage.
+        if (const BooruSite *e = RemotePosts::entryForPost(job.post))
+            m_summary.wallTargets.append({e->key, job.post.fileUrl});
+    }
     if (ok) {
         m_summary.done++;
         m_summary.downloaded.append(job.post);

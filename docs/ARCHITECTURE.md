@@ -49,6 +49,11 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     on any IP change. Only captchas still need the human browser path.
     Traffic rides the browser-backed stack (`powWall` quirk on
     `soybooru.com`);
+    ATF notes: the wall is an `atf-anti-bot` cookie (minted by the checkbox
+    verification page; rotates, so re-capture is routine) plus per-endpoint
+    captchas. Media/file hosts challenge independently of `/`, so capture
+    and re-solve target the failing URL (`PendingSite::failUrl`,
+    `DownloadSummary::wallTargets`), never just the homepage.
     files at `/api/booru/posts/<id>/file`, thumbs at `…/thumbnail`, native
     Flag/Media/Meta/Series/Subvariant/Trend/Variant/Uncategorized taxonomy
     in `customTags`.

@@ -100,13 +100,21 @@ CookieGrabDialog::CookieGrabDialog(const QString &siteLabel,
                                    const QString &baseUrl,
                                    const QString &profilePath,
                                    QWidget *parent,
-                                   const QString &wallKind)
+                                   const QString &wallKind,
+                                   const QUrl &startUrl)
     : QDialog(parent), m_host(QUrl(baseUrl).host().toLower()) {
+    // A failing URL opens AT the wall (media/file hosts challenge while
+    // the homepage lets you through); cookies still harvest for the
+    // entry's host, the profile jar keeps the rest for browser fetches.
+    const QUrl first = startUrl.isValid() ? startUrl : QUrl(baseUrl);
+    if (startUrl.isValid())
+        m_host = first.host().toLower();
     if (wallKind == QStringLiteral("pow"))
         setWindowTitle(tr("Solve proof-of-work — %1").arg(siteLabel));
     else if (wallKind == QStringLiteral("captcha"))
         setWindowTitle(tr("Solve captcha — %1").arg(siteLabel));
-    setWindowTitle(tr("Capture cookies — %1").arg(siteLabel));
+    else
+        setWindowTitle(tr("Capture cookies — %1").arg(siteLabel));
     resize(960, 680);
     // Qt6 initializes WebEngine on first use; no manual init needed.
     auto *lay = new QVBoxLayout(this);
@@ -155,10 +163,10 @@ CookieGrabDialog::CookieGrabDialog(const QString &siteLabel,
                      "so the %2 appears (proof-of-work solves itself, a "
                      "captcha needs you), then press <b>Use these "
                      "cookies</b>.")
-                      .arg(baseUrl, wallKind));
+                      .arg(first.toString(), wallKind));
     else
-        setStatus(tr("Loading %1…").arg(baseUrl));
-    m_view->load(QUrl(baseUrl));
+        setStatus(tr("Loading %1…").arg(first.toString()));
+    m_view->load(first);
     // The persistent jar replays its cookies as added-events on startup.
     // Only auto-save on challenges solved *in this capture*, not on a
     // restored login (which would self-accept the moment the dialog opens).

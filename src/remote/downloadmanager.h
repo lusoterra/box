@@ -38,6 +38,9 @@ struct DownloadSummary {
     int skipped = 0; // already on disk
     int failed = 0;
     QStringList errors;
+    // (siteKey, walled file URL) for HTML-where-media-was-expected:
+    // the solve browser opens AT the wall instead of the homepage.
+    QList<QPair<QString, QString>> wallTargets;
     QVector<Post> downloaded; // saved or already-on-disk posts (for auto-favourite)
     // Final on-disk paths by file URL (after any md5 rename below).
     QList<QPair<QString, QString>> finalPaths;
@@ -94,11 +97,13 @@ private:
     };
     void pump();
     void onFileReply();
-    void finishJob(const DownloadJob &job, bool ok, const QString &error);
+    void finishJob(const DownloadJob &job, bool ok, const QString &error,
+                   bool walled = false);
     // Post-write finalization shared by both backends: content sniff,
     // md5 hash-and-rename for nameless files, sidecar write.
     // Returns false with error set when the file must be dropped.
-    bool completeJob(DownloadJob &job, QString *error);
+    bool completeJob(DownloadJob &job, QString *error,
+                     bool *walled = nullptr);
     Flight *findWebFlight(qint64 webId);
     QNetworkAccessManager *namForProxy(const QString &proxySpec);
 
