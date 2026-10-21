@@ -119,6 +119,25 @@ std::pair<QString, qint64> favIdentity(const Post &p) {
     return {QStringLiteral("local"), FavDb::pidFor(p)};
 }
 
+namespace {
+// Stable per-tab viewer identity: remote rows by site#id, local rows by
+// file path. Survives refills/reorders; falls back to grid when gone.
+QString viewerKeyFor(const Post &post) {
+    if (post.isRemote) {
+        const auto [site, pid] = favIdentity(post);
+        if (!site.isEmpty() && pid != 0)
+            return site + u'#' + QString::number(pid);
+        if (!post.fileUrl.isEmpty())
+            return QStringLiteral("url|") + post.fileUrl;
+        return {};
+    }
+    if (!post.absFile.isEmpty())
+        return QStringLiteral("file|") +
+               QFileInfo(post.absFile).canonicalFilePath();
+    return {};
+}
+} // namespace
+
 // Identity for list dedupe: remote rows with a content hash collapse
 // across entries (Tor onion vs I2P mirror twins of one file); otherwise
 // remote rows key by site+id (id-less by site+ file URL so distinct
@@ -6595,25 +6614,6 @@ void MainWindow::showViewerTagMenu(const QString &tag, const QPoint &globalPos) 
         newTab->setEnabled(false);
     menu.exec(globalPos);
 }
-
-namespace {
-// Stable per-tab viewer identity: remote rows by site#id, local rows by
-// file path. Survives refills/reorders; falls back to grid when gone.
-QString viewerKeyFor(const Post &post) {
-    if (post.isRemote) {
-        const auto [site, pid] = favIdentity(post);
-        if (!site.isEmpty() && pid != 0)
-            return site + u'#' + QString::number(pid);
-        if (!post.fileUrl.isEmpty())
-            return QStringLiteral("url|") + post.fileUrl;
-        return {};
-    }
-    if (!post.absFile.isEmpty())
-        return QStringLiteral("file|") +
-               QFileInfo(post.absFile).canonicalFilePath();
-    return {};
-}
-} // namespace
 
 void MainWindow::showViewer(int row) {
     if (row >= 0 && row < m_current.size())
