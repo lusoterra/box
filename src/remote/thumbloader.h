@@ -63,10 +63,10 @@ private:
     ThumbLoader *m_loader;
     QString m_key;
     QString m_path;
-    QString m_referer;
     qint64 m_mtime;
     qint64 m_size;
     int m_longSide;
+    QString m_referer;
 };
 
 class QMediaPlayer;

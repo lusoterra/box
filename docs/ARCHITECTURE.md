@@ -25,12 +25,12 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
 ## Module map
 
 - `src/engines/` — per-engine API shapes behind `BooruEngineOps`
-  (`src/engines/booruengine.h:74`: `searchUrl`/`parseSearch`/`refreshUrl`/
-  `parseSingle`/`applyAuth`; `engineOps()` at `:121`).
+  (`src/engines/booruengine.h:99`: `searchUrl`/`parseSearch`/`refreshUrl`/
+  `parseSingle`/`applyAuth`; `engineOps()` at `:146`).
   - Pure shared helpers in `RemotePosts`: `translateSearchTags`,
     `sortSearchTag`, `isTransientSearchError`, `fromDanbooru/Gelbooru/Moebooru/
     Szuru/Shimmie/Hybooru/Nuuru/Hiddenbooru`, `parseShimmieXml`
-    (`src/engines/booruengine.h:26-60`).
+    (`src/engines/booruengine.h:25-95`).
     HiddenBooru notes: shapes from the v0.8 source tarball (Tor-first
     instance + I2P mirror; plain fetches need the Tor stack); `terms=`
     search with `id:` refresh narrowing, `/api/tag/complete` suggestions,

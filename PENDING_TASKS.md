@@ -379,12 +379,19 @@
   Tiny, complements the Image-search menu.
 - [x] Rate menu + persist per session; build + `ctest` (+ docs).
 
-## 34. Shrink the codebase (dead-code cleanup, very last)
+## 34. Shrink the codebase (dead-code cleanup, very last) — DONE
+##    (`-Wall -Wextra` audit in a scratch build dir: removed unused
+##    `hiddenbooruIsVideo`, dead `downloadable` local, fixed member
+##    init-order warnings, default-initialized `BooruSite::engine`
+##    (was indeterminate), added missing Nuuru/Hiddenbooru post-page
+##    cases; refreshed stale ARCHITECTURE line refs. C++20 evaluated:
+##    no shrinkage without churn (Qt containers already have
+##    `contains()`), so the codebase stays on C++17; build OK, 30/30 tests)
 - The codebase has grown big: audit for dead code, retired helpers,
   unused settings/strings, and machinery made obsolete by earlier tasks,
   and remove it. Behaviour must not change. Allowed lever: bump the
   language standard to C++20 where it deletes hand-rolled helpers.
-- [ ] Survey for unused functions/members/strings (compiler warnings,
+- [x] Survey for unused functions/members/strings (compiler warnings,
       `grep` for single-use sites, test-only leftovers); delete with
       justification per removal. C++20 bump where it shrinks code.
-- [ ] Build + full `ctest` after each removal batch.
+- [x] Build + full `ctest` after each removal batch.

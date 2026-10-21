@@ -389,6 +389,7 @@ private:
     // registry serialization is the slowest part of a switch).
     QTimer *m_saveTimer = nullptr;
     ImageCache *m_imgCache = nullptr;
+    PostRefresher *m_refresher = nullptr;
     DownloadManager *m_downloads = nullptr;
     class DownloadsDialog *m_dlDialog = nullptr;
     // Download destinations written since their tab last scanned
@@ -396,7 +397,6 @@ private:
     // files show up without a manual F5. Cleared once consumed.
     QSet<QString> m_dirtyRoots;
     FavDb m_favDb;
-    PostRefresher *m_refresher = nullptr;
     // Last browse error with its raw request/response attached. The status
     // bar shows a one-liner; clicking it opens the full inspector.
     QString m_statusProbeTitle;

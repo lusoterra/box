@@ -36,7 +36,7 @@ struct BooruSite {
     QString shortName; // grid badge text, user-editable ("DAN", "R34", …)
     QString badgeColor = QStringLiteral("#3a7ec2"); // grid badge background
     QString baseUrl;  // empty = self-hosted, not configured yet
-    BooruEngine engine;
+    BooruEngine engine = BooruEngine::Danbooru; // never indeterminate
     bool needsCreds = false; // login-walled listing (none currently enforce)
     QString user;     // per-booru credentials (empty = anonymous)
     QString secret;   // danbooru key / gelbooru key / moebooru password / token

@@ -777,6 +777,11 @@ QString postPageUrlFor(const BooruSite &site, qint64 id) {
         return base + QStringLiteral("/post/view/") + QString::number(id);
     case BooruEngine::Hybooru:
         return base + QStringLiteral("/posts/") + QString::number(id);
+    case BooruEngine::Nuuru:
+        return base + QStringLiteral("/post/view/") + QString::number(id);
+    case BooruEngine::Hiddenbooru:
+        return base + QStringLiteral("/post/") + QString::number(id) +
+               QStringLiteral("/view");
     case BooruEngine::Gelbooru:
     case BooruEngine::Safebooru:
         return base + QStringLiteral("/index.php?page=post&s=view&id=") +

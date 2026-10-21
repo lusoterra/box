@@ -37,16 +37,6 @@ QString hiddenbooruRating(const QJsonObject &o) {
     return v;
 }
 
-bool hiddenbooruIsVideo(const QJsonObject &o, const QString &ext) {
-    if (o.value(QStringLiteral("mtype")).toString().compare(
-            QStringLiteral("v"), Qt::CaseInsensitive) == 0)
-        return true;
-    return ext == QStringLiteral("mp4") || ext == QStringLiteral("webm") ||
-           ext == QStringLiteral("mkv") || ext == QStringLiteral("mov") ||
-           ext == QStringLiteral("avi") || ext == QStringLiteral("flv") ||
-           ext == QStringLiteral("wmv") || ext == QStringLiteral("mpeg");
-}
-
 class EngineHiddenbooru : public BooruEngineOps {
 public:
     QUrl searchUrl(const Context &ctx, const QStringList &tags, int page,

@@ -1777,9 +1777,6 @@ void MainWindow::finishActivateTab(int tabIdx) {
 void MainWindow::setBrowseUi(bool browse) {
     const BrowserTab *t = currentTab();
     const bool favs = t && t->isFavourites;
-    // Favourites get the same select/download tools as browse tabs
-    // (mass-download what you starred); local archives stay clean.
-    const bool downloadable = browse || favs;
     m_categoryBox->setVisible(!browse);
     m_sitesBtn->setVisible(browse);
     m_pageLabel->setVisible(browse);
