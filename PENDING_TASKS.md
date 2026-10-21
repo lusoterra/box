@@ -452,7 +452,8 @@
 
 ## 39. Solve PoW natively on the API stack (kill the re-capture loop) — DONE
 ##    (`PowSolver` on the searching QNAM + entry backfill + 5-min popup guard;
-##    worker-math tests; build OK, 31/31 tests)
+##    worker-math tests; Tor-trap hint when a local Tor proxy breaks the
+##    IP-bound clearance; build OK, 31/31 tests)
 - The `pow_token` embeds the client IP (verified live: same-IP works,
   other-IP 449s), so browser-solved tokens die on any egress change
   (Tor exit rotation especially) — re-capture can never converge.

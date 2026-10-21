@@ -1092,6 +1092,22 @@ private slots:
         RemotePosts::setGlobalProxy(QString());
     }
 
+    void torProxyLooksLike() {
+        using RemotePosts::proxyLooksLikeTor;
+        using RemotePosts::setGlobalProxy;
+        setGlobalProxy(QString());
+        QVERIFY(!proxyLooksLikeTor(QString()));
+        QVERIFY(!proxyLooksLikeTor(QStringLiteral("direct")));
+        QVERIFY(!proxyLooksLikeTor(QStringLiteral("http://127.0.0.1:9050")));
+        QVERIFY(!proxyLooksLikeTor(QStringLiteral("socks5h://127.0.0.1:1080")));
+        QVERIFY(!proxyLooksLikeTor(QStringLiteral("socks5h://proxy.example:9050")));
+        QVERIFY(proxyLooksLikeTor(QStringLiteral("socks5h://127.0.0.1:9050")));
+        QVERIFY(proxyLooksLikeTor(QStringLiteral("socks5://localhost:9150")));
+        setGlobalProxy(QStringLiteral("socks5h://127.0.0.1:9050"));
+        QVERIFY(proxyLooksLikeTor(QString())); // global fallback applies
+        setGlobalProxy(QString());
+    }
+
     void webEngineProxyFlag() {
         using RemotePosts::chromiumProxyServer;
         // Unusable specs map to empty (WebEngine stays direct).

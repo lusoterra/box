@@ -146,6 +146,17 @@ QNetworkProxy proxyFromSpec(const QString &spec) {
     return proxy;
 }
 
+bool proxyLooksLikeTor(const QString &spec) {
+    const QNetworkProxy proxy = proxyFromSpec(spec);
+    if (proxy.type() != QNetworkProxy::Socks5Proxy)
+        return false;
+    const QString host = proxy.hostName().toLower();
+    if (host != QStringLiteral("127.0.0.1") &&
+        host != QStringLiteral("localhost") && host != QStringLiteral("::1"))
+        return false;
+    return proxy.port() == 9050 || proxy.port() == 9150;
+}
+
 QString chromiumProxyServer(const QString &spec) {
     const QString use = spec.trimmed();
     if (use.isEmpty() || use.compare(QStringLiteral("direct"),
@@ -373,6 +384,10 @@ QString RemoteSource::powWallError(bool captcha,
     if (!captcha && !m_lastPowError.isEmpty())
         err += tr(" (automatic proof-of-work failed: %1)")
                    .arg(m_lastPowError);
+    if (!captcha &&
+        RemotePosts::proxyLooksLikeTor(RemotePosts::proxyForUrl(m_baseUrl)))
+        err += tr(" (Tor rotates exit IPs and this clearance is IP-bound: "
+                  "set this booru's proxy to direct).");
     return err;
 }
 

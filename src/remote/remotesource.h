@@ -211,6 +211,10 @@ QString globalProxySpec();
 // Parse a proxy spec (http://[user:pass@]host:port, socks5://...).
 // Default-constructed (direct) when empty or unparseable.
 QNetworkProxy proxyFromSpec(const QString &spec);
+// True when the effective proxy (spec, else global) is a local Tor
+// SOCKS port (9050/9150): exits rotate, which kills IP-bound clearances
+// (soybooru pow_token). Pure (unit-tested).
+bool proxyLooksLikeTor(const QString &spec);
 // Chromium --proxy-server value for one box proxy spec ("" / "direct" ->
 // ""). socks5h normalizes to Chromium's socks5 (same remote-DNS behavior).
 QString chromiumProxyServer(const QString &spec);
