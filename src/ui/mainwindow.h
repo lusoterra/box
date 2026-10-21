@@ -273,7 +273,8 @@ private:
     // Captcha/PoW wall menu for wall-blocked sites: solve in the capture
     // browser, or drop the booru (deselect in multibooru, close tab solo).
     void showWallMenu(const QStringList &wallSites);
-    void solveWallInBrowser(const QString &siteKey);
+    void solveWallInBrowser(const QString &siteKey,
+                                const QString &wallKind = {});
     void dropWallSites(const QStringList &siteKeys);
     void applyBrowseFilter();
     void sortPosts(QVector<Post> &posts, const QString &sort);
@@ -404,6 +405,7 @@ private:
     bool m_statusProbeValid = false;
     QPushButton *m_wallSolveBtn = nullptr; // status-bar one-click wall solver
     QStringList m_wallSites; // walled sites from the last finished search
+    QHash<QString, QString> m_wallKinds; // site key -> pow/captcha/challenge
     void updateWallButton(); // visibility + label follow m_wallSites
     void solveWallFromButton(); // first site, or a menu when several
     Post m_refreshPost; // post currently being tag-refreshed
@@ -426,6 +428,7 @@ private:
         QString probe;                 // its raw diagnostics section
         bool transientError = false;   // any completion looked retryable
         bool wall = false; // any completion died on a captcha/PoW wall
+        QString wallKind; // pow | captcha | challenge (first wins)
     };
     QHash<QString, PendingSite> m_pendingSites;
     // Fetched classify verdicts, applied per host group so buckets a host

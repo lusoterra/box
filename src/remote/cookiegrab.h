@@ -135,7 +135,12 @@ class CookieGrabDialog : public QDialog {
     Q_OBJECT
 public:
     CookieGrabDialog(const QString &siteLabel, const QString &baseUrl,
-                     const QString &profilePath, QWidget *parent = nullptr);
+                     const QString &profilePath, QWidget *parent = nullptr,
+                     const QString &wallKind = {});
+    // Wall that triggered this capture ("pow" | "captcha" | "challenge"):
+    // tailors the in-dialog guidance (PoW self-solves on bundle pages,
+    // captchas need a human) because the wall often only fires once the
+    // site is actually used, not on the landing page.
     ~CookieGrabDialog() override;
     QStringList cookies() const { return m_cookies; }
     // Silent clearance renewal: loads the page in a hidden view on the

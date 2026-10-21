@@ -40,8 +40,12 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     and the browser-backed stack retries it, so the embedded browser
     must ride the same proxy (`applyWebEngineProxy`, `--proxy-server`
     at startup) or onion hosts fail it with ERR_NAME_NOT_RESOLVED.
-    Nuuru notes: plain fetches hit a PoW wall (`pow_required`), so traffic
-    rides the browser-backed stack (`powWall` quirk on `soybooru.com`);
+    Nuuru notes: plain fetches hit HTTP 449 `{"error":"pow_required"}`
+    (or `captcha_required`: hCaptcha via `/api/captcha/*`); PoW is a WASM
+    worker (`/api/pow/challenge` → `/api/pow/verify`). Both fire only on
+    bundle-driven pages, so capture guidance tells the user to search
+    in-page; the app recognizes both tokens as walls. Traffic rides the
+    browser-backed stack (`powWall` quirk on `soybooru.com`);
     files at `/api/booru/posts/<id>/file`, thumbs at `…/thumbnail`, native
     Flag/Media/Meta/Series/Subvariant/Trend/Variant/Uncategorized taxonomy
     in `customTags`.

@@ -443,6 +443,8 @@ private slots:
             QByteArray("[{\"id\":1}]")));
         QVERIFY(!RemotePosts::looksLikeChallengePage(
             QByteArray("[{\"id\":1}]")));
+        QVERIFY(!RemotePosts::looksLikeChallengePage(
+            QByteArray("{\"posts\":[]}")));
         QVERIFY(!RemotePosts::looksLikeCloudflareWall(
             QByteArray(200000, 'x')));
         QVERIFY(!RemotePosts::looksLikeChallengePage(

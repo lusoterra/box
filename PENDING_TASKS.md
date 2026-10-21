@@ -431,7 +431,10 @@
   while the message shows. Hides on new search / clean result.
 - [x] Button + visibility wiring; build + `ctest` (+ docs).
 
-## 38. Soybooru 449 walls: detect pow/captcha + guided re-capture
+## 38. Soybooru 449 walls: detect pow/captcha + guided re-capture — DONE
+##    (449 branch with kind-specific errors; `lastWallKind` threads into the
+##    capture dialog with tailored in-page-search guidance; detector tests;
+##    build OK, 30/30 tests)
 - Live RE (2026-10-21): API answers HTTP 449 `{"error":"pow_required"}`
   (and `captcha_required` for the hCaptcha variant); homepage returns 200
   with no cookies and fires no API calls. PoW = WASM worker
@@ -444,5 +447,5 @@
   for bare JSON — no JS runs there); thread the wall kind into the
   capture dialog with tailored guidance (search in-page so the challenge
   appears, then save); wallDetectors tests + docs.
-- [ ] 449 branch + token detection; kind-aware capture guidance.
-- [ ] Build + `ctest` (+ docs).
+- [x] 449 branch + token detection; kind-aware capture guidance.
+- [x] Build + `ctest` (+ docs).

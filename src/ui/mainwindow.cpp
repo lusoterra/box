@@ -2096,6 +2096,7 @@ void MainWindow::doBrowseSearch(bool append) {
         return;
     clearStatusProbe(); // a new search invalidates the old error details
     m_wallSites.clear();
+    m_wallKinds.clear();
     updateWallButton();
     m_appendResults = append;
     m_searchRetried = false; // each search earns its own single retry
@@ -2277,6 +2278,8 @@ void MainWindow::onRemoteFinished() {
                 ps.transientError = true;
             if (done->lastWall())
                 ps.wall = true;
+            if (done->lastWall() && ps.wallKind.isEmpty())
+                ps.wallKind = done->lastWallKind();
             break;
         }
     }
@@ -2378,12 +2381,16 @@ void MainWindow::onRemoteFinished() {
             break;
         }
     }
+    QHash<QString, QString> wallKinds;
     for (const QString &key : sites) {
         if (isVirtualSource(key))
             continue;
         const auto bit = m_pendingSites.constFind(key);
-        if (bit != m_pendingSites.constEnd() && bit->wall)
-            wallSites << key;
+        if (bit == m_pendingSites.constEnd() || !bit->wall)
+            continue;
+        wallSites << key;
+        if (!bit->wallKind.isEmpty())
+            wallKinds.insert(key, bit->wallKind);
     }
     m_pendingSites.clear();
     m_loadingPage = false;
@@ -2437,13 +2444,15 @@ void MainWindow::onRemoteFinished() {
         statusBar()->showMessage(msg, 5000);
     }
     m_wallSites = wallSites;
+    m_wallKinds = wallKinds;
     updateWallButton();
     // Captcha/PoW wall on fresh searches only (infinite-scroll appends
     // must never steal focus with popups): pop the solve browser open by
     // default, or just offer the solve-or-drop menu when opted out.
     if (!wasAppend && t->page <= 1 && !wallSites.isEmpty()) {
         if (m_settings.wallAutoPopup)
-            solveWallInBrowser(wallSites.first());
+            solveWallInBrowser(wallSites.first(),
+                               m_wallKinds.value(wallSites.first()));
         else
             showWallMenu(wallSites);
     }
@@ -2488,7 +2497,9 @@ void MainWindow::showWallMenu(const QStringList &wallSites) {
         QAction *solve = menu.addAction(
             tr("Solve %1 challenge in browser…").arg(label));
         connect(solve, &QAction::triggered, this,
-                [this, key] { solveWallInBrowser(key); });
+                [this, key] {
+                    solveWallInBrowser(key, m_wallKinds.value(key));
+                });
     }
     menu.addSeparator();
     const int liveSites = t->sites.size();
@@ -2512,7 +2523,8 @@ void MainWindow::showWallMenu(const QStringList &wallSites) {
     menu.exec(QCursor::pos());
 }
 
-void MainWindow::solveWallInBrowser(const QString &siteKey) {
+void MainWindow::solveWallInBrowser(const QString &siteKey,
+                                      const QString &wallKind) {
     int idx = -1;
     for (int i = 0; i < m_settings.boorus.size(); ++i) {
         if (m_settings.boorus.at(i).key == siteKey) {
@@ -2531,7 +2543,7 @@ void MainWindow::solveWallInBrowser(const QString &siteKey) {
     CookieGrabDialog dlg(entry.label, entry.baseUrl,
                          effectiveDataDir(m_settings) +
                              QStringLiteral("/webprofile"),
-                         this);
+                         this, wallKind);
     if (dlg.exec() == QDialog::Accepted && !dlg.cookies().isEmpty()) {
         entry.cookies = dlg.cookies();
         saveSettings(m_settings);
@@ -2573,7 +2585,8 @@ void MainWindow::solveWallFromButton() {
     if (m_wallSites.isEmpty())
         return;
     if (m_wallSites.size() == 1) {
-        solveWallInBrowser(m_wallSites.first());
+        solveWallInBrowser(m_wallSites.first(),
+                           m_wallKinds.value(m_wallSites.first()));
         return;
     }
     QMenu menu(this);
@@ -2583,7 +2596,9 @@ void MainWindow::solveWallFromButton() {
             tr("Solve %1 challenge in browser…")
                 .arg(cfg ? cfg->label : key));
         connect(solve, &QAction::triggered, this,
-                [this, key] { solveWallInBrowser(key); });
+                [this, key] {
+                    solveWallInBrowser(key, m_wallKinds.value(key));
+                });
     }
     menu.exec(QCursor::pos());
 }

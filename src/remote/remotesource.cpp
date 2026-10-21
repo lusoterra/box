@@ -295,6 +295,12 @@ bool looksLikeChallengePage(const QByteArray &body) {
     const QString text = QString::fromUtf8(body);
     if (text.contains(QStringLiteral("captcha"), Qt::CaseInsensitive))
         return true;
+    // API-walled hosts answer JSON, not HTML (soybooru: HTTP 449
+    // {"error":"pow_required"} / {"error":"captcha_required"}).
+    if (text.contains(QStringLiteral("pow_required"), Qt::CaseInsensitive) ||
+        text.contains(QStringLiteral("captcha_required"),
+                      Qt::CaseInsensitive))
+        return true;
     return text.contains(QStringLiteral("verification"), Qt::CaseInsensitive) &&
            (text.contains(QStringLiteral("challenge"), Qt::CaseInsensitive) ||
             text.contains(QStringLiteral("powSeed")) ||
@@ -334,6 +340,7 @@ void RemoteSource::search(const QStringList &tags, int page, int limit) {
     cancel();
     m_webRetried = false;
     m_lastUrl.clear();
+    m_lastWallKind.clear();
     m_lastBody.clear();
     m_lastError.clear();
     m_lastPosts.clear();
@@ -398,8 +405,7 @@ void RemoteSource::search(const QStringList &tags, int page, int limit) {
                                 .arg(reply->errorString());
             if (http == 403 &&
                 (RemotePosts::looksLikeCloudflareWall(body) ||
-                 QString::fromUtf8(body).contains(QStringLiteral("captcha"),
-                                                  Qt::CaseInsensitive))) {
+                 RemotePosts::looksLikeChallengePage(body))) {
                 // Challenge wall (Cloudflare "Just a moment", captchas,
                 // rule34.xxx's main-host wall): the HTML body names nothing
                 // actionable, so say what to do — including whether any
@@ -426,12 +432,70 @@ void RemoteSource::search(const QStringList &tags, int page, int limit) {
                             .arg(QUrl(m_baseUrl).host());
                 }
                 m_lastWall = true;
+                m_lastWallKind = QStringLiteral("challenge");
                 if (!webNote.isEmpty())
                     result.error += u' ' + webNote;
                 if (m_baseUrl.contains(QStringLiteral("rule34.xxx")))
                     result.error +=
                         tr(" User ID must be the number on the API credentials "
                            "page, not your login; anonymous access is not allowed.");
+            } else if (http == 449 &&
+                       RemotePosts::looksLikeChallengePage(body)) {
+                // API-gated hosts (soybooru): HTTP 449 + pow_required /
+                // captcha_required JSON. Bare JSON never runs site JS, so
+                // the hidden browser retry only helps when the body is a
+                // real (Cloudflare) page; otherwise say how to solve.
+                const bool captcha = QString::fromUtf8(body).contains(
+                    QStringLiteral("captcha_required"), Qt::CaseInsensitive);
+                m_lastWallKind = captcha ? QStringLiteral("captcha")
+                                         : QStringLiteral("pow");
+                QString webNote;
+                const bool htmlish =
+                    body.toLower().contains("<html") ||
+                    RemotePosts::looksLikeCloudflareWall(body);
+                if (htmlish && tryWebRetry(webNote)) {
+                    reply->deleteLater();
+                    return;
+                }
+                const QString host = QUrl(m_baseUrl).host();
+                if (m_site.cookies.isEmpty()) {
+                    result.error =
+                        (captcha
+                             ? tr("HTTP 449 \u2014 captcha required by %1. This entry "
+                                  "has no cookies saved: solve the captcha in "
+                                  "the capture browser (search on the site so "
+                                  "it appears), Apply, then retry.")
+                             : tr("HTTP 449 \u2014 proof-of-work required by %1. "
+                                  "This entry has no cookies saved: open the "
+                                  "capture browser and search on the site so "
+                                  "the challenge runs (it self-solves), Apply, "
+                                  "then retry."))
+                            .arg(host);
+                } else {
+                    result.error =
+                        (captcha
+                             ? tr("HTTP 449 \u2014 captcha required by %1. The saved "
+                                  "clearance was rejected or expired: "
+                                  "re-capture (search on the site so the "
+                                  "challenge appears), Apply, then retry.")
+                             : tr("HTTP 449 \u2014 proof-of-work required by %1. "
+                                  "The saved clearance was rejected or "
+                                  "expired: re-capture (search on the site so "
+                                  "the challenge runs), Apply, then retry."))
+                            .arg(host);
+                }
+                m_lastWall = true;
+                if (!webNote.isEmpty())
+                    result.error += u' ' + webNote;
+                if (const RemotePosts::SiteQuirk *q =
+                        RemotePosts::quirkForHost(host.toLower())) {
+                    if (q->powWall)
+                        result.error +=
+                            tr(" This site rotates its proof-of-work "
+                               "clearance even when logged in: reload it "
+                               "via Booru manager \u2192 Refresh (no puzzle), "
+                               "Apply, then retry.");
+                }
             } else {
                 result.error = detail.isEmpty()
                                    ? what
@@ -460,6 +524,7 @@ void RemoteSource::search(const QStringList &tags, int page, int limit) {
                        "→ Capture in browser…), then retry.")
                         .arg(host);
                 m_lastWall = true;
+                m_lastWallKind = QStringLiteral("challenge");
                 if (const RemotePosts::SiteQuirk *q =
                         RemotePosts::quirkForHost(host.toLower())) {
                     if (q->powWall)
