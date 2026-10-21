@@ -97,6 +97,9 @@ AppSettings loadSettings() {
     if (c.contains(QStringLiteral("tagtypes/manual")))
         s.manualTagTypes = TagTypes::normalizeTagOverrides(
             c.value(QStringLiteral("tagtypes/manual")).toStringList());
+    if (c.contains(QStringLiteral("tagtypes/customBuckets")))
+        s.customBucketMap = TagTypes::normalizeTagOverrides(
+            c.value(QStringLiteral("tagtypes/customBuckets")).toStringList());
     if (c.contains(QStringLiteral("tagtypes/disabledBuckets"))) {
         s.disabledBuckets.clear();
         for (const QString &e :
@@ -227,6 +230,8 @@ void writeSettingsTo(QSettings &c, const AppSettings &s) {
     c.setValue(QStringLiteral("classify/enabled"), s.classifyTags);
     c.setValue(QStringLiteral("tagtypes/manual"),
                  TagTypes::serializeTagOverrides(s.manualTagTypes));
+    c.setValue(QStringLiteral("tagtypes/customBuckets"),
+                 TagTypes::serializeTagOverrides(s.customBucketMap));
     c.setValue(QStringLiteral("tagtypes/disabledBuckets"),
                QStringList(s.disabledBuckets.begin(), s.disabledBuckets.end()));
     c.setValue(QStringLiteral("browse/mode"), s.browseMode);

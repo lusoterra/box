@@ -499,7 +499,9 @@
 - [x] Skip empties in `addTagGroup`; verify on a tagless post.
 - [x] Build + `ctest` (+ docs).
 
-## 43. Custom tag categories on the left sidebar (multibooru-aware)
+## 43. Custom tag categories on the left sidebar (multibooru-aware) — DONE
+##    (`customBucketMap` setting + prefs editor; dynamic sidebar sections;
+##    pill colours follow the mapping; round-trip tests; build OK, 31/31 tests)
 - Nuuru/Szuru native taxonomies survive in `Post.customTags` and render on
   the viewer's right panel, but the left sidebar only knows the five classic
   buckets (COPYRIGHT/CHARACTERS/ARTISTS/TAGS/META from index stats) plus
@@ -509,5 +511,5 @@
   names seen in the tab's posts (deduped, per-tab, no persistence); extend
   manual bucket overrides to accept custom names (fold into a classic
   bucket for filtering/pills), defaulting to their own section.
-- [ ] Custom sections in `rebuildBrowseSidebar` + override support; fixtures.
-- [ ] Build + `ctest` (+ docs).
+- [x] Custom sections in `rebuildBrowseSidebar` + override support; round-trip tests.
+- [x] Build + `ctest` (+ docs).

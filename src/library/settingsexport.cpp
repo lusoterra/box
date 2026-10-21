@@ -174,6 +174,11 @@ QJsonObject exportJson(const AppSettings &s, const QVector<Post> &favs) {
          ++it)
         manual.insert(it.key(), it.value());
     o[QStringLiteral("manualTagTypes")] = manual;
+    QJsonObject customBuckets;
+    for (auto it = s.customBucketMap.begin(); it != s.customBucketMap.end();
+         ++it)
+        customBuckets.insert(it.key(), it.value());
+    o[QStringLiteral("customBuckets")] = customBuckets;
     o[QStringLiteral("explicitTags")] = strList(s.explicitTags);
     QJsonObject theme;
     theme[QStringLiteral("mode")] = s.themeMode;
@@ -278,6 +283,15 @@ bool importJson(const QJsonObject &o, AppSettings *s, QVector<Post> *favs,
                 raw.append(it.key() + QStringLiteral("=") + it.value().toString());
         }
         s->manualTagTypes = TagTypes::normalizeTagOverrides(raw);
+    }
+    if (o.contains(QStringLiteral("customBuckets"))) {
+        QStringList raw;
+        const QJsonObject buckets = o.value(QStringLiteral("customBuckets")).toObject();
+        for (auto it = buckets.begin(); it != buckets.end(); ++it) {
+            if (it.value().isString())
+                raw.append(it.key() + QStringLiteral("=") + it.value().toString());
+        }
+        s->customBucketMap = TagTypes::normalizeTagOverrides(raw);
     }
     if (o.contains(QStringLiteral("explicitTags")))
         s->explicitTags =

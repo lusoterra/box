@@ -362,6 +362,15 @@ private:
     QListWidget *m_artistList = nullptr;
     QListWidget *m_tagList = nullptr;
     QListWidget *m_metaList = nullptr;
+    // Dynamic browse-sidebar sections for native custom categories
+    // (Nuuru flags, Szuru categories…): fixed five keep indices 0-4,
+    // these append after. Hidden when their category leaves the page.
+    struct CustomSidebarSection {
+        QWidget *box = nullptr;
+        QLabel *title = nullptr;
+        QListWidget *list = nullptr;
+    };
+    QMap<QString, CustomSidebarSection> m_customSections;
     QStackedWidget *m_pages = nullptr;
     QStackedWidget *m_stage = nullptr; // 0 = welcome, 1 = browser
     WelcomePage *m_welcome = nullptr;

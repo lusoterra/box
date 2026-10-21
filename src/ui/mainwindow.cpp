@@ -2837,6 +2837,25 @@ void MainWindow::rebuildBrowseSidebar() {
         for (const QString &t : p.tagsMeta.split(QChar::Space, Qt::SkipEmptyParts))
             counts[QStringLiteral("meta")][t]++;
     }
+    // Native custom categories (Nuuru flags, Szuru categories…): mapped
+    // ones fold into their classic bucket, the rest get their own
+    // sections below (capped: a pathological page must not spam the bar).
+    QHash<QString, QHash<QString, int>> customCounts;
+    for (const Post &p : m_current) {
+        for (auto it = p.customTags.begin(); it != p.customTags.end();
+             ++it) {
+            const QString cat = it.key().toLower();
+            const QString mapped = m_settings.customBucketMap.value(cat);
+            for (const QString &t : it.value()) {
+                if (t.trimmed().isEmpty())
+                    continue;
+                if (!mapped.isEmpty() && counts.contains(mapped))
+                    counts[mapped][t]++;
+                else
+                    customCounts[cat][t]++;
+            }
+        }
+    }
     auto top = [](const QHash<QString, int> &m) {
         QVector<QPair<QString, int>> v;
         for (auto it = m.begin(); it != m.end(); ++it)
@@ -2861,6 +2880,50 @@ void MainWindow::rebuildBrowseSidebar() {
     rebuildTagTab(m_metaList, hidden.contains(QStringLiteral("meta"))
                                   ? QVector<QPair<QString, int>>()
                                   : top(counts[QStringLiteral("meta")]), QStringLiteral("meta"));
+    // Unmapped custom categories render as their own sections (same list
+    // behaviour as the fixed five: click filters, right-click stars).
+    static constexpr int kMaxCustomSections = 8;
+    int shown = 0;
+    for (auto it = customCounts.begin(); it != customCounts.end(); ++it) {
+        if (shown >= kMaxCustomSections)
+            break;
+        auto sec = m_customSections.find(it.key());
+        if (sec == m_customSections.end()) {
+            auto *box = new QWidget(this);
+            auto *secLay = new QVBoxLayout(box);
+            secLay->setContentsMargins(0, 0, 0, 0);
+            secLay->setSpacing(2);
+            auto *h = new QLabel(it.key().toUpper(), this);
+            h->setStyleSheet(QStringLiteral(
+                "color:#4a5068;font-size:10px;font-weight:bold;"));
+            secLay->addWidget(h);
+            auto *list = new QListWidget(this);
+            list->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+            list->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+            secLay->addWidget(list, 1);
+            box->setMinimumHeight(52);
+            m_sideSplit->addWidget(box);
+            m_sideSplit->setStretchFactor(m_sideSplit->count() - 1, 1);
+            connect(list, &QListWidget::itemClicked, this,
+                    &MainWindow::onTagClicked);
+            list->setContextMenuPolicy(Qt::CustomContextMenu);
+            connect(list, &QListWidget::customContextMenuRequested, this,
+                    &MainWindow::onTagContextMenu);
+            sec = m_customSections.insert(it.key(), {box, h, list});
+        }
+        QString title = it.key();
+        if (!title.isEmpty())
+            title[0] = title[0].toUpper();
+        sec->title->setText(title);
+        rebuildTagTab(sec->list, top(it.value()), QStringLiteral("custom"));
+        sec->box->setVisible(true);
+        ++shown;
+    }
+    for (auto it = m_customSections.begin(); it != m_customSections.end();
+         ++it) {
+        if (!customCounts.contains(it.key()))
+            it->box->setVisible(false);
+    }
 }
 
 void MainWindow::onViewerPastEnd() {
@@ -4822,9 +4885,12 @@ void MainWindow::rebuildCombos() {
 
 void MainWindow::rebuildSidebar() {
     // Local tabs have no host: every section is always on (undoes any
-    // browse-tab hiding below).
+    // browse-tab hiding below). Native custom sections are browse-only.
     for (int i = 0; i < m_sideSplit->count(); ++i)
         m_sideSplit->widget(i)->setVisible(true);
+    for (auto it = m_customSections.begin(); it != m_customSections.end();
+         ++it)
+        it->box->setVisible(false);
     const Stats s = m_index.stats();
     rebuildTagTab(m_copyList, s.topCopyrights, QStringLiteral("copyright"));
     rebuildTagTab(m_charList, s.topCharacters, QStringLiteral("character"));
@@ -5160,8 +5226,12 @@ void MainWindow::updateResultLabel() {
         }
     }
     auto pillBucket = [&](const QString &tag) -> QString {
-        if (customOf.contains(tag))
-            return QStringLiteral("custom");
+        if (customOf.contains(tag)) {
+            // Mapped native categories wear their classic bucket colour.
+            const QString mapped = m_settings.customBucketMap.value(
+                customOf.value(tag).toLower());
+            return mapped.isEmpty() ? QStringLiteral("custom") : mapped;
+        }
         if (!isBrowse())
             return m_index.bucketOf(tag);
         return browseBuckets.value(tag, QStringLiteral("general"));

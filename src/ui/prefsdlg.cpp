@@ -315,8 +315,9 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
         "Copyright). Overrides apply on every scan without any network use "
         "and win over fetched categories.")));
     typesLay->addWidget(note(tr(
-        "Native custom categories (Szurubooru instances define their own) "
-        "keep theirs and are not overridden.")));
+        "Native custom categories (Nuuru flags, Szurubooru categories) "
+        "can be folded into a classic bucket below; unmapped ones keep "
+        "their own sidebar section in browse tabs.")));
     m_tagOverrides = new QListWidget(this);
     m_tagOverrides->setMinimumHeight(90);
     for (auto it = current.manualTagTypes.begin();
@@ -369,6 +370,65 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     typeRow->addWidget(typeAdd);
     typeRow->addWidget(typeDel);
     typesLay->addLayout(typeRow);
+    typesLay->addWidget(note(tr(
+        "Custom category → classic bucket (e.g. series → Copyright): "
+        "those tags join that sidebar section and pill colour.")));
+    m_customBuckets = new QListWidget(this);
+    m_customBuckets->setMinimumHeight(70);
+    for (auto it = current.customBucketMap.begin();
+         it != current.customBucketMap.end(); ++it) {
+        auto *item = new QListWidgetItem(
+            tr("%1 → %2").arg(it.key(), it.value()), m_customBuckets);
+        item->setData(Qt::UserRole, it.key());
+        item->setData(Qt::UserRole + 1, it.value());
+    }
+    typesLay->addWidget(m_customBuckets);
+    auto *customRow = new QHBoxLayout();
+    m_customBucketEdit = new QLineEdit(this);
+    m_customBucketEdit->setPlaceholderText(tr("category (e.g. series)"));
+    m_customBucketBucket = new QComboBox(this);
+    for (const auto &[label, key] :
+         QList<QPair<QString, QString>>{{tr("Artist"), QStringLiteral("artist")},
+                                        {tr("Copyright"), QStringLiteral("copyright")},
+                                        {tr("Character"), QStringLiteral("character")},
+                                        {tr("Meta"), QStringLiteral("meta")},
+                                        {tr("General"), QStringLiteral("general")}}) {
+        m_customBucketBucket->addItem(label, key);
+    }
+    auto *customAdd = new QPushButton(tr("Add"), this);
+    auto *customDel = new QPushButton(tr("Remove"), this);
+    connect(customAdd, &QPushButton::clicked, this, [this] {
+        const QString cat =
+            m_customBucketEdit->text().trimmed().toLower();
+        if (cat.isEmpty())
+            return;
+        const QString bucket = m_customBucketBucket->currentData().toString();
+        for (int i = 0; i < m_customBuckets->count(); ++i) {
+            QListWidgetItem *item = m_customBuckets->item(i);
+            if (item->data(Qt::UserRole).toString() == cat) {
+                item->setText(tr("%1 → %2").arg(cat, bucket));
+                item->setData(Qt::UserRole + 1, bucket);
+                m_customBucketEdit->clear();
+                updateApplyState();
+                return;
+            }
+        }
+        auto *item = new QListWidgetItem(tr("%1 → %2").arg(cat, bucket),
+                                         m_customBuckets);
+        item->setData(Qt::UserRole, cat);
+        item->setData(Qt::UserRole + 1, bucket);
+        m_customBucketEdit->clear();
+        updateApplyState();
+    });
+    connect(customDel, &QPushButton::clicked, this, [this] {
+        delete m_customBuckets->takeItem(m_customBuckets->currentRow());
+        updateApplyState();
+    });
+    customRow->addWidget(m_customBucketEdit, 1);
+    customRow->addWidget(m_customBucketBucket);
+    customRow->addWidget(customAdd);
+    customRow->addWidget(customDel);
+    typesLay->addLayout(customRow);
     tagsPage->addWidget(types);
 
     // ── Categories per booru type: untick buckets a taxonomy lacks ──
@@ -1849,6 +1909,16 @@ void PrefsDialog::harvestInto(AppSettings &out) {
             const QString bucket = item->data(Qt::UserRole + 1).toString();
             if (!tag.isEmpty() && TagTypes::isValidBucket(bucket))
                 out.manualTagTypes.insert(tag, bucket);
+        }
+    }
+    out.customBucketMap.clear();
+    if (m_customBuckets) {
+        for (int i = 0; i < m_customBuckets->count(); ++i) {
+            const QListWidgetItem *item = m_customBuckets->item(i);
+            const QString cat = item->data(Qt::UserRole).toString();
+            const QString bucket = item->data(Qt::UserRole + 1).toString();
+            if (!cat.isEmpty() && TagTypes::isValidBucket(bucket))
+                out.customBucketMap.insert(cat, bucket);
         }
     }
     out.disabledBuckets.clear();

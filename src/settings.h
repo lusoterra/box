@@ -65,6 +65,10 @@ struct AppSettings {
     // Lowercase tags, bucketForType() names; win over fetched verdicts,
     // applied without any network use.
     QMap<QString, QString> manualTagTypes;
+    // Native custom category -> classic bucket (Nuuru flags, Szurubooru
+    // categories, …): shown folded into that sidebar section and pill
+    // colour instead of a standalone custom section. Lowercase names.
+    QMap<QString, QString> customBucketMap;
     // Disabled tag buckets per booru type ("gelbooru:character"): parsed
     // tags in those buckets fold into general. For meme hosts and other
     // non-anime taxonomies. "general" itself is always on.
@@ -234,6 +238,7 @@ inline bool operator==(const AppSettings &a, const AppSettings &b) {
            a.ugoiraFormat == b.ugoiraFormat &&
            a.ugoiraFrameDelayMs == b.ugoiraFrameDelayMs &&
            a.classifyTags == b.classifyTags && a.manualTagTypes == b.manualTagTypes &&
+           a.customBucketMap == b.customBucketMap &&
            a.disabledBuckets == b.disabledBuckets &&
            a.browseMode == b.browseMode && a.browseSites == b.browseSites &&
            a.browseLimit == b.browseLimit && a.dataDir == b.dataDir &&

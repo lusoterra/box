@@ -26,6 +26,7 @@ private slots:
         QVERIFY(s.indexCache && s.thumbCache);
         QVERIFY(!s.hideAi); // AI-content filter defaults OFF
         QVERIFY(s.wallAutoPopup); // wall solve browser auto-pops
+        QVERIFY(s.customBucketMap.isEmpty());
         QVERIFY(!s.fullCache); // silent full downloads default OFF
         QCOMPARE(s.cacheLimitMB, 10240);
         QVERIFY(s.videoMuted && s.videoLoop);
@@ -59,6 +60,7 @@ private slots:
         s.deleteUnfavs = true;
         s.hideAi = true;
         s.wallAutoPopup = false;
+        s.customBucketMap.insert(QStringLiteral("series"), QStringLiteral("copyright"));
         s.blacklist = {QStringLiteral("loli"), QStringLiteral("shota")};
         s.browseSites = {QStringLiteral("danbooru")};
         BooruSite custom;
@@ -114,6 +116,7 @@ private slots:
         QVERIFY(back.deleteUnfavs);
         QVERIFY(back.hideAi);
         QVERIFY(!back.wallAutoPopup);
+        QCOMPARE(back.customBucketMap.value(QStringLiteral("series")), QStringLiteral("copyright"));
         QCOMPARE(back.blacklist, s.blacklist);
         QCOMPARE(back.browseSites, QStringList({QStringLiteral("danbooru")}));
         QCOMPARE(back.boorus.size(), 1);

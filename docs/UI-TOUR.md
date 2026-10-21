@@ -16,7 +16,10 @@ picker) for mouse-driven reopening.
 ## 02-browse-grid — booru tab (browse mode, `MainWindow`, `src/ui/mainwindow.cpp`)
 One tab per archive/site set. Tab bar button shows favicon + label + ✕.
 Left: sidebar tag sections (COPYRIGHT, CHARACTERS, ARTISTS, TAGS, META)
-with counts, each tinted in its bucket colour like the filter pills;
+with counts, each tinted in its bucket colour like the filter pills, plus
+extra sections for native custom categories (Nuuru flags, Szuru
+categories) seen on the page — or folded into a classic bucket when
+mapped under Preferences → Tags;
 click toggles filter pills, right-click stars/un-stars favourite tags. A captcha/PoW wall failure pops the solve browser open (opt out in Preferences → Browse, back to a small menu: solve the challenge in the capture browser, or drop the booru (deselect in multibooru, close a solo tab)). Center: post grid. Bottom-left: `40 results · page 1` and infinite scroll (more loads at the bottom); a failed query leaves its one-liner there (click = full server response) plus a `Solve … in browser…` button while walls are reported. The browser
 opens AT the failing URL (failed search request, failed file URL) instead of
 the homepage, since file/media hosts challenge while `/` lets you through.
@@ -137,6 +140,7 @@ URL`/`Type` (engine) editor with cookie capture + favicon override.
 
 ## 15-prefs-tags — Preferences → Tags
 `Tag type overrides` (manual `tag → bucket`, wins over fetches),
+`Custom category → bucket` (fold a native category into a classic bucket),
 `Categories per booru type` grid (untick buckets a taxonomy lacks —
 folds to general), `Explicit detection` word list (offline
 rating upgrades; edits invalidate the scan cache).

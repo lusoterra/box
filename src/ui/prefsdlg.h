@@ -121,6 +121,9 @@ private:
     QCheckBox *m_thumbCache;
     QListWidget *m_tagOverrides = nullptr;
     QLineEdit *m_tagOverrideEdit = nullptr;
+    QListWidget *m_customBuckets = nullptr; // native category -> bucket
+    QLineEdit *m_customBucketEdit = nullptr;
+    QComboBox *m_customBucketBucket = nullptr;
     QComboBox *m_tagOverrideBucket = nullptr;
     QMap<QString, QCheckBox *> m_bucketToggles; // "engine:bucket" -> enabled
     QComboBox *m_thumbSize;

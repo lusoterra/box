@@ -13,6 +13,7 @@ AppSettings sampleSettings() {
     s.browseSites = {QStringLiteral("danbooru")};
     s.browseLimit = 60;
     s.wallAutoPopup = false;
+    s.customBucketMap.insert(QStringLiteral("flag"), QStringLiteral("meta"));
     s.favAutoDownload = true;
     s.blacklist = {QStringLiteral("loli")};
     s.hideAi = true;
@@ -61,6 +62,7 @@ private slots:
         QCOMPARE(back.browseSites, QStringList({QStringLiteral("danbooru")}));
         QCOMPARE(back.browseLimit, 60);
         QVERIFY(!back.wallAutoPopup);
+        QCOMPARE(back.customBucketMap.value(QStringLiteral("flag")), QStringLiteral("meta"));
         QVERIFY(back.favAutoDownload);
         QCOMPARE(back.blacklist, QStringList({QStringLiteral("loli")}));
         QVERIFY(back.hideAi);
