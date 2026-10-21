@@ -513,6 +513,7 @@
   bucket for filtering/pills), defaulting to their own section.
 - [x] Custom sections in `rebuildBrowseSidebar` + override support; round-trip tests.
 - [x] Build + `ctest` (+ docs).
+
 ## 44. Stateful download button in the post view (like favourites) — DONE
 ##    (green toggle + delete confirm; button state pushed from grid marks;
 ##    build OK, 31/31 tests)
@@ -533,3 +534,71 @@
 - [x] Visibility switch on viewer enter/exit.
 - [x] Build + `ctest` (+ docs).
 
+## 46. Reload-everything icon button (viewer)
+- The viewer `Tags` text button refetches tags only; make it an icon-only
+  reload button (existing `refresh-cw` art) that reloads everything: tags
+  + comments/notes + media bytes (bypass image cache for the post).
+- [ ] Icon button + full refresh path.
+- [ ] Build + `ctest` (+ docs).
+
+## 47. Instant download of the already-loaded full-res file
+- Downloading a post whose full-resolution bytes are already in the
+  viewer (image cache / tmp browser download) re-fetches from the
+  server; copy the local bytes to the download folder instead (same
+  naming + sidecar path as a fresh download).
+- [ ] Local-bytes shortcut in the download enqueue path.
+- [ ] Build + `ctest` (+ docs).
+
+## 48. Remember the open post per tab
+- Leaving a post view for another tab and coming back drops to grid
+  instead of the post (`X tag looking at Y post` is lost). Store the
+  viewer post (site#id or row) per `BrowserTab` and restore it on return
+  (fall back to grid when the row is gone).
+- [ ] Per-tab viewer state save/restore.
+- [ ] Build + `ctest` (+ docs).
+
+## 49. Stale-async race: refresh/video/ghost loads the wrong post
+- Reports: tag refresh sometimes loads a random (danbooru) post instead
+  of the current one; ATF videos sometimes show a ghost video from
+  another tab, then the correct one. Smells like completion handlers
+  applying to a superseded row/post (missing generation guard).
+- Direction: audit viewer refresh + video/image load completions for
+  row/post identity checks (`m_webId`, pending-row guards); add
+  generation stamps where absent; headless regression test if feasible.
+- [ ] Repro + guard the stale completions.
+- [ ] Build + `ctest` (+ docs).
+
+## 50. GIF loading thumbnail (not black)
+- GIFs show straight black while loading (stills prerender the grid
+  thumb via `m_pendingThumb`). Show the pending thumbnail in `GifView`
+  until the first frame decodes.
+- [ ] Prerender path for GIFs mirroring stills.
+- [ ] Build + `ctest` (+ docs).
+
+## 51. Grid pills for comments and annotations
+- Grid cards show AI/♥/↓ marks; add 💬 when the post has comments and a
+  notes mark when it has annotations, same pill style/positions. Data:
+  record `comment_count` (and notes presence where the engine exposes
+  it) on `Post` at parse, expose via model roles; cached viewer meta
+  also marks.
+- [ ] Parse counts + delegate pills.
+- [ ] Build + `ctest` (+ docs).
+
+## 52. Grid right-click: delete when downloaded, restore mascot entry
+- Right-clicking an already-downloaded post still offers `⭳ Download`
+  (should offer/emphasize `Delete from disk`); `Set as mascot` vanished
+  for downloaded remote posts (menu only checks `absFile`, never the
+  favourites relink path). Resolve on-disk paths via local paths for
+  remote rows: downloaded ⇒ Download disabled, Delete enabled, mascot
+  shown.
+- [ ] Menu state from resolved local paths.
+- [ ] Build + `ctest` (+ docs).
+
+## 53. Per-booru local blacklist filter
+- Danbooru free accounts allow only 2 tags, so server-side `-tag`
+  exclusions break queries. Add an opt-in per-entry `Local blacklist`
+  flag (booru manager; off by default, for `*donmai.us` use): entries
+  with the flag skip server-side blacklist exclusions and rely on the
+  existing client-side `blacklisted()` net instead.
+- [ ] Entry flag (persist + backup) + skip server exclusions when set.
+- [ ] Build + `ctest` (+ docs).
