@@ -433,6 +433,7 @@ private:
     void solveWallFromButton(); // first site, or a menu when several
     Post m_refreshPost; // post currently being tag-refreshed
     RefreshTarget m_refreshTarget;
+    qint64 m_refreshReq = 0; // refresh generation: stale completions drop
     BrowserTab *m_searchTab = nullptr; // tab that owns the in-flight search
     // Tabs (tabbar index 0 = welcome, m_tabs[i] <-> tabbar i+1)
     MarqueeTabBar *m_tabBar = nullptr;

@@ -749,10 +749,9 @@ void PostRefresher::refresh(const RefreshTarget &target, qint64 reqId) {
     connect(m_reply, &QNetworkReply::finished, this, [this] {
         QNetworkReply *reply = m_reply;
         m_reply = nullptr;
-        if (!reply) {
-            emit failed(m_reqId, QStringLiteral("cancelled"));
-            return;
-        }
+        if (!reply)
+            return; // cancelled by a newer refresh: stay silent, it owns
+                    // the UI now (no stale "cancelled" flash)
         if (reply->error() != QNetworkReply::NoError) {
             const int http =
                 reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();

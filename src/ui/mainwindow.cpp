@@ -4252,11 +4252,12 @@ void MainWindow::refreshPost(const Post &post) {
     m_refreshPost = post;
     m_refreshTarget = target;
     statusBar()->showMessage(tr("Refreshing tags…"));
-    m_refresher->refresh(target);
+    m_refresher->refresh(target, ++m_refreshReq);
 }
 
 void MainWindow::onRefreshFailed(qint64 reqId, const QString &error) {
-    Q_UNUSED(reqId);
+    if (reqId != m_refreshReq)
+        return; // superseded: a newer refresh owns the UI now
     statusBar()->showMessage(tr("Refresh failed: %1").arg(error), 8000);
 }
 
@@ -4304,8 +4305,10 @@ QString localSidecarFor(const Post &p) {
 } // namespace
 
 void MainWindow::onRefreshDone(qint64 reqId,
-                                     const QJsonObject &raw) {
-    Q_UNUSED(reqId);
+                                      const QJsonObject &raw) {
+    if (reqId != m_refreshReq)
+        return; // superseded: an older flight landing late must not
+                // remap (wrong-site data used to replace the grid row).
     const Post fresh = remapFresh(raw, m_refreshTarget);
     const Post orig = m_refreshPost;
     const QString siteKey = m_refreshTarget.siteKey;
