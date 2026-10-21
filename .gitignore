@@ -6,3 +6,5 @@ packaging/build-pkg/
 *.pkg.tar.zst
 *.db
 PENDING_TASKS.md
+# Source tarball for the HiddenBooru engine task (user-supplied, not ours).
+hiddenbooru_v0.8.tar.gz
