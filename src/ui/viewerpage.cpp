@@ -1126,7 +1126,11 @@ ViewerPage::ViewerPage(QWidget *parent) : QWidget(parent) {
         QApplication::clipboard()->setText(p.isRemote ? p.fileUrl : p.absFile);
     });
     connect(m_downloadBtn, &QPushButton::clicked, this, [this] {
-        if (!m_posts.isEmpty())
+        if (m_posts.isEmpty() || m_row < 0 || m_row >= m_posts.size())
+            return;
+        if (m_downloaded)
+            emit deleteRequested(m_posts[m_row]);
+        else
             emit downloadRequested(m_posts[m_row]);
     });
     connect(m_refreshBtn, &QPushButton::clicked, this, [this] {
@@ -1463,6 +1467,18 @@ void ViewerPage::setFaved(bool faved) {
         m_favBtn->setIcon(UiIcons::heart(UiIcons::favRed(), true));
     else
         m_favBtn->setIcon(UiIcons::heart(QColor(0x78, 0x80, 0xa0), false));
+}
+
+void ViewerPage::setDownloaded(bool downloaded) {
+    m_downloaded = downloaded;
+    if (downloaded)
+        m_downloadBtn->setIcon(
+            UiIcons::icon(QStringLiteral("download"), QColor(0x2e, 0x8b, 0x6e)));
+    else
+        m_downloadBtn->setIcon(UiIcons::icon(QStringLiteral("download")));
+    m_downloadBtn->setToolTip(
+        downloaded ? tr("Delete downloaded file from disk")
+                   : tr("Save full quality to the download folder"));
 }
 
 void ViewerPage::setRefreshable(bool ok, const QString &reason) {

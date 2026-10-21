@@ -238,6 +238,7 @@ public:
     bool hasCurrent() const;
     int currentRow() const;
     void setFaved(bool faved);
+    void setDownloaded(bool downloaded); // green toggle when on disk
     // Status marks next to the title: AI-generated / favourited /
     // downloaded. Refreshed live while the viewer stays open.
     void setStatusBadges(bool ai, bool faved, bool downloaded);
@@ -267,6 +268,7 @@ signals:
     // Right-click on a tag button (globalPos for the menu).
     void tagContextRequested(const QString &tag, const QPoint &globalPos);
     void downloadRequested(const Post &post);
+    void deleteRequested(const Post &post); // button acts as delete toggle
     void favouriteRequested(const Post &post);
     void refreshRequested(const Post &post);
     void pastEnd(); // nav stepped past the last loaded post
@@ -317,6 +319,7 @@ private:
     QPushButton *m_downloadBtn = nullptr;
     QPushButton *m_favBtn = nullptr;
     QPushButton *m_refreshBtn = nullptr;
+    bool m_downloaded = false; // current post is on disk
     QPushButton *m_commentsBtn = nullptr; // popup with the post's thread
     QLabel *m_note = nullptr;
     QProgressBar *m_loadBar;

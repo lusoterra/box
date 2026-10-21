@@ -1099,6 +1099,35 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
         m_unfavVeto.remove(favVetoKey(site, pid));
         downloadPosts({p});
     });
+    connect(m_viewer, &ViewerPage::deleteRequested, this, [this](const Post &p) {
+        // Toggle side of the viewer download button: the file is on disk.
+        QString abs;
+        if (!p.absFile.isEmpty() && QFileInfo::exists(p.absFile))
+            abs = p.absFile;
+        else if (m_favDb.isOpen()) {
+            const QString linked =
+                m_favDb.localPaths().value(favIdentity(p));
+            if (!linked.isEmpty() && QFileInfo::exists(linked))
+                abs = linked;
+        }
+        if (abs.isEmpty())
+            return; // raced a concurrent delete; button refreshes below
+        const QString question =
+            tr("Delete the downloaded file?\n%1\n(Favourites are kept).")
+                .arg(QDir::toNativeSeparators(abs));
+        if (QMessageBox::question(this, tr("Delete"), question,
+                                  QMessageBox::Yes | QMessageBox::No,
+                                  QMessageBox::No) != QMessageBox::Yes)
+            return;
+        QFile::remove(abs);
+        const QFileInfo fi(abs);
+        QFile::remove(fi.absolutePath() + u'/' + fi.completeBaseName() +
+                      QStringLiteral(".json"));
+        QFile::remove(abs + QStringLiteral(".json"));
+        repaintFavMarks();
+        updateViewerBadges();
+        statusBar()->showMessage(tr("Deleted %1").arg(fi.fileName()), 4000);
+    });
     connect(m_viewer, &ViewerPage::refreshRequested, this,
             &MainWindow::refreshPost);
     connect(m_refresher, &PostRefresher::refreshed, this,
@@ -1281,6 +1310,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
                     doneMsg += tr(" (%1 already downloaded)").arg(sum.skipped);
                 statusBar()->showMessage(doneMsg, 8000);
                 m_dlHide->start();
+                updateViewerBadges();
                 // Media walls join the Solve button (kept apart from search
                 // walls: no auto-popup, no drop/close); a later success for
                 // the same site clears them again.
@@ -5018,8 +5048,9 @@ void MainWindow::updateViewerBadges() {
     const auto [site, pid] = favIdentity(p);
     const bool faved =
         m_favDb.isOpen() && m_favDb.isFavourite(site, pid);
-    m_viewer->setStatusBadges(isAiPost(p), faved,
-                              isPostDownloaded(p, nullptr));
+    const bool downloaded = isPostDownloaded(p, nullptr);
+    m_viewer->setStatusBadges(isAiPost(p), faved, downloaded);
+    m_viewer->setDownloaded(downloaded);
 }
 
 void MainWindow::fillModel() {

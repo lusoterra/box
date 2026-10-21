@@ -513,3 +513,14 @@
   bucket for filtering/pills), defaulting to their own section.
 - [x] Custom sections in `rebuildBrowseSidebar` + override support; round-trip tests.
 - [x] Build + `ctest` (+ docs).
+## 44. Stateful download button in the post view (like favourites) — DONE
+##    (green toggle + delete confirm; button state pushed from grid marks;
+##    build OK, 31/31 tests)
+- The viewer `Download` button is fire-and-forget; make it stateful like
+  the ♥ button: filled/green when the file is on disk (via
+  `isPostDownloaded`/fav local paths), grey otherwise; clicking while
+  downloaded deletes the file (confirm like `Delete from disk…`).
+  Tooltip names the state.
+- [x] Downloaded-state tracking + toggle behaviour on `m_downloadBtn`.
+- [x] Build + `ctest` (+ docs).
+
