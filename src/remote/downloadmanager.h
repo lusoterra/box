@@ -12,6 +12,7 @@
 // no conversion step is needed - tags are stored exactly as the API gave
 // them, like gallery-dl --write-info-json would.
 #include <QDialog>
+#include <QAtomicInt>
 #include <QJsonObject>
 #include <QList>
 #include <QMap>
@@ -60,6 +61,11 @@ public:
     // Browser-backed media for fingerprint-walled hosts (null = QNAM
     // for everything). Set once by the app.
     void setWebBackend(WebDownloadBackend *backend);
+    // Ugoira handling: "webp" | "jxl" converts served .zips to animated
+    // files on completion (ffmpeg required, +cjxl for jxl); anything else
+    // keeps the zip. Converted files replace the zip.
+    void setUgoiraFormat(const QString &format) { m_ugoiraFormat = format; }
+    void setUgoiraFrameDelayMs(int ms) { m_ugoiraDelayMs = qBound(20, ms, 2000); }
 
 signals:
     void progress(int done, int total, const QString &current);
@@ -106,6 +112,10 @@ private:
     int m_done = 0;
     int m_total = 0;
     bool m_active = false;
+    QString m_ugoiraFormat = QStringLiteral("webp");
+    int m_ugoiraDelayMs = 100;
+    QAtomicInt m_convertCancel{0}; // set by cancel(), polled by converts
+    bool convertUgoiraZip(DownloadJob &job, QJsonObject &raw, QString *error);
     static constexpr int kMaxFlight = 3;
 };
 

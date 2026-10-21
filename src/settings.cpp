@@ -79,6 +79,16 @@ AppSettings loadSettings() {
         s.blacklist =
             normalizeExplicitTags(c.value(QStringLiteral("filter/blacklist")).toStringList());
     s.hideAi = c.value(QStringLiteral("filter/hideAi"), s.hideAi).toBool();
+    s.ugoiraFormat =
+        c.value(QStringLiteral("downloads/ugoiraFormat"), s.ugoiraFormat).toString();
+    if (s.ugoiraFormat != QStringLiteral("webp") &&
+        s.ugoiraFormat != QStringLiteral("jxl") &&
+        s.ugoiraFormat != QStringLiteral("zip"))
+        s.ugoiraFormat = QStringLiteral("webp");
+    s.ugoiraFrameDelayMs =
+        qBound(20, c.value(QStringLiteral("downloads/ugoiraDelayMs"),
+                           s.ugoiraFrameDelayMs).toInt(),
+               2000);
     if (c.contains(QStringLiteral("fav/tags")))
         s.favTags = c.value(QStringLiteral("fav/tags")).toStringList();
     s.classifyTags =
@@ -209,6 +219,8 @@ void writeSettingsTo(QSettings &c, const AppSettings &s) {
     c.setValue(QStringLiteral("stray/autoFav"), s.strayAutoFav);
     c.setValue(QStringLiteral("filter/blacklist"), s.blacklist);
     c.setValue(QStringLiteral("filter/hideAi"), s.hideAi);
+    c.setValue(QStringLiteral("downloads/ugoiraFormat"), s.ugoiraFormat);
+    c.setValue(QStringLiteral("downloads/ugoiraDelayMs"), s.ugoiraFrameDelayMs);
     c.setValue(QStringLiteral("fav/tags"), s.favTags);
     c.setValue(QStringLiteral("classify/enabled"), s.classifyTags);
     c.setValue(QStringLiteral("tagtypes/manual"),

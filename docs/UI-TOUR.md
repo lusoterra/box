@@ -118,7 +118,9 @@ classification, `Cache size limit`, `Thumbnail size`, `Clear caches…`.
 ## 14-prefs-browse — Preferences → Browse
 `Page size`, `Default boorus` checklist (new tabs + fallbacks), `Data
 folder` / `Download folder` (empty = XDG defaults under `box/`),
-`Global proxy` (all traffic; `socks5h://` routes hostnames through
+`Ugoira downloads` (animated webp / animated jxl / keep zip; needs
+ffmpeg in PATH, +cjxl for jxl) + `Ugoira frame delay` (fallback when the
+API omits pixiv frame timing), `Global proxy` (all traffic; `socks5h://` routes hostnames through
 the proxy like curl, per-booru proxy overrides it, `direct` bypasses),
 Booru
 manager: entry list + `Name`/`short` (grid badge text)/`Badge color`

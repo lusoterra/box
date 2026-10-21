@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(Box VERSION 0.1.0 LANGUAGES CXX)
+project(Box VERSION 0.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -33,6 +33,11 @@ add_executable(box
     src/engines/engine_hybooru.cpp
     src/engines/engine_nuuru.cpp
     src/engines/engine_hiddenbooru.cpp
+    src/library/ugoioconvert.cpp
+    src/library/miniz/miniz.c
+    src/library/miniz/miniz_tdef.c
+    src/library/miniz/miniz_tinfl.c
+    src/library/miniz/miniz_zip.c
     src/remote/remotesource.cpp
     src/remote/downloadmanager.cpp
     src/remote/imagecache.cpp
@@ -57,7 +62,7 @@ add_executable(box
     src/seed.qrc
 )
 
-target_include_directories(box PRIVATE src src/engines src/remote src/library src/ui)
+target_include_directories(box PRIVATE src src/engines src/remote src/library src/library/miniz src/ui)
 target_link_libraries(box PRIVATE Qt6::Widgets Qt6::Concurrent Qt6::Sql
                                              Qt6::Multimedia Qt6::MultimediaWidgets
                                              Qt6::Network Qt6::WebEngineWidgets Qt6::WebEngineCore)

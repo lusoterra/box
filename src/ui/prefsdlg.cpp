@@ -477,6 +477,29 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
         "Defaults to downloads/ inside the data folder. Downloads save full "
         "quality as <Site>_<md5>.<ext> plus the raw API "
         "JSON sidecar, so they browse seamlessly offline.")));
+    m_ugoiraFormat = new QComboBox(this);
+    m_ugoiraFormat->addItem(tr("Animated WebP"), QStringLiteral("webp"));
+    m_ugoiraFormat->addItem(tr("Animated JXL"), QStringLiteral("jxl"));
+    m_ugoiraFormat->addItem(tr("Keep original ZIP"), QStringLiteral("zip"));
+    m_ugoiraFormat->setCurrentIndex(
+        qMax(0, m_ugoiraFormat->findData(current.ugoiraFormat)));
+    m_ugoiraFormat->setToolTip(tr("Ugoira posts download as .zip frame "
+                                  "packs; convert them on arrival (needs "
+                                  "ffmpeg in PATH, +cjxl for JXL). JXL needs "
+                                  "a Qt JXL image plugin to preview in-app."));
+    connect(m_ugoiraFormat,
+            QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+            &PrefsDialog::updateApplyState);
+    browseLay->addRow(tr("Ugoira downloads:"), m_ugoiraFormat);
+    m_ugoiraDelay = new QSpinBox(this);
+    m_ugoiraDelay->setRange(20, 2000);
+    m_ugoiraDelay->setSuffix(tr(" ms"));
+    m_ugoiraDelay->setValue(current.ugoiraFrameDelayMs);
+    m_ugoiraDelay->setToolTip(tr("Per-frame delay used when the API omits "
+                                 "pixiv frame timing."));
+    connect(m_ugoiraDelay, QOverload<int>::of(&QSpinBox::valueChanged), this,
+            &PrefsDialog::updateApplyState);
+    browseLay->addRow(tr("Ugoira frame delay:"), m_ugoiraDelay);
     m_globalProxy = new QLineEdit(current.globalProxy, this);
     m_globalProxy->setPlaceholderText(QStringLiteral("socks5h://127.0.0.1:9050"));
     m_globalProxy->setToolTip(tr("Global proxy for all traffic "
@@ -1072,6 +1095,9 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
                     qMax(0, m_browseLimit->findData(d.browseLimit)));
                 m_dataDir->setText(effectiveDataDir(d));
                 m_downloadDir->setText(effectiveDownloadDir(d));
+                m_ugoiraFormat->setCurrentIndex(
+                    qMax(0, m_ugoiraFormat->findData(d.ugoiraFormat)));
+                m_ugoiraDelay->setValue(d.ugoiraFrameDelayMs);
                 m_tagOverrideEdit->clear();
                 m_tagOverrides->clear(); // defaults carry no overrides
                 m_pendingFavicons.clear(); // staged icons follow the reset
@@ -1746,6 +1772,12 @@ void PrefsDialog::harvestInto(AppSettings &out) {
     out.blacklist =
         normalizeExplicitTags(m_blacklist->toPlainText().split(u'\n'));
     out.browseLimit = m_browseLimit->currentData().toInt();
+    out.ugoiraFormat = m_ugoiraFormat->currentData().toString();
+    if (out.ugoiraFormat != QStringLiteral("webp") &&
+        out.ugoiraFormat != QStringLiteral("jxl") &&
+        out.ugoiraFormat != QStringLiteral("zip"))
+        out.ugoiraFormat = QStringLiteral("webp");
+    out.ugoiraFrameDelayMs = m_ugoiraDelay->value();
     out.browseSites.clear();
     if (m_defBoorus) {
         for (int i = 0; i < m_defBoorus->count(); ++i) {

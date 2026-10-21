@@ -30,16 +30,27 @@ set(REMOTE_SOURCES
     ../src/engines/engine_hiddenbooru.cpp
     ../src/remote/remotesource.cpp)
 
+# Ugoira conversion + vendored miniz: every test linking
+# downloadmanager.cpp gets the whole set.
+set(UGOIRA_SOURCES
+    ../src/library/ugoioconvert.cpp
+    ../src/library/miniz/miniz.c
+    ../src/library/miniz/miniz_tdef.c
+    ../src/library/miniz/miniz_tinfl.c
+    ../src/library/miniz/miniz_zip.c)
+include_directories(${CMAKE_SOURCE_DIR}/src/library/miniz)
+
 add_unit_test(test_explicittags test_explicittags.cpp)
 add_unit_test(test_filehash test_filehash.cpp)
 add_unit_test(test_metaparser test_metaparser.cpp ../src/library/metaparser.cpp)
 add_unit_test(test_losnimport test_losnimport.cpp ../src/library/losnimport.cpp
               ../src/remote/downloadmanager.cpp ../src/remote/webdlbackend.h ${REMOTE_SOURCES}
+              ${UGOIRA_SOURCES}
               ../src/library/favdb.cpp ../src/settings.cpp ../src/library/metaparser.cpp
               ../src/ui/progressbar.cpp)
 add_unit_test(test_remotesource test_remotesource.cpp ${REMOTE_SOURCES})
 add_unit_test(test_downloadplan test_downloadplan.cpp ../src/remote/downloadmanager.cpp
-              ../src/remote/webdlbackend.h ${REMOTE_SOURCES} ../src/ui/progressbar.cpp)
+              ../src/remote/webdlbackend.h ${REMOTE_SOURCES} ${UGOIRA_SOURCES} ../src/ui/progressbar.cpp)
 add_unit_test(test_settings test_settings.cpp ../src/settings.cpp
               ${REMOTE_SOURCES})
 add_unit_test(test_favdb test_favdb.cpp ../src/library/favdb.cpp)
@@ -95,7 +106,7 @@ add_unit_test(test_gridwindow test_gridwindow.cpp
               ../src/remote/thumbloader.cpp ../src/remote/tagsuggest.cpp
               ../src/remote/faviconcache.cpp ../src/library/sidecarrefresh.cpp
               ../src/library/index.cpp ../src/library/cachejanitor.cpp
-              ../src/settings.cpp ${REMOTE_SOURCES})
+              ../src/settings.cpp ${REMOTE_SOURCES} ${UGOIRA_SOURCES})
 target_link_libraries(test_gridwindow PRIVATE Qt6::WebEngineWidgets Qt6::WebEngineCore)
 set_tests_properties(test_gridwindow PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
@@ -113,6 +124,13 @@ add_unit_test(test_hybooru test_hybooru.cpp ${REMOTE_SOURCES}
               ../src/library/cache.cpp ../src/settings.cpp)
 add_unit_test(test_postmeta test_postmeta.cpp ../src/remote/postmeta.cpp
               ${REMOTE_SOURCES})
+add_unit_test(test_ugoira test_ugoira.cpp ../src/library/ugoioconvert.cpp
+              ../src/library/miniz/miniz.c ../src/library/miniz/miniz_tdef.c
+              ../src/library/miniz/miniz_tinfl.c ../src/library/miniz/miniz_zip.c)
+target_compile_definitions(test_ugoira PRIVATE
+    TESTFILES_DIR="${CMAKE_SOURCE_DIR}/tests/files")
+target_include_directories(test_ugoira PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/library/miniz)
 add_unit_test(test_tabbar test_tabbar.cpp ../src/ui/tabbar.cpp)
 set_tests_properties(test_tabbar PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
@@ -125,6 +143,7 @@ add_unit_test(test_security test_security.cpp ${REMOTE_SOURCES}
               ../src/library/queryor.cpp
               ../src/remote/downloadmanager.cpp
               ../src/remote/webdlbackend.h
+              ${UGOIRA_SOURCES}
               ../src/ui/progressbar.cpp)
 
 find_package(Python3 COMPONENTS Interpreter)

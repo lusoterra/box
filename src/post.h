@@ -169,6 +169,18 @@ inline const QStringList &aiContentTags() {
                                      QStringLiteral("ai_art")};
     return tags;
 }
+// Ugoira (animated illustration archives, served as .zip): treated as
+// animated GIFs for classification, converted to animated webp/jxl on
+// download — the zip itself is never rendered.
+inline bool isUgoiraPost(const Post &post) {
+    if (post.ext.compare(QStringLiteral("zip"), Qt::CaseInsensitive) == 0)
+        return true;
+    for (const QString &t : post.tags.split(QChar::Space, Qt::SkipEmptyParts)) {
+        if (t.compare(QStringLiteral("ugoira"), Qt::CaseInsensitive) == 0)
+            return true;
+    }
+    return false;
+}
 // every tag blob. Drives the grid "AI" chip; nothing else keys off it.
 inline bool isAiPost(const Post &post) {
     const QString blobs[] = {post.tags,        post.tagsArtist,

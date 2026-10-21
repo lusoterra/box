@@ -28,6 +28,8 @@ private slots:
         QVERIFY(!s.fullCache); // silent full downloads default OFF
         QCOMPARE(s.cacheLimitMB, 10240);
         QVERIFY(s.videoMuted && s.videoLoop);
+        QCOMPARE(s.ugoiraFormat, QStringLiteral("webp"));
+        QCOMPARE(s.ugoiraFrameDelayMs, 100);
         QCOMPARE(s.explicitTags, defaultExplicitTagList());
         QVERIFY(s.downloadDir.isEmpty());
         QVERIFY(s.dataDir.isEmpty());
@@ -76,6 +78,8 @@ private slots:
         s.explicitTags = {QStringLiteral("customtag")};
         s.disabledBuckets = {QStringLiteral("gelbooru:character")};
         s.volume = 42;
+        s.ugoiraFormat = QStringLiteral("jxl");
+        s.ugoiraFrameDelayMs = 150;
         s.aspectNum = 4;
         s.aspectDen = 3;
         s.gridBoxW = 256;
@@ -130,6 +134,8 @@ private slots:
                  QSet<QString>({QStringLiteral("gelbooru:character")}));
         QCOMPARE(back.explicitTags, QStringList({QStringLiteral("customtag")}));
         QCOMPARE(back.volume, 42);
+        QCOMPARE(back.ugoiraFormat, QStringLiteral("jxl"));
+        QCOMPARE(back.ugoiraFrameDelayMs, 150);
         QCOMPARE(back.aspectNum, 4);
         QCOMPARE(back.aspectDen, 3);
         QCOMPARE(back.gridBoxW, 256);

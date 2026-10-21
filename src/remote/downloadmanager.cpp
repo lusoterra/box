@@ -2,6 +2,7 @@
 #include "filehash.h"
 #include "progressbar.h"
 #include "remotesource.h"
+#include "ugoioconvert.h"
 #include "webdlbackend.h"
 
 #include <QDesktopServices>
@@ -219,6 +220,7 @@ void DownloadManager::enqueue(const QList<DownloadJob> &jobs) {
         emit finished(m_summary);
         return;
     }
+    m_convertCancel.storeRelaxed(0); // fresh batch clears any abort
     m_active = true;
     emit progress(0, m_total, QString());
     for (const DownloadJob &j : skipped)
@@ -227,6 +229,7 @@ void DownloadManager::enqueue(const QList<DownloadJob> &jobs) {
 }
 
 void DownloadManager::cancel() {
+    m_convertCancel.storeRelaxed(1); // abort any in-flight ugoira encode
     for (Flight *f : m_flights) {
         if (f->webId >= 0 && m_webBackend)
             m_webBackend->cancel(f->webId); // backend drops partial files
@@ -436,6 +439,54 @@ void DownloadManager::onWebFinished(qint64 id, bool ok, const QString &errorIn) 
     pump();
 }
 
+// Ugoira zip -> animated webp/jxl in place: converts, swaps the job onto
+// the converted file (fresh md5 + sidecar naming), and removes the zip.
+// Returns false with error set on failure or cancel (zip kept on disk).
+bool DownloadManager::convertUgoiraZip(DownloadJob &job, QJsonObject &raw,
+                                       QString *error) {
+    const QString zipPath = job.filePath;
+    const QString stem = QFileInfo(zipPath).completeBaseName();
+    const QString dir = QFileInfo(zipPath).absolutePath();
+    const QString outName = stem + (m_ugoiraFormat == QStringLiteral("jxl")
+                                        ? QStringLiteral(".jxl")
+                                        : QStringLiteral(".webp"));
+    const QString outExt = QFileInfo(outName).suffix();
+    QString outPath = dir + u'/' + outName;
+    if (QFile::exists(outPath)) {
+        int n = 2;
+        while (QFile::exists(dir + u'/' + stem + u'_' + QString::number(n) +
+                              u'.' + outExt))
+            ++n;
+        outPath = dir + u'/' + stem + u'_' + QString::number(n) + u'.' + outExt;
+    }
+    const QMap<QString, int> delays =
+        Ugoira::delaysFromRaw(raw, m_ugoiraDelayMs);
+    Ugoira::Frames frames;
+    if (!Ugoira::unzipFrames(zipPath, frames, delays, m_ugoiraDelayMs, error))
+        return false;
+    if (!Ugoira::encodeAnimated(frames, m_ugoiraFormat, outPath,
+                                &m_convertCancel, error))
+        return false;
+    QFile::remove(zipPath);
+    const QString md5 = fileContentMd5(outPath);
+    if (!md5.isEmpty())
+        raw[QStringLiteral("md5")] = md5;
+    raw[QStringLiteral("file_ext")] = QFileInfo(outPath).suffix().toLower();
+    raw[QStringLiteral("ugoira_converted")] = true;
+    raw[QStringLiteral("ugoira_frames")] = frames.images.size();
+    const QString newName = QFileInfo(outPath).fileName();
+    if (newName != job.fileName)
+        emit fileRenamed(job.fileName, newName);
+    job.fileName = newName;
+    job.filePath = outPath;
+    const int dot = newName.lastIndexOf(u'.');
+    job.jsonPath =
+        dir + u'/' + (dot > 0 ? newName.left(dot) : newName) + QStringLiteral(".json");
+    job.post.rawJson = raw;
+    job.post.ext = QFileInfo(outPath).suffix().toLower();
+    return true;
+}
+
 bool DownloadManager::completeJob(DownloadJob &job, QString *error) {
     // Last line of defense on every path: a wall page saved as media is
     // worse than a clear failure (it poisons the library silently).
@@ -477,6 +528,19 @@ bool DownloadManager::completeJob(DownloadJob &job, QString *error) {
             }
             job.post.rawJson = raw; // favourite coupling reuses this
         }
+    }
+    // Ugoira zips convert to animated webp/jxl in place (when configured):
+    // the sidecar below then describes the converted file.
+    if (isUgoiraPost(job.post) && m_ugoiraFormat != QStringLiteral("zip")) {
+        QString convError;
+        if (!convertUgoiraZip(job, raw, &convError)) {
+            if (error)
+                *error = convError.isEmpty()
+                             ? tr("Ugoira conversion failed (zip kept)")
+                             : convError;
+            return false; // zip stays on disk; message names the cause
+        }
+        job.post.rawJson = raw;
     }
     // Sidecar: raw API object, content-routed by the scanner on rescan.
     QFile jf(job.jsonPath);

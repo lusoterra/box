@@ -79,6 +79,8 @@ private:
     QListWidget *m_defBoorus = nullptr;
     QLineEdit *m_dataDir = nullptr;
     QLineEdit *m_downloadDir;
+    QComboBox *m_ugoiraFormat = nullptr;
+    QSpinBox *m_ugoiraDelay = nullptr;
     QLineEdit *m_globalProxy = nullptr;
     QListWidget *m_booruList = nullptr;
     QLineEdit *m_booruName = nullptr;

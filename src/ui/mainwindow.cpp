@@ -554,6 +554,8 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     });
     auto *webDownloads = new WebEngineDownloadBackend(this);
     m_downloads->setWebBackend(webDownloads);
+    m_downloads->setUgoiraFormat(m_settings.ugoiraFormat);
+    m_downloads->setUgoiraFrameDelayMs(m_settings.ugoiraFrameDelayMs);
     m_thumbs->setWebBackend(webDownloads);
     connect(m_favicons, &FaviconCache::ready, this, &MainWindow::onFaviconReady);
     RemoteSource::setConfiguredBoorus(m_settings.boorus);
@@ -5949,6 +5951,8 @@ void MainWindow::applyPreferences(const AppSettings &app) {
     const QString thumbDirPrefs = appCacheDir() + u'/' + QStringLiteral("thumbs");
     m_thumbs->setCacheDir(diskCachePrefs ? thumbDirPrefs : QString());
     m_videoThumbs->setCacheDir(diskCachePrefs ? thumbDirPrefs : QString());
+    m_downloads->setUgoiraFormat(m_settings.ugoiraFormat);
+    m_downloads->setUgoiraFrameDelayMs(m_settings.ugoiraFrameDelayMs);
     m_viewer->setPlaybackDefaults(m_settings.videoMuted, m_settings.videoLoop,
                                   m_settings.volume);
     m_viewer->setMaxSide(m_settings.viewerMaxSide);

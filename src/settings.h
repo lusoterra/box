@@ -45,6 +45,11 @@ struct AppSettings {
     bool strayAutoFav = true;
     // Blacklisted tags: hidden everywhere (local + browse).
     QStringList blacklist;
+    // Ugoira downloads: converted from the served .zip to an animated
+    // file instead ("webp" | "jxl" | "zip" = keep original). Never gif.
+    QString ugoiraFormat = QStringLiteral("webp");
+    // Per-frame delay ms when the API omits pixiv frame data.
+    int ugoiraFrameDelayMs = 100;
     // One-click AI-content filter (omnibar AI toggle): hides posts tagged
     // ai_generated/ai_created/ai_assisted/ai_art everywhere.
     bool hideAi = false;
@@ -223,6 +228,8 @@ inline bool operator==(const AppSettings &a, const AppSettings &b) {
            a.blacklist == b.blacklist &&
            a.hideAi == b.hideAi &&
            a.favTags == b.favTags &&
+           a.ugoiraFormat == b.ugoiraFormat &&
+           a.ugoiraFrameDelayMs == b.ugoiraFrameDelayMs &&
            a.classifyTags == b.classifyTags && a.manualTagTypes == b.manualTagTypes &&
            a.disabledBuckets == b.disabledBuckets &&
            a.browseMode == b.browseMode && a.browseSites == b.browseSites &&

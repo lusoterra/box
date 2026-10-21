@@ -304,6 +304,25 @@
 - [x] Build + `ctest` (+ docs).
 
 ## 28. Windowed grid (don't hold everything in memory) — DONE (pixmaps
+
+## 29. LoliSnatcher "merge" orphans: restore parent booru + no-redownload reimports
+- Symptom: items from LoliSnatcher archives/DB imports are named `merge_*`
+  and lose their parent booru (merge-tab downloads carry no per-post
+  postUrl, so `siteForHost` in `losnimport.cpp:215` cannot resolve them;
+  `targetPaths` then files them under a literal `merge` host folder).
+  Local `merge_*` sidecars DO still carry file URLs (and tags/post links)
+  pointing at real boorus — use those.
+- Fix direction: (a) resolve each merge row's booru from its file URL
+  host (CDN→site map like `fsTagForPost` uses in reverse) and/or post
+  tags, file imports under the proper host folder with a proper
+  `<host>_<md5>` stem (+ sidecar); scanned `merge_*` archives heal the
+  same way via their sidecars; (b) reimporting the same DB must skip
+  what's already on disk by md5 (verify the md5-glob skip in the import
+  path covers cross-folder hits, like `relinkFavourites` does).
+- [ ] Per-row booru resolution for merge imports + host-folder filing;
+      md5-based skip on reimport; verify with a merge-named fixture.
+- [ ] Build + `ctest`.
+
 ##    windowed, not rows; geometry-based visible range; LRU cap 600→256;
 ##    `test_gridwindow` verifies flat memory on a real 700-file archive;
 ##    build OK, 28/28 tests)
@@ -320,19 +339,22 @@
       verify a 700-pic archive stays flat while scrolling both ways.
 - [x] Build + `ctest`.
 
-## 29. Ugoira downloads as animated webp/jxl (never gif)
+## 30. Ugoira downloads as animated webp/jxl (never gif) — DONE
+##    (vendored miniz; download-time convert via ffmpeg/cjxl with pixiv
+##    frame delays + configured fallback; `webp`/`jxl`/`zip` + delay prefs;
+##    `test_ugoira` incl. real encode; found: Danbooru serves .zip + optional
+##    pixiv_ugoira_frame_data, Safebooru pre-converts to .gif; build OK, 29/29 tests)
 - Treat all animated pictures (ugoira, gifs, webps, …) as GIFs for
   classification/filtering — but never convert anything TO gif (poor
   colouring, dithering).
 - Download ugoira as animated webp or animated jxl instead (user choice
-  in Preferences — easier on disk, loads faster). Open question: how to
-  detect the framerate (frame delays live in pixiv metadata, not the
-  zip — check what Danbooru exposes, else a fixed default + setting).
-- [ ] Ugoira detection at download time; webp/jxl encode choice in
+  in Preferences — easier on disk, loads faster). Framerate: pixiv
+  frame delays when present, else the configured default.
+- [x] Ugoira detection at download time; webp/jxl encode choice in
       prefs; framerate source decided; verify playback + thumbs.
-- [ ] Build + `ctest` (+ docs).
+- [x] Build + `ctest` (+ docs).
 
-## 30. Video audio keeps playing after leaving the viewer — DONE
+## 31. Video audio keeps playing after leaving the viewer — DONE
 ##    (`backToGrid` + `showWelcome` now call `ViewerPage::stopPlayback`;
 ##    the player used to live on after its page hid; build OK, 25/25 tests)
 - [x] Stop playback when returning to the grid or home.
@@ -340,19 +362,19 @@
 - [x] Stop playback when returning to the grid or home.
 - [x] Build + `ctest`.
 
-## 31. Settings backup/restore (JSON export/import)
+## 32. Settings backup/restore (JSON export/import)
 - Offline answer to LoliSync-as-backup (parity task 22): export boorus,
   settings, fav tags and favourites to one JSON file; import merges it
   back (tabs optional). No server, no account.
 - [ ] Export/import round-trip ( prefs dialog or File menu); fixtures;
       build + `ctest` (+ docs).
 
-## 32. Video playback speed control
+## 33. Video playback speed control
 - Viewer video menu: playback rate (0.25×–2×) via `QMediaPlayer::setPlaybackRate`.
   Tiny, complements the Image-search menu.
 - [ ] Rate menu + persist per session; build + `ctest` (+ docs).
 
-## 33. Shrink the codebase (dead-code cleanup, very last)
+## 34. Shrink the codebase (dead-code cleanup, very last)
 - The codebase has grown big: audit for dead code, retired helpers,
   unused settings/strings, and machinery made obsolete by earlier tasks,
   and remove it. Behaviour must not change. Allowed lever: bump the
