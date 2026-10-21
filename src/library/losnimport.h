@@ -15,6 +15,7 @@
 #include <QJsonObject>
 #include <QList>
 #include <QObject>
+#include <QSet>
 #include <QString>
 #include <QStringList>
 #include <QVector>
@@ -40,6 +41,10 @@ QList<LosnRow> readBackup(const QString &dbPath, QString &error);
 void siteForHost(const QString &host, QString &key, QString &label);
 qint64 idFromPostUrl(const QString &postUrl);
 QString md5FromFileUrl(const QString &fileUrl);
+// md5 stems already on disk under destDir (any site subfolder):
+// re-imports skip these without re-downloading, even when an earlier
+// run filed them under a different label (merge_* orphans).
+QSet<QString> md5sOnDisk(const QString &destDir);
 // Gallery-dl native-shaped fallback sidecar built from a backup row.
 QJsonObject nativeSidecar(const LosnRow &row);
 // Download target paths for a row (<Site>_<md5>.<ext> + sidecar).

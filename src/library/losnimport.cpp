@@ -39,6 +39,11 @@ void siteForHost(const QString &hostIn, QString &key, QString &label) {
     if (host.contains(QStringLiteral("danbooru"))) {
         key = QStringLiteral("danbooru");
         label = QStringLiteral("Danbooru");
+    } else if (host.contains(QStringLiteral("donmai"))) {
+        // CDN hosts (cdn.donmai.us) serve Danbooru files; merge-tab rows
+        // often lack a post URL but keep these file URLs.
+        key = QStringLiteral("danbooru");
+        label = QStringLiteral("Danbooru");
     } else if (host.contains(QStringLiteral("gelbooru"))) {
         key = QStringLiteral("gelbooru");
         label = QStringLiteral("Gelbooru");
@@ -77,6 +82,28 @@ QString md5FromFileUrl(const QString &fileUrl) {
     const QString stem = QUrl(fileUrl).fileName().split(u'.').first();
     static const QRegularExpression hex32(QStringLiteral("^[0-9a-f]{32}$"));
     return hex32.match(stem).hasMatch() ? stem : QString();
+}
+
+QSet<QString> md5sOnDisk(const QString &destDir) {
+    // One listing for the whole tree (not per row): file stems carry the
+    // content hash, so any earlier filing (even under a stale "merge"
+    // label) counts as already imported.
+    static const QRegularExpression md5Stem(
+        QStringLiteral("_(?P<md5>[0-9a-f]{32})\\.[^.]+$"));
+    QSet<QString> out;
+    const QDir dest(destDir);
+    if (destDir.isEmpty() || !dest.exists())
+        return out;
+    for (const QString &site :
+         dest.entryList(QDir::Dirs | QDir::NoDotAndDotDot)) {
+        const QDir sub(dest.absoluteFilePath(site));
+        for (const QString &f : sub.entryList(QDir::Files)) {
+            const auto m = md5Stem.match(f);
+            if (m.hasMatch())
+                out.insert(m.captured(QStringLiteral("md5")));
+        }
+    }
+    return out;
 }
 
 DownloadPaths pathsForRow(const LosnRow &row, const QJsonObject &sidecar,
@@ -213,6 +240,12 @@ QList<LosnRow> readBackup(const QString &dbPath, QString &error) {
             r.favourite = q.value(7).toLongLong() != 0;
             r.tags = itemTags.value(r.rowId);
             siteForHost(QUrl(r.postUrl).host(), r.siteKey, r.siteLabel);
+            if (r.siteKey.isEmpty() && !r.fileUrl.isEmpty()) {
+                // Merge-tab rows often lack a post URL: fall back to the
+                // file (CDN) host so they file under the real booru instead
+                // of a "merge"/"LoliSnatcher" catch-all.
+                siteForHost(QUrl(r.fileUrl).host(), r.siteKey, r.siteLabel);
+            }
             r.postId = idFromPostUrl(r.postUrl);
             r.md5 = md5FromFileUrl(r.fileUrl);
             rows.append(r);
@@ -625,6 +658,11 @@ void LosnImportDialog::startDownloads() {
     QList<DownloadJob> jobs;
     m_jobPaths.clear();
     const QString dest = m_downloadDir;
+    // Re-imports skip what is already on disk ANYWHERE under dest (not
+    // just at the computed path): earlier runs may have filed the same
+    // md5 under a stale label (merge_* orphans).
+    const QSet<QString> haveMd5 = LosnImport::md5sOnDisk(dest);
+    int skippedMd5 = 0;
     for (const LosnRow &r : m_rows) {
         if (!r.snatched || r.fileUrl.isEmpty())
             continue;
@@ -635,6 +673,15 @@ void LosnImportDialog::startDownloads() {
             LosnImport::pathsForRow(r, sidecar, dest);
         if (QFile::exists(paths.filePath))
             continue; // re-import: already on disk
+        QString md5 = sidecar.value(QStringLiteral("md5")).toString();
+        if (md5.isEmpty())
+            md5 = sidecar.value(QStringLiteral("checksumMD5")).toString();
+        if (md5.isEmpty())
+            md5 = r.md5;
+        if (!md5.isEmpty() && haveMd5.contains(md5.toLower())) {
+            skippedMd5++;
+            continue; // same bytes under another label: nothing to fetch
+        }
         DownloadJob job;
         job.fileName = paths.fileName;
         job.filePath = paths.filePath;
@@ -659,6 +706,8 @@ void LosnImportDialog::startDownloads() {
         log(tr("%1 download(s) use backup sidecars (fetch failed).")
                 .arg(m_metaFailed));
     log(tr("Downloading %1 files…").arg(jobs.size()));
+    if (skippedMd5 > 0)
+        log(tr("%1 already on disk (matched by content, skipped).").arg(skippedMd5));
     m_expectingDownloads = true;
     m_downloads->enqueue(jobs);
 }

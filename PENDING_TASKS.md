@@ -305,7 +305,9 @@
 
 ## 28. Windowed grid (don't hold everything in memory) — DONE (pixmaps
 
-## 29. LoliSnatcher "merge" orphans: restore parent booru + no-redownload reimports
+## 29. LoliSnatcher "merge" orphans: restore parent booru + no-redownload reimports — DONE
+##    (file-URL host fallback + donmai CDN rule; `md5sOnDisk` cross-folder
+##    skip on reimport; merge-row + md5 tests; 29/29 tests, build OK)
 - Symptom: items from LoliSnatcher archives/DB imports are named `merge_*`
   and lose their parent booru (merge-tab downloads carry no per-post
   postUrl, so `siteForHost` in `losnimport.cpp:215` cannot resolve them;
@@ -319,9 +321,9 @@
   same way via their sidecars; (b) reimporting the same DB must skip
   what's already on disk by md5 (verify the md5-glob skip in the import
   path covers cross-folder hits, like `relinkFavourites` does).
-- [ ] Per-row booru resolution for merge imports + host-folder filing;
+- [x] Per-row booru resolution for merge imports + host-folder filing;
       md5-based skip on reimport; verify with a merge-named fixture.
-- [ ] Build + `ctest`.
+- [x] Build + `ctest`.
 
 ##    windowed, not rows; geometry-based visible range; LRU cap 600→256;
 ##    `test_gridwindow` verifies flat memory on a real 700-file archive;

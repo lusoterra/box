@@ -8,6 +8,8 @@
 #include <QSqlQuery>
 #include <QTemporaryDir>
 #include <QCoreApplication>
+#include <QDir>
+#include <QFile>
 #include <QtTest>
 
 namespace {
@@ -55,6 +57,9 @@ private slots:
         QCOMPARE(key, QStringLiteral("konachan"));
         LosnImport::siteForHost(QStringLiteral("aibooru.online"), key, label);
         QCOMPARE(key, QStringLiteral("aibooru"));
+        LosnImport::siteForHost(QStringLiteral("cdn.donmai.us"), key, label);
+        QCOMPARE(key, QStringLiteral("danbooru"));
+        QCOMPARE(label, QStringLiteral("Danbooru"));
     }
 
     void siteForUnknownHostDerivesLabel() {
@@ -167,6 +172,59 @@ private slots:
         const LosnImport::DownloadPaths r =
             LosnImport::pathsForRow(row, QJsonObject(), QStringLiteral("/d"));
         QCOMPARE(r.fileName, QStringLiteral("Gelbooru_losn9.png"));
+    }
+
+    void mergeRowFallsBackToFileHost() {
+        // Merge-tab rows often lack a post URL: the file (CDN) host still
+        // resolves the booru so they file under the right host folder.
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        QSqlDatabase db = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"),
+                                                    QStringLiteral("t_merge"));
+        db.setDatabaseName(tmp.filePath(QStringLiteral("store.db")));
+        QVERIFY(db.open());
+        QSqlQuery q(db);
+        QVERIFY(q.exec(QStringLiteral("CREATE TABLE Tag (id INTEGER PRIMARY KEY, name TEXT)")));
+        QVERIFY(q.exec(QStringLiteral("CREATE TABLE ImageTag (tagID INTEGER, booruItemID INTEGER)")));
+        QVERIFY(q.exec(QStringLiteral("CREATE TABLE BooruItem (id INTEGER PRIMARY KEY,"
+                                      " thumbnailURL TEXT, sampleURL TEXT, fileURL TEXT,"
+                                      " postURL TEXT, mediaType TEXT,"
+                                      " isSnatched INTEGER, isFavourite INTEGER)")));
+        QVERIFY(q.exec(QStringLiteral(
+            "INSERT INTO BooruItem VALUES (20, 't', 's',"
+            " 'https://cdn.donmai.us/original/57/81/57819e03cd64d511be7ae2644e2e.jpg',"
+            " '', 'image', 1, 0)")));
+        db.close();
+        QSqlDatabase::removeDatabase(QStringLiteral("t_merge"));
+        QString err;
+        const QList<LosnRow> rows =
+            LosnImport::readBackup(tmp.filePath(QStringLiteral("store.db")), err);
+        QVERIFY(err.isEmpty());
+        QCOMPARE(rows.size(), 1);
+        QCOMPARE(rows.first().siteKey, QStringLiteral("danbooru"));
+        QCOMPARE(rows.first().siteLabel, QStringLiteral("Danbooru"));
+    }
+
+    void md5sOnDiskFindsCrossFolderHits() {
+        // Re-imports skip by content hash anywhere under destDir, even when
+        // an earlier run filed the file under a stale label.
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        QDir(tmp.path()).mkpath(QStringLiteral("Merge"));
+        QDir(tmp.path()).mkpath(QStringLiteral("Danbooru"));
+        const QString md5 = QStringLiteral("4f0a3d37c18e61c8550ab82b94ef06a2");
+        QFile f(tmp.filePath(QStringLiteral("Merge/Merge_") + md5 + QStringLiteral(".jpg")));
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write("x");
+        f.close();
+        QFile g(tmp.filePath(QStringLiteral("Danbooru/other.txt")));
+        QVERIFY(g.open(QIODevice::WriteOnly));
+        g.write("x");
+        g.close();
+        const QSet<QString> found = LosnImport::md5sOnDisk(tmp.path());
+        QCOMPARE(found.size(), 1);
+        QVERIFY(found.contains(md5));
+        QVERIFY(LosnImport::md5sOnDisk(tmp.filePath(QStringLiteral("nope"))).isEmpty());
     }
 
     void readSyntheticBackup() {
