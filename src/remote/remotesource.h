@@ -42,6 +42,10 @@ public:
     // errors stay false. lastWallKind is "pow", "captcha" or "challenge".
     bool lastWall() const { return m_lastWall; }
     QString lastWallKind() const { return m_lastWallKind; }
+    // Fresh name=value cookies minted mid-search (native PoW solve):
+    // the app merges them into the entry so downloads/thumbs/refreshes
+    // (separate NAMs) and restarts share the clearance.
+    const QStringList &lastFreshCookies() const { return m_lastFreshCookies; }
     int lastHttp() const { return m_lastHttp; }
     const QByteArray &lastBody() const { return m_lastBody; }
     QUrl lastUrl() const { return m_lastUrl; }
@@ -101,6 +105,9 @@ private:
     // result. Emits only on success; otherwise fills note and returns
     // false so the normal wall error (plus note) is shown.
     bool tryWebRetry(QString &note);
+    // 449 wall text shared by the sync path and the async solver-failure
+    // path (solverNote appended when an in-app solve just failed).
+    QString powWallError(bool captcha, const QString &webNote) const;
     BooruEngineOps::Context opsContext() const {
         return {m_site.engine, m_baseUrl, m_creds};
     }
@@ -115,6 +122,11 @@ private:
     QString m_lastError;
     bool m_lastWall = false; // last search died on a challenge wall
     QString m_lastWallKind;  // pow | captcha | challenge (empty when none)
+    QStringList m_lastFreshCookies; // clearance minted by a native PoW solve
+    QStringList m_lastTags;  // tags of the in-flight search (PoW retry)
+    bool m_powRetried = false; // native PoW solve already spent this search
+    QString m_lastPowError;  // why the native solve failed (appended once)
+    int m_searchGen = 0;     // bumped per search/cancel: drops stale solves
     int m_lastHttp = 0;
     QByteArray m_lastBody; // raw body of the last search, capped
     QUrl m_lastUrl;        // exact request URL of the last search

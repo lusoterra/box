@@ -449,3 +449,18 @@
   appears, then save); wallDetectors tests + docs.
 - [x] 449 branch + token detection; kind-aware capture guidance.
 - [x] Build + `ctest` (+ docs).
+
+## 39. Solve PoW natively on the API stack (kill the re-capture loop) — DONE
+##    (`PowSolver` on the searching QNAM + entry backfill + 5-min popup guard;
+##    worker-math tests; build OK, 31/31 tests)
+- The `pow_token` embeds the client IP (verified live: same-IP works,
+  other-IP 449s), so browser-solved tokens die on any egress change
+  (Tor exit rotation especially) — re-capture can never converge.
+- Direction: `PowSolver` (SHA-256 prefix search, port of the site worker)
+  runs challenge→verify on the searching QNAM itself (same proxy, same
+  egress, same jar); the token lands in that jar, the search retries
+  once, and fresh cookies merge back into the entry (covers downloads,
+  thumbs, refreshes). Captcha keeps the human browser path. Guard the
+  auto-popup against repeat firing (5 min per site).
+- [x] Solver + 449 integration + entry backfill + popup guard; tests.
+- [x] Build + `ctest` (+ docs).

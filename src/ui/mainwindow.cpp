@@ -2264,6 +2264,23 @@ void MainWindow::onRemoteFinished() {
                         done->lastUrl().toString(QUrl::FullyEncoded)),
                     done->lastHttp(), done->lastBody());
             }
+            if (!done->lastFreshCookies().isEmpty()) {
+                // Native PoW mint: merge into the entry so downloads,
+                // thumbs and refreshes (separate NAMs) share it; saved,
+                // survives restarts until it rotates or the IP changes.
+                for (BooruSite &b : m_settings.boorus) {
+                    if (b.key != key)
+                        continue;
+                    const QStringList merged = RemotePosts::normalizeCookies(
+                        b.cookies + done->lastFreshCookies());
+                    if (merged != b.cookies) {
+                        b.cookies = merged;
+                        saveSettings(m_settings);
+                        RemoteSource::setConfiguredBoorus(m_settings.boorus);
+                    }
+                    break;
+                }
+            }
             ps.posts += done->lastPosts();
             if (!ps.queriesLeft.isEmpty())
                 pumpSiteSearch(key);
@@ -2450,11 +2467,20 @@ void MainWindow::onRemoteFinished() {
     // must never steal focus with popups): pop the solve browser open by
     // default, or just offer the solve-or-drop menu when opted out.
     if (!wasAppend && t->page <= 1 && !wallSites.isEmpty()) {
-        if (m_settings.wallAutoPopup)
-            solveWallInBrowser(wallSites.first(),
-                               m_wallKinds.value(wallSites.first()));
-        else
+        if (m_settings.wallAutoPopup) {
+            // Loop breaker: a solve that doesn't stick (IP-bound
+            // rotating clearance) must not summon the browser again
+            // within minutes; the Solve button stays available.
+            const qint64 now = QDateTime::currentMSecsSinceEpoch();
+            if (now - m_lastWallPopup.value(wallSites.first(), 0) >
+                5 * 60 * 1000) {
+                m_lastWallPopup.insert(wallSites.first(), now);
+                solveWallInBrowser(wallSites.first(),
+                                   m_wallKinds.value(wallSites.first()));
+            }
+        } else {
             showWallMenu(wallSites);
+        }
     }
     // Fresh search, nothing landed, failures look transient (rate limits,
     // 5xx, timeouts — never auth/walls): one delayed retry instead of a

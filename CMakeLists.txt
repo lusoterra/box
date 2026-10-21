@@ -39,6 +39,7 @@ add_executable(box
     src/library/miniz/miniz_tinfl.c
     src/library/miniz/miniz_zip.c
     src/remote/remotesource.cpp
+    src/remote/powsolver.cpp
     src/remote/downloadmanager.cpp
     src/remote/imagecache.cpp
     src/remote/thumbloader.cpp

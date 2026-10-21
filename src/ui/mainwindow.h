@@ -406,6 +406,10 @@ private:
     QPushButton *m_wallSolveBtn = nullptr; // status-bar one-click wall solver
     QStringList m_wallSites; // walled sites from the last finished search
     QHash<QString, QString> m_wallKinds; // site key -> pow/captcha/challenge
+    QHash<QString, qint64> m_lastWallPopup; // site key -> last auto-popup
+                                           // (loop breaker: a solve that
+                                           // doesn't stick must not summon
+                                           // the browser on every retry)
     void updateWallButton(); // visibility + label follow m_wallSites
     void solveWallFromButton(); // first site, or a menu when several
     Post m_refreshPost; // post currently being tag-refreshed

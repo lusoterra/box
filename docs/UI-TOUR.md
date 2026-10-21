@@ -19,8 +19,10 @@ Left: sidebar tag sections (COPYRIGHT, CHARACTERS, ARTISTS, TAGS, META)
 with counts, each tinted in its bucket colour like the filter pills;
 click toggles filter pills, right-click stars/un-stars favourite tags. A captcha/PoW wall failure pops the solve browser open (opt out in Preferences → Browse, back to a small menu: solve the challenge in the capture browser, or drop the booru (deselect in multibooru, close a solo tab)). Center: post grid. Bottom-left: `40 results · page 1` and infinite scroll (more loads at the bottom); a failed query leaves its one-liner there (click = full server response) plus a `Solve … in browser…` button while walls are reported. API-gated
 sites (soybooru) answer HTTP 449 `pow_required`/`captcha_required` JSON instead
-of HTML: the solve browser opens on the site — search there so the challenge
-fires (proof-of-work self-solves in seconds, captcha needs a human), then save.
+of HTML: proof-of-work solves itself in-app (same stack, one retry, clearance
+saved to the entry); only captchas open the solve browser — search on the site
+there so the challenge fires, then save. Repeat auto-popups within minutes are
+suppressed (the button stays).
 
 ## 03-omnibar — the control row under the tab bar
 Left to right: `★` favourite-tags menu (click a star to add it to the

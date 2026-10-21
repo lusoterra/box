@@ -28,7 +28,8 @@ set(REMOTE_SOURCES
     ../src/engines/engine_hybooru.cpp
     ../src/engines/engine_nuuru.cpp
     ../src/engines/engine_hiddenbooru.cpp
-    ../src/remote/remotesource.cpp)
+    ../src/remote/remotesource.cpp
+    ../src/remote/powsolver.cpp)
 
 # Ugoira conversion + vendored miniz: every test linking
 # downloadmanager.cpp gets the whole set.
@@ -124,6 +125,8 @@ add_unit_test(test_hybooru test_hybooru.cpp ${REMOTE_SOURCES}
               ../src/library/index.cpp ../src/library/metaparser.cpp
               ../src/library/cache.cpp ../src/settings.cpp)
 add_unit_test(test_postmeta test_postmeta.cpp ../src/remote/postmeta.cpp
+              ${REMOTE_SOURCES})
+add_unit_test(test_powsolver test_powsolver.cpp ../src/remote/powsolver.cpp
               ${REMOTE_SOURCES})
 add_unit_test(test_settingsexport test_settingsexport.cpp
               ../src/library/settingsexport.cpp ../src/settings.cpp ../src/library/favdb.cpp

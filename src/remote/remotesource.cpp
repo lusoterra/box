@@ -3,6 +3,7 @@
 // live behind BooruEngineOps (engine_danbooru.cpp and friends); per-host
 // quirks in sitequirks.cpp.
 #include "remotesource.h"
+#include "powsolver.h"
 
 namespace {
 // Browser-backed fetch override (see setWebFetcher). Empty = disabled.
@@ -332,13 +333,61 @@ QString wallAwareMediaError(const QString &host, const QByteArray &body,
 }
 } // namespace RemotePosts
 
+QString RemoteSource::powWallError(bool captcha,
+                                     const QString &webNote) const {
+    const QString host = QUrl(m_baseUrl).host();
+    QString err;
+    if (m_site.cookies.isEmpty()) {
+        err = (captcha
+                   ? tr("HTTP 449 \u2014 captcha required by %1. This entry "
+                        "has no cookies saved: solve the captcha in "
+                        "the capture browser (search on the site so "
+                        "it appears), Apply, then retry.")
+                   : tr("HTTP 449 \u2014 proof-of-work required by %1. "
+                        "This entry has no cookies saved: open the "
+                        "capture browser and search on the site so "
+                        "the challenge runs (it self-solves), Apply, "
+                        "then retry."));
+    } else {
+        err = (captcha
+                   ? tr("HTTP 449 \u2014 captcha required by %1. The saved "
+                        "clearance was rejected or expired: "
+                        "re-capture (search on the site so the "
+                        "challenge appears), Apply, then retry.")
+                   : tr("HTTP 449 \u2014 proof-of-work required by %1. "
+                        "The saved clearance was rejected or "
+                        "expired: re-capture (search on the site so "
+                        "the challenge runs), Apply, then retry."));
+    }
+    err = err.arg(host);
+    if (!webNote.isEmpty())
+        err += u' ' + webNote;
+    if (const RemotePosts::SiteQuirk *q =
+            RemotePosts::quirkForHost(host.toLower())) {
+        if (q->powWall)
+            err += tr(" This site rotates its proof-of-work "
+                      "clearance even when logged in: reload it "
+                      "via Booru manager \u2192 Refresh (no puzzle), "
+                      "Apply, then retry.");
+    }
+    if (!captcha && !m_lastPowError.isEmpty())
+        err += tr(" (automatic proof-of-work failed: %1)")
+                   .arg(m_lastPowError);
+    return err;
+}
+
 QUrl RemoteSource::buildUrl(const QStringList &tags, int page, int limit) const {
     return engineOps(m_site.engine)->searchUrl(opsContext(), tags, page, limit);
 }
 
 void RemoteSource::search(const QStringList &tags, int page, int limit) {
     cancel();
+    ++m_searchGen; // in-flight native solves from the old search die here
     m_webRetried = false;
+    m_powRetried = false;
+    m_lastPowError.clear();
+    m_lastFreshCookies.clear();
+    m_lastTags = tags;
     m_lastUrl.clear();
     m_lastWallKind.clear();
     m_lastBody.clear();
@@ -449,6 +498,40 @@ void RemoteSource::search(const QStringList &tags, int page, int limit) {
                     QStringLiteral("captcha_required"), Qt::CaseInsensitive);
                 m_lastWallKind = captcha ? QStringLiteral("captcha")
                                          : QStringLiteral("pow");
+                if (!captcha && !m_powRetried) {
+                    // IP-bound token: solve on this exact stack (same
+                    // proxy and egress, same cookie jar), then retry once.
+                    m_powRetried = true;
+                    const int gen = m_searchGen;
+                    const QStringList tags = m_lastTags;
+                    const int page = m_pendingPage;
+                    const int limit = m_pendingLimit;
+                    PowSolver::solve(
+                        m_nam, m_baseUrl, this,
+                        [this, gen, tags, page,
+                         limit](bool ok, const QStringList &fresh,
+                                const QString &err) {
+                            if (gen != m_searchGen)
+                                return; // superseded by a newer search
+                            if (ok) {
+                                m_lastFreshCookies = fresh;
+                                search(tags, page, limit);
+                                m_powRetried = true;
+                            } else {
+                                m_lastPowError = err;
+                                SearchResult result;
+                                result.site = m_site.key;
+                                result.httpStatus = 449;
+                                result.error = powWallError(false, {});
+                                m_lastWall = true;
+                                m_lastError = result.error;
+                                m_lastHttp = 449;
+                                emit searchFinished(result);
+                            }
+                        });
+                    reply->deleteLater();
+                    return;
+                }
                 QString webNote;
                 const bool htmlish =
                     body.toLower().contains("<html") ||
@@ -457,45 +540,8 @@ void RemoteSource::search(const QStringList &tags, int page, int limit) {
                     reply->deleteLater();
                     return;
                 }
-                const QString host = QUrl(m_baseUrl).host();
-                if (m_site.cookies.isEmpty()) {
-                    result.error =
-                        (captcha
-                             ? tr("HTTP 449 \u2014 captcha required by %1. This entry "
-                                  "has no cookies saved: solve the captcha in "
-                                  "the capture browser (search on the site so "
-                                  "it appears), Apply, then retry.")
-                             : tr("HTTP 449 \u2014 proof-of-work required by %1. "
-                                  "This entry has no cookies saved: open the "
-                                  "capture browser and search on the site so "
-                                  "the challenge runs (it self-solves), Apply, "
-                                  "then retry."))
-                            .arg(host);
-                } else {
-                    result.error =
-                        (captcha
-                             ? tr("HTTP 449 \u2014 captcha required by %1. The saved "
-                                  "clearance was rejected or expired: "
-                                  "re-capture (search on the site so the "
-                                  "challenge appears), Apply, then retry.")
-                             : tr("HTTP 449 \u2014 proof-of-work required by %1. "
-                                  "The saved clearance was rejected or "
-                                  "expired: re-capture (search on the site so "
-                                  "the challenge runs), Apply, then retry."))
-                            .arg(host);
-                }
+                result.error = powWallError(captcha, webNote);
                 m_lastWall = true;
-                if (!webNote.isEmpty())
-                    result.error += u' ' + webNote;
-                if (const RemotePosts::SiteQuirk *q =
-                        RemotePosts::quirkForHost(host.toLower())) {
-                    if (q->powWall)
-                        result.error +=
-                            tr(" This site rotates its proof-of-work "
-                               "clearance even when logged in: reload it "
-                               "via Booru manager \u2192 Refresh (no puzzle), "
-                               "Apply, then retry.");
-                }
             } else {
                 result.error = detail.isEmpty()
                                    ? what
@@ -547,6 +593,7 @@ void RemoteSource::search(const QStringList &tags, int page, int limit) {
 }
 
 void RemoteSource::cancel() {
+    ++m_searchGen; // a pending native solve reports into the void, not here
     if (m_reply) {
         disconnect(m_reply, nullptr, this, nullptr);
         m_reply->abort();
