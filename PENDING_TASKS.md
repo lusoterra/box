@@ -395,3 +395,54 @@
       `grep` for single-use sites, test-only leftovers); delete with
       justification per removal. C++20 bump where it shrinks code.
 - [x] Build + full `ctest` after each removal batch.
+
+## 35. Smarter auto favicon fetching (parse page HTML for icon links) — DONE (`faviconIconsFromHtml` + tried-URL guard; fixture tests; 30/30)
+- `FaviconCache` only tries `<base>/favicon.ico` (+ host root): sites
+  without one keep the generic badge even when their HTML advertises an
+  icon via `<link rel="icon"|"shortcut icon"|"apple-touch-icon" ...>`.
+- Direction: when a candidate fetch returns HTML instead of an image,
+  parse `faviconIconsFromHtml()` (pure, unit-tested) for link-rel icon
+  hrefs, resolve relative against the page URL, and try those before
+  marking the key dead. Keep the .ico-first order (cheap hit stays fast).
+- [x] HTML icon-link parsing + candidate-chain fallback; fixture tests.
+- [x] Build + `ctest` (+ docs).
+
+## 36. Webview auto-pops on captcha/Cloudflare walls (opt-out) — DONE (`wallAutoPopup` default-on + prefs checkbox; auto-solve-first-wall; round-trip tests; 30/30)
+- Today a wall means a status-bar line + a menu you must know to look
+  for (`showWallMenu` on fresh searches only); the solve browser never
+  opens itself. It should pop open on the walled site by default, with
+  a Preferences toggle to turn the auto-popup off (menu behaviour stays).
+- Direction: `wallAutoPopup` setting (default on, persisted + backed up);
+  checkbox in Preferences; `onRemoteFinished` opens `solveWallInBrowser`
+  for the first wall site when set, menu otherwise. No popups on
+  infinite-scroll appends (same gate as the menu).
+- [x] Setting + prefs checkbox; auto-solve-first-wall behaviour; test.
+- [x] Build + `ctest` (+ docs).
+
+## 37. Status-bar solve button next to failed-query info — DONE (permanent right-end `Solve … in browser…` button; menu when several; 30/30)
+- A failed query leaves only a timed status-bar line (click = probe
+  dialog with raw request/response). Next to that info there should be
+  a one-click button opening the webview to grab cookies / ride PoW /
+  solve Cloudflare for the walled site(s).
+- Direction: `m_wallSolveBtn` on the status bar, visible while the last
+  search reported wall sites; click opens the solve browser (menu when
+  several). Qt temporary messages cover left-docked widgets, so it
+  docks as a permanent (right-end) status-bar widget to stay clickable
+  while the message shows. Hides on new search / clean result.
+- [x] Button + visibility wiring; build + `ctest` (+ docs).
+
+## 38. Soybooru 449 walls: detect pow/captcha + guided re-capture
+- Live RE (2026-10-21): API answers HTTP 449 `{"error":"pow_required"}`
+  (and `captcha_required` for the hCaptcha variant); homepage returns 200
+  with no cookies and fires no API calls. PoW = WASM worker
+  (`/api/pow/challenge` -> `/api/pow/verify`, auto-solves in-page);
+  captcha = hCaptcha (`/api/captcha/*`, human). Both only trigger on
+  bundle-driven pages, so capture-at-homepage mints nothing — the loop
+  the user hit. App also never recognized 449 (no wall flag/menu/button,
+  cryptic "Unexpected response shape").
+- Direction: treat 449 + either token as a wall (no hidden-browser retry
+  for bare JSON — no JS runs there); thread the wall kind into the
+  capture dialog with tailored guidance (search in-page so the challenge
+  appears, then save); wallDetectors tests + docs.
+- [ ] 449 branch + token detection; kind-aware capture guidance.
+- [ ] Build + `ctest` (+ docs).
