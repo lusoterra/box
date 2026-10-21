@@ -724,8 +724,8 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     });
 
     // ── Omnibar: search + rating + source + sort + ratio + reload ──
-    auto *omni = new QWidget(this);
-    auto *omniLay = new QHBoxLayout(omni);
+    m_omniBar = new QWidget(this);
+    auto *omniLay = new QHBoxLayout(m_omniBar);
     omniLay->setContentsMargins(8, 6, 8, 6);
     omniLay->setSpacing(6);
     m_searchEdit = new QLineEdit(this);
@@ -1208,7 +1208,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     tabRow->addWidget(plusBtn);
     tabRow->addStretch(1);
     centerLay->addLayout(tabRow);
-    centerLay->addWidget(omni);
+    centerLay->addWidget(m_omniBar);
     // Active-filter pills (replaces the old Active tab).
     m_pillBar = new QWidget(this);
     auto *pillLay = new QHBoxLayout(m_pillBar);
@@ -6592,6 +6592,8 @@ void MainWindow::showViewer(int row) {
         const QString reason = refreshReason(p);
         m_viewer->setRefreshable(reason.isEmpty(), reason);
     }
+    if (m_omniBar)
+        m_omniBar->setVisible(false);
     m_pages->setCurrentIndex(1);
 }
 
@@ -6601,6 +6603,8 @@ void MainWindow::backToGrid() {
     if (m_viewer)
         m_viewer->stopPlayback();
     m_pages->setCurrentIndex(0);
+    if (m_omniBar)
+        m_omniBar->setVisible(true);
     m_grid->setFocus();
     requestVisibleThumbs();
 }

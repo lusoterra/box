@@ -94,8 +94,10 @@ Toolbar: `Back`, `‹ 8 / 40 ›` stepping, `Fit`, `100%`, `Open post`
 (site page, http(s) only), `Image search` (SauceNAO, Yandex, Google
 Lens, IQDB, trace.moe — needs a remote file URL), `Download`, `Tags` (toggle panel), `Notes`
 (translation overlays on the image, on by default), refresh,
-globe (`Open file URL`), `Copy file URL`, `Comments` (thread popup,
-reuses the fetched notes/comments cache). Below the title: `AI` / `♥` / `↓`
+globe (`Open file URL`), `Copy file URL` (toggles to delete once the file
+is on disk, like the ♥ button), `Comments` (thread popup, reuses the fetched
+notes/comments cache). The omnibar hides in post view (grid tools would
+misclick); it returns with the grid. Below the title: `AI` / `♥` / `↓`
 badges mirroring the grid marks. Downloading or (un)favouriting from
 the viewer never leaves it; the grid refreshes behind and the viewer
 follows it (removed rows resolve to the nearest surviving post,

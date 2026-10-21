@@ -334,6 +334,7 @@ private:
     int m_aspectDen = 1;
 
     // UI
+    QWidget *m_omniBar = nullptr; // search row: hidden in post view
     QLineEdit *m_searchEdit = nullptr;
     QCompleter *m_completer = nullptr;
     QStandardItemModel *m_completeModel = nullptr; // DisplayRole tag, UserRole bucket

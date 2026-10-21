@@ -524,3 +524,12 @@
 - [x] Downloaded-state tracking + toggle behaviour on `m_downloadBtn`.
 - [x] Build + `ctest` (+ docs).
 
+## 45. Hide the omnibar and toolbar buttons in post view — DONE
+##    (`m_omniBar` hidden on viewer enter, restored on grid/home/tab;
+##    build OK, 31/31 tests)
+- Entering the viewer should hide the omnibar row + filter buttons (they
+  act on the grid and invite misclicks); show them again on back-to-grid.
+  Keep the viewer toolbar itself.
+- [x] Visibility switch on viewer enter/exit.
+- [x] Build + `ctest` (+ docs).
+
