@@ -460,7 +460,7 @@ static Post rowToPost(const QSqlQuery &q) {
     p.id = q.value(1).toLongLong();
     p.rating = q.value(2).toString();
     p.score = q.value(3).toInt();
-    p.ext = q.value(4).toString();
+    p.ext = q.value(4).toString().toLower();
     p.tags = q.value(5).toString();
     p.tagsArtist = q.value(6).toString();
     p.tagsCharacter = q.value(7).toString();
@@ -501,6 +501,25 @@ static Post rowToPost(const QSqlQuery &q) {
         p.ratingInferred = inferred;
     }
     p.category = p.isRemote ? p.siteName : QStringLiteral("Favourites");
+    // Old/imported rows sometimes lack ext (empty string): derive it from
+    // the file URL or path so media routing (video vs image), grid badges
+    // and download naming keep working without a DB migration.
+    if (p.ext.isEmpty()) {
+        QString src = !p.fileUrl.isEmpty() ? p.fileUrl : p.absFile;
+        const int qi = src.indexOf(u'?');
+        if (qi >= 0)
+            src = src.left(qi);
+        QString suf = QFileInfo(src).suffix().toLower();
+        bool ok = !suf.isEmpty() && suf.size() <= 5;
+        for (const QChar &c : suf) {
+            if (!c.isLetterOrNumber()) {
+                ok = false;
+                break;
+            }
+        }
+        if (ok)
+            p.ext = suf;
+    }
     // A downloaded copy always wins: favourites open (and thumbnail) from
     // disk instead of re-streaming the remote URL.
     const QString local = q.value(17).toString();

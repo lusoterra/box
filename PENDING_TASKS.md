@@ -168,7 +168,10 @@
 ##    labels for multi-select); URL tests; docs; build OK, 25/25 tests)
 - [x] Viewer menu/buttons + grid context actions; build + `ctest` (+ docs).
 
-## 20. Favourite videos only play after download (bug report 2026-10-20)
+## 20. Favourite videos only play after download (bug report 2026-10-20) — DONE
+##    (in-memory `ext` heal in `rowToPost` from file URL/path, no migration;
+##    viewer single-post refresh fallback for empty file URLs, once per
+##    post per session; `extHealedFromFileUrl` test; 25/25 tests)
 - Symptom: a favourited video that is NOT downloaded won't play; the same
   video plays once downloaded.
 - Suspects: fav rows with empty `file_url` and/or empty `ext` (favourited
@@ -178,10 +181,10 @@
   branch, empty fileUrl shows "No file URL" — while the downloaded-copy
   override in `rowToPost` (`favdb.cpp:503`) heals both (local path + ext
   from suffix), which is why downloading "fixes" it.
-- [ ] Backfill/heal `file_url`+`ext` on fav rows (single-post refresh at
+- [x] Backfill/heal `file_url`+`ext` on fav rows (single-post refresh at
       view time or one-shot DB migration); ensure the viewer falls back to
       a refresh when a remote fav video lacks a file URL.
-- [ ] Build + `ctest`.
+- [x] Build + `ctest`.
 
 ## 21. Dropdown filters render as typed-tag pills — DONE (rating box writes
 ##    strip typed `rating:` tokens, typed `rating:` clears the box via

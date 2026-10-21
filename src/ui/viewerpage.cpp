@@ -1570,10 +1570,22 @@ void ViewerPage::showCurrent() {
         m_loadInfo->setVisible(false);
         m_stack->setCurrentWidget(m_video);
         if (p.isRemote) {
-            if (p.fileUrl.isEmpty())
-                showNote(tr("No file URL (login may be required)"));
-            else
+            if (p.fileUrl.isEmpty()) {
+                // Stale row (login-wall era or pre-file_url): a single-post
+                // refresh may restore the URL — once per post per session,
+                // then the note below stands.
+                const QString key =
+                    p.siteName + u'#' + QString::number(p.id);
+                if (RemotePosts::isHttpUrl(p.postUrl) &&
+                    !m_detailFetched.contains(key)) {
+                    m_detailFetched.insert(key);
+                    emit refreshRequested(p);
+                } else {
+                    showNote(tr("No file URL (login may be required)"));
+                }
+            } else {
                 m_video->setUrl(QUrl(p.fileUrl), p);
+            }
         } else {
             // Local file: bail early with a clear note if the path is
             // empty or the file is gone.

@@ -64,6 +64,22 @@ private slots:
         QVERIFY(db.remove(QStringLiteral("Gelbooru"), 7103104));
     }
 
+    void extHealedFromFileUrl() {
+        // Old rows may lack ext: listing derives it from the file URL
+        // (or path) so video-vs-image routing keeps working.
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        FavDb db;
+        QVERIFY(db.open(tmp.path()));
+        Post p = samplePost();
+        p.ext.clear();
+        p.fileUrl = QStringLiteral("https://img/x.mp4?token=abc");
+        QVERIFY(db.add(p));
+        const QVector<Post> rows = db.list();
+        QCOMPARE(rows.size(), 1);
+        QCOMPARE(rows.first().ext, QStringLiteral("mp4"));
+    }
+
     void idlessImportsKeyByUrl() {
         // Stray link posts all carry id 0: they must favourite (and
         // un-favourite) independently by URL hash, not collide on (site, 0).
