@@ -6,22 +6,47 @@ online, download in full quality, and keep favourites — no browser needed.
 
 Local archives are treated read-only: browsing never modifies your library.
 
+## Supported boorus
+
+<details>
+<summary><b>Engines and example instances</b> (click to expand)</summary>
+
+| Engine | Example instances | Notes |
+| --- | --- | --- |
+| Danbooru | danbooru.donmai.us | API keys supported |
+| Gelbooru | Safebooru (ships as the default), Gelbooru, Rule34, AIBoru | Rule34 needs API credentials |
+| Moebooru | Konachan, Yandere | |
+| Szurubooru | any Szurubooru instance | |
+| Shimmie | any Shimmie instance | |
+| HyBooru | any HyBooru instance | |
+| Nuuru | soybooru.com | proof-of-work clearance solves itself in-app |
+| HiddenBooru | Tor onion service (+ slow I2P mirror) | needs a Tor proxy (`socks5h://127.0.0.1:9050`) |
+
+Any instance of a supported engine can be added in Preferences → Booru
+manager (base URL + engine type); only Safebooru ships preconfigured so
+fresh installs start SFW-only.
+</details>
+
 ## Requirements
 
 - C++17 compiler (GCC, Clang, MSVC)
 - CMake 3.16+
-- Qt 6: Widgets, Concurrent, Sql, Multimedia, MultimediaWidgets, Network
+- Qt 6: Widgets, Concurrent, Sql, Multimedia, MultimediaWidgets, Network,
+  WebEngine (cookie capture / PoW-wall browsing)
 
 ```sh
 # Arch
-sudo pacman -S qt6-base qt6-multimedia qt6-svg cmake gcc
+sudo pacman -S qt6-base qt6-multimedia qt6-svg qt6-webengine cmake gcc
 
 # Debian / Ubuntu
-sudo apt install qt6-base-dev qt6-multimedia-dev libqt6svg6-dev cmake g++
+sudo apt install qt6-base-dev qt6-multimedia-dev libqt6svg6-dev qt6-webengine-dev cmake g++
 
 # Fedora
-sudo dnf install qt6-qtbase-devel qt6-qtmultimedia-devel qt6-qtsvg-devel cmake gcc-c++
+sudo dnf install qt6-qtbase-devel qt6-qtmultimedia-devel qt6-qtsvg-devel qt6-qtwebengine-devel cmake gcc-c++
 ```
+
+Ugoira downloads need `ffmpeg` in `PATH` at runtime (`+cjxl` for animated
+JXL); everything else degrades gracefully without them.
 
 ## Build
 
