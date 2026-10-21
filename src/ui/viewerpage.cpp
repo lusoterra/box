@@ -2045,11 +2045,11 @@ void ViewerPage::stageNotes() {
 void ViewerPage::addTagGroup(QBoxLayout *lay, const QString &name, const QString &tags,
                              const QString &color) {
     const QStringList list = tags.split(QChar::Space, Qt::SkipEmptyParts);
+    if (list.isEmpty())
+        return; // no header for empty groups (was: `Name (0)`)
     auto *hl = new QLabel(QStringLiteral("%1 (%2)").arg(name).arg(list.size()), this);
     hl->setStyleSheet(QStringLiteral("color:#4a5068;font-size:10px;"));
     lay->addWidget(hl);
-    if (list.isEmpty())
-        return; // header still shows, with a (0) count
     auto *flow = new FlowLayout(nullptr, 0, 3, 3);
     for (const QString &t : list) {
         QString label = t;

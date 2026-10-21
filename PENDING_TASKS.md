@@ -490,12 +490,14 @@
 - [x] Comments button + popup dialog; globe asset + rename.
 - [x] Build + `ctest` (+ docs).
 
-## 42. Hide empty tag groups instead of `Name (0)` headers
+## 42. Hide empty tag groups instead of `Name (0)` headers — DONE
+##    (`addTagGroup` returns before the header on empty input; build OK,
+##    31/31 tests)
 - `ViewerPage::addTagGroup` always adds the header, even with zero tags
   (`Artist (0)`, `Copyright (0)`). Skip empty groups entirely (keep the
   `No metadata` fallback when everything is empty).
-- [ ] Skip empties in `addTagGroup`; verify on a tagless post.
-- [ ] Build + `ctest` (+ docs).
+- [x] Skip empties in `addTagGroup`; verify on a tagless post.
+- [x] Build + `ctest` (+ docs).
 
 ## 43. Custom tag categories on the left sidebar (multibooru-aware)
 - Nuuru/Szuru native taxonomies survive in `Post.customTags` and render on
