@@ -41,8 +41,10 @@ public:
     void zoom100();
     // Annotation boxes (danbooru notes): rects in ORIGINAL image pixels;
     // refSize maps them onto whatever pixmap is actually displayed.
-    // Hovering a box shows its body.
+    // Hovering a box shows its body. Toggleable via setNotesVisible
+    // (YouTube-2012-style overlays, on by default).
     void setNotes(const QVector<PostNote> &notes, const QSize &refSize);
+    void setNotesVisible(bool visible);
 
 protected:
     void wheelEvent(QWheelEvent *e) override;
@@ -55,8 +57,10 @@ private:
     void applyPendingNotes();
     QGraphicsScene *m_scene;
     QGraphicsPixmapItem *m_item = nullptr;
-    QVector<PostNote> m_pendingNotes;
+    QVector<PostNote> m_notes; // staged, scaled onto m_item on apply
     QSize m_refSize;
+    QList<QGraphicsRectItem *> m_noteBoxes; // live overlays (zoom with image)
+    bool m_notesVisible = true; // overlay toggle (toolbar Notes button)
     double m_zoom = 1.0;
     bool m_fitted = true;
 };

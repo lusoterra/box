@@ -73,6 +73,7 @@ ImageView::ImageView(QWidget *parent) : QGraphicsView(parent) {
 
 void ImageView::setImage(const QImage &img, bool applyNotes) {
     m_scene->clear();
+    m_noteBoxes.clear(); // scene clear deleted them; list must not dangle
     m_item = nullptr;
     if (img.isNull())
         return;
@@ -84,21 +85,36 @@ void ImageView::setImage(const QImage &img, bool applyNotes) {
 }
 
 void ImageView::setNotes(const QVector<PostNote> &notes, const QSize &refSize) {
-    m_pendingNotes = notes;
+    m_notes = notes;
     m_refSize = refSize;
     if (m_item)
         applyPendingNotes();
 }
 
+void ImageView::setNotesVisible(bool visible) {
+    if (m_notesVisible == visible)
+        return;
+    m_notesVisible = visible;
+    if (visible) {
+        applyPendingNotes(); // rebuilds from the stored notes
+        return;
+    }
+    for (QGraphicsRectItem *box : m_noteBoxes)
+        box->setVisible(false);
+}
+
 void ImageView::applyPendingNotes() {
-    if (!m_item || m_pendingNotes.isEmpty() || !m_refSize.isValid() ||
-        m_refSize.width() <= 0 || m_refSize.height() <= 0)
+    qDeleteAll(m_noteBoxes);
+    m_noteBoxes.clear();
+    if (!m_item || !m_notesVisible || m_notes.isEmpty() ||
+        !m_refSize.isValid() || m_refSize.width() <= 0 ||
+        m_refSize.height() <= 0)
         return;
     const QSizeF disp = m_item->boundingRect().size();
     const double sx = disp.width() / m_refSize.width();
     const double sy = disp.height() / m_refSize.height();
     const QColor accent(0x7c, 0x9e, 0xf8);
-    for (const PostNote &n : m_pendingNotes) {
+    for (const PostNote &n : m_notes) {
         if (n.w <= 0 || n.h <= 0 || n.body.isEmpty())
             continue;
         auto *box = new QGraphicsRectItem(
@@ -115,8 +131,8 @@ void ImageView::applyPendingNotes() {
         dot->setPen(Qt::NoPen);
         dot->setBrush(accent);
         dot->setToolTip(n.body);
+        m_noteBoxes.append(box);
     }
-    m_pendingNotes.clear();
 }
 
 void ImageView::fit() {
@@ -987,6 +1003,12 @@ ViewerPage::ViewerPage(QWidget *parent) : QWidget(parent) {
     m_refreshBtn->setIcon(UiIcons::icon(QStringLiteral("refresh-cw")));
     m_refreshBtn->setIconSize(QSize(15, 15));
     m_refreshBtn->setToolTip(tr("Re-fetch tags from the source booru"));
+    auto *notesBtn = new QPushButton(tr("Notes"), this);
+    notesBtn->setCheckable(true);
+    notesBtn->setChecked(true);
+    notesBtn->setToolTip(tr("Show translation overlays on the image"));
+    connect(notesBtn, &QPushButton::toggled, this,
+            [this](bool on) { m_image->setNotesVisible(on); });
     m_favBtn = new QPushButton(this);
     m_favBtn->setIcon(UiIcons::heart(QColor(0x78, 0x80, 0xa0), false));
     m_favBtn->setIconSize(QSize(16, 16));
@@ -1079,6 +1101,7 @@ ViewerPage::ViewerPage(QWidget *parent) : QWidget(parent) {
     bar->addWidget(m_postBtn);
     bar->addWidget(m_downloadBtn);
     bar->addWidget(m_refreshBtn);
+    bar->addWidget(notesBtn);
     bar->addWidget(m_favBtn);
     bar->addWidget(openBtn);
     bar->addWidget(copyBtn);
@@ -1775,14 +1798,19 @@ void ViewerPage::stageNotes() {
     if (m_row < 0 || m_row >= m_posts.size())
         return;
     const Post &p = m_posts[m_row];
-    if (isVideoExt(p.ext) || p.ext == QStringLiteral("gif") || !p.width || !p.height)
+    if (isVideoExt(p.ext) || p.ext == QStringLiteral("gif") || !p.width || !p.height) {
+        m_image->setNotes({}, {});
         return;
+    }
+    // Always (re)stage, even when empty: otherwise the previous post's
+    // boxes would linger onto an un-noted image.
     const auto it = m_metaCache.find(p.isRemote
                                          ? p.siteName + u'#' + QString::number(p.id)
                                          : QString());
-    if (it == m_metaCache.end() || it->first.isEmpty())
-        return;
-    m_image->setNotes(it->first, QSize(p.width, p.height));
+    if (it == m_metaCache.end())
+        m_image->setNotes({}, {});
+    else
+        m_image->setNotes(it->first, QSize(p.width, p.height));
 }
 
 void ViewerPage::addTagGroup(QBoxLayout *lay, const QString &name, const QString &tags,

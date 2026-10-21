@@ -80,7 +80,8 @@ set re-searches immediately (`onSitesChanged`).
 
 ## 11-viewer — same-window post viewer (`ViewerPage`, `src/ui/viewerpage.cpp`)
 Toolbar: `Back`, `‹ 8 / 40 ›` stepping, `Fit`, `100%`, `Open post`
-(site page, http(s) only), `Download`, `Tags` (toggle panel), refresh,
+(site page, http(s) only), `Download`, `Tags` (toggle panel), `Notes`
+(translation overlays on the image, on by default), refresh,
 `Open file`, `Copy path`. Below the title: `AI` / `♥` / `↓`
 badges mirroring the grid marks. Downloading or (un)favouriting from
 the viewer never leaves it; the grid refreshes behind and the viewer

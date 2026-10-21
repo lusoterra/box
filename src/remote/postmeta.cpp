@@ -70,7 +70,8 @@ void PostMetaFetcher::fetch(const QString &siteKey, const QString &baseUrl,
     if (engine == BooruEngine::Danbooru) {
         applyBasicAuth(notesReq, m_danUser, m_danKey);
         applyBasicAuth(commentsReq, m_danUser, m_danKey);
-    } else if (engine == BooruEngine::Gelbooru) {
+    } else if (engine == BooruEngine::Gelbooru ||
+               engine == BooruEngine::Safebooru) {
         // Gelbooru dapi takes creds as query params (already in the URL).
     }
     if (!notesReq.url().isEmpty()) {
@@ -126,8 +127,9 @@ namespace PostMeta {
 QUrl notesUrl(BooruEngine engine, const QString &baseUrl, qint64 postId,
               const QString &gelUser, const QString &gelKey) {
     const QString id = QString::number(postId);
-    if (engine == BooruEngine::Szurubooru || engine == BooruEngine::Shimmie)
-        return {}; // no notes API on these engines
+    if (engine == BooruEngine::Szurubooru || engine == BooruEngine::Shimmie ||
+        engine == BooruEngine::Hybooru)
+        return {}; // no separate notes endpoint on these engines
     if (engine == BooruEngine::Danbooru) {
         QUrl url(baseUrl + QStringLiteral("/notes.json"));
         QUrlQuery q;
@@ -136,7 +138,7 @@ QUrl notesUrl(BooruEngine engine, const QString &baseUrl, qint64 postId,
         url.setQuery(q);
         return url;
     }
-    if (engine == BooruEngine::Gelbooru) {
+    if (engine == BooruEngine::Gelbooru || engine == BooruEngine::Safebooru) {
         QUrl url(RemotePosts::apiBaseUrl(engine, baseUrl) +
                  QStringLiteral("/index.php"));
         QUrlQuery q;
@@ -166,8 +168,8 @@ QUrl commentsUrl(BooruEngine engine, const QString &baseUrl, qint64 postId,
         url.setQuery(q);
         return url;
     }
-    if (engine == BooruEngine::Shimmie)
-        return {}; // no comment API on this engine (v1)
+    if (engine == BooruEngine::Shimmie || engine == BooruEngine::Hybooru)
+        return {}; // no comment API on these engines (v1 / unknown shape)
     if (engine == BooruEngine::Danbooru) {
         QUrl url(baseUrl + QStringLiteral("/comments.json"));
         QUrlQuery q;
@@ -178,7 +180,7 @@ QUrl commentsUrl(BooruEngine engine, const QString &baseUrl, qint64 postId,
         url.setQuery(q);
         return url;
     }
-    if (engine == BooruEngine::Gelbooru) {
+    if (engine == BooruEngine::Gelbooru || engine == BooruEngine::Safebooru) {
         QUrl url(RemotePosts::apiBaseUrl(engine, baseUrl) +
                  QStringLiteral("/index.php"));
         QUrlQuery q;

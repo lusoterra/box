@@ -82,6 +82,8 @@ add_unit_test(test_hybooru test_hybooru.cpp ${REMOTE_SOURCES}
               ../src/remote/tagsuggest.cpp ../src/library/tagtypes.cpp
               ../src/library/index.cpp ../src/library/metaparser.cpp
               ../src/library/cache.cpp ../src/settings.cpp)
+add_unit_test(test_postmeta test_postmeta.cpp ../src/remote/postmeta.cpp
+              ${REMOTE_SOURCES})
 add_unit_test(test_tabbar test_tabbar.cpp ../src/ui/tabbar.cpp)
 set_tests_properties(test_tabbar PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
