@@ -281,6 +281,9 @@ private:
     void step(int d);
     void showCurrent();
     void stageNotes();
+    // Drop the notes/comments tail and re-render it (comment toggle,
+    // fetch arrival); tag groups above stay untouched.
+    void rebuildMetaTail();
     void primeThumb(int row);      // instant grid thumbnail on navigation
     void preloadNeighbours();      // full files for row-1/row+1 into cache
     QString metaKey() const;
@@ -320,6 +323,12 @@ private:
     PostMetaFetcher *m_meta = nullptr;
     // (site#id) -> notes+comments, so back/forth never refetches.
     QHash<QString, QPair<QVector<PostNote>, QVector<PostComment>>> m_metaCache;
+    // Comments collapse state: long threads show the first few behind a
+    // show-all toggle (reset on every post change).
+    bool m_commentsExpanded = false;
+    // Layout index where the notes/comments sections start (toggle
+    // rebuilds from here without touching the tag groups above).
+    int m_metaSectionStart = 0;
     // HyBooru details already fetched this session (site#id): genuinely
     // tagless posts must not refetch on every open.
     QSet<QString> m_detailFetched;

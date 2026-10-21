@@ -96,7 +96,8 @@ post page, not the downloaded file, except strays),
 score, rating with `(inferred)` flag, dimensions, ext) and clickable tag
 groups (Artist/Character/Copyright/General/Meta + native custom
 categories; right-click a tag for `Add to search` or `Search in
-new tab` per booru), then notes + comments on remote posts.
+new tab` per booru), then notes + comments on remote posts (long
+threads collapse behind a show-all toggle).
 
 ## 12-prefs-general — Preferences → General
 `Default tab`, `Language`, `Always load last session on startup`,

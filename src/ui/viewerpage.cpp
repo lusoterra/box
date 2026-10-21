@@ -1440,6 +1440,7 @@ void ViewerPage::showRow(int row) {
     m_loadInfo->setVisible(false);
     showNote({});
     m_row = row;
+    m_commentsExpanded = false; // long threads start collapsed, per post
     maybeFetchHybooruDetail();
     primeThumb(row);
     showCurrent();
@@ -1730,8 +1731,19 @@ QString ViewerPage::metaKey() const {
     return p.siteName + u'#' + QString::number(p.id);
 }
 
+void ViewerPage::rebuildMetaTail() {
+    if (!m_tagLayout)
+        return;
+    if (QLayoutItem *stretch = m_tagLayout->takeAt(m_tagLayout->count() - 1))
+        delete stretch;
+    while (m_tagLayout->count() > m_metaSectionStart)
+        delete m_tagLayout->takeAt(m_metaSectionStart);
+    renderMetaSections();
+    m_tagLayout->addStretch(1);
+}
+
 void ViewerPage::renderMetaSections() {
-    const auto it = m_metaCache.find(metaKey());
+    m_metaSectionStart = m_tagLayout ? m_tagLayout->count() : 0;    const auto it = m_metaCache.find(metaKey());
     if (it == m_metaCache.end())
         return; // still fetching (or failed silently)
     const auto &[notes, comments] = *it;
@@ -1758,10 +1770,14 @@ void ViewerPage::renderMetaSections() {
         auto *hl = new QLabel(tr("COMMENTS (%1)").arg(comments.size()), this);
         hl->setStyleSheet(QStringLiteral("color:#4a5068;font-size:10px;"));
         m_tagLayout->addWidget(hl);
+        // Long threads stay readable: first few show, the rest hide
+        // behind a show-all toggle (panel rebuilds reset to collapsed).
+        static constexpr int kInitialComments = 5;
+        QList<QLabel *> extra;
         int shown = 0;
         for (const PostComment &c : comments) {
             if (++shown > 50)
-                break; // long threads stay readable
+                break; // hard cap: threads beyond this stay unfetched-light
             const QString head = c.author.isEmpty() ? c.date : c.author + u" · " + c.date;
             auto *l = new QLabel(
                 QStringLiteral("<b>%1</b><br>%2")
@@ -1772,22 +1788,40 @@ void ViewerPage::renderMetaSections() {
             l->setTextInteractionFlags(Qt::TextSelectableByMouse);
             l->setOpenExternalLinks(false);
             m_tagLayout->addWidget(l);
+            if (shown > kInitialComments) {
+                l->setVisible(m_commentsExpanded);
+                extra.append(l);
+            }
+        }
+        if (!extra.isEmpty()) {
+            auto *more = new QPushButton(
+                m_commentsExpanded
+                    ? tr("Show fewer comments")
+                    : tr("Show all %1 comments").arg(comments.size()),
+                this);
+            more->setFlat(true);
+            more->setCursor(Qt::PointingHandCursor);
+            more->setStyleSheet(QStringLiteral("color:#7c9ef8;text-align:left;"));
+            connect(more, &QPushButton::clicked, this, [this] {
+                m_commentsExpanded = !m_commentsExpanded;
+                // Deferred: the click handler runs on the toggle itself,
+                // which the rebuild deletes.
+                QTimer::singleShot(0, this,
+                                   [this] { rebuildMetaTail(); });
+            });
+            m_tagLayout->addWidget(more);
         }
     }
 }
 
 void ViewerPage::onMetaDone(const QString &site, qint64 postId,
-                            QVector<PostNote> notes, QVector<PostComment> comments) {
+                             QVector<PostNote> notes, QVector<PostComment> comments) {
     m_metaCache.insert(site + u'#' + QString::number(postId), {notes, comments});
     // Re-render only if the user is still on that post (tag host was rebuilt
     // per show, so re-run the tail of showCurrent cheaply: rebuild panel).
     if (metaKey() != site + u'#' + QString::number(postId) || m_tagLayout == nullptr)
         return;
-    // Remove the trailing stretch, append sections, re-add stretch.
-    if (QLayoutItem *stretch = m_tagLayout->takeAt(m_tagLayout->count() - 1))
-        delete stretch;
-    renderMetaSections();
-    m_tagLayout->addStretch(1);
+    rebuildMetaTail();
     // Overlay boxes if a still is on screen (applies to the live pixmap).
     stageNotes();
 }

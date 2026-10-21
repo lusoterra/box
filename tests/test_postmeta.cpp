@@ -71,6 +71,32 @@ private slots:
         QVERIFY(PostMeta::parseNotes(QByteArray("nope")).isEmpty());
         QVERIFY(PostMeta::parseNotes(QByteArray("{}")).isEmpty());
     }
+    void parseCommentsShapes() {
+        // Danbooru array shape.
+        const auto dan = PostMeta::parseComments(
+            QByteArray(R"([{"creator_name":"alice","body":"nice shot",)"
+                       R"("created_at":"2026-01-01T00:00:00Z",)"
+                       R"("creator_name":"alice"},{"body":""}])"));
+        QCOMPARE(dan.size(), 1);
+        QCOMPARE(dan.at(0).author, QStringLiteral("alice"));
+        QCOMPARE(dan.at(0).body, QStringLiteral("nice shot"));
+        QCOMPARE(dan.at(0).date, QStringLiteral("2026-01-01T00:00:00Z"));
+        // Gelbooru {"comment": [...]} object shape (body under "comment").
+        const auto gel = PostMeta::parseComments(
+            QByteArray(R"({"comment":[{"author":"bob","comment":"lol"}]})"));
+        QCOMPARE(gel.size(), 1);
+        QCOMPARE(gel.at(0).author, QStringLiteral("bob"));
+        QCOMPARE(gel.at(0).body, QStringLiteral("lol"));
+        // Szurubooru {"results": [...]} with nested user + text + date.
+        const auto szu = PostMeta::parseComments(
+            QByteArray(R"({"results":[{"user":{"name":"carol"},)"
+                       R"("text":"pretty","creationTime":"2026-02-02T00:00:00Z"}]})"));
+        QCOMPARE(szu.size(), 1);
+        QCOMPARE(szu.at(0).author, QStringLiteral("carol"));
+        QCOMPARE(szu.at(0).body, QStringLiteral("pretty"));
+        QCOMPARE(szu.at(0).date, QStringLiteral("2026-02-02"));
+        QVERIFY(PostMeta::parseComments(QByteArray("nope")).isEmpty());
+    }
 };
 
 int main(int argc, char *argv[]) {
