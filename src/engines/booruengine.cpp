@@ -130,6 +130,12 @@ void BooruEngineOps::finishRemote(Post &p, const QString &siteLabel,
     p.category = siteLabel; // Sources filter groups remote posts by booru
     p.hasMeta = true;
     p.rawJson = raw;
+    // Content hash for cross-entry twin collapse (Tor onion vs I2P mirror
+    // rows of the same file). md5 or Szuru's checksumMD5, validated hex.
+    QString md5 = raw.value(QStringLiteral("md5")).toString();
+    if (!isMd5Hex(md5))
+        md5 = raw.value(QStringLiteral("checksumMD5")).toString();
+    p.md5 = isMd5Hex(md5) ? md5.toLower() : QString();
     QStringList all;
     all << splitTags(p.tagsArtist) << splitTags(p.tagsCharacter)
         << splitTags(p.tagsCopyright) << splitTags(p.tagsGeneral)

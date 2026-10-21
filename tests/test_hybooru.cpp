@@ -83,6 +83,16 @@ private slots:
         QVERIFY(!p.tags.isEmpty());
     }
 
+    void md5PopulatedForTwinCollapse() {
+        // finishRemote lifts a validated md5 onto the post for
+        // cross-entry twin collapse (md5DedupeKey).
+        const QJsonObject o =
+            QJsonDocument::fromJson(detailFixture()).object();
+        const Post p = RemotePosts::fromHybooru(o, kBase);
+        QCOMPARE(p.md5, QStringLiteral("b8bc6b05a7d09bb12cffd900b9fbd556"));
+        QVERIFY(!md5DedupeKey(p).isEmpty());
+    }
+
     void urls() {
         const BooruEngineOps *ops = engineOps(BooruEngine::Hybooru);
         const BooruEngineOps::Context ctx{BooruEngine::Hybooru, kBase, {}};

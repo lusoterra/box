@@ -52,6 +52,10 @@ struct Post {
     QString fileUrl;    // full-res media URL (may be empty when login-walled)
     QString sampleUrl;  // scaled preview URL (viewer prefers this)
     QString previewUrl; // tiny thumbnail URL (grid prefers this)
+    // Content hash (lowercase hex) when the API provides one: lets the
+    // same file collapse across entries (Tor onion vs I2P mirror twins).
+    // Empty = unknown, never deduped on.
+    QString md5;
     QJsonObject rawJson; // original API post object (written as download sidecar)
 };
 
@@ -139,7 +143,25 @@ inline void szuruPlace(SzuruSplit &s, const QString &name, const QString &cat) {
     else
         s.custom[cat] << name;
 }
-// every tag blob. Drives the grid "AI" chip; nothing else keys off it.
+// Cross-entry twin key: same file bytes anywhere collapse, regardless
+// of site (Tor onion vs I2P mirror rows). Empty when the post carries
+// no content hash.
+inline QString md5DedupeKey(const Post &post) {
+    return post.md5.isEmpty() ? QString()
+                              : QStringLiteral("md5#") + post.md5.toLower();
+}
+// 32 lowercase-or-upper hex digits (API md5s, content hashes).
+inline bool isMd5Hex(const QString &s) {
+    if (s.size() != 32)
+        return false;
+    for (const QChar &c : s) {
+        const ushort u = c.unicode();
+        if (!((u >= u'0' && u <= u'9') || (u >= u'a' && u <= u'f') ||
+              (u >= u'A' && u <= u'F')))
+            return false;
+    }
+    return true;
+}
 inline const QStringList &aiContentTags() {
     static const QStringList tags = {QStringLiteral("ai_generated"),
                                      QStringLiteral("ai_created"),
@@ -147,6 +169,7 @@ inline const QStringList &aiContentTags() {
                                      QStringLiteral("ai_art")};
     return tags;
 }
+// every tag blob. Drives the grid "AI" chip; nothing else keys off it.
 inline bool isAiPost(const Post &post) {
     const QString blobs[] = {post.tags,        post.tagsArtist,
                              post.tagsCharacter, post.tagsCopyright,

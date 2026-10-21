@@ -250,7 +250,11 @@
 - [x] Fixtures + unit tests (no network — use tarball shapes); build +
       `ctest` (+ docs).
 
-## 25. Cross-entry duplicate detection via md5
+## 25. Cross-entry duplicate detection via md5 — DONE (`md5` on `Post`,
+##    populated in `finishRemote` from `md5`/`checksumMD5` (validated hex);
+##    `dedupeKeyFor` keys remote rows site-agnostically when present;
+##    `md5DedupeKey`+`isMd5Hex` unit-tested, HyBooru propagation tested;
+##    fav rows stay site+id (no DB column); build OK, 27/27 tests)
 - Same booru reachable at two URLs (Tor onion + I2P HiddenBooru, or any
   mirror pair) cards every post twice in multibooru: `dedupeKeyFor` keys
   remote rows by site+id, so cross-entry twins never collapse. No
@@ -261,9 +265,9 @@
   by md5 when present (site-agnostic), falling back to site+id.
   Twins collapse in grid (`fillModel`) and viewer stepping like
   local/remote twins do today.
-- [ ] Add md5 to `Post` + populate per engine; extend `dedupeKeyFor`;
+- [x] Add md5 to `Post` + populate per engine; extend `dedupeKeyFor`;
       verify Tor/I2P twins collapse without touching distinct posts.
-- [ ] Build + `ctest`.
+- [x] Build + `ctest`.
 
 ## 26. Media-type filter dropdown (stills / GIF / animated / video / sound) — DONE
 ##    (dropdown writes single `filetype:` tag pills; client matching in

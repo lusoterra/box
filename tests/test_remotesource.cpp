@@ -501,6 +501,33 @@ private slots:
                  QStringList({QStringLiteral("sky")}));
     }
 
+    void md5TwinKeys() {
+        // Cross-entry twin collapse: same md5 anywhere keys identically
+        // (Tor onion vs I2P mirror rows); unknown md5 never collapses.
+        QVERIFY(isMd5Hex(QStringLiteral("4f0a3d37c18e61c8550ab82b94ef06a2")));
+        QVERIFY(isMd5Hex(QStringLiteral("4F0A3D37C18E61C8550AB82B94EF06A2")));
+        QVERIFY(!isMd5Hex(QString()));
+        QVERIFY(!isMd5Hex(QStringLiteral("xyz")));
+        QVERIFY(!isMd5Hex(QStringLiteral("4f0a3d37c18e61c8550ab82b94ef06a2ff")));
+        Post a;
+        a.isRemote = true;
+        a.siteName = QStringLiteral("Onion");
+        a.id = 1;
+        a.md5 = QStringLiteral("4F0A3D37C18E61C8550AB82B94EF06A2");
+        Post b;
+        b.isRemote = true;
+        b.siteName = QStringLiteral("I2P");
+        b.id = 999;
+        b.md5 = QStringLiteral("4f0a3d37c18e61c8550ab82b94ef06a2");
+        QCOMPARE(md5DedupeKey(a), md5DedupeKey(b)); // case-insensitive
+        QVERIFY(!md5DedupeKey(a).isEmpty());
+        Post c;
+        c.isRemote = true;
+        c.siteName = QStringLiteral("Onion");
+        c.id = 2;
+        QVERIFY(md5DedupeKey(c).isEmpty());
+    }
+
     void reverseSearchUrls() {
         const QString file =
             QStringLiteral("https://cdn.donmai.us/a/b.jpg?x=1&y=2");

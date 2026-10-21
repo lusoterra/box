@@ -118,14 +118,18 @@ std::pair<QString, qint64> favIdentity(const Post &p) {
     return {QStringLiteral("local"), FavDb::pidFor(p)};
 }
 
-// Identity for list dedupe: remote rows by site+id (id-less by site+
-// file URL so distinct login-walled rows never collapse); downloaded
-// rows by their resolved entry label+id so remote/local twins of one
-// post merge into a single card; plain files by path. Empty = unknown,
-// never deduped. This is what makes stepping past a gif never show
-// "the same post twice" and keeps deleted rows from shadowing.
+// Identity for list dedupe: remote rows with a content hash collapse
+// across entries (Tor onion vs I2P mirror twins of one file); otherwise
+// remote rows key by site+id (id-less by site+ file URL so distinct
+// login-walled rows never collapse); downloaded rows by their resolved
+// entry label+id so remote/local twins of one post merge into a single
+// card; plain files by path. Empty = unknown, never deduped. This is
+// what makes stepping past a gif never show "the same post twice" and
+// keeps deleted rows from shadowing.
 QString dedupeKeyFor(const Post &post) {
     if (post.isRemote) {
+        if (const QString twin = md5DedupeKey(post); !twin.isEmpty())
+            return twin;
         if (post.id != 0)
             return post.siteName + u'#' + QString::number(post.id);
         if (!post.fileUrl.isEmpty())
