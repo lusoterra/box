@@ -154,6 +154,13 @@ void ImageCache::request(const QString &url, const QString &referer) {
     });
 }
 
+void ImageCache::drop(const QString &url) {
+    cancelUrl(url);
+    const QString have = localPath(url);
+    if (!have.isEmpty())
+        QFile::remove(have);
+}
+
 void ImageCache::cancelUrl(const QString &url) {
     auto it = m_active.find(url);
     if (it == m_active.end())

@@ -534,12 +534,14 @@
 - [x] Visibility switch on viewer enter/exit.
 - [x] Build + `ctest` (+ docs).
 
-## 46. Reload-everything icon button (viewer)
+## 46. Reload-everything icon button (viewer) — DONE
+##    (icon button; tags + meta evict + media drop + re-show; docs;
+##    build OK, 31/31 tests)
 - The viewer `Tags` text button refetches tags only; make it an icon-only
   reload button (existing `refresh-cw` art) that reloads everything: tags
   + comments/notes + media bytes (bypass image cache for the post).
-- [ ] Icon button + full refresh path.
-- [ ] Build + `ctest` (+ docs).
+- [x] Icon button + full refresh path.
+- [x] Build + `ctest` (+ docs).
 
 ## 47. Instant download of the already-loaded full-res file
 - Downloading a post whose full-resolution bytes are already in the

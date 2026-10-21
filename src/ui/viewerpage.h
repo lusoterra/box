@@ -283,6 +283,7 @@ private slots:
     void onCacheFailed(const QString &url, const QString &error);
     void onCacheProgress(const QString &url, qint64 received, qint64 total);
     void showCommentsPopup(); // thread dialog for the current post
+    void reloadCurrent(); // tags + comments/notes + media bytes, fresh
     void onMetaDone(const QString &site, qint64 postId, QVector<PostNote> notes,
                     QVector<PostComment> comments);
 

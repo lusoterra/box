@@ -1054,10 +1054,11 @@ ViewerPage::ViewerPage(QWidget *parent) : QWidget(parent) {
     m_downloadBtn->setIcon(UiIcons::icon(QStringLiteral("download")));
     m_downloadBtn->setIconSize(QSize(15, 15));
     m_downloadBtn->setToolTip(tr("Save full quality to the download folder"));
-    m_refreshBtn = new QPushButton(tr("Tags"), this);
+    m_refreshBtn = new QPushButton(this);
     m_refreshBtn->setIcon(UiIcons::icon(QStringLiteral("refresh-cw")));
-    m_refreshBtn->setIconSize(QSize(15, 15));
-    m_refreshBtn->setToolTip(tr("Re-fetch tags from the source booru"));
+    m_refreshBtn->setIconSize(QSize(16, 16));
+    m_refreshBtn->setFixedWidth(34);
+    m_refreshBtn->setToolTip(tr("Reload everything (tags, comments, media)"));
     auto *notesBtn = new QPushButton(tr("Notes"), this);
     notesBtn->setCheckable(true);
     notesBtn->setChecked(true);
@@ -1133,10 +1134,8 @@ ViewerPage::ViewerPage(QWidget *parent) : QWidget(parent) {
         else
             emit downloadRequested(m_posts[m_row]);
     });
-    connect(m_refreshBtn, &QPushButton::clicked, this, [this] {
-        if (!m_posts.isEmpty())
-            emit refreshRequested(m_posts[m_row]);
-    });
+    connect(m_refreshBtn, &QPushButton::clicked, this,
+            &ViewerPage::reloadCurrent);
     connect(m_favBtn, &QPushButton::clicked, this, [this] {
         if (!m_posts.isEmpty())
             emit favouriteRequested(m_posts[m_row]);
@@ -1937,6 +1936,27 @@ void ViewerPage::onMetaDone(const QString &site, qint64 postId,
     rebuildMetaTail();
     // Overlay boxes if a still is on screen (applies to the live pixmap).
     stageNotes();
+}
+
+void ViewerPage::reloadCurrent() {
+    if (m_row < 0 || m_row >= m_posts.size() || m_posts.isEmpty())
+        return;
+    const Post &p = m_posts[m_row];
+    // Tags (+ sidecar) through the normal refresh path.
+    emit refreshRequested(p);
+    // Comments/notes: drop the cached tail so the fetch below runs again
+    // (the open popup, if any, refills itself on the done signal).
+    if (p.isRemote)
+        m_metaCache.remove(p.siteName + u'#' + QString::number(p.id));
+    // Media bytes: drop the cached file so the re-show refetches.
+    if (p.isRemote && m_imgCache) {
+        const QString url = RemotePosts::viewerUrlFor(p);
+        if (!url.isEmpty())
+            m_imgCache->drop(url);
+        if (!p.previewUrl.isEmpty() && p.previewUrl != url)
+            m_imgCache->drop(p.previewUrl);
+    }
+    showRow(m_row);
 }
 
 void ViewerPage::showCommentsPopup() {

@@ -92,7 +92,7 @@ set re-searches immediately (`onSitesChanged`).
 ## 11-viewer — same-window post viewer (`ViewerPage`, `src/ui/viewerpage.cpp`)
 Toolbar: `Back`, `‹ 8 / 40 ›` stepping, `Fit`, `100%`, `Open post`
 (site page, http(s) only), `Image search` (SauceNAO, Yandex, Google
-Lens, IQDB, trace.moe — needs a remote file URL), `Download`, `Tags` (toggle panel), `Notes`
+Lens, IQDB, trace.moe — needs a remote file URL), `Download`, reload-everything (icon: tags, comments, media), `Notes`
 (translation overlays on the image, on by default), refresh,
 globe (`Open file URL`), `Copy file URL` (toggles to delete once the file
 is on disk, like the ♥ button), `Comments` (thread popup, reuses the fetched

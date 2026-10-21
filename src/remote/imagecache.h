@@ -29,6 +29,9 @@ public:
     QString localPath(const QString &url) const;
     void request(const QString &url, const QString &referer = {});
     void cancelUrl(const QString &url);
+    // Forget one entry (delete the cached file): the next request()
+    // refetches bytes. Used by viewer reload, not by normal browsing.
+    void drop(const QString &url);
 
 signals:
     void ready(const QString &url, const QString &localPath);
