@@ -2424,10 +2424,15 @@ void MainWindow::onRemoteFinished() {
             msg += tr(" · %1 login-walled hidden").arg(hiddenWalled);
         statusBar()->showMessage(msg, 5000);
     }
-    // Captcha/PoW wall: offer the solve-or-drop menu on fresh searches
-    // only (infinite-scroll appends must never steal focus with popups).
-    if (!wasAppend && t->page <= 1 && !wallSites.isEmpty())
-        showWallMenu(wallSites);
+    // Captcha/PoW wall on fresh searches only (infinite-scroll appends
+    // must never steal focus with popups): pop the solve browser open by
+    // default, or just offer the solve-or-drop menu when opted out.
+    if (!wasAppend && t->page <= 1 && !wallSites.isEmpty()) {
+        if (m_settings.wallAutoPopup)
+            solveWallInBrowser(wallSites.first());
+        else
+            showWallMenu(wallSites);
+    }
     // Fresh search, nothing landed, failures look transient (rate limits,
     // 5xx, timeouts — never auth/walls): one delayed retry instead of a
     // dead empty grid. Appends never retry (existing rows stay put) and

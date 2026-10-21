@@ -82,6 +82,7 @@ private:
     QComboBox *m_ugoiraFormat = nullptr;
     QSpinBox *m_ugoiraDelay = nullptr;
     QLineEdit *m_globalProxy = nullptr;
+    QCheckBox *m_wallAutoPopup = nullptr;
     QListWidget *m_booruList = nullptr;
     QLineEdit *m_booruName = nullptr;
     QLineEdit *m_booruBase = nullptr;

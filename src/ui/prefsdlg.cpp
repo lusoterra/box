@@ -513,6 +513,13 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     connect(m_globalProxy, &QLineEdit::textChanged, this,
             &PrefsDialog::updateApplyState);
     browseLay->addRow(tr("Global proxy:"), m_globalProxy);
+    m_wallAutoPopup = new QCheckBox(
+        tr("Pop the browser open on captcha/wall blocks"), this);
+    m_wallAutoPopup->setToolTip(
+        tr("Fresh searches that hit a captcha/PoW wall open the solve "
+           "browser immediately. Off = just the wall menu."));
+    m_wallAutoPopup->setChecked(current.wallAutoPopup);
+    browseLay->addRow(QStringLiteral(""), m_wallAutoPopup);
     browseLay->addRow(QStringLiteral(""), note(tr(
         "Applies to searches, media, tags, favicons and downloads. "
         "A proxy set on one booru (below) wins for that booru only.")));
@@ -1806,6 +1813,8 @@ void PrefsDialog::harvestInto(AppSettings &out) {
         out.downloadDir.clear(); // default stays implicit
     out.globalProxy = m_globalProxy ? m_globalProxy->text().trimmed()
                                     : QString();
+    out.wallAutoPopup =
+        m_wallAutoPopup ? m_wallAutoPopup->isChecked() : out.wallAutoPopup;
     saveBooruEditor();
     out.boorus = m_booruEdits;
     out.fullCache = m_fullCache->isChecked();

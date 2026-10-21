@@ -53,6 +53,9 @@ struct AppSettings {
     // One-click AI-content filter (omnibar AI toggle): hides posts tagged
     // ai_generated/ai_created/ai_assisted/ai_art everywhere.
     bool hideAi = false;
+    // Captcha/PoW wall handling: pop the solve browser open by default
+    // instead of just offering the wall menu (opt out in Preferences).
+    bool wallAutoPopup = true;
     // Favourite tags (starred via sidebar/viewer right-click): they rank
     // first in search suggestions and sit behind the omnibar ★ menu.
     QStringList favTags;
@@ -226,7 +229,7 @@ inline bool operator==(const AppSettings &a, const AppSettings &b) {
            a.unfavDeletesFile == b.unfavDeletesFile &&
            a.deleteUnfavs == b.deleteUnfavs && a.strayAutoFav == b.strayAutoFav &&
            a.blacklist == b.blacklist &&
-           a.hideAi == b.hideAi &&
+           a.hideAi == b.hideAi && a.wallAutoPopup == b.wallAutoPopup &&
            a.favTags == b.favTags &&
            a.ugoiraFormat == b.ugoiraFormat &&
            a.ugoiraFrameDelayMs == b.ugoiraFrameDelayMs &&

@@ -145,6 +145,7 @@ QJsonObject exportJson(const AppSettings &s, const QVector<Post> &favs) {
     browse[QStringLiteral("mode")] = s.browseMode;
     browse[QStringLiteral("sites")] = strList(s.browseSites);
     browse[QStringLiteral("limit")] = s.browseLimit;
+    browse[QStringLiteral("wallAutoPopup")] = s.wallAutoPopup;
     o[QStringLiteral("browse")] = browse;
     QJsonObject fav;
     fav[QStringLiteral("autoDownload")] = s.favAutoDownload;
@@ -224,6 +225,8 @@ bool importJson(const QJsonObject &o, AppSettings *s, QVector<Post> *favs,
     if (browse.contains(QStringLiteral("limit")))
         s->browseLimit =
             qBound(10, browse.value(QStringLiteral("limit")).toInt(40), 200);
+    if (browse.contains(QStringLiteral("wallAutoPopup")))
+        s->wallAutoPopup = browse.value(QStringLiteral("wallAutoPopup")).toBool(true);
     const QJsonObject fav = o.value(QStringLiteral("fav")).toObject();
     if (fav.contains(QStringLiteral("autoDownload")))
         s->favAutoDownload = fav.value(QStringLiteral("autoDownload")).toBool();

@@ -12,6 +12,7 @@ AppSettings sampleSettings() {
     AppSettings s;
     s.browseSites = {QStringLiteral("danbooru")};
     s.browseLimit = 60;
+    s.wallAutoPopup = false;
     s.favAutoDownload = true;
     s.blacklist = {QStringLiteral("loli")};
     s.hideAi = true;
@@ -59,6 +60,7 @@ private slots:
         QVERIFY(err.isEmpty());
         QCOMPARE(back.browseSites, QStringList({QStringLiteral("danbooru")}));
         QCOMPARE(back.browseLimit, 60);
+        QVERIFY(!back.wallAutoPopup);
         QVERIFY(back.favAutoDownload);
         QCOMPARE(back.blacklist, QStringList({QStringLiteral("loli")}));
         QVERIFY(back.hideAi);

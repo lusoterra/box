@@ -79,6 +79,7 @@ AppSettings loadSettings() {
         s.blacklist =
             normalizeExplicitTags(c.value(QStringLiteral("filter/blacklist")).toStringList());
     s.hideAi = c.value(QStringLiteral("filter/hideAi"), s.hideAi).toBool();
+    s.wallAutoPopup = c.value(QStringLiteral("filter/wallAutoPopup"), s.wallAutoPopup).toBool();
     s.ugoiraFormat =
         c.value(QStringLiteral("downloads/ugoiraFormat"), s.ugoiraFormat).toString();
     if (s.ugoiraFormat != QStringLiteral("webp") &&
@@ -219,6 +220,7 @@ void writeSettingsTo(QSettings &c, const AppSettings &s) {
     c.setValue(QStringLiteral("stray/autoFav"), s.strayAutoFav);
     c.setValue(QStringLiteral("filter/blacklist"), s.blacklist);
     c.setValue(QStringLiteral("filter/hideAi"), s.hideAi);
+    c.setValue(QStringLiteral("filter/wallAutoPopup"), s.wallAutoPopup);
     c.setValue(QStringLiteral("downloads/ugoiraFormat"), s.ugoiraFormat);
     c.setValue(QStringLiteral("downloads/ugoiraDelayMs"), s.ugoiraFrameDelayMs);
     c.setValue(QStringLiteral("fav/tags"), s.favTags);
