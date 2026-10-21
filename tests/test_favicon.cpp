@@ -34,6 +34,50 @@ private slots:
         QVERIFY(faviconCandidates(QStringLiteral("   ")).isEmpty());
     }
 
+    void htmlIcons() {
+        const QByteArray html =
+            "<html><head>"
+            "<link rel=\"icon\" href=\"/favicon-32x32.png\">"
+            "<link rel=\"shortcut icon\" href=\"https://cdn.example.com/f.ico\">"
+            "<link rel=\"apple-touch-icon\" href=\"/apple-touch-icon.png\">"
+            "<link rel=\"stylesheet\" href=\"/style.css\">"
+            "</head></html>";
+        QCOMPARE(faviconIconsFromHtml(
+                     html, QStringLiteral("https://x.example/booru/")),
+                 QStringList(
+                     {QStringLiteral("https://x.example/favicon-32x32.png"),
+                      QStringLiteral("https://cdn.example.com/f.ico"),
+                      QStringLiteral("https://x.example/apple-touch-icon.png")}));
+    }
+
+    void htmlIconsSkipsJunk() {
+        const QByteArray html =
+            "<LINK REL=icon HREF=/unquoted.png>"
+            "<link rel=\"icon\" href=\"data:image/png;base64,AAA\">"
+            "<link rel=\"icon\">"
+            "<link href=\"/norel.png\">"
+            "<link rel=\"icon\" href=\"javascript:void(0)\">"
+            "<link rel=\"icon\" href=\"/unquoted.png\">";
+        QCOMPARE(faviconIconsFromHtml(html,
+                                      QStringLiteral("https://x.example")),
+                 QStringList(
+                     {QStringLiteral("https://x.example/unquoted.png")}));
+    }
+
+    void htmlNoIcons() {
+        QVERIFY(faviconIconsFromHtml(
+                    QByteArray("<html><head></head></html>"),
+                    QStringLiteral("https://x.example"))
+                    .isEmpty());
+        QVERIFY(faviconIconsFromHtml(QByteArray(),
+                                     QStringLiteral("https://x.example"))
+                    .isEmpty());
+        QVERIFY(faviconIconsFromHtml(
+                    QByteArray("<link rel=\"icon\" href=\"/i.png\">"),
+                    QString())
+                    .isEmpty());
+    }
+
     void customPathFor() {
         // Override lookup is pure path logic (no QPixmap, stays headless).
         QTemporaryDir dir;

@@ -145,10 +145,12 @@ void FaviconCache::fetchNext() {
     m_queued.remove(key);
     m_currentKey = key;
     m_currentCandidates = faviconCandidates(base);
+    m_triedUrls.clear();
     // Unconditional: clears a stale proxy when the entry drops it.
     m_nam->setProxy(RemotePosts::proxyFromSpec(
         RemotePosts::proxyForUrl(base)));
     const QUrl url(m_currentCandidates.takeFirst());
+    m_triedUrls.insert(url.toString());
     QNetworkRequest req(url);
     req.setTransferTimeout(15000);
     RemoteSource::applyCookies(req); // clearance header, if any
@@ -166,9 +168,22 @@ void FaviconCache::finishFetch() {
     m_reply = nullptr;
     const QString key = m_currentKey;
     bool done = true;
+    // Shared continuation: same proxy/cookies/UA as the first fetch.
+    auto get = [&](const QUrl &url) {
+        m_triedUrls.insert(url.toString());
+        QNetworkRequest req(url);
+        req.setTransferTimeout(15000);
+        RemoteSource::applyCookies(req); // clearance header, if any
+        req.setHeader(QNetworkRequest::UserAgentHeader,
+                      QStringLiteral("box/0.1 (local booru browser)"));
+        m_reply = m_nam->get(req);
+        connect(m_reply, &QNetworkReply::finished, this,
+                &FaviconCache::finishFetch);
+    };
     if (reply && reply->error() == QNetworkReply::NoError) {
+        const QByteArray body = reply->readAll();
         QImage img;
-        if (img.loadFromData(reply->readAll()) && !img.isNull()) {
+        if (img.loadFromData(body) && !img.isNull()) {
             // Normalize small icons to PNG on disk (portable auto dir
             // when set, legacy cache dir otherwise).
             const QString dir =
@@ -187,33 +202,30 @@ void FaviconCache::finishFetch() {
             } else {
                 m_dead.insert(key);
             }
-        } else if (!m_currentCandidates.isEmpty()) {
-            // Not an image (or exotic .ico): try the next candidate URL.
-            done = false;
-            const QUrl url(m_currentCandidates.takeFirst());
-            QNetworkRequest req(url);
-            req.setTransferTimeout(15000);
-            RemoteSource::applyCookies(req); // clearance header, if any
-            req.setHeader(QNetworkRequest::UserAgentHeader,
-                          QStringLiteral("box/0.1 (local booru browser)"));
-            m_reply = m_nam->get(req);
-            connect(m_reply, &QNetworkReply::finished, this,
-                    &FaviconCache::finishFetch);
         } else {
-            m_dead.insert(key);
+            // Not an image: an HTML 404/landing page may advertise the
+            // real icon via <link rel=icon> — queue those (untried only)
+            // before falling through to the remaining candidates.
+            if (body.toLower().contains("<link")) {
+                const QString pageUrl = reply->url().toString();
+                for (const QString &found :
+                     faviconIconsFromHtml(body, pageUrl)) {
+                    if (!m_triedUrls.contains(found) &&
+                        !m_currentCandidates.contains(found))
+                        m_currentCandidates.append(found);
+                }
+            }
+            if (!m_currentCandidates.isEmpty()) {
+                done = false;
+                get(QUrl(m_currentCandidates.takeFirst()));
+            } else {
+                m_dead.insert(key);
+            }
         }
-    } else if (!m_currentCandidates.isEmpty() && reply) {
+    } else if (reply && !m_currentCandidates.isEmpty()) {
         // HTTP error: fall back to the next candidate (e.g. host root).
         done = false;
-        const QUrl url(m_currentCandidates.takeFirst());
-        QNetworkRequest req(url);
-        req.setTransferTimeout(15000);
-        RemoteSource::applyCookies(req); // clearance header, if any
-        req.setHeader(QNetworkRequest::UserAgentHeader,
-                      QStringLiteral("box/0.1 (local booru browser)"));
-        m_reply = m_nam->get(req);
-        connect(m_reply, &QNetworkReply::finished, this,
-                &FaviconCache::finishFetch);
+        get(QUrl(m_currentCandidates.takeFirst()));
     } else {
         m_dead.insert(key);
     }
@@ -222,6 +234,7 @@ void FaviconCache::finishFetch() {
     if (done) {
         m_currentKey.clear();
         m_currentCandidates.clear();
+        m_triedUrls.clear();
         fetchNext();
     }
 }
