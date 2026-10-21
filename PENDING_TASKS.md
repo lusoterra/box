@@ -553,13 +553,15 @@
 - [x] Local-bytes shortcut in the download enqueue path.
 - [x] Build + `ctest` (+ docs).
 
-## 48. Remember the open post per tab
+## 48. Remember the open post per tab — DONE
+##    (site#id/file identity per tab, restored on return; falls back to grid;
+##    build OK, 31/31 tests)
 - Leaving a post view for another tab and coming back drops to grid
   instead of the post (`X tag looking at Y post` is lost). Store the
   viewer post (site#id or row) per `BrowserTab` and restore it on return
   (fall back to grid when the row is gone).
-- [ ] Per-tab viewer state save/restore.
-- [ ] Build + `ctest` (+ docs).
+- [x] Per-tab viewer state save/restore.
+- [x] Build + `ctest` (+ docs).
 
 ## 49. Stale-async race: refresh/video/ghost loads the wrong post
 - Reports: tag refresh sometimes loads a random (danbooru) post instead

@@ -59,6 +59,7 @@ struct BrowserTab {
     int page = 1;              // remote (highest loaded)
     QVector<Post> localPosts;  // local index cache (+ favourites list)
     QVector<Post> browseMerged; // remote fetched (unfiltered)
+    QString viewerKey; // open post identity (site#id or file); empty = grid
 };
 class ThumbLoader;
 class VideoThumbGrabber;

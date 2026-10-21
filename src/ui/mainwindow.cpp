@@ -1846,6 +1846,20 @@ void MainWindow::finishActivateTab(int tabIdx) {
         }
     }
     updateTabTitle(tabIdx);
+    // Restore the open post (X tag looking at Y post): identity match, so
+    // refills/reorders don't matter; missing rows stay on the grid. Only
+    // when results are already in (async scans/searches keep the grid).
+    if (BrowserTab *tb = (tabIdx >= 0 && tabIdx < m_tabs.size())
+                              ? m_tabs[tabIdx]
+                              : nullptr;
+        tb && !tb->viewerKey.isEmpty() && !m_current.isEmpty()) {
+        for (int i = 0; i < m_current.size(); ++i) {
+            if (viewerKeyFor(m_current.at(i)) == tb->viewerKey) {
+                showViewer(i);
+                break;
+            }
+        }
+    }
 }
 
 // ── Browse ───────────────────────────────────────────────────
@@ -6582,7 +6596,29 @@ void MainWindow::showViewerTagMenu(const QString &tag, const QPoint &globalPos) 
     menu.exec(globalPos);
 }
 
+namespace {
+// Stable per-tab viewer identity: remote rows by site#id, local rows by
+// file path. Survives refills/reorders; falls back to grid when gone.
+QString viewerKeyFor(const Post &post) {
+    if (post.isRemote) {
+        const auto [site, pid] = favIdentity(post);
+        if (!site.isEmpty() && pid != 0)
+            return site + u'#' + QString::number(pid);
+        if (!post.fileUrl.isEmpty())
+            return QStringLiteral("url|") + post.fileUrl;
+        return {};
+    }
+    if (!post.absFile.isEmpty())
+        return QStringLiteral("file|") +
+               QFileInfo(post.absFile).canonicalFilePath();
+    return {};
+}
+} // namespace
+
 void MainWindow::showViewer(int row) {
+    if (row >= 0 && row < m_current.size())
+        if (BrowserTab *t = currentTab())
+            t->viewerKey = viewerKeyFor(m_current.at(row));
     const QModelIndex idx = m_model->index(row, 0);
     m_viewer->showThumbPreview(
         qvariant_cast<QPixmap>(m_model->data(idx, Qt::DecorationRole)));
