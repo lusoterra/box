@@ -249,6 +249,8 @@ inline bool operator!=(const AppSettings &a, const AppSettings &b) {
 
 // Single config file (~/.config/box/settings.ini).
 QString settingsFilePath();
+// Record an opened archive root: most-recent-first, deduped, capped.
+void noteFolderOpened(AppSettings &s, const QString &dir);
 // Previous-good copy (settings.ini.bak): rotated on every atomic save,
 // restored when the main file is missing or truncated by a crash.
 QString settingsBackupFilePath();

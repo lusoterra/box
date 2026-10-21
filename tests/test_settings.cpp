@@ -157,6 +157,22 @@ private slots:
         QCOMPARE(back.explicitTags, QStringList({QStringLiteral("x")}));
     }
 
+    void folderHistoryStacks() {
+        AppSettings s;
+        noteFolderOpened(s, QString());
+        QVERIFY(s.history.isEmpty());
+        noteFolderOpened(s, QStringLiteral("/pics/b"));
+        noteFolderOpened(s, QStringLiteral("/pics/a"));
+        noteFolderOpened(s, QStringLiteral("/pics/a")); // reopen = first
+        QCOMPARE(s.history,
+                 QStringList({QStringLiteral("/pics/a"),
+                              QStringLiteral("/pics/b")}));
+        for (int i = 0; i < 12; ++i)
+            noteFolderOpened(s, QStringLiteral("/pics/%1").arg(i));
+        QCOMPARE(s.history.size(), 10);
+        QCOMPARE(s.history.first(), QStringLiteral("/pics/11"));
+    }
+
     void manualTagTypesRoundTrip() {
         AppSettings s = loadSettings();
         s.manualTagTypes.insert(QStringLiteral("lucky_star"),

@@ -299,6 +299,16 @@ void saveSettings(const AppSettings &s) {
     QFile::rename(tmp, path);
 }
 
+void noteFolderOpened(AppSettings &s, const QString &dir) {
+    const QString d = dir.trimmed();
+    if (d.isEmpty())
+        return;
+    s.history.removeAll(d);
+    s.history.prepend(d);
+    while (s.history.size() > 10)
+        s.history.removeLast();
+}
+
 void clearCaches() {
     QDir(appCacheDir() + QStringLiteral("/roots")).removeRecursively();
     QDir(appCacheDir() + QStringLiteral("/thumbs")).removeRecursively();

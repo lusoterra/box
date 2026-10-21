@@ -10,7 +10,8 @@ session was saved), `New browse tab` (opens default boorus), `♥
 Favourites`, `⭳ Downloads` — and the `Always load last session on
 startup` checkbox (mirrors Preferences → General). Optional mascot image
 pins bottom-right behind everything (double-click cycles size; setting
-`home/mascot*`).
+`home/mascot*`). File > Open lists the last folders (plus a full-history
+picker) for mouse-driven reopening.
 
 ## 02-browse-grid — booru tab (browse mode, `MainWindow`, `src/ui/mainwindow.cpp`)
 One tab per archive/site set. Tab bar button shows favicon + label + ✕.

@@ -609,7 +609,52 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
 
     auto *fileMenu = menuBar()->addMenu(tr("&File"));
     QMenu *openMenu = fileMenu->addMenu(tr("&Open"));
-    openMenu->addAction(tr("&Folder…"), this, &MainWindow::openFolder);
+    connect(openMenu, &QMenu::aboutToShow, this, [this, openMenu] {
+        // Rebuild on every show: last folders first (dead ones pruned),
+        // then Folder… plus the full-history picker.
+        openMenu->clear();
+        QStringList kept;
+        for (const QString &p : m_settings.history) {
+            if (QDir(p).exists() && !kept.contains(p))
+                kept.append(p);
+        }
+        kept = kept.mid(0, 10);
+        if (kept != m_settings.history) {
+            m_settings.history = kept;
+            saveSettings(m_settings);
+        }
+        for (const QString &p : kept.mid(0, 5)) {
+            QAction *a = openMenu->addAction(QDir(p).dirName().isEmpty()
+                                                 ? p
+                                                 : QDir(p).dirName());
+            a->setToolTip(p);
+            a->setStatusTip(p);
+            connect(a, &QAction::triggered, this, [this, p] {
+                m_settings.lastRoot = p;
+                noteFolderOpened(m_settings, p);
+                saveSettings(m_settings);
+                addLocalTab(p);
+            });
+        }
+        if (!kept.isEmpty())
+            openMenu->addSeparator();
+        openMenu->addAction(tr("&Folder…"), this, &MainWindow::openFolder);
+        QAction *all = openMenu->addAction(tr("Open &history…"));
+        all->setEnabled(!kept.isEmpty());
+        connect(all, &QAction::triggered, this, [this] {
+            bool ok = false;
+            const QStringList items = m_settings.history;
+            const QString pick = QInputDialog::getItem(
+                this, tr("Open history"), tr("Folder:"), items, 0, false,
+                &ok);
+            if (ok && !pick.isEmpty() && QDir(pick).exists()) {
+                m_settings.lastRoot = pick;
+                noteFolderOpened(m_settings, pick);
+                saveSettings(m_settings);
+                addLocalTab(pick);
+            }
+        });
+    });
     fileMenu->addAction(tr("Browse &Downloads"), this, [this] {
         addLocalTab(effectiveDownloadDir(m_settings));
     });
@@ -4076,6 +4121,7 @@ void MainWindow::openFolder() {
     if (dir.isEmpty())
         return;
     m_settings.lastRoot = dir;
+    noteFolderOpened(m_settings, dir);
     saveSettings(m_settings);
     addLocalTab(dir);
 }

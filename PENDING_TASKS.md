@@ -288,7 +288,10 @@
       `index.query`, browse net); per-engine pass/strip; pill + tests.
 - [x] Build + `ctest` (+ docs).
 
-## 27. File > Open history (recent folders)
+## 27. File > Open history (recent folders) — DONE (last folders inline
+##    in the Open menu + `Folder…` + full-list picker; `noteFolderOpened`
+##    helper records opens, prunes dead on show; unit test; docs;
+##    build OK, 27/27 tests)
 - `library/history` exists but is write-only legacy (pruned in
   `showWelcome`, cleared in prefs, never appended; welcome shows last
   place instead). Put it to work, mouse-first: File > Open lists just
@@ -296,9 +299,9 @@
   (browse) and `Open history…` (full-list picker). Record every folder
   opened via File > Open (prepend, dedupe, cap 10, persist); prune dead
   entries when the menu shows.
-- [ ] Append on `openFolder`; history submenu (5 inline + Folder… +
+- [x] Append on `openFolder`; history submenu (5 inline + Folder… +
       Open history… picker); prune missing on show.
-- [ ] Build + `ctest` (+ docs).
+- [x] Build + `ctest` (+ docs).
 
 ## 28. Windowed grid (don't hold everything in memory)
 - A 700-pic read-only archive fills memory: `fillModel` cards every row
