@@ -11,6 +11,8 @@
 #include <QSet>
 #include <QVector>
 #include <QWidget>
+#include <QDialog>
+#include <QDialogButtonBox>
 #include <QElapsedTimer>
 
 #include <QAudioOutput>
@@ -278,6 +280,7 @@ private slots:
     void onCacheReady(const QString &url, const QString &localPath);
     void onCacheFailed(const QString &url, const QString &error);
     void onCacheProgress(const QString &url, qint64 received, qint64 total);
+    void showCommentsPopup(); // thread dialog for the current post
     void onMetaDone(const QString &site, qint64 postId, QVector<PostNote> notes,
                     QVector<PostComment> comments);
 
@@ -314,6 +317,7 @@ private:
     QPushButton *m_downloadBtn = nullptr;
     QPushButton *m_favBtn = nullptr;
     QPushButton *m_refreshBtn = nullptr;
+    QPushButton *m_commentsBtn = nullptr; // popup with the post's thread
     QLabel *m_note = nullptr;
     QProgressBar *m_loadBar;
     QLabel *m_loadInfo; // "X.YMB / 12MB  ·  3.4MB/s" next to the bar

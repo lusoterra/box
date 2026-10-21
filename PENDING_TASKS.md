@@ -476,3 +476,36 @@
   walls pass the failed file URL (recorded in the download summary).
 - [x] startUrl plumbing (dialog + solve entry points + summary wall targets).
 - [x] Build + `ctest` (+ docs).
+
+## 41. Viewer comments button + popup; globe open icon; clearer copy label — DONE
+##    (thread popup reusing `m_metaCache`; Lucide globe asset; `Copy file URL`;
+##    docs; build OK, 31/31 tests)
+- Comments today only render inline in the viewer tag panel. Wanted: a
+  `Comments` button in the viewer toolbar (next to Open/Copy) opening a
+  popup dialog with the thread (author · date + body, selectable text),
+  reusing the already-fetched `m_metaCache` comments.
+- `Open file` becomes a globe-icon button (shorter, still reads; tooltip
+  `Open file URL`); `Copy path` becomes `Copy file URL`. New Lucide
+  `globe.svg` + qrc alias.
+- [x] Comments button + popup dialog; globe asset + rename.
+- [x] Build + `ctest` (+ docs).
+
+## 42. Hide empty tag groups instead of `Name (0)` headers
+- `ViewerPage::addTagGroup` always adds the header, even with zero tags
+  (`Artist (0)`, `Copyright (0)`). Skip empty groups entirely (keep the
+  `No metadata` fallback when everything is empty).
+- [ ] Skip empties in `addTagGroup`; verify on a tagless post.
+- [ ] Build + `ctest` (+ docs).
+
+## 43. Custom tag categories on the left sidebar (multibooru-aware)
+- Nuuru/Szuru native taxonomies survive in `Post.customTags` and render on
+  the viewer's right panel, but the left sidebar only knows the five classic
+  buckets (COPYRIGHT/CHARACTERS/ARTISTS/TAGS/META from index stats) plus
+  `manualTagTypes` overrides for classic names only. In multibooru tabs the
+  buckets mix per-site taxonomies with no mapping for custom names.
+- Direction: browse-mode sidebar gains extra sections for custom category
+  names seen in the tab's posts (deduped, per-tab, no persistence); extend
+  manual bucket overrides to accept custom names (fold into a classic
+  bucket for filtering/pills), defaulting to their own section.
+- [ ] Custom sections in `rebuildBrowseSidebar` + override support; fixtures.
+- [ ] Build + `ctest` (+ docs).

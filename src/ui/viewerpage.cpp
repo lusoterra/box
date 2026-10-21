@@ -1069,10 +1069,18 @@ ViewerPage::ViewerPage(QWidget *parent) : QWidget(parent) {
     m_favBtn->setIconSize(QSize(16, 16));
     m_favBtn->setFixedWidth(34);
     m_favBtn->setToolTip(tr("Favourite (F)"));
-    auto *openBtn = new QPushButton(tr("Open file"), this);
-    auto *copyBtn = new QPushButton(tr("Copy path"), this);
+    auto *openBtn = new QPushButton(this);
+    openBtn->setIcon(UiIcons::icon(QStringLiteral("globe")));
+    openBtn->setIconSize(QSize(16, 16));
+    openBtn->setFixedWidth(34);
+    openBtn->setToolTip(tr("Open file URL"));
+    auto *copyBtn = new QPushButton(tr("Copy file URL"), this);
     copyBtn->setIcon(UiIcons::icon(QStringLiteral("copy")));
     copyBtn->setIconSize(QSize(15, 15));
+    m_commentsBtn = new QPushButton(tr("Comments"), this);
+    m_commentsBtn->setToolTip(tr("Show the comment thread in a popup"));
+    connect(m_commentsBtn, &QPushButton::clicked, this,
+            &ViewerPage::showCommentsPopup);
     connect(backBtn, &QPushButton::clicked, this, &ViewerPage::back);
     connect(m_prevBtn, &QPushButton::clicked, this, [this] { step(-1); });
     connect(m_nextBtn, &QPushButton::clicked, this, [this] { step(1); });
@@ -1161,6 +1169,7 @@ ViewerPage::ViewerPage(QWidget *parent) : QWidget(parent) {
     bar->addWidget(m_favBtn);
     bar->addWidget(openBtn);
     bar->addWidget(copyBtn);
+    bar->addWidget(m_commentsBtn);
     lay->addLayout(bar);
 
     auto *body = new QHBoxLayout();
@@ -1575,6 +1584,15 @@ void ViewerPage::showCurrent() {
     if (m_imgSearchBtn)
         m_imgSearchBtn->setEnabled(
             p.isRemote && RemotePosts::isHttpUrl(p.fileUrl));
+    if (m_commentsBtn) {
+        const auto itc = p.isRemote
+                             ? m_metaCache.constFind(metaKey())
+                             : m_metaCache.constEnd();
+        const int n = itc != m_metaCache.constEnd() ? itc->second.size() : 0;
+        m_commentsBtn->setEnabled(p.isRemote);
+        m_commentsBtn->setText(n > 0 ? tr("Comments (%1)").arg(n)
+                                    : tr("Comments"));
+    }
 
     // Notes + comments for remote posts (cached per session).
     if (p.isRemote && m_meta) {
@@ -1894,9 +1912,113 @@ void ViewerPage::onMetaDone(const QString &site, qint64 postId,
     // per show, so re-run the tail of showCurrent cheaply: rebuild panel).
     if (metaKey() != site + u'#' + QString::number(postId) || m_tagLayout == nullptr)
         return;
+    if (m_commentsBtn) {
+        const auto it = m_metaCache.constFind(metaKey());
+        const int n = it != m_metaCache.constEnd() ? it->second.size() : 0;
+        m_commentsBtn->setText(n > 0 ? tr("Comments (%1)").arg(n)
+                                    : tr("Comments"));
+    }
     rebuildMetaTail();
     // Overlay boxes if a still is on screen (applies to the live pixmap).
     stageNotes();
+}
+
+void ViewerPage::showCommentsPopup() {
+    if (m_row < 0 || m_row >= m_posts.size())
+        return;
+    const Post &p = m_posts[m_row];
+    const QString key = metaKey();
+    auto *dlg = new QDialog(this);
+    dlg->setAttribute(Qt::WA_DeleteOnClose);
+    dlg->setWindowTitle(p.isRemote ? tr("Comments — %1 #%2")
+                                            .arg(p.siteName)
+                                            .arg(p.id)
+                                  : tr("Comments"));
+    dlg->resize(520, 640);
+    auto *lay = new QVBoxLayout(dlg);
+    auto *scroll = new QScrollArea(dlg);
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    auto *host = new QWidget(dlg);
+    auto *vl = new QVBoxLayout(host);
+    vl->setContentsMargins(2, 2, 2, 2);
+    auto fill = [this, vl, host, key] {
+        // Drop the previous content, keep the layout itself.
+        QLayoutItem *child;
+        while ((child = vl->takeAt(0)) != nullptr) {
+            delete child->widget();
+            delete child;
+        }
+        if (key.isEmpty()) {
+            auto *l = new QLabel(tr("Comments are only available for "
+                                    "online posts."),
+                                 host);
+            l->setWordWrap(true);
+            l->setStyleSheet(QStringLiteral("color:#4a5068;"));
+            vl->addWidget(l);
+        } else {
+            const auto it = m_metaCache.constFind(key);
+            if (it == m_metaCache.constEnd()) {
+                auto *l = new QLabel(tr("Loading comments…"), host);
+                l->setWordWrap(true);
+                l->setStyleSheet(QStringLiteral("color:#4a5068;"));
+                vl->addWidget(l);
+            } else if (it->second.isEmpty()) {
+                auto *l = new QLabel(tr("No comments yet."), host);
+                l->setWordWrap(true);
+                l->setStyleSheet(QStringLiteral("color:#4a5068;"));
+                vl->addWidget(l);
+            } else {
+                int shown = 0;
+                for (const PostComment &c : it->second) {
+                    if (++shown > 200)
+                        break; // threads beyond this stay panel-only
+                    const QString head =
+                        c.author.isEmpty()
+                            ? c.date
+                            : c.author + u" · " + c.date;
+                    auto *l = new QLabel(
+                        QStringLiteral("<b>%1</b><br>%2")
+                            .arg(head.toHtmlEscaped(),
+                                 c.body.toHtmlEscaped().left(2000)),
+                        host);
+                    l->setWordWrap(true);
+                    l->setStyleSheet(QStringLiteral("font-size:12px;"));
+                    l->setTextInteractionFlags(Qt::TextSelectableByMouse);
+                    vl->addWidget(l);
+                    auto *sep = new QFrame(host);
+                    sep->setFrameShape(QFrame::HLine);
+                    sep->setStyleSheet(QStringLiteral("color:#2a2f45;"));
+                    vl->addWidget(sep);
+                }
+            }
+        }
+        vl->addStretch(1);
+    };
+    fill();
+    scroll->setWidget(host);
+    lay->addWidget(scroll, 1);
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, dlg);
+    connect(buttons, &QDialogButtonBox::rejected, dlg, &QDialog::reject);
+    lay->addWidget(buttons);
+    // A fetch already in flight (triggered when the post opened) lands
+    // here: refill once, then go quiet (context-owned: dies with dialog).
+    connect(m_meta, &PostMetaFetcher::done, dlg,
+            [this, dlg, key, fill](const QString &site, qint64 postId) {
+                if (key.isEmpty() ||
+                    key != site + u'#' + QString::number(postId))
+                    return;
+                if (m_commentsBtn && metaKey() == key) {
+                    const auto it = m_metaCache.constFind(key);
+                    const int n =
+                        it != m_metaCache.constEnd() ? it->second.size() : 0;
+                    m_commentsBtn->setText(n > 0 ? tr("Comments (%1)").arg(n)
+                                                : tr("Comments"));
+                }
+                fill();
+            });
+    dlg->show();
+    dlg->raise();
 }
 
 // Queue cached notes (if any) for the current still; they land on the
