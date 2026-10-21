@@ -106,7 +106,8 @@ add_unit_test(test_gridwindow test_gridwindow.cpp
               ../src/remote/thumbloader.cpp ../src/remote/tagsuggest.cpp
               ../src/remote/faviconcache.cpp ../src/library/sidecarrefresh.cpp
               ../src/library/index.cpp ../src/library/cachejanitor.cpp
-              ../src/settings.cpp ${REMOTE_SOURCES} ${UGOIRA_SOURCES})
+              ../src/settings.cpp ${REMOTE_SOURCES} ${UGOIRA_SOURCES}
+              ../src/library/settingsexport.cpp)
 target_link_libraries(test_gridwindow PRIVATE Qt6::WebEngineWidgets Qt6::WebEngineCore)
 set_tests_properties(test_gridwindow PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
@@ -123,6 +124,9 @@ add_unit_test(test_hybooru test_hybooru.cpp ${REMOTE_SOURCES}
               ../src/library/index.cpp ../src/library/metaparser.cpp
               ../src/library/cache.cpp ../src/settings.cpp)
 add_unit_test(test_postmeta test_postmeta.cpp ../src/remote/postmeta.cpp
+              ${REMOTE_SOURCES})
+add_unit_test(test_settingsexport test_settingsexport.cpp
+              ../src/library/settingsexport.cpp ../src/settings.cpp ../src/library/favdb.cpp
               ${REMOTE_SOURCES})
 add_unit_test(test_ugoira test_ugoira.cpp ../src/library/ugoioconvert.cpp
               ../src/library/miniz/miniz.c ../src/library/miniz/miniz_tdef.c

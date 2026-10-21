@@ -84,6 +84,9 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
   - `favdb.h:12` `FavDb` (`store.db`): identity `pidFor`/`siteFor` (`:24`),
     `open/add/addMany/remove/list` (`:33-52`), `unlinked()` (`:61`),
     `setTagSplits()` (`:68`); `migrateHashIds()` (`:74`).
+  - `settingsexport.h` (`src/library/`): JSON backup/restore of
+    portable settings + favourites (`exportJson`/`importJson`;
+    boorus merge by key, favourites addMany skips duplicates).
   - `tagtypes.h`: `bucketForType/typeForBucket` (`:31`),
     `parseSafebooruXml/parseYandereJson/parseDanbooruTagsJson` (`:36-38`),
     `TagTypeCache` verdict store (`:84`), `TagTypeFetcher` waterfall (`:112`).

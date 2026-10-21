@@ -361,14 +361,15 @@
 ##    the player used to live on after its page hid; build OK, 25/25 tests)
 - [x] Stop playback when returning to the grid or home.
 - [x] Build + `ctest`.
-- [x] Stop playback when returning to the grid or home.
-- [x] Build + `ctest`.
 
-## 32. Settings backup/restore (JSON export/import)
+## 32. Settings backup/restore (JSON export/import) — DONE (portable
+##    `settingsexport` module: settings + boorus + favs; File menu
+##    Backup/Restore; boorus merge by key, favourites dedupe on import;
+##    roundtrip/merge/reject tests; docs; build OK, 30/30 tests)
 - Offline answer to LoliSync-as-backup (parity task 22): export boorus,
   settings, fav tags and favourites to one JSON file; import merges it
   back (tabs optional). No server, no account.
-- [ ] Export/import round-trip ( prefs dialog or File menu); fixtures;
+- [x] Export/import round-trip ( prefs dialog or File menu); fixtures;
       build + `ctest` (+ docs).
 
 ## 33. Video playback speed control

@@ -199,6 +199,8 @@ private slots:
     void showGridMenu(const QPoint &pos); // right-click actions on posts
     void maybeDeleteUnfavFile(const Post &post); // unfav-deletes-file option
     void importLosnBackup();
+    void exportSettingsBackup(); // File menu: settings+favs -> JSON file
+    void importSettingsBackup(); // File menu: merge a JSON backup back in
     void openStrayDialog();
     void setAsMascot(const Post &post); // home mascot from a grid file
     void importStrayFiles(const QStringList &paths);

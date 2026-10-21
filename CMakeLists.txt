@@ -48,6 +48,7 @@ add_executable(box
     src/remote/tagsuggest.cpp
     src/remote/faviconcache.cpp
     src/library/sidecarrefresh.cpp
+    src/library/settingsexport.cpp
     src/remote/webdlbackend.h
     src/library/losnimport.cpp
     src/library/queryor.cpp
