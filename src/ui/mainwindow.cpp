@@ -3904,6 +3904,8 @@ Post remapFresh(const QJsonObject &raw, const RefreshTarget &t) {
         return RemotePosts::fromHybooru(raw, t.baseUrl);
     case BooruEngine::Nuuru:
         return RemotePosts::fromNuuru(raw, t.baseUrl);
+    case BooruEngine::Hiddenbooru:
+        return RemotePosts::fromHiddenbooru(raw, t.baseUrl);
     case BooruEngine::Shimmie: {
         QMap<QString, QString> attrs;
         for (auto it = raw.begin(); it != raw.end(); ++it)

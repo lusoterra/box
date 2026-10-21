@@ -222,7 +222,11 @@
 - [x] Add `BooruEngine::Nuuru` mapping behind `BooruEngineOps` + manager entry.
 - [x] Fixtures + unit tests (no network); build + `ctest` (+ docs).
 
-## 24. HiddenBooru engine support (Tor hidden service, single instance)
+## 24. HiddenBooru engine support (Tor hidden service, single instance) — DONE
+##    (shapes from the v0.8 tarball: array search with terms/page/limit/order,
+##    `id:` refresh narrowing, tag/complete suggestions, letter ratings,
+##    relative URLs resolved at base; powWall quirk on both hosts; prefs
+##    Type + bucket grid; `test_hiddenbooru` fixtures; docs; 27/27 tests)
 - Instance: anime booru, Tor-first (I2P is extremely slow, use only as
   fallback): Tor `http://hbooru5cef5tkb7a7m5de5kjxqg6abfh3447sxw36n5pe7utnnei25yd.onion/`,
   I2P `https://hiddenbooru.i2p` (I2P socks5 `localhost:4447`, or http `4444`).
@@ -234,16 +238,16 @@
   hash, htype (sha1/md5), mtype ('i'/'v'), fmt, size, width, height,
   rating ('u'/'s'/'q'/'e' letter or full name), file_url (may be
   RELATIVE — resolve against base), preview_url, source_url, tags
-  (space-separated)}`; tag search at `/api/tags` (Search action);
-  comments at `/api/{docs,news,post}/comment`; post pages at
-  `/post/<id>/view`. Full endpoint list: `lib/HB.pm` routes,
+  (space-separated)}`; tag search at `/api/tag/complete?term=` (flat
+  string array); comments are create/delete only (no list endpoint);
+  post pages at `/post/<id>/view`. Full endpoint list: `lib/HB.pm` routes,
   response envelope: `docs/api-usage.md`, field docs:
   `lib/HB/Metadata/Post.pm` (all inside the tarball).
-- [ ] Add `BooruEngine::Hiddenbooru` + mapping behind `BooruEngineOps`
+- [x] Add `BooruEngine::Hiddenbooru` + mapping behind `BooruEngineOps`
       (rating letters map cleanly; relative file URLs resolved; tag
       namespaces per instance taxonomy); entry proxy guidance in prefs.
-- [ ] Prefs Booru-manager `Type` list entry; badge default color?
-- [ ] Fixtures + unit tests (no network — use tarball shapes); build +
+- [x] Prefs Booru-manager `Type` list entry; badge default color?
+- [x] Fixtures + unit tests (no network — use tarball shapes); build +
       `ctest` (+ docs).
 
 ## 25. Cross-entry duplicate detection via md5

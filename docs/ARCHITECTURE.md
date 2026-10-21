@@ -29,7 +29,13 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
   `parseSingle`/`applyAuth`; `engineOps()` at `:121`).
   - Pure shared helpers in `RemotePosts`: `translateSearchTags`,
     `sortSearchTag`, `isTransientSearchError`, `fromDanbooru/Gelbooru/Moebooru/
-    Szuru/Shimmie/Hybooru/Nuuru`, `parseShimmieXml` (`src/engines/booruengine.h:26-60`).
+    Szuru/Shimmie/Hybooru/Nuuru/Hiddenbooru`, `parseShimmieXml`
+    (`src/engines/booruengine.h:26-60`).
+    HiddenBooru notes: shapes from the v0.8 source tarball (Tor-first
+    instance + I2P mirror; plain fetches need the Tor stack); `terms=`
+    search with `id:` refresh narrowing, `/api/tag/complete` suggestions,
+    letter ratings, relative file URLs; md5 normalized into `rawJson`
+    when the hash is md5.
     Nuuru notes: plain fetches hit a PoW wall (`pow_required`), so traffic
     rides the browser-backed stack (`powWall` quirk on `soybooru.com`);
     files at `/api/booru/posts/<id>/file`, thumbs at `…/thumbnail`, native

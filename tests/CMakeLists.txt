@@ -27,6 +27,7 @@ set(REMOTE_SOURCES
     ../src/engines/engine_shimmie.cpp
     ../src/engines/engine_hybooru.cpp
     ../src/engines/engine_nuuru.cpp
+    ../src/engines/engine_hiddenbooru.cpp
     ../src/remote/remotesource.cpp)
 
 add_unit_test(test_explicittags test_explicittags.cpp)
@@ -79,6 +80,10 @@ set_tests_properties(test_videopane PROPERTIES
 add_unit_test(test_index test_index.cpp ../src/library/index.cpp)
 add_unit_test(test_queryor test_queryor.cpp ../src/library/queryor.cpp)
 add_unit_test(test_tagcolors test_tagcolors.cpp)
+add_unit_test(test_hiddenbooru test_hiddenbooru.cpp ${REMOTE_SOURCES}
+              ../src/remote/tagsuggest.cpp ../src/library/tagtypes.cpp
+              ../src/library/index.cpp ../src/library/metaparser.cpp
+              ../src/library/cache.cpp ../src/settings.cpp)
 add_unit_test(test_nuuru test_nuuru.cpp ${REMOTE_SOURCES}
               ../src/remote/tagsuggest.cpp ../src/library/tagtypes.cpp
               ../src/library/index.cpp ../src/library/metaparser.cpp

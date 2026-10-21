@@ -54,6 +54,7 @@ QVector<TagSuggestion> takeCapped(QVector<TagSuggestion> v, int cap = 12) {
 QVector<TagSuggestion> parseGelbooruXmlList(const QByteArray &body);
 QVector<TagSuggestion> parseHybooru(const QByteArray &body);
 QVector<TagSuggestion> parseNuuru(const QByteArray &body);
+QVector<TagSuggestion> parseHiddenbooru(const QByteArray &body);
 
 QVector<TagSuggestion> parseDanbooru(const QByteArray &body) {
     // [{name, category, post_count}] - category is danbooru numbering.
@@ -279,6 +280,29 @@ QVector<TagSuggestion> parseNuuru(const QByteArray &body) {
     }
     return takeCapped(out, 24);
 }
+QVector<TagSuggestion> parseHiddenbooru(const QByteArray &body) {
+    // Flat array of tag name strings (db->tags->complete).
+    QVector<TagSuggestion> out;
+    QJsonParseError err;
+    const QJsonDocument doc = QJsonDocument::fromJson(body, &err);
+    if (err.error != QJsonParseError::NoError || !doc.isArray())
+        return out;
+    for (const QJsonValue &v : doc.array()) {
+        QString name;
+        if (v.isString())
+            name = v.toString();
+        else if (v.isObject())
+            name = v.toObject().value(QStringLiteral("name")).toString();
+        name = name.trimmed();
+        if (name.isEmpty() || !tagTokenOk(name))
+            continue;
+        TagSuggestion s;
+        s.tag = name;
+        s.bucket = QStringLiteral("general"); // no categories in the API
+        out.append(s);
+    }
+    return takeCapped(out, 24);
+}
 } // namespace
 
 TagSuggester::TagSuggester(QObject *parent)
@@ -358,6 +382,14 @@ QUrl TagSuggester::urlFor(BooruEngine engine, const QString &baseUrl,
         QUrlQuery q;
         q.addQueryItem(QStringLiteral("query"), prefix);
         q.addQueryItem(QStringLiteral("limit"), QStringLiteral("24"));
+        url.setQuery(q);
+        return url;
+    }
+    if (engine == BooruEngine::Hiddenbooru) {
+        // Flat array of tag name strings.
+        QUrl url(baseUrl + QStringLiteral("/api/tag/complete"));
+        QUrlQuery q;
+        q.addQueryItem(QStringLiteral("term"), prefix);
         url.setQuery(q);
         return url;
     }
@@ -519,6 +551,8 @@ QVector<TagSuggestion> TagSuggester::parse(BooruEngine engine,
         return parseHybooru(body);
     case BooruEngine::Nuuru:
         return parseNuuru(body);
+    case BooruEngine::Hiddenbooru:
+        return parseHiddenbooru(body);
     case BooruEngine::Shimmie:
         return {};
     }

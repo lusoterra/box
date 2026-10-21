@@ -12,6 +12,9 @@ QList<SiteQuirk> siteQuirks() {
         {QStringLiteral("booru.allthefallen.moe"), QString(), {},
          true},
         {QStringLiteral("soybooru.com"), QString(), {}, true},
+        {QStringLiteral("hiddenbooru.i2p"), QString(), {}, true},
+        {QStringLiteral("hbooru5cef5tkb7a7m5de5kjxqg6abfh3447sxw36n5pe7utnnei25yd.onion"),
+         QString(), {}, true},
     };
 }
 
