@@ -64,6 +64,7 @@ public:
     // Browser-backed media for fingerprint-walled hosts (null = QNAM
     // for everything). Set once by the app.
     void setWebBackend(WebDownloadBackend *backend);
+    void setImageCache(class ImageCache *cache); // full-res shortcut source
     // Ugoira handling: "webp" | "jxl" converts served .zips to animated
     // files on completion (ffmpeg required, +cjxl for jxl); anything else
     // keeps the zip. Converted files replace the zip.
@@ -98,7 +99,7 @@ private:
     void pump();
     void onFileReply();
     void finishJob(const DownloadJob &job, bool ok, const QString &error,
-                   bool walled = false);
+                   bool walled = false, bool repump = true);
     // Post-write finalization shared by both backends: content sniff,
     // md5 hash-and-rename for nameless files, sidecar write.
     // Returns false with error set when the file must be dropped.
@@ -111,6 +112,7 @@ private:
     QList<DownloadJob> m_queue;
     QList<Flight *> m_flights;
     WebDownloadBackend *m_webBackend = nullptr;
+    class ImageCache *m_imgCache = nullptr; // viewer-warmed full bytes
     qint64 m_webNextId = 1;
     QMap<QString, class QNetworkAccessManager *> m_proxyNams;
     DownloadSummary m_summary;

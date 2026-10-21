@@ -1,4 +1,5 @@
 #include "downloadmanager.h"
+#include "imagecache.h"
 #include "filehash.h"
 #include "progressbar.h"
 #include "remotesource.h"
@@ -81,6 +82,10 @@ QString md5Stem(const QString &fileUrl) {
     return hex32.match(stem).hasMatch() ? stem : QString();
 }
 } // namespace
+
+void DownloadManager::setImageCache(ImageCache *cache) {
+    m_imgCache = cache;
+}
 
 void DownloadManager::setWebBackend(WebDownloadBackend *backend) {
     if (m_webBackend == backend)
@@ -293,6 +298,22 @@ void DownloadManager::pump() {
     while (m_active && m_flights.size() < kMaxFlight && !m_queue.isEmpty()) {
         DownloadJob job = m_queue.takeFirst();
         QDir().mkpath(QFileInfo(job.filePath).absolutePath());
+        if (m_imgCache && !job.post.fileUrl.isEmpty()) {
+            // Already on disk at full resolution (viewed): copy the
+            // bytes instead of re-fetching. Cache holds complete
+            // image/video bodies only (walls never land there).
+            const QString have = m_imgCache->localPath(job.post.fileUrl);
+            if (!have.isEmpty() && QFile::copy(have, job.filePath)) {
+                QString error;
+                const bool ok = completeJob(job, &error);
+                emit fileStarted(job.fileName);
+                emit progress(m_done, m_total, job.fileName);
+                // No repump: the outer loop keeps filling flights, so a
+                // long all-cached run stays flat instead of recursing.
+                finishJob(job, ok, error, false, false);
+                continue;
+            }
+        }
         if (m_webBackend && RemotePosts::needsWebDownload(job.post)) {
             // Fingerprint-walled media: the browser stack downloads
             // with the profile's session (plain requests get wall
@@ -577,7 +598,7 @@ bool DownloadManager::completeJob(DownloadJob &job, QString *error,
 }
 
 void DownloadManager::finishJob(const DownloadJob &job, bool ok,
-                                 const QString &error, bool walled) {
+                                 const QString &error, bool walled, bool repump) {
     if (!ok && walled) {
         // HTML-where-media-was-expected: remember where, so the solve
         // browser opens AT the wall instead of the homepage.
@@ -595,7 +616,8 @@ void DownloadManager::finishJob(const DownloadJob &job, bool ok,
     m_done++;
     emit fileFinished(job.fileName, ok, error);
     emit progress(m_done, m_total, ok ? job.fileName : QString());
-    pump();
+    if (repump)
+        pump();
 }
 
 // ── DownloadsDialog ────────────────────────────────────────────

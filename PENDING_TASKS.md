@@ -543,13 +543,15 @@
 - [x] Icon button + full refresh path.
 - [x] Build + `ctest` (+ docs).
 
-## 47. Instant download of the already-loaded full-res file
+## 47. Instant download of the already-loaded full-res file — DONE
+##    (cache-hit copy shortcut in `DownloadManager::pump` + `ImageCache::drop`
+##    for reloads; build OK, 31/31 tests)
 - Downloading a post whose full-resolution bytes are already in the
   viewer (image cache / tmp browser download) re-fetches from the
   server; copy the local bytes to the download folder instead (same
   naming + sidecar path as a fresh download).
-- [ ] Local-bytes shortcut in the download enqueue path.
-- [ ] Build + `ctest` (+ docs).
+- [x] Local-bytes shortcut in the download enqueue path.
+- [x] Build + `ctest` (+ docs).
 
 ## 48. Remember the open post per tab
 - Leaving a post view for another tab and coming back drops to grid

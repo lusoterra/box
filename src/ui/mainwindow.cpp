@@ -559,6 +559,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     });
     auto *webDownloads = new WebEngineDownloadBackend(this);
     m_downloads->setWebBackend(webDownloads);
+    m_downloads->setImageCache(m_imgCache); // full-res copy shortcut
     m_downloads->setUgoiraFormat(m_settings.ugoiraFormat);
     m_downloads->setUgoiraFrameDelayMs(m_settings.ugoiraFrameDelayMs);
     m_thumbs->setWebBackend(webDownloads);

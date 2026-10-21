@@ -46,12 +46,14 @@ add_unit_test(test_filehash test_filehash.cpp)
 add_unit_test(test_metaparser test_metaparser.cpp ../src/library/metaparser.cpp)
 add_unit_test(test_losnimport test_losnimport.cpp ../src/library/losnimport.cpp
               ../src/remote/downloadmanager.cpp ../src/remote/webdlbackend.h ${REMOTE_SOURCES}
+              ../src/remote/imagecache.cpp ../src/library/cachejanitor.cpp
               ${UGOIRA_SOURCES}
               ../src/library/favdb.cpp ../src/settings.cpp ../src/library/metaparser.cpp
               ../src/ui/progressbar.cpp)
 add_unit_test(test_remotesource test_remotesource.cpp ${REMOTE_SOURCES})
 add_unit_test(test_downloadplan test_downloadplan.cpp ../src/remote/downloadmanager.cpp
-              ../src/remote/webdlbackend.h ${REMOTE_SOURCES} ${UGOIRA_SOURCES} ../src/ui/progressbar.cpp)
+              ../src/remote/webdlbackend.h ${REMOTE_SOURCES} ${UGOIRA_SOURCES} ../src/ui/progressbar.cpp
+              ../src/remote/imagecache.cpp ../src/library/cachejanitor.cpp ../src/settings.cpp)
 add_unit_test(test_settings test_settings.cpp ../src/settings.cpp
               ${REMOTE_SOURCES})
 add_unit_test(test_favdb test_favdb.cpp ../src/library/favdb.cpp)
@@ -150,6 +152,7 @@ add_unit_test(test_security test_security.cpp ${REMOTE_SOURCES}
               ../src/library/queryor.cpp
               ../src/remote/downloadmanager.cpp
               ../src/remote/webdlbackend.h
+              ../src/remote/imagecache.cpp ../src/library/cachejanitor.cpp
               ${UGOIRA_SOURCES}
               ../src/ui/progressbar.cpp)
 
