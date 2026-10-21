@@ -480,6 +480,28 @@ private slots:
         QVERIFY(RemotePosts::defaultTagsFor({}, {}, {}).isEmpty());
     }
 
+    void reverseSearchUrls() {
+        const QString file =
+            QStringLiteral("https://cdn.donmai.us/a/b.jpg?x=1&y=2");
+        const auto out = RemotePosts::reverseSearchUrls(file);
+        QCOMPARE(out.size(), 5);
+        QCOMPARE(out.at(0).first, QStringLiteral("SauceNAO"));
+        QVERIFY(out.at(0).second.startsWith(
+            QStringLiteral("https://saucenao.com/search.php?url=")));
+        QVERIFY(out.at(0).second.contains(QStringLiteral("x%3D1")));
+        QCOMPARE(out.at(1).first, QStringLiteral("Yandex"));
+        QVERIFY(out.at(1).second.contains(QStringLiteral("rpt=imageview")));
+        QCOMPARE(out.at(2).first, QStringLiteral("Google Lens"));
+        QCOMPARE(out.at(3).first, QStringLiteral("IQDB"));
+        QCOMPARE(out.at(4).first, QStringLiteral("trace.moe"));
+        // No fetchable remote file: no actions.
+        QVERIFY(RemotePosts::reverseSearchUrls({}).isEmpty());
+        QVERIFY(RemotePosts::reverseSearchUrls(
+                    QStringLiteral("file:///tmp/a.jpg")).isEmpty());
+        QVERIFY(RemotePosts::reverseSearchUrls(
+                    QStringLiteral("not a url")).isEmpty());
+    }
+
     void danbooruMapping() {
         const Post p = RemotePosts::fromDanbooru(
             danbooruObj(), QStringLiteral("https://danbooru.donmai.us"));

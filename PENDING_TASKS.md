@@ -162,14 +162,11 @@
       comments section in `ViewerPage` (collapsed/long-list friendly).
 - [x] Build + `ctest` (+ docs).
 
-## 19. Reverse image search buttons
-- Post view + card right-click: launch SauceNAO, Yandex, Google Lens, IQDB,
-  trace.moe for the post.
-- URL schemes (`QDesktopServices::openUrl`): saucenao `search.php?url=`,
-  yandex `images/search?rpt=imageview&url=`, lens `uploadbyurl?url=`,
-  iqdb `?url=`, trace.moe `?url=`. Only when a remote file URL exists
-  (engines can't take local files — gate the actions on that).
-- [ ] Viewer menu/buttons + grid context actions; build + `ctest` (+ docs).
+## 19. Reverse image search buttons — DONE (shared
+##    `RemotePosts::reverseSearchUrls` helper gated on http(s) file URLs;
+##    viewer `Image search` toolbar menu button + grid card submenu (per-post
+##    labels for multi-select); URL tests; docs; build OK, 25/25 tests)
+- [x] Viewer menu/buttons + grid context actions; build + `ctest` (+ docs).
 
 ## 20. Favourite videos only play after download (bug report 2026-10-20)
 - Symptom: a favourited video that is NOT downloaded won't play; the same
@@ -285,7 +282,23 @@
       verify Tor/I2P twins collapse without touching distinct posts.
 - [ ] Build + `ctest`.
 
-## 26. Shrink the codebase (dead-code cleanup, very last)
+## 26. Media-type filter dropdown (stills / GIF / animated / video / sound)
+- Quick dropdown next to the omnibar: still images, animated GIFs
+  (ugoira + animated webp/jxl all count as GIF — no separate ugoira
+  kind), anything animated, videos, sound (implies video: audio-carrying
+  formats). Like the other dropdowns it just adds a typed tag pill
+  (`filetype:` single-select; picking replaces existing `filetype:` tags,
+  typing one clears the box).
+- Client matching is ext-based (`Post::ext` vs the token's comma list;
+  mirrors the grid's own video/GIF chips, so ugoira-served-as-video stays
+  video). Server passes `filetype:` through on Danbooru only (verified
+  support); stripped elsewhere with the client net covering. Buttons that
+  elide their text get `AdjustToContents` widths.
+- [ ] Media dropdown + `filetype:` client matching (`matchesTokens`,
+      `index.query`, browse net); per-engine pass/strip; pill + tests.
+- [ ] Build + `ctest` (+ docs).
+
+## 27. Shrink the codebase (dead-code cleanup, very last)
 - The codebase has grown big: audit for dead code, retired helpers,
   unused settings/strings, and machinery made obsolete by earlier tasks,
   and remove it. Behaviour must not change. Allowed lever: bump the

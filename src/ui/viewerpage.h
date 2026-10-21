@@ -306,6 +306,7 @@ private:
     QLabel *m_idLabel, *m_titleLabel, *m_dateLabel, *m_pathLabel;
     QLabel *m_scoreLabel, *m_ratingLabel, *m_sizeLabel, *m_extLabel, *m_srcLabel;
     QPushButton *m_prevBtn, *m_nextBtn, *m_postBtn, *m_fitBtn, *m_zoomBtn;
+    QPushButton *m_imgSearchBtn = nullptr; // reverse image search menu
     QPushButton *m_downloadBtn = nullptr;
     QPushButton *m_favBtn = nullptr;
     QPushButton *m_refreshBtn = nullptr;

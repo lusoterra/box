@@ -345,6 +345,37 @@ QString viewerUrlFor(const Post &p) {
     return p.fileUrl;
 }
 
+QVector<QPair<QString, QString>>
+reverseSearchUrls(const QString &fileUrl) {
+    const QUrl file(fileUrl);
+    if (fileUrl.isEmpty() || !isHttpUrl(fileUrl) || !file.isValid())
+        return {};
+    QVector<QPair<QString, QString>> out;
+    const auto withUrl = [&](const QString &base,
+                             const QList<QPair<QString, QString>> &params) {
+        QUrl url(base);
+        QUrlQuery query;
+        for (const auto &[k, v] : params)
+            query.addQueryItem(k, v);
+        query.addQueryItem(QStringLiteral("url"), fileUrl);
+        url.setQuery(query);
+        return url.toString(QUrl::FullyEncoded);
+    };
+    out.append({QStringLiteral("SauceNAO"),
+                withUrl(QStringLiteral("https://saucenao.com/search.php"), {})});
+    out.append({QStringLiteral("Yandex"),
+                withUrl(QStringLiteral("https://yandex.com/images/search"),
+                        {{"rpt", "imageview"}})});
+    out.append({QStringLiteral("Google Lens"),
+                withUrl(QStringLiteral("https://lens.google.com/uploadbyurl"),
+                        {})});
+    out.append({QStringLiteral("IQDB"),
+                withUrl(QStringLiteral("https://iqdb.org/"), {})});
+    out.append({QStringLiteral("trace.moe"),
+                withUrl(QStringLiteral("https://trace.moe/"), {})});
+    return out;
+}
+
 bool isImageUrl(const QString &url) {
     const QString ext = BooruEngineOps::extOf(url, QString());
     return ext == QStringLiteral("jpg") || ext == QStringLiteral("jpeg") ||

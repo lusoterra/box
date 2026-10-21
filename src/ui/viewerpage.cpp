@@ -28,6 +28,7 @@
 #include <QLabel>
 #include <QMediaDevices>
 #include <QAudioDevice>
+#include <QMenu>
 #include <QMouseEvent>
 #include <QMovie>
 #include <QProgressBar>
@@ -995,6 +996,32 @@ ViewerPage::ViewerPage(QWidget *parent) : QWidget(parent) {
     m_postBtn = new QPushButton(tr("Open post"), this);
     m_postBtn->setIcon(UiIcons::icon(QStringLiteral("external-link")));
     m_postBtn->setIconSize(QSize(15, 15));
+    m_imgSearchBtn = new QPushButton(tr("Image search"), this);
+    m_imgSearchBtn->setIcon(UiIcons::icon(QStringLiteral("search")));
+    m_imgSearchBtn->setIconSize(QSize(15, 15));
+    m_imgSearchBtn->setToolTip(
+        tr("Reverse image search (SauceNAO, Yandex, Lens, IQDB, trace.moe)"));
+    {
+        auto *menu = new QMenu(m_imgSearchBtn);
+        m_imgSearchBtn->setMenu(menu);
+        connect(menu, &QMenu::aboutToShow, this, [this, menu] {
+            menu->clear();
+            QString fileUrl;
+            if (m_row >= 0 && m_row < m_posts.size())
+                fileUrl = m_posts.at(m_row).fileUrl;
+            for (const auto &[label, url] :
+                 RemotePosts::reverseSearchUrls(fileUrl)) {
+                QAction *a = menu->addAction(label);
+                connect(a, &QAction::triggered, this, [url] {
+                    QDesktopServices::openUrl(QUrl(url));
+                });
+            }
+            if (menu->isEmpty()) {
+                QAction *none = menu->addAction(tr("No remote file URL"));
+                none->setEnabled(false);
+            }
+        });
+    }
     m_downloadBtn = new QPushButton(tr("Download"), this);
     m_downloadBtn->setIcon(UiIcons::icon(QStringLiteral("download")));
     m_downloadBtn->setIconSize(QSize(15, 15));
@@ -1099,6 +1126,7 @@ ViewerPage::ViewerPage(QWidget *parent) : QWidget(parent) {
     bar->addWidget(m_loadInfo);
     bar->addStretch(1);
     bar->addWidget(m_postBtn);
+    bar->addWidget(m_imgSearchBtn);
     bar->addWidget(m_downloadBtn);
     bar->addWidget(m_refreshBtn);
     bar->addWidget(notesBtn);
@@ -1514,6 +1542,11 @@ void ViewerPage::showCurrent() {
     m_nextBtn->setEnabled(m_row + 1 < m_posts.size());
     m_postBtn->setEnabled(!p.postUrl.isEmpty());
     m_postBtn->setToolTip(p.postUrl);
+    // Reverse image search needs a fetchable remote file (engines cannot
+    // take local paths).
+    if (m_imgSearchBtn)
+        m_imgSearchBtn->setEnabled(
+            p.isRemote && RemotePosts::isHttpUrl(p.fileUrl));
 
     // Notes + comments for remote posts (cached per session).
     if (p.isRemote && m_meta) {

@@ -2911,6 +2911,35 @@ void MainWindow::showGridMenu(const QPoint &pos) {
         }
         downloadPosts(remote);
     });
+    // Reverse image search (engines need a fetchable remote file; local
+    // cards have none, so the submenu stays disabled without one).
+    QMenu *revMenu = menu.addMenu(tr("Reverse image search"));
+    bool anyHttp = false;
+    for (const Post &p : targets) {
+        if (p.isRemote && RemotePosts::isHttpUrl(p.fileUrl)) {
+            anyHttp = true;
+            break;
+        }
+    }
+    revMenu->setEnabled(anyHttp);
+    if (anyHttp) {
+        for (const Post &p : targets) {
+            if (!(p.isRemote && RemotePosts::isHttpUrl(p.fileUrl)))
+                continue;
+            const auto engines = RemotePosts::reverseSearchUrls(p.fileUrl);
+            for (const auto &[label, url] : engines) {
+                QAction *a = revMenu->addAction(
+                    targets.size() == 1
+                        ? label
+                        : tr("%1 (#%2)").arg(label).arg(p.id));
+                connect(a, &QAction::triggered, this, [url] {
+                    QDesktopServices::openUrl(QUrl(url));
+                });
+            }
+            if (targets.size() > 1)
+                revMenu->addSeparator();
+        }
+    }
     // Tag editing is a stray-only affair: exactly one stray file, so the
     // dialog prefills from its sidecar. Everything else keeps the menu.
     if (targets.size() == 1 && Stray::isStrayPost(targets.first())) {

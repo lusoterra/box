@@ -14,6 +14,7 @@
 #include <QJsonObject>
 #include <QMap>
 #include <QNetworkRequest>
+#include <QPair>
 #include <QSet>
 #include <QStringList>
 #include <QUrl>
@@ -67,6 +68,12 @@ QString shortFor(const QString &siteLabel); // DAN/GEL/SFW/YAN/KON/SZU
 QString thumbUrlFor(const Post &p);  // smallest usable remote preview
 QString viewerUrlFor(const Post &p); // sample preferred, full fallback
 bool isImageUrl(const QString &url); // image ext (pool pipeline) vs video
+// Reverse image search endpoints for a remote file URL: label + search
+// URL pairs for menus (SauceNAO, Yandex, Google Lens, IQDB, trace.moe).
+// Empty unless the URL is fetchable http(s): engines cannot take local
+// files, so local posts get no actions. Pure: unit-tested.
+QVector<QPair<QString, QString>>
+reverseSearchUrls(const QString &fileUrl);
 // Per-type disabled tag buckets ("gelbooru:character", engineKey form).
 // Parsed tags in those buckets fold into general (non-anime taxonomies).
 // Pushed from settings at startup / prefs apply; "general" never folds.
