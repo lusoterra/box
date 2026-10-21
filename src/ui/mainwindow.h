@@ -92,13 +92,13 @@ public:
     explicit GridView(QWidget *parent = nullptr);
     void refreshLayout() { scheduleDelayedItemsLayout(); }
     void setScrollRows(double r) { m_scrollRows = qBound(0.1, r, 3.0); }
+    int rowPitch() const; // visual row height in px (item + spacing)
 
 protected:
     void startDrag(Qt::DropActions supportedActions) override;
     void wheelEvent(QWheelEvent *e) override;
 
 private:
-    int rowPitch() const; // visual row height in px (item + spacing)
     double m_scrollRows = 0.5; // grid rows per wheel notch (0.1-3.0)
     double m_wheelPxAccum = 0.0; // fractional scroll carried across events
 };
@@ -240,6 +240,9 @@ private slots:
     void onScanProgress(int n, int total);
     void onCacheStats(int hits, int misses);
     void requestVisibleThumbs();
+    // Visible model rows via item geometry (indexAt misses IconMode
+    // margins/ragged edges). Drives thumb requests + pixmap windowing.
+    void visibleRowRange(int &lo, int &hi) const;
     void backToGrid();
 
 private:

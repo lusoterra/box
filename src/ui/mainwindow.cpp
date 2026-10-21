@@ -4776,9 +4776,10 @@ void MainWindow::fillModel() {
             const QFileInfo fi(p.absFile);
             key = p.absFile + u'|' + QString::number(fi.lastModified().toMSecsSinceEpoch());
         }
-        const auto cached = m_thumbCache.find(key);
-        item->setData(cached != m_thumbCache.end() ? *cached : m_placeholder,
-                      Qt::DecorationRole);
+        // Pixmaps window with the viewport (see requestVisibleThumbs):
+        // every row starts on the shared placeholder; the ensure pass
+        // below paints cached thumbs onto near-visible rows only.
+        item->setData(m_placeholder, Qt::DecorationRole);
         item->setData(p.rating, Qt::UserRole + 1);
         QString kind;
         if (isVideoExt(p.ext))
@@ -5050,14 +5051,36 @@ void MainWindow::updateResultLabel() {
     m_pillBar->setVisible(m_pills->count() > 0);
 }
 
+// Visible model rows via item geometry. indexAt() misses IconMode
+// margins and the ragged right edge (returning invalid corners), which
+// would widen every range to the whole model and defeat pixmap
+// windowing. O(n) rect math, no painting.
+void MainWindow::visibleRowRange(int &lo, int &hi) const {
+    lo = m_model ? m_model->rowCount() : 0;
+    hi = -1;
+    if (!m_grid || !m_model || m_model->rowCount() <= 0)
+        return;
+    const int vh = m_grid->viewport()->height();
+    for (int r = 0; r < m_model->rowCount(); ++r) {
+        const QRect ir = m_grid->visualRect(m_model->index(r, 0));
+        if (!ir.isValid())
+            continue;
+        if (ir.bottom() >= 0 && ir.top() <= vh) {
+            lo = qMin(lo, r);
+            hi = qMax(hi, r);
+        }
+    }
+    if (hi < 0)
+        lo = 0;
+}
+
 void MainWindow::requestVisibleThumbs() {
     if (m_current.isEmpty() || m_pages->currentIndex() != 0)
         return;
-    const QRect vp = m_grid->viewport()->rect();
-    const QModelIndex first = m_grid->indexAt(vp.topLeft());
-    const QModelIndex last = m_grid->indexAt(vp.bottomRight());
-    const int lo = first.isValid() ? first.row() : 0;
-    const int hi = last.isValid() ? last.row() : m_current.size() - 1;
+    int lo = 0, hi = -1;
+    visibleRowRange(lo, hi);
+    if (hi < 0)
+        return; // nothing laid out yet; the next scroll tick retries
     const int overscan = 20;
     for (int row = qMax(0, lo - overscan); row <= qMin(hi + overscan, m_current.size() - 1);
          ++row) {
@@ -5096,6 +5119,29 @@ void MainWindow::requestVisibleThumbs() {
             m_thumbs->request(key, p.absFile, mtime, fi.size(),
                               m_settings.thumbLongSide);
     }
+    // Pixmap windowing: decoded pixmaps (the actual memory) live only on
+    // near-visible rows. Rows scrolled far away drop back to the shared
+    // placeholder; scrolling back repaints them from the LRU cache (or
+    // re-requests). Model rows themselves stay put, so selection, menus,
+    // viewer stepping and the scrollbar never notice the windowing.
+    const int keep = 60;
+    for (int row = 0; row < m_model->rowCount(); ++row) {
+        const QModelIndex idx = m_model->index(row, 0);
+        const bool has = m_model->data(idx, Qt::UserRole + 14).toBool();
+        if (row >= lo - keep && row <= hi + keep) {
+            if (!has) {
+                const auto it = m_thumbCache.find(
+                    m_model->data(idx, Qt::UserRole + 4).toString());
+                if (it != m_thumbCache.end()) {
+                    m_model->setData(idx, *it, Qt::DecorationRole);
+                    m_model->setData(idx, true, Qt::UserRole + 14);
+                }
+            }
+        } else if (has) {
+            m_model->setData(idx, m_placeholder, Qt::DecorationRole);
+            m_model->setData(idx, false, Qt::UserRole + 14);
+        }
+    }
 }
 
 void MainWindow::onThumbnailReady(const QString &key, const QImage &image) {
@@ -5104,14 +5150,26 @@ void MainWindow::onThumbnailReady(const QString &key, const QImage &image) {
         return;
     if (!m_thumbCache.contains(key)) {
         m_cacheOrder.append(key);
-        if (m_cacheOrder.size() > 600)
+        if (m_cacheOrder.size() > 256)
             m_thumbCache.remove(m_cacheOrder.takeFirst());
     }
     m_thumbCache[key] = pm;
+    if (m_pages->currentIndex() != 0)
+        return; // grid hidden: cache only, paint on return
+    // Paint near-visible matches only (indexAt() misses IconMode margins,
+    // so each match checks its own rect). Far matches keep the placeholder
+    // until scrolled to; the ensure pass in requestVisibleThumbs paints them.
+    const int margin = m_grid ? m_grid->rowPitch() * 20 : 0;
+    const int vh = m_grid ? m_grid->viewport()->height() : 0;
     for (int row = 0; row < m_model->rowCount(); ++row) {
         const QModelIndex idx = m_model->index(row, 0);
-        if (m_model->data(idx, Qt::UserRole + 4).toString() == key)
-            m_model->setData(idx, pm, Qt::DecorationRole);
+        if (m_model->data(idx, Qt::UserRole + 4).toString() != key)
+            continue;
+        const QRect ir = m_grid->visualRect(idx);
+        if (!ir.isValid() || ir.bottom() < -margin || ir.top() > vh + margin)
+            continue;
+        m_model->setData(idx, pm, Qt::DecorationRole);
+        m_model->setData(idx, true, Qt::UserRole + 14);
     }
 }
 

@@ -80,6 +80,25 @@ set_tests_properties(test_videopane PROPERTIES
 add_unit_test(test_index test_index.cpp ../src/library/index.cpp)
 add_unit_test(test_queryor test_queryor.cpp ../src/library/queryor.cpp)
 add_unit_test(test_tagcolors test_tagcolors.cpp)
+add_unit_test(test_gridwindow test_gridwindow.cpp
+              ../src/remote/webdlbackend.h
+              ../src/ui/mainwindow.cpp ../src/ui/viewerpage.cpp
+              ../src/ui/welcomepage.cpp ../src/ui/tabbar.cpp
+              ../src/ui/theme.cpp ../src/ui/flowlayout.cpp
+              ../src/ui/prefsdlg.cpp ../src/remote/cookiegrab.cpp
+              ../src/ui/straydialog.cpp ../src/ui/progressbar.cpp
+              ../src/remote/imagecache.cpp ../src/remote/postmeta.cpp
+              ../src/remote/downloadmanager.cpp ../src/library/losnimport.cpp
+              ../src/library/favdb.cpp ../src/library/metaparser.cpp
+              ../src/library/queryor.cpp ../src/library/tagtypes.cpp
+              ../src/library/scanner.cpp ../src/library/cache.cpp
+              ../src/remote/thumbloader.cpp ../src/remote/tagsuggest.cpp
+              ../src/remote/faviconcache.cpp ../src/library/sidecarrefresh.cpp
+              ../src/library/index.cpp ../src/library/cachejanitor.cpp
+              ../src/settings.cpp ${REMOTE_SOURCES})
+target_link_libraries(test_gridwindow PRIVATE Qt6::WebEngineWidgets Qt6::WebEngineCore)
+set_tests_properties(test_gridwindow PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_unit_test(test_hiddenbooru test_hiddenbooru.cpp ${REMOTE_SOURCES}
               ../src/remote/tagsuggest.cpp ../src/library/tagtypes.cpp
               ../src/library/index.cpp ../src/library/metaparser.cpp

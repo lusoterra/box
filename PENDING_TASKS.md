@@ -303,7 +303,10 @@
       Open history… picker); prune missing on show.
 - [x] Build + `ctest` (+ docs).
 
-## 28. Windowed grid (don't hold everything in memory)
+## 28. Windowed grid (don't hold everything in memory) — DONE (pixmaps
+##    windowed, not rows; geometry-based visible range; LRU cap 600→256;
+##    `test_gridwindow` verifies flat memory on a real 700-file archive;
+##    build OK, 28/28 tests)
 - A 700-pic read-only archive fills memory: `fillModel` cards every row
   and infinite scroll only ever appends (`browseMerged` grows without
   bound; thumbs are LRU-capped at 600 but rows/pixmaps/delegate work
@@ -313,9 +316,9 @@
   (stable scroll anchor required), same cap for browse appends. Watch
   out for: scrollbar jumps, text-find across the window edge, multi-
   select and viewer stepping across dropped rows.
-- [ ] Windowed `fillModel`/append path with anchor-stable unload;
+- [x] Windowed `fillModel`/append path with anchor-stable unload;
       verify a 700-pic archive stays flat while scrolling both ways.
-- [ ] Build + `ctest`.
+- [x] Build + `ctest`.
 
 ## 29. Ugoira downloads as animated webp/jxl (never gif)
 - Treat all animated pictures (ugoira, gifs, webps, …) as GIFs for
