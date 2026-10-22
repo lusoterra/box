@@ -31,7 +31,8 @@ within minutes are suppressed (the button stays).
 
 ## 03-omnibar — the control row under the tab bar
 Left to right: `★` favourite-tags menu (click a star to add it to the
-search) → tag search box (placeholder `Search tags…`, autocomplete
+search; coloured by tag bucket, scrolls past ~16 rows; manage/remove in
+Preferences → General) → tag search box (placeholder `Search tags…`, autocomplete
 popup ranked exact-match first, then starred tags, then most-used, then your
 recent tokens — `/` focuses, Enter searches) → rating dropdown (`All`, default label) → media dropdown
 (stills / animated GIFs / anything animated / videos / sound, adds a

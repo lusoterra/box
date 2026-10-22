@@ -75,6 +75,7 @@ private:
     QCheckBox *m_unfavDeletes;
     QCheckBox *m_deleteUnfavs;
     QPlainTextEdit *m_blacklist;
+    QListWidget *m_favTagList = nullptr; // General: review/remove stars
     QComboBox *m_browseLimit;
     QListWidget *m_defBoorus = nullptr;
     QLineEdit *m_dataDir = nullptr;

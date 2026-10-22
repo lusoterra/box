@@ -6548,6 +6548,9 @@ void MainWindow::applyPreferences(const AppSettings &app) {
     RemoteSource::setConfiguredBoorus(m_settings.boorus);
     RemotePosts::setDisabledBuckets(m_settings.disabledBuckets);
     RemotePosts::setGlobalProxy(m_settings.globalProxy);
+    // Starred tags retune suggestions immediately (harvested from the
+    // Settings editor, not only from right-click starring).
+    m_suggester->setFavTags(favTagSet());
     // The embedded browser (capture, PoW walls, onion sites) reads the
     // proxy once at startup: a changed proxy needs a restart there,
     // while searches/downloads ride it immediately.
@@ -6816,11 +6819,9 @@ void MainWindow::showFavTagsMenu() {
     }
     if (!tags.isEmpty()) {
         menu.addSeparator();
-        QAction *clear = menu.addAction(tr("Clear favourite tags"));
-        connect(clear, &QAction::triggered, this, [this] {
-            m_settings.favTags.clear();
-            saveSettings(m_settings);
-            m_suggester->setFavTags(favTagSet());
+        QAction *manage = menu.addAction(tr("Manage favourite tags…"));
+        connect(manage, &QAction::triggered, this, [this] {
+            openPreferences(); // General tab lists them for removal
         });
     }
     if (QWidget *w = qobject_cast<QWidget *>(sender()))

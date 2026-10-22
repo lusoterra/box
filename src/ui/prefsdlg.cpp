@@ -207,6 +207,29 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     });
     histRow->addWidget(histClear);
     genLay->addLayout(histRow);
+    // Favourite tags (starred via right-click anywhere): listed here for
+    // review and removal. Starring still happens out in the app; this is
+    // the only place that can bulk-remove.
+    genLay->addWidget(new QLabel(tr("Favourite tags:"), this));
+    m_favTagList = new QListWidget(this);
+    m_favTagList->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    for (const QString &t : current.favTags) {
+        if (!t.trimmed().isEmpty())
+            m_favTagList->addItem(t);
+    }
+    m_favTagList->setMinimumHeight(90);
+    genLay->addWidget(m_favTagList);
+    auto *favTagRow = new QHBoxLayout();
+    favTagRow->addStretch(1);
+    auto *favTagRemove = new QPushButton(tr("Remove selected"), this);
+    favTagRemove->setToolTip(tr("Unstar the selected tags"));
+    connect(favTagRemove, &QPushButton::clicked, this, [this] {
+        for (QListWidgetItem *it : m_favTagList->selectedItems())
+            delete m_favTagList->takeItem(m_favTagList->row(it));
+        updateApplyState();
+    });
+    favTagRow->addWidget(favTagRemove);
+    genLay->addLayout(favTagRow);
     lay->addWidget(gen);
 
     // ── Favourites ──
@@ -1165,6 +1188,11 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
                 m_unfavDeletes->setChecked(d.unfavDeletesFile);
                 m_deleteUnfavs->setChecked(d.deleteUnfavs);
                 m_blacklist->clear();
+                if (m_favTagList) {
+                    m_favTagList->clear();
+                    for (const QString &t : d.favTags)
+                        m_favTagList->addItem(t);
+                }
                 m_fullCache->setChecked(d.fullCache);
                 m_cacheLimit->setValue(d.cacheLimitMB);
                 m_browseLimit->setCurrentIndex(
@@ -1850,6 +1878,15 @@ void PrefsDialog::harvestInto(AppSettings &out) {
     out.deleteUnfavs = m_deleteUnfavs->isChecked();
     out.blacklist =
         normalizeExplicitTags(m_blacklist->toPlainText().split(u'\n'));
+    out.favTags.clear();
+    if (m_favTagList) {
+        for (int i = 0; i < m_favTagList->count(); ++i) {
+            const QString t =
+                m_favTagList->item(i)->text().trimmed();
+            if (!t.isEmpty() && !out.favTags.contains(t))
+                out.favTags.append(t);
+        }
+    }
     out.browseLimit = m_browseLimit->currentData().toInt();
     out.ugoiraFormat = m_ugoiraFormat->currentData().toString();
     if (out.ugoiraFormat != QStringLiteral("webp") &&

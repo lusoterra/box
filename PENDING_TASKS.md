@@ -881,3 +881,49 @@
   first page on show instead of in the ctor, so the chrome paints first.
 - [x] Primer + deferred load. Needs user eyes: still blinks?
 - [x] Build + `ctest` (+ docs).
+
+## 76. Remove Clear-favourite-tags; manage them in Settings — DONE
+##    (General gets a fav-tags list + Remove; ★ menu Clear replaced by a
+##    Manage link into Preferences; suggester retunes on Apply; build OK)
+- The one-click Clear in the ★ menu is too dangerous. Favourite tags
+  move to Preferences → General (list with remove, unstarred-again
+  guard), and the ★ menu links there instead of wiping.
+- [x] Fav-tags editor in Settings General.
+- [x] ★ menu Clear → Settings link.
+- [x] Build + `ctest` (+ docs).
+
+## 77. Session restore semantics: last session + fresh start
+- "Back to last tab" should load the last SESSION and land on the last
+  tab, with a new option to start a fresh session instead. "Browse new
+  tab" = last session + one new tab using the default booru from
+  settings. Rework the startup options and the welcome-page actions.
+- [ ] Last-session restore + fresh-start option + default-booru new tab.
+- [ ] Build + `ctest` (+ docs).
+
+## 78. Comment badges vs threads disagree (esp. ATF forks)
+- ATF (danbooru fork, booru.allthefallen.moe): grid cards show comment
+  badges but threads load empty, and posts WITH comments fail to load
+  them. Forks don't maintain last_commented_at (always null), so parse
+  says nothing and badges come only from the viewer OR-in — while the
+  thread fetch itself is clearance-flaky. Fix direction: don't cache
+  failed fetches as definitive-empty (retry on reopen), surface fetch
+  errors in the thread UI, and reconsider fork presence signals.
+- [ ] Distinguish failed fetch from empty thread + retry; surface errors.
+- [ ] Build + `ctest` (+ docs).
+
+## 79. Refresh-tags blanks the viewer image
+- Refreshing tags on a post drops the thumbnail and leaves a blank
+  screen while the full file re-fetches (danbooru posts now refresh
+  correctly otherwise). The re-show after refresh should keep the
+  current media on screen and only repaint tags/meta.
+- [ ] Preserve displayed media across refresh re-show.
+- [ ] Build + `ctest` (+ docs).
+
+## 80. HiddenBooru: captcha clears but searches load 0 posts (low priority)
+- The HiddenBooru captcha solves and the cookie is stored, but searches
+  still come back with 0 posts. Suspects: search-route params the v0.8
+  router expects (terms/page/limit/order), the cookie not riding the
+  search NAM, or the HBS wall fallback eating the result. Very unknown
+  Tor/I2P booru; investigate only with a live onion in reach.
+- [ ] Repro against live onion; fix route/cookie/result handling.
+- [ ] Build + `ctest` (+ docs).
