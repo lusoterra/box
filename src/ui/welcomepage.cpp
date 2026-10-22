@@ -51,7 +51,7 @@ WelcomePage::WelcomePage(QWidget *parent) : QWidget(parent) {
     subtitle->setStyleSheet(QStringLiteral("color:#8a90a8;"));
     col->addWidget(subtitle);
 
-    m_resume = new QPushButton(tr("Back to last tab"), this);
+    m_resume = new QPushButton(tr("Back to last session"), this);
     m_resume->setIcon(UiIcons::icon(QStringLiteral("arrow-left")));
     m_resume->setIconSize(QSize(16, 16));
     m_resume->setMinimumHeight(44);

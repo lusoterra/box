@@ -892,13 +892,16 @@
 - [x] ★ menu Clear → Settings link.
 - [x] Build + `ctest` (+ docs).
 
-## 77. Session restore semantics: last session + fresh start
+## 77. Session restore semantics: last session + fresh start — DONE
+##    ("Back to last session" restores all tabs + lands saved-current;
+##    new tab restores-if-empty + default booru; Tabs-menu fresh start;
+##    build OK, 32/32 tests)
 - "Back to last tab" should load the last SESSION and land on the last
   tab, with a new option to start a fresh session instead. "Browse new
   tab" = last session + one new tab using the default booru from
   settings. Rework the startup options and the welcome-page actions.
-- [ ] Last-session restore + fresh-start option + default-booru new tab.
-- [ ] Build + `ctest` (+ docs).
+- [x] Last-session restore + fresh-start option + default-booru new tab.
+- [x] Build + `ctest` (+ docs).
 
 ## 78. Comment badges vs threads disagree (esp. ATF forks)
 - ATF (danbooru fork, booru.allthefallen.moe): grid cards show comment
@@ -911,13 +914,15 @@
 - [ ] Distinguish failed fetch from empty thread + retry; surface errors.
 - [ ] Build + `ctest` (+ docs).
 
-## 79. Refresh-tags blanks the viewer image
+## 79. Refresh-tags blanks the viewer image — DONE
+##    (displayed frame fed back as pending thumb on refresh re-show;
+##    stills + GIFs; build OK)
 - Refreshing tags on a post drops the thumbnail and leaves a blank
   screen while the full file re-fetches (danbooru posts now refresh
   correctly otherwise). The re-show after refresh should keep the
   current media on screen and only repaint tags/meta.
-- [ ] Preserve displayed media across refresh re-show.
-- [ ] Build + `ctest` (+ docs).
+- [x] Preserve displayed media across refresh re-show.
+- [x] Build + `ctest` (+ docs).
 
 ## 80. HiddenBooru: captcha clears but searches load 0 posts (low priority)
 - The HiddenBooru captcha solves and the cookie is stored, but searches

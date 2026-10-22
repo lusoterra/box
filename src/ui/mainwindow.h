@@ -175,7 +175,8 @@ private slots:
     void onRemoteFinished();
     void toggleFavourite(const Post &post);
     void openFavTab();
-    void openLastPlace(); // home resume button: reopen the last live tab
+    void openLastPlace(); // home resume button: restore the last session
+    void startFreshSession(); // close every tab, forget the session, go home
     QString describeLastPlace() const; // short label for the resume button
     void refreshFavTabs(); // re-list the DB into every open fav tab
     // Download links (site, id) -> local_path, inverted: local scanned

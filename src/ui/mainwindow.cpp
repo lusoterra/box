@@ -741,6 +741,8 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
 
     auto *tabsMenu = menuBar()->addMenu(tr("&Tabs"));
     tabsMenu->addAction(tr("&Close Folder"), this, &MainWindow::showWelcome);
+    tabsMenu->addAction(tr("Start &fresh session"), this,
+                        &MainWindow::startFreshSession);
     QAction *favAct =
         tabsMenu->addAction(tr("&Favourites"), this, &MainWindow::openFavTab);
     favAct->setIcon(UiIcons::heart(UiIcons::favRed(), true));
@@ -1303,7 +1305,16 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     });
     connect(m_welcome, &WelcomePage::openDialogRequested, this, &MainWindow::openFolder);
     connect(m_welcome, &WelcomePage::browseTabRequested, this, [this] {
-        addRemoteTab(m_settings.browseSites, {});
+        if (m_tabs.isEmpty())
+            restoreTabs(); // last session first, then the new tab on top
+        // Explicit default booru (Default tab setting) wins; otherwise
+        // the default-boorus checklist.
+        QStringList sites = m_settings.browseSites;
+        if (RemoteSource::siteFor(m_settings.tabsDefault) != nullptr)
+            sites = {m_settings.tabsDefault};
+        if (sites.isEmpty())
+            sites = m_settings.browseSites;
+        addRemoteTab(sites, {});
     });
     connect(m_welcome, &WelcomePage::favTabRequested, this, &MainWindow::openFavTab);
     connect(m_welcome, &WelcomePage::resumeRequested, this,
@@ -4341,7 +4352,35 @@ QString MainWindow::describeLastPlace() const {
     return name.isEmpty() ? lp.root : name;
 }
 
+void MainWindow::startFreshSession() {
+    // Close everything; the shrinking saves already empty the persisted
+    // session, and the last place is cleared so resume stays hidden.
+    while (m_tabBar->count() > 1)
+        onTabClosed(1);
+    m_settings.hasLastPlace = false;
+    m_settings.lastPlace = AppSettings::SavedTab();
+    m_settings.savedTabs.clear();
+    m_settings.savedTabCurrent = 0;
+    saveSettings(m_settings);
+    showWelcome();
+}
+
 void MainWindow::openLastPlace() {
+    // Last session first: restore every saved tab, landing on the saved
+    // current one inside restoreTabs. Single-tab fallback below when
+    // nothing was ever saved.
+    if (m_tabs.isEmpty()) {
+        if (restoreTabs())
+            return;
+    } else {
+        const int idx =
+            qBound(0, m_settings.savedTabCurrent, m_tabs.size() - 1);
+        if (m_tabBar->currentIndex() == idx + 1)
+            activateTab(idx); // already there: refresh in place
+        else
+            m_tabBar->setCurrentIndex(idx + 1); // +1: tab 0 is welcome
+        return;
+    }
     if (!m_settings.hasLastPlace || m_settings.lastPlace.kind.isEmpty())
         return;
     const AppSettings::SavedTab lp = m_settings.lastPlace;

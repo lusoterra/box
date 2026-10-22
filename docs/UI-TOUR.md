@@ -5,10 +5,13 @@ grid → status bar.
 
 ## 01-welcome — home tab (`WelcomePage`, `src/ui/welcomepage.cpp`)
 Tab 0, shown when no tab is active. From top: app icon + `box` title,
-tagline + version, four big buttons — `Back to last tab` (only when a
-session was saved), `New browse tab` (opens default boorus), `♥
+tagline + version, four big buttons — `Back to last session` (only when
+a session was saved: restores every tab, lands on the saved current
+one), `New browse tab` (restores the session first when empty, then
+opens the Default-tab booru or the default boorus), `♥
 Favourites`, `⭳ Downloads` — and the `Always load last session on
-startup` checkbox (mirrors Preferences → General). Optional mascot image
+startup` checkbox (mirrors Preferences → General). Tabs → `Start fresh
+session` closes everything and forgets the session. Optional mascot image
 pins bottom-right behind everything (double-click cycles size; setting
 `home/mascot*`). File > Open lists the last folders (plus a full-history
 picker) for mouse-driven reopening.
