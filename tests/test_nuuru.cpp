@@ -83,9 +83,37 @@ private slots:
         QCOMPARE(RemotePosts::translateSearchTags(
                      {QStringLiteral("chudjak"),
                       QStringLiteral("rating:explicit"),
-                      QStringLiteral("sort:score")},
+                      QStringLiteral("sort:bogus")},
                      BooruEngine::Nuuru),
                  QStringList({QStringLiteral("chudjak")}));
+        // Native sort: spellings survive server-side.
+        QCOMPARE(RemotePosts::translateSearchTags(
+                     {QStringLiteral("chudjak"),
+                      QStringLiteral("sort:score_desc")},
+                     BooruEngine::Nuuru),
+                 QStringList({QStringLiteral("chudjak"),
+                              QStringLiteral("sort:score_desc")}));
+    }
+
+    void sortMapsServerSide() {
+        QCOMPARE(RemotePosts::sortSearchTag(QStringLiteral("id-desc"),
+                                            BooruEngine::Nuuru),
+                 QStringLiteral("sort:id_desc"));
+        QCOMPARE(RemotePosts::sortSearchTag(QStringLiteral("id-asc"),
+                                            BooruEngine::Nuuru),
+                 QStringLiteral("sort:id_asc"));
+        QCOMPARE(RemotePosts::sortSearchTag(QStringLiteral("score-desc"),
+                                            BooruEngine::Nuuru),
+                 QStringLiteral("sort:score_desc"));
+        QCOMPARE(RemotePosts::sortSearchTag(QStringLiteral("score-asc"),
+                                            BooruEngine::Nuuru),
+                 QStringLiteral("sort:score_asc"));
+        QCOMPARE(RemotePosts::sortSearchTag(QStringLiteral("random"),
+                                            BooruEngine::Nuuru),
+                 QStringLiteral("sort:random"));
+        QCOMPARE(RemotePosts::sortSearchTag(QStringLiteral("added"),
+                                            BooruEngine::Nuuru),
+                 QStringLiteral(""));
     }
 
     void tagsParsing() {

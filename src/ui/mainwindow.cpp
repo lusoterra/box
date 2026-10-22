@@ -1864,6 +1864,7 @@ void MainWindow::finishActivateTab(int tabIdx) {
             m_scanBar->setVisible(false); // skeleton done
         }
     }
+    updateSortBox();
     updateTabTitle(tabIdx);
     // Restore the open post (X tag looking at Y post): identity match, so
     // refills/reorders don't matter; missing rows stay on the grid. Only
@@ -1946,6 +1947,48 @@ void MainWindow::refreshFavicons() {
     statusBar()->showMessage(tr("Refreshing favicons…"), 4000);
 }
 
+void MainWindow::updateSortBox() {
+    // Order-preserving sorts are always safe; the reordering ones need
+    // every tab site to translate them server-side (sortSearchTag), else
+    // infinite-scroll appends reshuffle the grid on every page.
+    static const QSet<QString> kStable = {QStringLiteral("added"),
+                                          QStringLiteral("id-desc")};
+    QStringList sites;
+    if (const BrowserTab *t = currentTab(); t && t->isRemote)
+        sites = t->sites.isEmpty() ? m_settings.browseSites : t->sites;
+    auto *model = qobject_cast<QStandardItemModel *>(m_sortBox->model());
+    if (!model)
+        return;
+    for (int i = 0; i < m_sortBox->count(); ++i) {
+        const QString v = m_sortBox->itemData(i).toString();
+        bool ok = kStable.contains(v);
+        if (!ok && !sites.isEmpty()) {
+            ok = true;
+            for (const QString &key : sites) {
+                if (isVirtualSource(key))
+                    continue;
+                const BooruSite *e = RemoteSource::siteFor(key);
+                if (!e ||
+                    RemotePosts::sortSearchTag(v, e->engine).isEmpty()) {
+                    ok = false;
+                    break;
+                }
+            }
+        }
+        if (QStandardItem *item = model->item(i))
+            item->setEnabled(ok);
+    }
+    // A now-disabled selection falls back to server order (no reshuffle).
+    const int cur = m_sortBox->currentIndex();
+    if (cur >= 0 && model->item(cur) && !model->item(cur)->isEnabled()) {
+        const int added = m_sortBox->findData(QStringLiteral("added"));
+        m_sortBox->blockSignals(true);
+        m_sortBox->setCurrentIndex(qMax(0, added));
+        m_sortBox->blockSignals(false);
+        m_sort = QStringLiteral("added");
+    }
+}
+
 void MainWindow::rebuildSitesMenu() {
     m_sitesMenu->clear();
     for (const BooruSite &s : m_settings.boorus) {
@@ -1966,6 +2009,7 @@ void MainWindow::rebuildSitesMenu() {
     dlAct->setCheckable(true);
     dlAct->setData(kSrcDownloads);
     syncSitesMenu();
+    updateSortBox();
 }
 
 void MainWindow::applyBooruCreds() {
@@ -2146,6 +2190,7 @@ void MainWindow::onSitesChanged() {
         syncSitesMenu(); // refuse to uncheck everything
         return;
     }
+    updateSortBox();
     t->sites = sites;
     t->page = 1;
     updateTabTitle(m_curTab);
@@ -6321,6 +6366,7 @@ void MainWindow::applyPreferences(const AppSettings &app) {
                                   QStringLiteral("/webprofile"));
     prefetchFavicons();
     rebuildSitesMenu();
+    updateSortBox();
     // Custom favicons apply immediately (same loop as fetch arrivals).
     for (int i = 0; i < m_tabs.size(); ++i) {
         if (m_tabs[i]->isRemote)

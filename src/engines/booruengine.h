@@ -31,6 +31,8 @@ QString engineLabel(BooruEngine engine);      // UI combo text
 // universal spelling: Gelbooru wants rating:general, Szurubooru wants
 // safety:safe/unsafe). Single-letter shorthands (rating:g/s/q/e) expand
 // to full words first. Anything else passes through untouched.
+// True for Nuuru's native sort: values (observed live in its search UI).
+bool isNativeNuuruSort(const QString &value);
 QStringList translateSearchTags(const QStringList &tags, BooruEngine engine);
 // Native sort metatag for one UI sort mode ("added" and unknown modes
 // have no server equivalent: empty). Only verified spellings are mapped

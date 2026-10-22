@@ -319,6 +319,10 @@ private:
     void normalizeTypedRating();
     void saveTabState();
     void updateResultLabel();
+    // Sort-box enablement follows the tab: order-preserving sorts are
+    // always on; the rest need every tab site to translate them
+    // server-side (else infinite scroll re-sorts on every append).
+    void updateSortBox();
     void showViewer(int row);
 
     QString m_root;

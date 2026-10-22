@@ -5,6 +5,10 @@
 //     -> {posts: [...], totalCount, totalPages}
 //   GET {base}/api/booru/posts/<id> -> single post object
 //   GET {base}/api/booru/tags/search?query=&limit= -> tag suggestions
+//   Native sort: is a query token (sort:<value>, e.g. sort:score_desc);
+//   full set observed in the search UI: date[_asc|_desc], score[_asc|_desc],
+//   controversial[_desc], id[_asc|_desc], filesize[_asc|_desc],
+//   tagcount[_asc|_desc], random
 //   media: {base}/api/booru/posts/<id>/file (full),
 //          {base}/api/booru/posts/<id>/thumbnail
 //   post pages: {base}/post/view/<id>

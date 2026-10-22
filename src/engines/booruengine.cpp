@@ -196,6 +196,33 @@ QString engineLabel(BooruEngine engine) {
     return QStringLiteral("Danbooru");
 }
 
+// Nuuru's native sort: vocabulary, observed live in its own search UI.
+static const QStringList &nuuruSortValues() {
+    static const QStringList v = {QStringLiteral("date"),
+                                  QStringLiteral("date_asc"),
+                                  QStringLiteral("date_desc"),
+                                  QStringLiteral("score"),
+                                  QStringLiteral("score_asc"),
+                                  QStringLiteral("score_desc"),
+                                  QStringLiteral("controversial"),
+                                  QStringLiteral("controversial_desc"),
+                                  QStringLiteral("id"),
+                                  QStringLiteral("id_asc"),
+                                  QStringLiteral("id_desc"),
+                                  QStringLiteral("filesize"),
+                                  QStringLiteral("filesize_asc"),
+                                  QStringLiteral("filesize_desc"),
+                                  QStringLiteral("tagcount"),
+                                  QStringLiteral("tagcount_asc"),
+                                  QStringLiteral("tagcount_desc"),
+                                  QStringLiteral("random")};
+    return v;
+}
+
+bool isNativeNuuruSort(const QString &value) {
+    return nuuruSortValues().contains(value.trimmed().toLower());
+}
+
 QStringList translateSearchTags(const QStringList &tags, BooruEngine engine) {
     // "Safe" has no universal spelling: danbooru/moebooru/shimmie take
     // rating:safe, Gelbooru only understands rating:general, Szurubooru
@@ -236,8 +263,23 @@ QStringList translateSearchTags(const QStringList &tags, BooruEngine engine) {
                    engine == BooruEngine::Szurubooru) {
             tok = QStringLiteral("safety:safe");
         }
-        if (engine == BooruEngine::Hybooru || engine == BooruEngine::Nuuru ||
-            engine == BooruEngine::Hiddenbooru) {
+        if (engine == BooruEngine::Nuuru) {
+            // Nuuru's sort: vocabulary is native (seen live in its search
+            // UI): keep validated spellings server-side; rating:/safety:/
+            // order: have no verified spelling, so drop them like before.
+            const int ci = tok.indexOf(u':');
+            QString head = (ci > 0 ? tok.left(ci) : QString()).toLower();
+            while (head.startsWith(u'-'))
+                head = head.mid(1);
+            if (head == QStringLiteral("rating") ||
+                head == QStringLiteral("safety") ||
+                head == QStringLiteral("order"))
+                continue;
+            if (head == QStringLiteral("sort") &&
+                !isNativeNuuruSort(tok.mid(ci + 1)))
+                continue;
+        } else if (engine == BooruEngine::Hybooru ||
+                   engine == BooruEngine::Hiddenbooru) {
             // Neither engine exposes a verified content-rating or sort
             // spelling (HyBooru rating: is a 0-100 star filter): such
             // tokens would silently mis-filter, so drop them — sorting
@@ -267,6 +309,11 @@ QString sortSearchTag(const QString &sort, BooruEngine engine) {
     // gelbooru help topic=cheatsheet, konachan help/cheatsheet). Unmapped
     // engines/modes sort client-side; "added" and the id-desc default
     // need no tag anywhere.
+    if (sort == QStringLiteral("id-desc")) {
+        if (engine == BooruEngine::Nuuru)
+            return QStringLiteral("sort:id_desc");
+        return {};
+    }
     if (sort == QStringLiteral("id-asc")) {
         if (engine == BooruEngine::Danbooru)
             return QStringLiteral("order:id_asc");
@@ -274,6 +321,8 @@ QString sortSearchTag(const QString &sort, BooruEngine engine) {
             return QStringLiteral("sort:id:asc");
         if (engine == BooruEngine::Moebooru)
             return QStringLiteral("order:id");
+        if (engine == BooruEngine::Nuuru)
+            return QStringLiteral("sort:id_asc");
         return {};
     }
     if (sort == QStringLiteral("score-desc")) {
@@ -281,6 +330,8 @@ QString sortSearchTag(const QString &sort, BooruEngine engine) {
             return QStringLiteral("order:score");
         if (engine == BooruEngine::Gelbooru || engine == BooruEngine::Safebooru)
             return QStringLiteral("sort:score:desc");
+        if (engine == BooruEngine::Nuuru)
+            return QStringLiteral("sort:score_desc");
         return {};
     }
     if (sort == QStringLiteral("score-asc")) {
@@ -288,11 +339,15 @@ QString sortSearchTag(const QString &sort, BooruEngine engine) {
             return QStringLiteral("order:score_asc");
         if (engine == BooruEngine::Gelbooru || engine == BooruEngine::Safebooru)
             return QStringLiteral("sort:score:asc");
+        if (engine == BooruEngine::Nuuru)
+            return QStringLiteral("sort:score_asc");
         return {};
     }
     if (sort == QStringLiteral("random")) {
         if (engine == BooruEngine::Danbooru)
             return QStringLiteral("order:random");
+        if (engine == BooruEngine::Nuuru)
+            return QStringLiteral("sort:random");
         return {};
     }
     return {}; // "added", "id-desc" (server default), unknown
