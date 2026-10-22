@@ -21,6 +21,7 @@ struct PostComment {
     QString author;
     QString body;
     QString date;
+    QString avatarUrl; // empty: no engine exposes one yet (initials used)
 };
 
 class PostMetaFetcher : public QObject {

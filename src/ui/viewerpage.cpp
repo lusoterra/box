@@ -1970,6 +1970,49 @@ void ViewerPage::reloadCurrent() {
     showRow(m_row);
 }
 
+// Comment card: avatar circle (initial; no engine exposes photo URLs
+// yet — avatarUrl is reserved), bold name · date, selectable body.
+QWidget *ViewerPage::commentCard(const PostComment &c, QWidget *parent) {
+    auto *card = new QWidget(parent);
+    auto *lay = new QHBoxLayout(card);
+    lay->setContentsMargins(6, 6, 6, 6);
+    lay->setSpacing(8);
+    const QString who = c.author.trimmed();
+    auto *ava = new QLabel(who.isEmpty() ? QStringLiteral("?") : who.left(1).toUpper(), card);
+    ava->setFixedSize(36, 36);
+    ava->setAlignment(Qt::AlignCenter);
+    // Stable hue per author so threads stay scannable.
+    uint h = 0;
+    for (const QChar &ch : who)
+        h = h * 31 + ch.unicode();
+    const QColor bg = QColor::fromHsv(int(h % 256), 110, 110);
+    ava->setStyleSheet(QStringLiteral("background:%1;color:white;font-weight:bold;"
+                                      "font-size:16px;border-radius:18px;")
+                           .arg(bg.name(QColor::HexRgb)));
+    lay->addWidget(ava, 0, Qt::AlignTop);
+    auto *text = new QWidget(card);
+    auto *tlay = new QVBoxLayout(text);
+    tlay->setContentsMargins(0, 0, 0, 0);
+    tlay->setSpacing(2);
+    const QString head = who.isEmpty() ? c.date : who + u" · " + c.date;
+    auto *name = new QLabel(QStringLiteral("<b>%1</b>").arg(head.toHtmlEscaped()), text);
+    name->setStyleSheet(QStringLiteral("font-size:12px;"));
+    name->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    tlay->addWidget(name);
+    auto *body = new QLabel(c.body.toHtmlEscaped().left(2000), text);
+    body->setWordWrap(true);
+    body->setStyleSheet(QStringLiteral("font-size:12px;color:#c8cede;"));
+    body->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    tlay->addWidget(body);
+    lay->addWidget(text, 1);
+    if (!c.avatarUrl.isEmpty()) {
+        // Reserved: no engine provides photo URLs today. When one does,
+        // fetch it here and swap the initial out for the photo.
+        card->setProperty("avatarUrl", c.avatarUrl);
+    }
+    return card;
+}
+
 void ViewerPage::showCommentsPopup() {
     if (m_row < 0 || m_row >= m_posts.size())
         return;
@@ -2020,19 +2063,7 @@ void ViewerPage::showCommentsPopup() {
                 for (const PostComment &c : it->second) {
                     if (++shown > 200)
                         break; // threads beyond this stay panel-only
-                    const QString head =
-                        c.author.isEmpty()
-                            ? c.date
-                            : c.author + u" · " + c.date;
-                    auto *l = new QLabel(
-                        QStringLiteral("<b>%1</b><br>%2")
-                            .arg(head.toHtmlEscaped(),
-                                 c.body.toHtmlEscaped().left(2000)),
-                        host);
-                    l->setWordWrap(true);
-                    l->setStyleSheet(QStringLiteral("font-size:12px;"));
-                    l->setTextInteractionFlags(Qt::TextSelectableByMouse);
-                    vl->addWidget(l);
+                    vl->addWidget(commentCard(c, host));
                     auto *sep = new QFrame(host);
                     sep->setFrameShape(QFrame::HLine);
                     sep->setStyleSheet(QStringLiteral("color:#2a2f45;"));
