@@ -11,3 +11,6 @@ use `box` (`build/box`, `~/.config/box`, `~/.local/share/box`,
 `~/.cache/box`) — never hardcode `booru-explorer` except legacy-dir fallbacks.
 
 UI/behavior changes must update `docs/*.md` in the same session.
+
+Massive prompts and fast firing small prompts with bugs to fix etc, should be
+added to PENDING_TASKS.md before and done one by one as to not get lost.
