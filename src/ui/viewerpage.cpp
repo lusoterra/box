@@ -2018,8 +2018,19 @@ void ViewerPage::refetchMeta(const Post &p) {
                             ? p.siteKey
                             : RemotePosts::keyForLabel(p.siteName);
     const BooruSite *site = key.isEmpty() ? nullptr : RemoteSource::siteFor(key);
-    if (site && !m_metaCache.contains(metaKey()))
-        m_meta->fetch(key, site->baseUrl, p.id, site->engine);
+    if (!site || m_metaCache.contains(metaKey()))
+        return;
+    // Per-entry credentials (not the hardcoded danbooru/gelbooru keys):
+    // renamed or custom instances would otherwise fetch anonymously
+    // and fail every load.
+    if (site->engine == BooruEngine::Danbooru)
+        m_meta->setCreds(site->user, site->secret, {}, {});
+    else if (site->engine == BooruEngine::Gelbooru ||
+             site->engine == BooruEngine::Safebooru)
+        m_meta->setCreds({}, {}, site->user, site->secret);
+    else
+        m_meta->setCreds({}, {}, {}, {});
+    m_meta->fetch(key, site->baseUrl, p.id, site->engine);
 }
 
 void ViewerPage::onMetaDone(const QString &site, qint64 postId,

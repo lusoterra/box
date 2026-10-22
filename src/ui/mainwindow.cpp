@@ -6837,6 +6837,14 @@ void MainWindow::showFavTagsMenu() {
     // ~16 rows (QMenu alone only offers scroll arrows).
     QListWidget *list = nullptr;
     if (!tags.isEmpty()) {
+        // Bucket from the suggest index (server-known buckets included),
+        // falling back to the local classification.
+        auto bucketFor = [&](const QString &tag) -> QString {
+            const auto hits = m_index.suggest(tag, 1, {});
+            if (!hits.isEmpty() && !hits.first().bucket.isEmpty())
+                return hits.first().bucket;
+            return m_index.bucketOf(tag);
+        };
         list = new QListWidget(&menu);
         list->setMaximumHeight(384);
         list->setMinimumWidth(240);
@@ -6847,7 +6855,7 @@ void MainWindow::showFavTagsMenu() {
             const QColor meta = UiIcons::filterTagColor(tag);
             const QColor color =
                 meta.isValid() ? meta
-                               : UiIcons::tagBucketColor(m_index.bucketOf(tag));
+                               : UiIcons::tagBucketColor(bucketFor(tag));
             auto *it = new QListWidgetItem(QStringLiteral("★ ") + tag, list);
             it->setData(Qt::UserRole, tag);
             it->setForeground(color);

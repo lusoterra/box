@@ -937,3 +937,13 @@
   Tor/I2P booru; investigate only with a live onion in reach.
 - [ ] Repro against live onion; fix route/cookie/result handling.
 - [ ] Build + `ctest` (+ docs).
+
+## 81. Meta fetcher uses the entry's own credentials — DONE
+##    (per-fetch creds from the resolved entry; renamed/custom keys no
+##    longer fetch anonymously; build OK)
+- The comments/notes fetcher was fed once from the hardcoded
+  `danbooru`/`gelbooru` registry keys, so renamed or custom entries
+  fetched anonymously (401 on Gelbooru dapi) and every thread failed.
+  Credentials now come from the entry resolved per fetch.
+- [x] Per-entry creds on every meta fetch.
+- [x] Build + `ctest` (+ docs).
