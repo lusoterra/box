@@ -343,6 +343,17 @@ QStringList translateSearchTags(const QStringList &tags, BooruEngine engine) {
             // empty), so drop it — the client-side net still filters.
             continue;
         }
+        if (engine == BooruEngine::Danbooru) {
+            // Canonical dropdown kinds ride as native tags (live-verified:
+            // `animated` spans gif/webp/ugoira/video, `video` is mp4/webm).
+            // Custom/typed filetype: (negations included) passes through:
+            // Danbooru answers it server-side.
+            const QStringList native = danbooruMediaTags(tok);
+            if (!native.isEmpty()) {
+                out += native;
+                continue;
+            }
+        }
         out << tok;
     }
     return out;

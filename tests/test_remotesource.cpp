@@ -511,6 +511,34 @@ private slots:
                  QStringList({QStringLiteral("sky")}));
     }
 
+    void mediaKindsTranslateToNativeOnDanbooru() {
+        // Live-verified 2026-10-22: `animated` spans gif/webp/ugoira/
+        // video, `video` is mp4/webm. Canonical dropdown tokens expand;
+        // custom/typed filetype: (negations included) passes through.
+        using RemotePosts::translateSearchTags;
+        constexpr BooruEngine danbooru = BooruEngine::Danbooru;
+        QCOMPARE(translateSearchTags({mediaAnimatedToken()}, danbooru),
+                 QStringList({QStringLiteral("animated")}));
+        QCOMPARE(translateSearchTags({mediaGifToken()}, danbooru),
+                 QStringList({QStringLiteral("animated"),
+                              QStringLiteral("-video")}));
+        QCOMPARE(translateSearchTags({mediaVideoToken()}, danbooru),
+                 QStringList({QStringLiteral("video")}));
+        QCOMPARE(translateSearchTags({mediaStillsToken()}, danbooru),
+                 QStringList({QStringLiteral("-animated"),
+                              QStringLiteral("-video")}));
+        // Sound + customs ride as filetype: (server-answered).
+        QCOMPARE(translateSearchTags({mediaSoundToken()}, danbooru),
+                 QStringList({mediaSoundToken()}));
+        QCOMPARE(translateSearchTags({QStringLiteral("-filetype:gif")}, danbooru),
+                 QStringList({QStringLiteral("-filetype:gif")}));
+        // Other engines: canonical tokens strip like any filetype:.
+        QCOMPARE(translateSearchTags({mediaAnimatedToken()}, BooruEngine::Gelbooru),
+                 QStringList());
+        QCOMPARE(translateSearchTags({mediaVideoToken()}, BooruEngine::Moebooru),
+                 QStringList());
+    }
+
     void md5TwinKeys() {
         // Cross-entry twin collapse: same md5 anywhere keys identically
         // (Tor onion vs I2P mirror rows); unknown md5 never collapses.

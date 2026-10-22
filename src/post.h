@@ -86,6 +86,43 @@ inline const QStringList &videoExts() {
                                      QStringLiteral("webm")};
     return exts;
 }
+// Canonical media-kind tokens for the single-select omnibar dropdown.
+// The query layer translates the exact tokens to native tags where the
+// scheme is live-verified (Danbooru 2026-10-22: `animated` covers gif +
+// webp + ugoira + video, `animated_gif` is real gifs only, `video` is
+// mp4/webm, `sound` is audio mp4s); anything else rides as filetype:,
+// which Danbooru answers server-side and other engines strip (the
+// client-side ext net still filters).
+inline QString mediaGifToken() {
+    return QStringLiteral("filetype:") + gifLikeExts().join(u',');
+}
+inline QString mediaVideoToken() {
+    return QStringLiteral("filetype:") + videoExts().join(u',');
+}
+inline QString mediaAnimatedToken() {
+    return QStringLiteral("filetype:") + (gifLikeExts() + videoExts()).join(u',');
+}
+inline QString mediaStillsToken() {
+    return QStringLiteral("-") + mediaAnimatedToken();
+}
+inline QString mediaSoundToken() {
+    return QStringLiteral("filetype:mp4");
+}
+// Danbooru-native expansion of an exact canonical token (empty when the
+// token is not a canonical media kind: custom/typed filetype: passes
+// through untouched, negations included).
+inline QStringList danbooruMediaTags(const QString &tok) {
+    const QString low = tok.toLower();
+    if (low == mediaAnimatedToken())
+        return {QStringLiteral("animated")};
+    if (low == mediaGifToken())
+        return {QStringLiteral("animated"), QStringLiteral("-video")};
+    if (low == mediaVideoToken())
+        return {QStringLiteral("video")};
+    if (low == mediaStillsToken())
+        return {QStringLiteral("-animated"), QStringLiteral("-video")};
+    return {};
+}
 // `filetype:a,b,c` (leading `-` tolerated): Danbooru-style media filter
 // tags. The ext list is comma-OR; the token matches post extensions.
 inline bool isFiletypeToken(const QString &tok) {

@@ -814,20 +814,16 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     // Media-kind shortcut: writes a filetype: tag like typing it (stills
     // exclude GIF-likes + videos; ugoira/animated webp/jxl count as GIF;
     // sound is the audio-carrying container). Single-select like rating.
+    // Canonical tokens (post.h): the query layer expands them to native
+    // tags where verified (Danbooru), filetype: elsewhere.
     m_mediaBox = new QComboBox(this);
     m_mediaBox->setToolTip(tr("Filter by media kind (adds a filetype: tag)"));
     m_mediaBox->addItem(tr("All media"), QString());
-    const QString gifTok =
-        QStringLiteral("filetype:") + gifLikeExts().join(u',');
-    const QString vidTok =
-        QStringLiteral("filetype:") + videoExts().join(u',');
-    const QString animTok =
-        QStringLiteral("filetype:") + (gifLikeExts() + videoExts()).join(u',');
-    m_mediaBox->addItem(tr("Still images"), QStringLiteral("-") + animTok);
-    m_mediaBox->addItem(tr("Animated GIFs"), gifTok);
-    m_mediaBox->addItem(tr("Anything animated"), animTok);
-    m_mediaBox->addItem(tr("Videos"), vidTok);
-    m_mediaBox->addItem(tr("Sound"), QStringLiteral("filetype:mp4"));
+    m_mediaBox->addItem(tr("Still images"), mediaStillsToken());
+    m_mediaBox->addItem(tr("Animated GIFs"), mediaGifToken());
+    m_mediaBox->addItem(tr("Anything animated"), mediaAnimatedToken());
+    m_mediaBox->addItem(tr("Videos"), mediaVideoToken());
+    m_mediaBox->addItem(tr("Sound"), mediaSoundToken());
     m_sortBox = new QComboBox(this);
     m_sortBox->addItem(tr("Recently added"), QStringLiteral("added"));
     m_sortBox->addItem(tr("Newest"), QStringLiteral("id-desc"));

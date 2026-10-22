@@ -726,7 +726,11 @@
   the behaviour here: ranking, matching, caching, server mapping.
 - [x] Read LoliSnatcher suggestion code + gap analysis vs TagSuggester.
 - [x] Reimplement + tests; build + `ctest` (+ docs).
-## 63. Media-type dropdown via native tags (animated/animated_gif/video/ugoira)
+## 63. Media-type dropdown via native tags (animated/animated_gif/video/ugoira) — DONE
+##    (canonical media*Token() helpers shared by dropdown + translator;
+##    Danbooru expands to `animated`/`animated -video`/`video`/`-animated
+##    -video`, customs pass through; others strip as before; translate
+##    tests; build OK, 32/32 tests)
 - Current box writes `filetype:` extension lists. Danbooru-family tags
   (`animated` 137k, `animated_gif` 27k, `video` 86k, `ugoira` 23k —
   verified live) and Konachan's `animated` (263) work server-side as plain
@@ -734,8 +738,13 @@
   yandere lacks `animated`; Nuuru native categories TBD via its tags API.
 - Direction: per-engine verified mapping (tag vs filetype:-fallback);
   disable/omit kinds the engine can't do; keep negations working.
-- [ ] Live-verify each engine's scheme; wire per-engine tokens + fallback.
-- [ ] Build + `ctest` (+ docs).
+- Live findings: `animated` spans gif+webp+ugoira+video (meta tag on
+  videos); `animated_gif` is real gifs only (webp/ugoira missed), so the
+  GIF kind maps to `animated -video`; `sound` (37k, mp4) left as
+  `filetype:mp4` (typed-query meaning preserved); Konachan's 263-post
+  `animated` too thin to filter on — client ext net stays.
+- [x] Live-verify each engine's scheme; wire per-engine tokens + fallback.
+- [x] Build + `ctest` (+ docs).
 
 ## 64. One failed video poisons all later videos — DONE
 ##    (web-backend id collision: video hard-coded id 1 vs downloads counting
