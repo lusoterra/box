@@ -1050,9 +1050,10 @@ ViewerPage::ViewerPage(QWidget *parent) : QWidget(parent) {
             }
         });
     }
-    m_downloadBtn = new QPushButton(tr("Download"), this);
+    m_downloadBtn = new QPushButton(this);
     m_downloadBtn->setIcon(UiIcons::icon(QStringLiteral("download")));
-    m_downloadBtn->setIconSize(QSize(15, 15));
+    m_downloadBtn->setIconSize(QSize(16, 16));
+    m_downloadBtn->setFixedWidth(34);
     m_downloadBtn->setToolTip(tr("Save full quality to the download folder"));
     m_refreshBtn = new QPushButton(this);
     m_refreshBtn->setIcon(UiIcons::icon(QStringLiteral("refresh-cw")));
@@ -1074,7 +1075,7 @@ ViewerPage::ViewerPage(QWidget *parent) : QWidget(parent) {
     openBtn->setIcon(UiIcons::icon(QStringLiteral("globe")));
     openBtn->setIconSize(QSize(16, 16));
     openBtn->setFixedWidth(34);
-    openBtn->setToolTip(tr("Open file URL"));
+    openBtn->setToolTip(tr("Open file"));
     auto *copyBtn = new QPushButton(tr("Copy file URL"), this);
     copyBtn->setIcon(UiIcons::icon(QStringLiteral("copy")));
     copyBtn->setIconSize(QSize(15, 15));
@@ -1166,10 +1167,10 @@ ViewerPage::ViewerPage(QWidget *parent) : QWidget(parent) {
     bar->addStretch(1);
     bar->addWidget(m_postBtn);
     bar->addWidget(m_imgSearchBtn);
-    bar->addWidget(m_downloadBtn);
     bar->addWidget(m_refreshBtn);
     bar->addWidget(notesBtn);
     bar->addWidget(m_favBtn);
+    bar->addWidget(m_downloadBtn);
     bar->addWidget(openBtn);
     bar->addWidget(copyBtn);
     bar->addWidget(m_commentsBtn);
