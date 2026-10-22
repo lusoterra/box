@@ -836,3 +836,16 @@
   a real scrollbar instead of menu scroll arrows.
 - [x] Coloured scrollable fav-tags popup.
 - [x] Build + `ctest` (+ docs).
+
+## 73. Typed media tags filter by media on unverified engines — DONE
+##    (bare animated/animated_gif/video drop server-side on
+##    Gelbooru-family/Moebooru; engine-aware client ext net incl. bare
+##    tags; Danbooru rows skip the net (server native, keeps ugoira);
+##    translate tests; build OK)
+- Typing `animated` on Gelbooru searched the sparse literal tag (a
+  handful of posts) instead of meaning animated media. Bare media tags
+  now drop from the server query where unverified (full set returns)
+  and filter client-side by extension; Danbooru keeps native tags both
+  ways. `ugoira` stays literal everywhere.
+- [x] Server drop + client net + tests.
+- [x] Build + `ctest` (+ docs).

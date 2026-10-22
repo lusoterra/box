@@ -36,7 +36,9 @@ popup ranked exact-match first, then starred tags, then most-used, then your
 recent tokens — `/` focuses, Enter searches) → rating dropdown (`All`, default label) → media dropdown
 (stills / animated GIFs / anything animated / videos / sound, adds a
 `filetype:` tag — expanded to native `animated`/`video` tags on Danbooru
-where live-verified, `filetype:` elsewhere) → sort dropdown (`Recently added`/`Newest`/`Oldest`/`Top
+where live-verified, `filetype:` elsewhere; typing `animated` /
+`animated_gif` / `video` filters by media on Gelbooru-family/Moebooru
+too) → sort dropdown (`Recently added`/`Newest`/`Oldest`/`Top
 Rated`/`Low Rated`/`Random` — server-side via translated tags where the
 engine supports it (options that would only re-sort client-side disable
 themselves per tab; `Recently added`/`Newest` never reorder) → aspect dropdown (`1:1`, grid cell shape) →

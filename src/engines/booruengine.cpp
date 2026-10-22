@@ -343,6 +343,26 @@ QStringList translateSearchTags(const QStringList &tags, BooruEngine engine) {
             // empty), so drop it — the client-side net still filters.
             continue;
         }
+        if (engine == BooruEngine::Gelbooru ||
+            engine == BooruEngine::Safebooru ||
+            engine == BooruEngine::Moebooru) {
+            // Bare media tags are sparse or content-tagged here (gelbooru
+            // `animated`/`video`, konachan's 263-post `animated`, yandere
+            // has none), so drop them server-side (the query then returns
+            // the full set) and let the client-side ext net in
+            // applyBrowseFilter do the filtering. `ugoira` stays literal
+            // (a real cross-site tag; its ext mapping is unreliable).
+            // Danbooru keeps the native tags; unmapped engines keep the
+            // literal (their schemes are unverified).
+            QString bare = tok;
+            if (bare.startsWith(u'-') && bare.size() > 1)
+                bare = bare.mid(1);
+            const QString low = bare.toLower();
+            if (low == QStringLiteral("animated") ||
+                low == QStringLiteral("animated_gif") ||
+                low == QStringLiteral("video"))
+                continue;
+        }
         if (engine == BooruEngine::Danbooru) {
             // Canonical dropdown kinds ride as native tags (live-verified:
             // `animated` spans gif/webp/ugoira/video, `video` is mp4/webm).

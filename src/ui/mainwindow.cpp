@@ -2889,23 +2889,47 @@ void MainWindow::applyBrowseFilter() {
                                    [&](const Post &p) { return p.rating != t->rating; }),
                     posts.end());
     }
-    // Media-kind net (filetype: tags): engines without verified support
-    // get the tokens stripped server-side, so filter client-side here.
-    // (Danbooru answers natively; the net is a no-op there.)
+    // Media-kind net (filetype: tags + bare media tags, which ride the
+    // same ext meaning): engines without verified support get the tokens
+    // stripped server-side, so filter client-side here. Danbooru-engine
+    // rows were filtered natively server-side (including ugoira zips,
+    // which no ext set covers), so the net leaves them alone.
     if (t) {
         QList<QSet<QString>> ftInc, ftExc;
         const QStringList ftToks =
             t->activeTags + t->searchQuery.split(QChar::Space, Qt::SkipEmptyParts);
         for (const QString &tok : ftToks) {
-            if (!isFiletypeToken(tok))
-                continue;
             const bool neg = tok.startsWith(u'-') && tok.size() > 1;
-            (neg ? ftExc : ftInc).append(filetypeExtSet(tok));
+            const QString base = neg ? tok.mid(1) : tok;
+            if (isFiletypeToken(base)) {
+                (neg ? ftExc : ftInc).append(filetypeExtSet(tok));
+                continue;
+            }
+            const QString low = base.toLower();
+            if (low == QStringLiteral("animated"))
+                (neg ? ftExc : ftInc).append(filetypeExtSet(mediaAnimatedToken()));
+            else if (low == QStringLiteral("animated_gif"))
+                (neg ? ftExc : ftInc).append(filetypeExtSet(mediaGifToken()));
+            else if (low == QStringLiteral("video"))
+                (neg ? ftExc : ftInc).append(filetypeExtSet(mediaVideoToken()));
         }
         if (!ftInc.isEmpty() || !ftExc.isEmpty()) {
             posts.erase(std::remove_if(posts.begin(), posts.end(),
                                        [&](const Post &p) {
-                                           return !filetypeExtOk(p.ext, ftInc, ftExc);
+                                           const QString key =
+                                               !p.siteKey.isEmpty()
+                                                   ? p.siteKey
+                                                   : RemotePosts::keyForLabel(
+                                                         p.siteName);
+                                           const BooruSite *site =
+                                               key.isEmpty() ? nullptr
+                                               : RemoteSource::siteFor(key);
+                                           if (site &&
+                                               site->engine ==
+                                                   BooruEngine::Danbooru)
+                                               return false;
+                                           return !filetypeExtOk(p.ext, ftInc,
+                                                                 ftExc);
                                        }),
                         posts.end());
         }

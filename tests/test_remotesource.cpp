@@ -539,6 +539,38 @@ private slots:
                  QStringList());
     }
 
+    void bareMediaTagsDropOnUnverifiedEngines() {
+        // Typed `animated` on Gelbooru-family/Moebooru searches the sparse
+        // literal tag: drop it server-side (full set returns, the client
+        // ext net filters). Danbooru keeps the native tag; unverified
+        // engines keep the literal; `ugoira` stays literal everywhere.
+        using RemotePosts::translateSearchTags;
+        QCOMPARE(translateSearchTags({QStringLiteral("animated")},
+                                     BooruEngine::Gelbooru),
+                 QStringList());
+        QCOMPARE(translateSearchTags({QStringLiteral("animated")},
+                                     BooruEngine::Safebooru),
+                 QStringList());
+        QCOMPARE(translateSearchTags({QStringLiteral("animated")},
+                                     BooruEngine::Moebooru),
+                 QStringList());
+        QCOMPARE(translateSearchTags({QStringLiteral("-video")},
+                                     BooruEngine::Gelbooru),
+                 QStringList());
+        QCOMPARE(translateSearchTags({QStringLiteral("animated_gif")},
+                                     BooruEngine::Moebooru),
+                 QStringList());
+        QCOMPARE(translateSearchTags({QStringLiteral("animated")},
+                                     BooruEngine::Danbooru),
+                 QStringList({QStringLiteral("animated")}));
+        QCOMPARE(translateSearchTags({QStringLiteral("animated")},
+                                     BooruEngine::Szurubooru),
+                 QStringList({QStringLiteral("animated")}));
+        QCOMPARE(translateSearchTags({QStringLiteral("ugoira")},
+                                     BooruEngine::Gelbooru),
+                 QStringList({QStringLiteral("ugoira")}));
+    }
+
     void md5TwinKeys() {
         // Cross-entry twin collapse: same md5 anywhere keys identically
         // (Tor onion vs I2P mirror rows); unknown md5 never collapses.
