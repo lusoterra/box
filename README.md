@@ -29,7 +29,7 @@ fresh installs start SFW-only.
 
 ## Requirements
 
-- C++17 compiler (GCC, Clang, MSVC)
+- C++20 compiler (GCC, Clang, MSVC)
 - CMake 3.16+
 - Qt 6: Widgets, Concurrent, Sql, Multimedia, MultimediaWidgets, Network,
   WebEngine (cookie capture / PoW-wall browsing)
