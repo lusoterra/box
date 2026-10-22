@@ -827,3 +827,12 @@
   never repainted the grid ♥/↓ marks.
 - [x] `setFaved` in badge refresh + `repaintFavMarks()` on landed.
 - [x] Build + `ctest` (+ docs).
+
+## 72. Favourite tags menu: coloured rows + scrollbar — DONE
+##    (QListWidget-in-QMenu popup: bucket colours, real scrollbar past
+##    ~16 rows; build OK)
+- The ★ menu was a plain scrolling action list: rows now wear the same
+  bucket colours as the suggest popup/pills, and the list scrolls with
+  a real scrollbar instead of menu scroll arrows.
+- [x] Coloured scrollable fav-tags popup.
+- [x] Build + `ctest` (+ docs).

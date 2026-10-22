@@ -50,6 +50,7 @@
 #include <QLineEdit>
 #include <QListWidget>
 #include <QMenu>
+#include <QWidgetAction>
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QProcess>
@@ -6732,12 +6733,39 @@ void MainWindow::showFavTagsMenu() {
             tr("No favourite tags yet — right-click a tag to star it"));
         none->setEnabled(false);
     }
-    for (const QString &tag : tags) {
-        if (tag.trimmed().isEmpty())
-            continue;
-        QAction *a = menu.addAction(QStringLiteral("★ ") + tag);
-        connect(a, &QAction::triggered, this,
-                [this, tag] { addTagToSearch(tag); });
+    // Coloured, scrollable tag list: rows wear the same bucket colours
+    // as the suggest popup and pills; a real scrollbar appears past
+    // ~16 rows (QMenu alone only offers scroll arrows).
+    QListWidget *list = nullptr;
+    if (!tags.isEmpty()) {
+        list = new QListWidget(&menu);
+        list->setMaximumHeight(384);
+        list->setMinimumWidth(240);
+        list->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        for (const QString &tag : tags) {
+            if (tag.trimmed().isEmpty())
+                continue;
+            const QColor meta = UiIcons::filterTagColor(tag);
+            const QColor color =
+                meta.isValid() ? meta
+                               : UiIcons::tagBucketColor(m_index.bucketOf(tag));
+            auto *it = new QListWidgetItem(QStringLiteral("★ ") + tag, list);
+            it->setData(Qt::UserRole, tag);
+            it->setForeground(color);
+        }
+        auto *wa = new QWidgetAction(&menu);
+        wa->setDefaultWidget(list);
+        menu.addAction(wa);
+        connect(list, &QListWidget::itemClicked, this,
+                [this, &menu](QListWidgetItem *it) {
+                    if (!it)
+                        return;
+                    const QString tag = it->data(Qt::UserRole).toString();
+                    if (tag.isEmpty())
+                        return;
+                    menu.close();
+                    addTagToSearch(tag);
+                });
     }
     if (!tags.isEmpty()) {
         menu.addSeparator();
