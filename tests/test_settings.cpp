@@ -79,6 +79,7 @@ private slots:
         custom.disabledBuckets = {QStringLiteral("character")};
         custom.defaultTags = QStringLiteral("rating:safe solo");
         custom.proxy = QStringLiteral("socks5://127.0.0.1:1080");
+        custom.localBlacklist = true;
         s.boorus = {custom};
         s.explicitTags = {QStringLiteral("customtag")};
         s.disabledBuckets = {QStringLiteral("gelbooru:character")};
@@ -138,6 +139,7 @@ private slots:
                  QStringLiteral("rating:safe solo"));
         QCOMPARE(back.boorus.first().proxy,
                  QStringLiteral("socks5://127.0.0.1:1080"));
+        QVERIFY(back.boorus.first().localBlacklist);
         QCOMPARE(back.disabledBuckets,
                  QSet<QString>({QStringLiteral("gelbooru:character")}));
         QCOMPARE(back.explicitTags, QStringList({QStringLiteral("customtag")}));

@@ -41,6 +41,7 @@ QJsonObject booruToJson(const BooruSite &b) {
     o[QStringLiteral("disabledBuckets")] = dis;
     o[QStringLiteral("defaultTags")] = b.defaultTags;
     o[QStringLiteral("proxy")] = b.proxy;
+    o[QStringLiteral("localBlacklist")] = b.localBlacklist;
     return o;
 }
 BooruSite booruFromJson(const QJsonObject &o) {
@@ -65,6 +66,7 @@ BooruSite booruFromJson(const QJsonObject &o) {
     }
     b.defaultTags = o.value(QStringLiteral("defaultTags")).toString();
     b.proxy = o.value(QStringLiteral("proxy")).toString();
+    b.localBlacklist = o.value(QStringLiteral("localBlacklist")).toBool();
     return b;
 }
 } // namespace

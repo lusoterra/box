@@ -25,6 +25,7 @@ AppSettings sampleSettings() {
     b.engine = BooruEngine::Danbooru;
     b.badgeColor = QStringLiteral("#123456");
     b.skipAutoClassify = true;
+    b.localBlacklist = true;
     s.boorus = {b};
     s.disabledBuckets = {QStringLiteral("gelbooru:character")};
     s.manualTagTypes.insert(QStringLiteral("sky"), QStringLiteral("general"));
@@ -71,6 +72,7 @@ private slots:
         QCOMPARE(back.boorus.first().key, QStringLiteral("danbooru"));
         QCOMPARE(back.boorus.first().badgeColor, QStringLiteral("#123456"));
         QVERIFY(back.boorus.first().skipAutoClassify);
+        QVERIFY(back.boorus.first().localBlacklist);
         QVERIFY(back.disabledBuckets.contains(QStringLiteral("gelbooru:character")));
         QCOMPARE(back.manualTagTypes.value(QStringLiteral("sky")), QStringLiteral("general"));
         QCOMPARE(back.ugoiraFormat, QStringLiteral("jxl"));

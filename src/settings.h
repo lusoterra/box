@@ -204,7 +204,8 @@ inline bool booruSiteEqual(const BooruSite &a, const BooruSite &b) {
            a.secret == b.secret && a.cookies == b.cookies &&
            a.skipAutoClassify == b.skipAutoClassify &&
            a.disabledBuckets == b.disabledBuckets &&
-           a.defaultTags == b.defaultTags && a.proxy == b.proxy;
+           a.defaultTags == b.defaultTags && a.proxy == b.proxy &&
+           a.localBlacklist == b.localBlacklist;
 }
 
 // True when every persisted field matches (window geometry excluded:

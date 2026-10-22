@@ -678,6 +678,12 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     m_booruNoClassify = new QCheckBox(tr("Skip automatic tag categorization"), this);
     m_booruNoClassify->setToolTip(tr("Tags from this booru stay as they arrive "
                                      "(for meme hosts and the like)."));
+    m_booruLocalBlacklist =
+        new QCheckBox(tr("Filter blacklist locally (no server -tags)"), this);
+    m_booruLocalBlacklist->setToolTip(
+        tr("Skip server-side blacklist exclusions for this booru and "
+           "filter locally instead (for tag-capped accounts, e.g. free "
+           "Danbooru)."));
     m_booruTags = new QLineEdit(this);
     m_booruTags->setPlaceholderText(tr("score:>10 -comic"));
     m_booruTags->setToolTip(tr("Extra tags for every search on this booru."));
@@ -721,6 +727,7 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     }
     accForm->addRow(tr("Type:"), typeBox);
     accForm->addRow(tr("Tags:"), m_booruNoClassify);
+    accForm->addRow(tr("Blacklist:"), m_booruLocalBlacklist);
     accForm->addRow(tr("Default tags:"), m_booruTags);
     auto *catBox = new QWidget(this);
     {
@@ -1528,6 +1535,7 @@ void PrefsDialog::commitBooruEditor(const QString &key) {
         b.user = m_booruUser->text().trimmed();
         b.secret = m_booruSecret->text();
         b.skipAutoClassify = m_booruNoClassify->isChecked();
+        b.localBlacklist = m_booruLocalBlacklist->isChecked();
         b.defaultTags = m_booruTags->text().trimmed();
         b.proxy = m_booruProxy->text().trimmed();
         // Fresh entries still wearing the generic blue inherit the new
@@ -1710,6 +1718,7 @@ void PrefsDialog::loadBooruEditor(int row) {
         m_booruSecret->clear();
         m_booruShort->clear();
         m_booruNoClassify->setChecked(false);
+        m_booruLocalBlacklist->setChecked(false);
         for (auto it = m_booruBuckets.begin(); it != m_booruBuckets.end();
              ++it)
             it.value()->setChecked(true);
@@ -1734,6 +1743,7 @@ void PrefsDialog::loadBooruEditor(int row) {
     m_booruUser->setText(found->user);
     m_booruSecret->setText(found->secret);
     m_booruNoClassify->setChecked(found->skipAutoClassify);
+    m_booruLocalBlacklist->setChecked(found->localBlacklist);
     m_booruTags->setText(found->defaultTags);
     m_booruProxy->setText(found->proxy);
     for (auto it = m_booruBuckets.begin(); it != m_booruBuckets.end();

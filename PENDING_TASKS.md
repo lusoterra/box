@@ -610,14 +610,17 @@
 - [x] Menu state from resolved local paths.
 - [x] Build + `ctest` (+ docs).
 
-## 53. Per-booru local blacklist filter
+## 53. Per-booru local blacklist filter — DONE
+##    (`localBlacklist` on BooruSite + ini/backup round-trips + manager
+##    checkbox; per-entry server exclusions in siteAndBase, client net
+##    unchanged; settings/export tests; build OK, 32/32 tests)
 - Danbooru free accounts allow only 2 tags, so server-side `-tag`
   exclusions break queries. Add an opt-in per-entry `Local blacklist`
   flag (booru manager; off by default, for `*donmai.us` use): entries
   with the flag skip server-side blacklist exclusions and rely on the
   existing client-side `blacklisted()` net instead.
-- [ ] Entry flag (persist + backup) + skip server exclusions when set.
-- [ ] Build + `ctest` (+ docs).
+- [x] Entry flag (persist + backup) + skip server exclusions when set.
+- [x] Build + `ctest` (+ docs).
 
 ## 54. HiddenBooru search route is /api/posts/search (not bare /api/posts) — DONE
 ##    (searchUrl/refreshUrl pointed at the routed path; verified live: routed

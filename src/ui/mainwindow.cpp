@@ -2285,9 +2285,13 @@ void MainWindow::doBrowseSearch(bool append) {
     // Engines without a native OR get one search per alternative below.
     const QueryOr::ParsedQuery pq = QueryOr::parse(t->searchQuery);
     QStringList andBase = t->activeTags + pq.andTokens;
+    // Server-side -blacklist exclusions are per-entry below: tag-capped
+    // accounts (free Danbooru) opt out via the entry's localBlacklist
+    // flag and rely on the client-side net (applyBrowseFilter) instead.
+    QStringList blacklistExcl;
     for (const QString &b : m_settings.blacklist) {
         if (!b.isEmpty())
-            andBase << QStringLiteral("-") + b;
+            blacklistExcl << QStringLiteral("-") + b;
     }
     // One-click AI filter: same -exclusion mechanism as the blacklist.
     if (m_settings.hideAi) {
@@ -2303,8 +2307,11 @@ void MainWindow::doBrowseSearch(bool append) {
     // The sort box rides server-side here too (translated per engine;
     // explicit user sort:/order: tokens always win over the box).
     auto siteAndBase = [&](const BooruSite *cfg) {
+        QStringList base = andBase;
+        if (!cfg->localBlacklist)
+            base += blacklistExcl;
         QStringList tags =
-            RemotePosts::defaultTagsFor(andBase, cfg->defaultTags,
+            RemotePosts::defaultTagsFor(base, cfg->defaultTags,
                                         t->droppedDefaults);
         const QString serverSort =
             RemotePosts::sortSearchTag(t->sort, cfg->engine);

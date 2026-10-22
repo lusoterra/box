@@ -147,6 +147,9 @@ manager: entry list + `Name`/`short` (grid badge text)/`Badge color`
 (known hosts get house colors: gelbooru blue, rule34 green, aibooru green,
 danbooru/safebooru tan, shimmie gray; editable anytime)/`Base
 URL`/`Type` (engine) editor with cookie capture + favicon override.
+Per-entry `Tags` (skip auto-categorization), `Blacklist` (filter
+blacklist locally instead of server `-tags`, for tag-capped accounts),
+`Default tags`, `Proxy`.
 
 ## 15-prefs-tags — Preferences → Tags
 `Tag type overrides` (manual `tag → bucket`, wins over fetches),

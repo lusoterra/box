@@ -382,6 +382,8 @@ QList<BooruSite> loadBoorus(QSettings &c) {
         }
         b.defaultTags = c.value(QStringLiteral("tags")).toString();
         b.proxy = c.value(QStringLiteral("proxy")).toString();
+        b.localBlacklist =
+            c.value(QStringLiteral("localBlacklist"), false).toBool();
         c.endGroup();
         out.append(b);
     }
@@ -458,6 +460,7 @@ void saveBoorus(QSettings &c, const QList<BooruSite> &boorus) {
                    QStringList(b.disabledBuckets.begin(), b.disabledBuckets.end()));
         c.setValue(QStringLiteral("tags"), b.defaultTags);
         c.setValue(QStringLiteral("proxy"), b.proxy);
+        c.setValue(QStringLiteral("localBlacklist"), b.localBlacklist);
         c.endGroup();
     }
     c.setValue(QStringLiteral("boorus/order"), order);

@@ -54,6 +54,11 @@ struct BooruSite {
     // Extra tags for every search on this booru, added to the global
     // defaults (space-separated, same syntax as the omnibar).
     QString defaultTags;
+    // Danbooru free accounts cap queries at ~2 tags, so server-side
+    // -blacklist exclusions break searches: entries with this set skip
+    // the server exclusions and rely on the client-side blacklist net.
+    // Off by default; meant for *donmai.us entries.
+    bool localBlacklist = false;
     // Proxy for this booru's traffic (http://host:port or
     // socks5://[user:pass@]host:port). Empty = direct connection.
     QString proxy;
