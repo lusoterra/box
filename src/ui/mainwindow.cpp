@@ -5173,12 +5173,13 @@ void MainWindow::fillModel() {
         QString key;
         if (p.isRemote) {
             // The info card already shows #id: display the file name here
-            // so the two lines never duplicate each other.
-            const QString name = QFileInfo(p.fileUrl).fileName();
-            item->setData(name.isEmpty() && p.id
-                              ? QStringLiteral("#%1").arg(p.id)
-                              : name,
-                          Qt::DisplayRole);
+            // so the two lines never duplicate each other. Extensionless
+            // endpoints (Nuuru /file) get a synthesized readable name;
+            // downloads are unaffected (they keep site_md5 naming).
+            QString name = RemotePosts::displayFileName(p);
+            if (name.isEmpty() && p.id)
+                name = QStringLiteral("#%1").arg(p.id);
+            item->setData(name, Qt::DisplayRole);
             key = QStringLiteral("url|") + RemotePosts::thumbUrlFor(p);
         } else {
             item->setData(QFileInfo(p.file).fileName(), Qt::DisplayRole);

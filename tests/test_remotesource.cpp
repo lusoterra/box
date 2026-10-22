@@ -1154,6 +1154,29 @@ private slots:
         qputenv("QTWEBENGINE_CHROMIUM_FLAGS", saved);
     }
 
+    void displayFileName() {
+        // Real filenames pass through untouched (even decoded).
+        Post plain;
+        plain.isRemote = true;
+        plain.fileUrl =
+            QStringLiteral("https://cdn.donmai.us/original/a1/b2/ab123.jpg");
+        QCOMPARE(RemotePosts::displayFileName(plain),
+                 QStringLiteral("ab123.jpg"));
+        // Extensionless endpoints get id - host - tags.ext.
+        Post nuuru;
+        nuuru.isRemote = true;
+        nuuru.id = 241849;
+        nuuru.fileUrl = QStringLiteral("https://soybooru.com/api/booru/posts/241849/file");
+        nuuru.ext = QStringLiteral("png");
+        nuuru.tags = QStringLiteral("avengers beanie blue_hair dress");
+        QCOMPARE(RemotePosts::displayFileName(nuuru),
+                 QStringLiteral("241849 - soybooru.com - avengers beanie blue_hair dress.png"));
+        // Nothing known: empty (callers fall back to #id).
+        Post bare;
+        bare.isRemote = true;
+        QVERIFY(RemotePosts::displayFileName(bare).isEmpty());
+    }
+
     void proxyForUrl() {        BooruSite proxied;
         proxied.key = QStringLiteral("proxied");
         proxied.label = QStringLiteral("Proxied");

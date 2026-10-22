@@ -75,6 +75,10 @@ Post fromShimmie(const QMap<QString, QString> &attrs, const QString &baseUrl);
 SearchResult parseShimmieXml(const BooruSite &site, const QByteArray &body);
 QString postPageUrl(const QString &siteKey, const QString &baseUrl, qint64 id);
 QString downloadFileName(const QString &siteLabel, const QJsonObject &raw);
+// Display name for grid cards: the URL filename when it has an extension,
+// else a synthesized `<id> - <host> - <tags>.<ext>` (tags capped). Pure.
+// Downloads keep downloadFileName() untouched.
+QString displayFileName(const Post &post);
 QString shortFor(const QString &siteLabel); // DAN/GEL/SFW/YAN/KON/SZU
 QString thumbUrlFor(const Post &p);  // smallest usable remote preview
 QString viewerUrlFor(const Post &p); // sample preferred, full fallback

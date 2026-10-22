@@ -473,6 +473,38 @@ QString postPageUrl(const QString &siteKey, const QString &baseUrl, qint64 id) {
            QString::number(id);
 }
 
+QString displayFileName(const Post &post) {
+    const QString rawName = QUrl(post.fileUrl).fileName();
+    if (rawName.contains(u'.'))
+        return rawName; // real filename (even extensionless-looking ones keep theirs)
+    // Extensionless endpoint (Nuuru /file): synthesize something readable.
+    QString host = QUrl(post.fileUrl).host().toLower();
+    if (host.startsWith(QStringLiteral("www.")))
+        host = host.mid(4);
+    QStringList kept;
+    int budget = 100;
+    for (const QString &t :
+         post.tags.split(QChar::Space, Qt::SkipEmptyParts)) {
+        if (t.size() + 1 > budget)
+            break;
+        kept << t;
+        budget -= t.size() + 1;
+    }
+    QString name;
+    if (post.id > 0)
+        name += QString::number(post.id) + QStringLiteral(" - ");
+    if (!host.isEmpty())
+        name += host + QStringLiteral(" - ");
+    name += kept.join(u' ');
+    name = name.trimmed();
+    if (name.endsWith(u'-'))
+        name.chop(1);
+    name = name.trimmed();
+    if (!post.ext.isEmpty())
+        name += u'.' + post.ext;
+    return name;
+}
+
 QString downloadFileName(const QString &siteLabel, const QJsonObject &raw) {
     QString safe = siteLabel;
     // A leading underscore survives (the _Stray convention); anything
