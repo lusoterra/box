@@ -762,6 +762,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     m_suggester = new TagSuggester(this);
     m_suggester->setLocalIndex(&m_index); // offline answers from your archive
     m_suggester->setFavTags(favTagSet()); // starred tags outrank the rest
+    m_suggester->setHistoryTags(m_settings.historyTokens); // your own recent tokens
     connect(m_suggester, &TagSuggester::finished, this,
             &MainWindow::onRemoteSuggest);
     m_completeTimer = new QTimer(this);
@@ -5612,8 +5613,18 @@ void MainWindow::onSearchEdited(const QString &text) {
     }
     m_suggester->cancel();
     const auto sug = m_index.suggest(bare, 24, favTagSet());
-    QStringList words, buckets;
+    QVector<TagSuggestion> local;
     for (const auto &s : sug) {
+        TagSuggestion t;
+        t.tag = s.tag;
+        t.bucket = s.bucket;
+        t.count = s.count;
+        local.append(t);
+    }
+    TagSuggester::appendHistory(local, bare, m_settings.historyTokens,
+                                &m_index, 24);
+    QStringList words, buckets;
+    for (const auto &s : local) {
         words << s.tag;
         buckets << s.bucket;
     }
@@ -5719,6 +5730,17 @@ void MainWindow::onSearchReturn() {
         if (!tok.isEmpty() && !m_activeTags.contains(tok))
             m_activeTags.append(tok);
     }
+    // Remember committed tokens for suggestions (deduped, capped).
+    for (const QString &tok : pq.andTokens)
+        m_settings.historyTokens =
+            QueryOr::pushRecentTag(m_settings.historyTokens, tok);
+    for (const QStringList &g : pq.groups) {
+        for (const QString &tok : g)
+            m_settings.historyTokens =
+                QueryOr::pushRecentTag(m_settings.historyTokens, tok);
+    }
+    m_suggester->setHistoryTags(m_settings.historyTokens);
+    saveSettings(m_settings);
     m_searchQuery = canonicalQuery({}, pq.groups);
     m_searchEdit->clear();
     commitSearch();

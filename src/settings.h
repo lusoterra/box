@@ -28,6 +28,7 @@ struct AppSettings {
     int thumbLongSide = 360; // 256/360/512/768
     QString lastRoot;
     QStringList history; // most-recent-first archive roots, cap 10
+    QStringList historyTokens; // recent search tokens, cap 200
     bool restoreSession = false; // legacy: migrated to tabsDefault="last"
     QString language; // UI locale override ("fr", "pt_BR"); empty = system
     // Favourites (DB entries, no files) + optional coupling with downloads.
@@ -227,7 +228,8 @@ inline bool operator==(const AppSettings &a, const AppSettings &b) {
     return a.indexCache == b.indexCache && a.thumbCache == b.thumbCache &&
            a.fullCache == b.fullCache && a.cacheLimitMB == b.cacheLimitMB &&
            a.thumbLongSide == b.thumbLongSide && a.lastRoot == b.lastRoot &&
-           a.history == b.history && a.restoreSession == b.restoreSession &&
+           a.history == b.history && a.historyTokens == b.historyTokens &&
+           a.restoreSession == b.restoreSession &&
            a.language == b.language &&
            a.favAutoDownload == b.favAutoDownload && a.favAutoFav == b.favAutoFav &&
            a.unfavDeletesFile == b.unfavDeletesFile &&

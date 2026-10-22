@@ -105,6 +105,26 @@ private slots:
                  QStringLiteral("miku"));
         QCOMPARE(QueryOr::suggestBare(QStringLiteral("solo ")), QStringLiteral(""));
         QCOMPARE(QueryOr::suggestBare(QStringLiteral("")), QStringLiteral(""));
+        QCOMPARE(QueryOr::suggestBare(QStringLiteral("12#pool")), QStringLiteral("pool"));
+        QCOMPARE(QueryOr::suggestBare(QStringLiteral("solo -12#pool")), QStringLiteral("pool"));
+        QCOMPARE(QueryOr::suggestBare(QStringLiteral("4k")), QStringLiteral("4k"));
+    }
+
+    void recentTagsStack() {
+        QStringList hist = QueryOr::pushRecentTag({}, QStringLiteral("sky"));
+        QCOMPARE(hist, QStringList({QStringLiteral("sky")}));
+        hist = QueryOr::pushRecentTag(hist, QStringLiteral("  "));
+        QCOMPARE(hist.size(), 1);
+        hist = QueryOr::pushRecentTag(hist, QStringLiteral("cloud"));
+        QCOMPARE(hist, QStringList({QStringLiteral("cloud"),
+                                    QStringLiteral("sky")}));
+        // Re-adding moves to front, no duplicates.
+        hist = QueryOr::pushRecentTag(hist, QStringLiteral("sky"));
+        QCOMPARE(hist, QStringList({QStringLiteral("sky"),
+                                    QStringLiteral("cloud")}));
+        hist = QueryOr::pushRecentTag(hist, QStringLiteral("x"), 2);
+        QCOMPARE(hist.size(), 2);
+        QVERIFY(!hist.contains(QStringLiteral("cloud")));
     }
 };
 

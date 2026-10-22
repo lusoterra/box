@@ -116,6 +116,12 @@ QString suggestBare(const QString &queryText) {
     QString last = parts.last();
     if (last.startsWith(u'-') && last.size() > 1)
         last = last.mid(1);
+    // Pool reference (`12#tag`, Danbooru pool syntax): complete the tag.
+    if (last.size() > 2 && last.at(0).isDigit()) {
+        const int hash = last.indexOf(u'#');
+        if (hash > 0)
+            last = last.mid(hash + 1);
+    }
     if (last.startsWith(QStringLiteral("~(")))
         last = last.mid(2);
     else if (last.startsWith(u'~') || last.startsWith(u'('))
@@ -123,6 +129,18 @@ QString suggestBare(const QString &queryText) {
     while (last.endsWith(u')') && last.size() > 1)
         last.chop(1);
     return last;
+}
+
+QStringList pushRecentTag(QStringList recent, const QString &tag,
+                              int cap) {
+    const QString t = tag.trimmed();
+    if (t.isEmpty() || cap <= 0)
+        return recent;
+    recent.removeAll(t);
+    recent.prepend(t);
+    while (recent.size() > cap)
+        recent.removeLast();
+    return recent;
 }
 
 } // namespace QueryOr

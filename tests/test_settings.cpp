@@ -51,6 +51,7 @@ private slots:
         s.thumbLongSide = 512;
         s.lastRoot = QStringLiteral("/pics/dump");
         s.history = {QStringLiteral("/pics/a"), QStringLiteral("/pics/b")};
+        s.historyTokens = {QStringLiteral("sky"), QStringLiteral("cloud")};
         s.downloadDir = QStringLiteral("/tmp/be-dl");
         s.dataDir = QStringLiteral("/tmp/be-data");
         s.globalProxy = QStringLiteral("socks5h://127.0.0.1:9050");
@@ -106,6 +107,7 @@ private slots:
         QCOMPARE(back.thumbLongSide, 512);
         QCOMPARE(back.lastRoot, QStringLiteral("/pics/dump"));
         QCOMPARE(back.history, s.history);
+        QCOMPARE(back.historyTokens, s.historyTokens);
         QCOMPARE(back.downloadDir, QStringLiteral("/tmp/be-dl"));
         QCOMPARE(back.dataDir, QStringLiteral("/tmp/be-data"));
         QCOMPARE(back.globalProxy,

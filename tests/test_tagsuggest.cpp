@@ -61,6 +61,46 @@ private slots:
         QVERIFY(TagSuggester::parse(BooruEngine::Shimmie, QByteArray("[{}]")).isEmpty());
     }
 
+    void metaForNuuruSorts() {
+        auto tags = [](const QVector<TagSuggestion> &v) {
+            QStringList out;
+            for (const TagSuggestion &s : v)
+                out << s.tag;
+            return out;
+        };
+        QCOMPARE(tags(TagSuggester::metaFor(QStringLiteral("sort:sc"),
+                                            BooruEngine::Nuuru)),
+                 QStringList({QStringLiteral("sort:score"),
+                              QStringLiteral("sort:score_asc"),
+                              QStringLiteral("sort:score_desc")}));
+        QVERIFY(TagSuggester::metaFor(QStringLiteral("sort:zzz"),
+                                      BooruEngine::Nuuru)
+                    .isEmpty());
+        // Rating has no verified Nuuru spelling: nothing offered.
+        QVERIFY(TagSuggester::metaFor(QStringLiteral("rating:e"),
+                                      BooruEngine::Nuuru)
+                    .isEmpty());
+        QVERIFY(TagSuggester::metaFor(QStringLiteral("sky"),
+                                      BooruEngine::Nuuru)
+                    .isEmpty());
+    }
+
+    void metaForRatings() {
+        const auto tags = TagSuggester::metaFor(QStringLiteral("rating:e"),
+                                                BooruEngine::Danbooru);
+        QCOMPARE(tags.size(), 1);
+        QCOMPARE(tags.first().tag, QStringLiteral("rating:explicit"));
+        // Shimmie keeps rating: tokens server-side (translate only
+        // strips them for Hybooru/Nuuru/Hiddenbooru), so offer it there.
+        QCOMPARE(TagSuggester::metaFor(QStringLiteral("rating:e"),
+                                       BooruEngine::Shimmie)
+                     .size(),
+                 1);
+        QVERIFY(TagSuggester::metaFor(QStringLiteral("rating:e"),
+                                      BooruEngine::Hiddenbooru)
+                    .isEmpty());
+    }
+
     void capped() {
         QByteArray body = "[";
         for (int i = 0; i < 30; ++i)

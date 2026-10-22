@@ -55,6 +55,8 @@ AppSettings loadSettings() {
         1024);
     s.lastRoot = c.value(QStringLiteral("library/root")).toString();
     s.history = c.value(QStringLiteral("library/history")).toStringList();
+    s.historyTokens =
+        c.value(QStringLiteral("library/historyTokens")).toStringList().mid(0, 200);
     // NOTE: never a group literally named general/General — QSettings
     // reserves General for groupless keys, so that group can neither be
     // written readably nor read back (settings silently reset every
@@ -214,6 +216,8 @@ void writeSettingsTo(QSettings &c, const AppSettings &s) {
     c.setValue(QStringLiteral("cache/thumbSize"), s.thumbLongSide);
     c.setValue(QStringLiteral("library/root"), s.lastRoot);
     c.setValue(QStringLiteral("library/history"), s.history);
+    c.setValue(QStringLiteral("library/historyTokens"),
+               s.historyTokens.mid(0, 200));
     c.setValue(QStringLiteral("app/restoreSession"), s.restoreSession);
     c.setValue(QStringLiteral("app/language"), s.language);
     c.setValue(QStringLiteral("fav/autoDownload"), s.favAutoDownload);

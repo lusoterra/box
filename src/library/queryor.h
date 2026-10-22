@@ -40,8 +40,13 @@ QList<QStringList> expand(const ParsedQuery &parsed, int cap, bool &over);
 bool groupsMatch(const QSet<QString> &postTags, const QList<QStringList> &groups);
 
 // Current-tag prefix for autocomplete: the last space-separated token
-// with `-` exclusions and `~(...)` group syntax stripped, so suggestions
-// keep working on the 2nd/3rd tag and inside OR groups.
+// with `-` exclusions, `~(...)` group syntax and `N#` pool prefixes
+// stripped, so suggestions keep working on the 2nd/3rd tag and inside OR
+// groups.
 QString suggestBare(const QString &queryText);
+// Most-recent-first tag history (token strings): moves an existing entry
+// to the front, appends new ones, caps the length. Pure (unit-tested).
+QStringList pushRecentTag(QStringList recent, const QString &tag,
+                          int cap = 200);
 
 } // namespace QueryOr

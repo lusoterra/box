@@ -399,15 +399,22 @@ QUrl TagSuggester::urlFor(BooruEngine engine, const QString &baseUrl,
 void TagSuggester::suggest(const BooruSite &site, const SiteCreds &creds,
                            const QString &prefix) {
     cancel();
+    // Metatag heads never hit the network: complete locally from the
+    // engine's verified spellings (instant + offline, LoliSnatcher-style).
+    if (const QVector<TagSuggestion> meta = metaFor(prefix, site.engine);
+        !meta.isEmpty()) {
+        emit finished(site.key, prefix, meta);
+        return;
+    }
     const QString cacheKey = site.key + u'\n' + prefix.toLower();
     if (m_cache.contains(cacheKey)) {
         emit finished(site.key, prefix, m_cache.value(cacheKey));
         return;
     }
+    QVector<TagSuggestion> local;
     if (m_localIndex) {
         // Instant offline answers from the local archive; the remote
         // fetch below replaces them when (and if) it arrives.
-        QVector<TagSuggestion> local;
         for (const auto &s : m_localIndex->suggest(prefix, 24, m_favTags)) {
             TagSuggestion t;
             t.tag = s.tag;
@@ -415,9 +422,12 @@ void TagSuggester::suggest(const BooruSite &site, const SiteCreds &creds,
             t.count = s.count;
             local.append(t);
         }
-        if (!local.isEmpty())
-            emit finished(site.key, prefix, local);
     }
+    // Your own recent tokens fill the rest: familiar answers even when
+    // the index is silent (or absent) and the network is slow or walled.
+    appendHistory(local, prefix, m_historyTags, m_localIndex, 24);
+    if (!local.isEmpty())
+        emit finished(site.key, prefix, local);
     const QUrl url = urlFor(site.engine, site.baseUrl, prefix, creds);
     if (!url.isValid() || url.isEmpty()) {
         emit finished(site.key, prefix, {});
@@ -480,6 +490,106 @@ void TagSuggester::suggest(const BooruSite &site, const SiteCreds &creds,
             reply->deleteLater();
         emit finished(key, prefix, out);
     });
+}
+
+QVector<TagSuggestion> TagSuggester::metaFor(const QString &bare,
+                                               BooruEngine engine) {
+    // Metatag head, tolerating a leading exclusion dash (the suggestion
+    // completes the value regardless; the caller preserves the dash).
+    QString rest = bare.trimmed();
+    while (rest.startsWith(u'-') && rest.size() > 1)
+        rest = rest.mid(1);
+    const int ci = rest.indexOf(u':');
+    if (ci <= 0)
+        return {};
+    const QString head = rest.left(ci).toLower();
+    const QString value = rest.mid(ci + 1).toLower();
+    QStringList cands;
+    if (head == QStringLiteral("sort") && engine == BooruEngine::Nuuru) {
+        for (const QString &v :
+             {QStringLiteral("date"), QStringLiteral("date_asc"),
+              QStringLiteral("date_desc"), QStringLiteral("score"),
+              QStringLiteral("score_asc"), QStringLiteral("score_desc"),
+              QStringLiteral("controversial"),
+              QStringLiteral("controversial_desc"), QStringLiteral("id"),
+              QStringLiteral("id_asc"), QStringLiteral("id_desc"),
+              QStringLiteral("filesize"), QStringLiteral("filesize_asc"),
+              QStringLiteral("filesize_desc"), QStringLiteral("tagcount"),
+              QStringLiteral("tagcount_asc"), QStringLiteral("tagcount_desc"),
+              QStringLiteral("random")}) {
+            if (v.startsWith(value))
+                cands << QStringLiteral("sort:") + v;
+        }
+    } else if (head == QStringLiteral("rating") &&
+               engine != BooruEngine::Hybooru &&
+               engine != BooruEngine::Nuuru &&
+               engine != BooruEngine::Hiddenbooru) {
+        for (const QString &v :
+             {QStringLiteral("general"), QStringLiteral("sensitive"),
+              QStringLiteral("questionable"), QStringLiteral("explicit"),
+              QStringLiteral("safe")}) {
+            if (v.startsWith(value))
+                cands << QStringLiteral("rating:") + v;
+        }
+    } else if (head == QStringLiteral("order") &&
+               engine == BooruEngine::Danbooru) {
+        // Mirror exactly what sortSearchTag() would send (single source
+        // of truth for verified spellings): the box values it maps.
+        for (const QString &box :
+             {QStringLiteral("id-asc"), QStringLiteral("score-desc"),
+              QStringLiteral("score-asc"), QStringLiteral("random")}) {
+            const QString mapped = RemotePosts::sortSearchTag(box, engine);
+            if (!mapped.isEmpty() && mapped.startsWith(QStringLiteral("order:")) &&
+                mapped.mid(QStringLiteral("order:").size()).startsWith(value))
+                cands << mapped;
+        }
+    } else if (head == QStringLiteral("filetype") &&
+               engine == BooruEngine::Danbooru) {
+        for (const QString &v :
+             {QStringLiteral("jpg"), QStringLiteral("jpeg"),
+              QStringLiteral("png"), QStringLiteral("gif"),
+              QStringLiteral("webp"), QStringLiteral("webm"),
+              QStringLiteral("mp4")}) {
+            if (v.startsWith(value))
+                cands << QStringLiteral("filetype:") + v;
+        }
+    }
+    QVector<TagSuggestion> out;
+    for (const QString &t : cands) {
+        TagSuggestion s;
+        s.tag = t;
+        out.append(s);
+    }
+    std::sort(out.begin(), out.end(), [](const TagSuggestion &a,
+                                         const TagSuggestion &b) {
+        return a.tag < b.tag;
+    });
+    return out;
+}
+
+void TagSuggester::appendHistory(QVector<TagSuggestion> &out,
+                                   const QString &bare,
+                                   const QStringList &history,
+                                   const Index *index, int cap) {
+    if (bare.size() < 2)
+        return;
+    QSet<QString> seen;
+    for (const TagSuggestion &s : out)
+        seen.insert(s.tag.toLower());
+    for (const QString &h : history) {
+        if (out.size() >= cap)
+            break;
+        const QString t = h.trimmed();
+        if (t.size() < bare.size() || seen.contains(t.toLower()))
+            continue;
+        if (!t.startsWith(bare, Qt::CaseInsensitive))
+            continue;
+        TagSuggestion s;
+        s.tag = t;
+        s.bucket = index ? index->bucketOf(t) : QStringLiteral("general");
+        out.append(s);
+        seen.insert(t.toLower());
+    }
 }
 
 QVector<TagSuggestion> TagSuggester::merge(const QVector<TagSuggestion> &local,

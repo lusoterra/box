@@ -36,6 +36,17 @@ public:
     // Starred tags (lowercased by the caller): they outrank plain prefix
     // matches in both the instant local answers and the merged remote ones.
     void setFavTags(const QSet<QString> &fav) { m_favTags = fav; }
+    // Recent search tokens (most-recent-first, caller-capped): appended
+    // after index rows so something familiar always shows, even offline
+    // or where the engine has no suggest API.
+    void setHistoryTags(const QStringList &hist) { m_historyTags = hist; }
+    // History matches for one prefix (case-insensitive start match),
+    // skipping already-listed tags; buckets resolved via index when
+    // available, else general. Pure-ish (index read-only).
+    static void appendHistory(QVector<TagSuggestion> &out,
+                              const QString &bare,
+                              const QStringList &history,
+                              const Index *index, int cap);
 
     static QVector<TagSuggestion> parse(BooruEngine engine, const QByteArray &body);
     // Merge policy for one prefix: local rows first (your vocabulary wins
@@ -43,6 +54,14 @@ public:
     static QVector<TagSuggestion> merge(const QVector<TagSuggestion> &local,
                                         const QVector<TagSuggestion> &remote,
                                         int cap = 12);
+    // Local meta-tag completions (no network): when the bare token is a
+    // metatag head (`sort:`/`rating:`/`order:`/`filetype:`), complete its
+    // value from the engine's verified spellings (Nuuru's native sort:
+    // set, rating: shorthands, Danbooru order:/filetype: mirrors of what
+    // sortSearchTag() would send). Sorted; empty when the engine strips
+    // that head server-side anyway. Pure (unit-tested).
+    static QVector<TagSuggestion> metaFor(const QString &bare,
+                                          BooruEngine engine);
     // Relevance order for one prefix: exact match, then favourite tags,
     // then prefix matches by post count, then the rest (longer tags beat
     // short noise at equal counts). Pure: unit-tested. Applied to remote
@@ -64,6 +83,7 @@ private:
     QString m_siteKey; // site key of the in-flight request
     QString m_prefix;  // its prefix
     QSet<QString> m_favTags; // starred tags, lowercased (suggestion boost)
+    QStringList m_historyTags; // recent search tokens, most-recent-first
     // Memory-only cache (cleared past a few hundred entries).
     QHash<QString, QVector<TagSuggestion>> m_cache;
     const Index *m_localIndex = nullptr;
