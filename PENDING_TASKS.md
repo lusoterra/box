@@ -782,7 +782,9 @@
   same-family instances refreshed against the wrong host with the same
   id; stamped `siteKey` now wins, label is the fallback; regression
   test with two same-family entries.)
-- [ ] Fix viewer media load (referer/cookies/full-vs-sample path).
+- [x] Fix viewer media load (referer/cookies/full-vs-sample path).
+  (full-file failure now falls back to the sample once before the
+  error stands, so login-walled originals with public samples open.)
 - [ ] Capture starts where the challenge actually fires.
 - [ ] Build + `ctest` (+ docs).
 

@@ -1395,6 +1395,26 @@ void ViewerPage::onCacheReady(const QString &url, const QString &localPath) {
 void ViewerPage::onCacheFailed(const QString &url, const QString &error) {
     if (url != m_pendingUrl || m_pendingRow != m_row)
         return;
+    // Login-walled full files with public samples (ATF originals): one
+    // fallback fetch before giving up, so the post still opens.
+    if (!m_sampleFallback && m_row >= 0 && m_row < m_posts.size()) {
+        const Post &p = m_posts.at(m_row);
+        if (p.isRemote && url == p.fileUrl && !p.sampleUrl.isEmpty() &&
+            p.sampleUrl != p.fileUrl && m_imgCache) {
+            m_sampleFallback = true;
+            m_pendingUrl = p.sampleUrl;
+            showNote(tr("Full file unavailable — showing sample"));
+            m_loadBar->setRange(0, 0); // busy until progress lands
+            m_loadBar->setVisible(true);
+            const QString have = m_imgCache->localPath(p.sampleUrl);
+            if (!have.isEmpty())
+                onCacheReady(p.sampleUrl, have);
+            else
+                m_imgCache->request(p.sampleUrl,
+                                    RemotePosts::mediaRefererFor(p));
+            return;
+        }
+    }
     m_pendingUrl.clear();
     m_loadBar->setVisible(false);
     m_loadInfo->setVisible(false);
@@ -1542,6 +1562,7 @@ void ViewerPage::showRow(int row) {
         m_imgCache->cancelUrl(m_pendingUrl);
     m_pendingUrl.clear();
     m_pendingRow = -1;
+    m_sampleFallback = false;
     m_loadBar->setVisible(false);
     m_loadInfo->setVisible(false);
     showNote({});

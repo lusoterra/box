@@ -353,6 +353,7 @@ private:
     QSet<QString> m_detailFetched;
     QString m_pendingUrl; // remote file currently being fetched
     int m_pendingRow = -1;
+    bool m_sampleFallback = false; // full failed, sample fetch in flight
     QPixmap m_pendingThumb; // grid thumbnail shown until the full file lands
     QAbstractItemModel *m_thumbModel = nullptr; // grid model (thumb source)
 };
