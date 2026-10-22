@@ -2765,10 +2765,24 @@ void MainWindow::solveWallInBrowser(const QString &siteKey,
             tr("%1 needs an instance URL first").arg(entry.label), 6000);
         return;
     }
+    QUrl start = startUrl;
+    // PoW/captcha challenges only fire where site JS runs: an API JSON
+    // URL (ATF 449s, soybooru pow_required) loads bare data with no
+    // worker and no challenge, so start at the entry root instead and
+    // let the guidance send the user searching in-page. Media/file URLs
+    // keep the failing address (the wall lives on that host).
+    if ((wallKind == QStringLiteral("pow") ||
+         wallKind == QStringLiteral("captcha")) &&
+        start.isValid()) {
+        const QString path = start.path().toLower();
+        if (path.contains(QStringLiteral("/api/")) ||
+            path.endsWith(QStringLiteral(".json")))
+            start = QUrl(entry.baseUrl);
+    }
     CookieGrabDialog dlg(entry.label, entry.baseUrl,
                          effectiveDataDir(m_settings) +
                              QStringLiteral("/webprofile"),
-                         this, wallKind, startUrl);
+                         this, wallKind, start);
     if (dlg.exec() == QDialog::Accepted && !dlg.cookies().isEmpty()) {
         // A solved media wall clears too (same entry, file-host page).
         for (int i = m_mediaWalls.size() - 1; i >= 0; --i) {

@@ -768,7 +768,10 @@
 - [x] Union-rank-truncate merge + caller update + tests.
 - [x] Build + `ctest`.
 
-## 66. ATF booru: refresh lands on a random danbooru post, viewer never loads
+## 66. ATF booru: refresh lands on a random danbooru post, viewer never loads — DONE
+##    (stamped siteKey wins in refresh identity + reason text; sample
+##    fallback for walled full files; PoW/captcha capture opens the entry
+##    root instead of API JSON; regression test; build OK, 32/32 tests)
 - Reload on ATF loads a random post from Danbooru instead of the current
   one (refresh target/row identity or engine remap resolves wrong).
   Solve webview auto-opens on a JSON URL (no PoW runs, lets straight
@@ -785,7 +788,10 @@
 - [x] Fix viewer media load (referer/cookies/full-vs-sample path).
   (full-file failure now falls back to the sample once before the
   error stands, so login-walled originals with public samples open.)
-- [ ] Capture starts where the challenge actually fires.
+- [x] Capture starts where the challenge actually fires.
+  (PoW/captcha start URLs pointing at API JSON now open the entry
+  root instead — bare JSON runs no worker and fires no challenge;
+  media/file URLs keep the failing address.)
 - [ ] Build + `ctest` (+ docs).
 
 ## 67. App blinks when the solve webview opens
