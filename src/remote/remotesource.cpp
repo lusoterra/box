@@ -627,9 +627,13 @@ QJsonObject PostRefresher::parseSingle(BooruEngine engine,
 RefreshTarget resolveRefreshTarget(const Post &post) {
     RefreshTarget t;
     if (post.isRemote) {
-        QString key = RemotePosts::keyForLabel(post.siteName);
+        // Stamped rows carry the exact entry key: a custom instance of a
+        // family (ATF vs gelbooru.com) must refresh against its own host,
+        // not whatever the display label resolves to. Favourites and
+        // older rows without a stamp fall back to the label.
+        QString key = post.siteKey;
         if (key.isEmpty() || !RemoteSource::siteFor(key))
-            key = post.siteKey; // stamped browse rows carry the exact key
+            key = RemotePosts::keyForLabel(post.siteName);
         const BooruSite *site = key.isEmpty() ? nullptr : RemoteSource::siteFor(key);
         if (!site)
             return t;

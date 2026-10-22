@@ -777,7 +777,11 @@
   normal page with no challenge. Suspects: refresh uses the wrong site
   entry for ATF (Gelbooru-family? engine remap), media full URLs walled
   while thumbs/samples are public, capture starting on the wrong URL.
-- [ ] Repro + fix refresh identity/remap for the ATF engine.
+- [x] Repro + fix refresh identity/remap for the ATF engine.
+  (`resolveRefreshTarget` preferred the label-derived key, so custom
+  same-family instances refreshed against the wrong host with the same
+  id; stamped `siteKey` now wins, label is the fallback; regression
+  test with two same-family entries.)
 - [ ] Fix viewer media load (referer/cookies/full-vs-sample path).
 - [ ] Capture starts where the challenge actually fires.
 - [ ] Build + `ctest` (+ docs).

@@ -148,6 +148,42 @@ private slots:
         RemoteSource::setConfiguredBoorus(RemoteSource::presetBoorus());
     }
 
+    void refreshTargetPrefersStampedKey() {
+        // Custom same-family instances (ATF vs gelbooru.com): the label
+        // resolves to the wrong entry, so the stamped key must win —
+        // otherwise refresh fires at the wrong host with the same id
+        // (the "random post from the wrong booru" bug).
+        BooruSite gel;
+        gel.key = QStringLiteral("gelbooru");
+        gel.label = QStringLiteral("Gelbooru");
+        gel.baseUrl = QStringLiteral("https://gelbooru.com");
+        gel.engine = BooruEngine::Gelbooru;
+        BooruSite atf;
+        atf.key = QStringLiteral("atf");
+        atf.label = QStringLiteral("ATF");
+        atf.baseUrl = QStringLiteral("https://atf.example");
+        atf.engine = BooruEngine::Gelbooru;
+        RemoteSource::setConfiguredBoorus({gel, atf});
+        Post p;
+        p.isRemote = true;
+        p.id = 4242;
+        p.siteName = QStringLiteral("Gelbooru"); // family label stamp
+        p.siteKey = QStringLiteral("atf");       // exact entry stamp
+        const RefreshTarget t = resolveRefreshTarget(p);
+        QVERIFY(t.valid());
+        QCOMPARE(t.siteKey, QStringLiteral("atf"));
+        QCOMPARE(t.baseUrl, QStringLiteral("https://atf.example"));
+        // Unstamped rows still resolve by label.
+        Post q;
+        q.isRemote = true;
+        q.id = 7;
+        q.siteName = QStringLiteral("Gelbooru");
+        const RefreshTarget u = resolveRefreshTarget(q);
+        QVERIFY(u.valid());
+        QCOMPARE(u.siteKey, QStringLiteral("gelbooru"));
+        RemoteSource::setConfiguredBoorus(RemoteSource::presetBoorus());
+    }
+
     void entryForPostResolvesDownloads() {
         BooruSite dan;
         dan.key = QStringLiteral("danbooru");

@@ -4451,7 +4451,9 @@ QString MainWindow::refreshReason(const Post &post) {
     if (!t.valid()) {
         if (!post.isRemote)
             return tr("No source link (gallery-dl dumps can't refresh)");
-        const QString key = RemotePosts::keyForLabel(post.siteName);
+        QString key = post.siteKey; // stamped rows name their entry
+        if (key.isEmpty() || !RemoteSource::siteFor(key))
+            key = RemotePosts::keyForLabel(post.siteName);
         const BooruSite *site = key.isEmpty() ? nullptr : RemoteSource::siteFor(key);
         if (site && site->baseUrl.isEmpty())
             return tr("Set the %1 instance URL first").arg(site->label);
