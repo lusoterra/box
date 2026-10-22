@@ -47,6 +47,7 @@ public:
     // (YouTube-2012-style overlays, on by default).
     void setNotes(const QVector<PostNote> &notes, const QSize &refSize);
     void setNotesVisible(bool visible);
+    QPixmap currentPixmap() const; // displayed frame (placeholder across reloads)
 
 protected:
     void wheelEvent(QWheelEvent *e) override;
@@ -76,6 +77,7 @@ public:
     explicit GifView(QWidget *parent = nullptr);
     void setFile(const QString &path);
     void setPlaceholder(const QPixmap &pm); // grid thumb until 1st frame lands
+    QPixmap currentPixmap() const; // displayed frame (placeholder across reloads)
     void clear();
     void fit();
     void zoom100();
@@ -247,6 +249,9 @@ public:
     // Instant prerender: show the (cached) grid thumbnail while the full
     // file downloads. Replaced by the real media when it arrives.
     void showThumbPreview(const QPixmap &thumb);
+    // Displayed still/gif frame (null for video/black): refresh re-shows
+    // feed it back as the pending thumb so the media never blanks.
+    QPixmap currentPixmap() const;
     void setPlaybackDefaults(bool muted, bool loop, int volume);
     // Quit path: halt video playback (and its buffered fetch) now so the
     // player teardown never holds the close event open.

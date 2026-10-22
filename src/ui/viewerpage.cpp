@@ -86,6 +86,10 @@ void ImageView::setImage(const QImage &img, bool applyNotes) {
     fit();
 }
 
+QPixmap ImageView::currentPixmap() const {
+    return m_item ? m_item->pixmap() : QPixmap();
+}
+
 void ImageView::setNotes(const QVector<PostNote> &notes, const QSize &refSize) {
     m_notes = notes;
     m_refSize = refSize;
@@ -292,6 +296,10 @@ void GifView::setPlaceholder(const QPixmap &pm) {
     m_item = m_scene->addPixmap(pm);
     m_scene->setSceneRect(m_item->boundingRect());
     fit();
+}
+
+QPixmap GifView::currentPixmap() const {
+    return m_item ? m_item->pixmap() : QPixmap();
 }
 
 void GifView::clear() {
@@ -1534,6 +1542,14 @@ void ViewerPage::setRefreshable(bool ok, const QString &reason) {
 
 void ViewerPage::showThumbPreview(const QPixmap &thumb) {
     m_pendingThumb = thumb;
+}
+
+QPixmap ViewerPage::currentPixmap() const {
+    if (m_stack->currentWidget() == m_image && m_image)
+        return m_image->currentPixmap();
+    if (m_stack->currentWidget() == m_gif && m_gif)
+        return m_gif->currentPixmap();
+    return {}; // video, blank, or nothing on screen
 }
 
 void ViewerPage::step(int d) {

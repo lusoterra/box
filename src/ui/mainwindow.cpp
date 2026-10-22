@@ -4234,7 +4234,12 @@ void MainWindow::editStrayTags(const Post &post) {
             rebuildSidebar();
             applyFilter();
             if (m_pages->currentIndex() == 1) {
+                // Refresh must not blank the viewer: keep the displayed
+                // frame as the pending thumb until the full file reloads.
+                const QPixmap keep = m_viewer->currentPixmap();
                 m_viewer->setPosts(m_current);
+                if (!keep.isNull())
+                    m_viewer->showThumbPreview(keep);
                 for (int i = 0; i < m_current.size(); ++i) {
                     if (!m_current[i].isRemote &&
                         m_current[i].absFile == post.absFile) {
@@ -4610,7 +4615,12 @@ void MainWindow::onRefreshDone(qint64 reqId,
         rebuildBrowseSidebar();
         updateResultLabel();
         if (m_pages->currentIndex() == 1) {
+            // Refresh must not blank the viewer: keep the displayed
+            // frame as the pending thumb until the full file reloads.
+            const QPixmap keep = m_viewer->currentPixmap();
             m_viewer->setPosts(m_current);
+            if (!keep.isNull())
+                m_viewer->showThumbPreview(keep);
             // Re-show the same post if still present.
             for (int i = 0; i < m_current.size(); ++i) {
                 const Post &p = m_current[i];
