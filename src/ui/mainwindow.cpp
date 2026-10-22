@@ -5813,10 +5813,12 @@ void MainWindow::requestVisibleThumbs() {
     // placeholder; scrolling back repaints them from the LRU cache (or
     // re-requests). Model rows themselves stay put, so selection, menus,
     // viewer stepping and the scrollbar never notice the windowing.
+    // (Role +16 is the pixmap-loaded flag — +14/+15 are the comment/note
+    // pills. They collided once; every thumbnailed card wore a bubble.)
     const int keep = 60;
     for (int row = 0; row < m_model->rowCount(); ++row) {
         const QModelIndex idx = m_model->index(row, 0);
-        const bool has = m_model->data(idx, Qt::UserRole + 14).toBool();
+        const bool has = m_model->data(idx, Qt::UserRole + 16).toBool();
         if (row >= lo - keep && row <= hi + keep) {
             if (!has) {
                 const auto it = m_thumbCache.find(
@@ -5828,7 +5830,7 @@ void MainWindow::requestVisibleThumbs() {
             }
         } else if (has) {
             m_model->setData(idx, m_placeholder, Qt::DecorationRole);
-            m_model->setData(idx, false, Qt::UserRole + 14);
+            m_model->setData(idx, false, Qt::UserRole + 16);
         }
     }
 }
@@ -5858,7 +5860,7 @@ void MainWindow::onThumbnailReady(const QString &key, const QImage &image) {
         if (!ir.isValid() || ir.bottom() < -margin || ir.top() > vh + margin)
             continue;
         m_model->setData(idx, pm, Qt::DecorationRole);
-        m_model->setData(idx, true, Qt::UserRole + 14);
+        m_model->setData(idx, true, Qt::UserRole + 16); // pixmap-loaded flag
     }
 }
 
