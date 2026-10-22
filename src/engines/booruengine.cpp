@@ -100,11 +100,43 @@ void BooruEngineOps::finishRemote(Post &p, const QString &siteLabel,
                                   const QJsonObject &raw, BooruEngine engine,
                                   const QString &host) {
     p.isRemote = true;
-    // Comment/annotation presence for the grid pills. Shapes vary:
-    // numeric counts (Szuru commentCount, Gelbooru/Shimmie comment_count),
-    // last-comment stamps (Danbooru/Moebooru last_commented_at, Danbooru
-    // last_comment_bumped_at), note stamps (last_noted_at), flags
-    // (Gelbooru has_notes=yes), or arrays (Szuru notes).
+    // Comment/annotation presence for the grid pills. Per-engine key
+    // lists (shapes verified against fixtures + live probes): a shared
+    // check across engines misfires on same-named keys with different
+    // meanings, so each family reads only its own spellings.
+    // Tolerant readers: APIs send counts as numbers, numeric strings or
+    // bools, and flags as bools or yes/no strings.
+    auto num = [](const QJsonValue &v, bool *ok) -> double {
+        if (v.isDouble()) {
+            if (ok)
+                *ok = true;
+            return v.toDouble();
+        }
+        if (v.isBool()) {
+            if (ok)
+                *ok = true;
+            return v.toBool() ? 1.0 : 0.0;
+        }
+        if (v.isString()) {
+            bool good = false;
+            const double d = v.toString().trimmed().toDouble(&good);
+            if (good) {
+                if (ok)
+                    *ok = true;
+                return d;
+            }
+        }
+        return 0.0;
+    };
+    auto countOf = [&](std::initializer_list<const char *> keys) -> double {
+        for (const char *k : keys) {
+            bool ok = false;
+            const double d = num(raw.value(QString::fromLatin1(k)), &ok);
+            if (ok)
+                return d;
+        }
+        return 0.0;
+    };
     auto present = [](const QJsonValue &v) {
         if (v.isNull() || v.isUndefined())
             return false;
@@ -115,7 +147,8 @@ void BooruEngineOps::finishRemote(Post &p, const QString &siteLabel,
         if (v.isString()) {
             const QString s = v.toString().trimmed();
             return !s.isEmpty() && s != QStringLiteral("0") &&
-                   s.compare(QStringLiteral("no"), Qt::CaseInsensitive) != 0;
+                   s.compare(QStringLiteral("no"),
+                             Qt::CaseInsensitive) != 0;
         }
         if (v.isArray())
             return !v.toArray().isEmpty();
@@ -123,25 +156,71 @@ void BooruEngineOps::finishRemote(Post &p, const QString &siteLabel,
             return !v.toObject().isEmpty();
         return false;
     };
-    const double commentCount =
-        raw.value(QStringLiteral("comment_count")).toDouble(
-            raw.value(QStringLiteral("commentCount")).toDouble(-1.0));
-    if (commentCount > 0) {
-        p.commentCount = int(qMin<double>(commentCount, INT_MAX));
-        p.hasComments = true;
+    auto flag = [&](const char *key) {
+        const QJsonValue v = raw.value(QString::fromLatin1(key));
+        if (v.isBool())
+            return v.toBool();
+        if (v.isString()) {
+            const QString s = v.toString().trimmed().toLower();
+            return s == QStringLiteral("yes") || s == QStringLiteral("y") ||
+                   s == QStringLiteral("true") || s == QStringLiteral("1");
+        }
+        if (v.isDouble())
+            return v.toDouble() != 0.0;
+        return false;
+    };
+    auto stamp = [&](std::initializer_list<const char *> keys) {
+        for (const char *k : keys) {
+            if (present(raw.value(QString::fromLatin1(k))))
+                return true;
+        }
+        return false;
+    };
+    using enum BooruEngine;
+    switch (engine) {
+    case Danbooru:
+        p.hasComments = stamp({"last_commented_at", "last_comment_bumped_at"});
+        p.hasNotes = stamp({"last_noted_at"});
+        break;
+    case Gelbooru:
+    case Safebooru: {
+        const double c = countOf({"comment_count"});
+        if (c > 0) {
+            p.commentCount = int(qMin<double>(c, INT_MAX));
+            p.hasComments = true;
+        }
+        p.hasNotes = flag("has_notes");
+        break;
     }
-    if (!p.hasComments &&
-        (present(raw.value(QStringLiteral("last_commented_at"))) ||
-         present(raw.value(QStringLiteral("last_comment_bumped_at")))))
-        p.hasComments = true;
-    const double noteCount =
-        raw.value(QStringLiteral("note_count")).toDouble(
-            raw.value(QStringLiteral("noteCount")).toDouble(0.0));
-    if (noteCount > 0 ||
-        present(raw.value(QStringLiteral("has_notes"))) ||
-        present(raw.value(QStringLiteral("last_noted_at"))) ||
-        present(raw.value(QStringLiteral("notes"))))
-        p.hasNotes = true;
+    case Moebooru:
+        // Numeric epochs (0 = none) or stamp strings.
+        p.hasComments = stamp({"last_commented_at"});
+        p.hasNotes = stamp({"last_noted_at"});
+        break;
+    case Szurubooru: {
+        const double c = countOf({"commentCount"});
+        if (c > 0) {
+            p.commentCount = int(qMin<double>(c, INT_MAX));
+            p.hasComments = true;
+        }
+        p.hasNotes = raw.value(QStringLiteral("notes")).isArray() &&
+                     !raw.value(QStringLiteral("notes")).toArray().isEmpty();
+        break;
+    }
+    default: {
+        // Unverified schemes (Shimmie, HyBooru, Nuuru, Hiddenbooru):
+        // numeric counts and explicit flags only, no stamp guessing.
+        const double c = countOf({"comment_count", "commentCount"});
+        if (c > 0) {
+            p.commentCount = int(qMin<double>(c, INT_MAX));
+            p.hasComments = true;
+        }
+        p.hasNotes = flag("has_notes") ||
+                     (raw.value(QStringLiteral("notes")).isArray() &&
+                      !raw.value(QStringLiteral("notes")).toArray().isEmpty());
+        break;
+    }
+    }
     // Hygiene: every engine's tag blob funnels through here.
     p.tagsArtist = cleanTagTokens(splitTags(p.tagsArtist)).join(u' ');
     p.tagsCharacter = cleanTagTokens(splitTags(p.tagsCharacter)).join(u' ');

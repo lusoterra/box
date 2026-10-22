@@ -68,6 +68,10 @@ private slots:
         QCOMPARE(p.commentCount, 7);
         QVERIFY(p.hasComments);
         QVERIFY(p.hasNotes);
+        // String counts (some instances serialize numbers as strings).
+        QJsonObject str = o;
+        str[QStringLiteral("comment_count")] = QStringLiteral("4");
+        QCOMPARE(RemotePosts::fromGelbooru(str, kGelbooru).commentCount, 4);
         // "no" flag means no notes.
         QJsonObject q = o;
         q[QStringLiteral("has_notes")] = QStringLiteral("no");
