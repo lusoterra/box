@@ -767,3 +767,63 @@
   stable rank), cap raised to 20.
 - [x] Union-rank-truncate merge + caller update + tests.
 - [x] Build + `ctest`.
+
+## 66. ATF booru: refresh lands on a random danbooru post, viewer never loads
+- Reload on ATF loads a random post from Danbooru instead of the current
+  one (refresh target/row identity or engine remap resolves wrong).
+  Solve webview auto-opens on a JSON URL (no PoW runs, lets straight
+  through); "use cookies" then loads page-1 thumbnails, but opening a
+  post never loads it. No pow cookie is minted; cookie capture loads a
+  normal page with no challenge. Suspects: refresh uses the wrong site
+  entry for ATF (Gelbooru-family? engine remap), media full URLs walled
+  while thumbs/samples are public, capture starting on the wrong URL.
+- [ ] Repro + fix refresh identity/remap for the ATF engine.
+- [ ] Fix viewer media load (referer/cookies/full-vs-sample path).
+- [ ] Capture starts where the challenge actually fires.
+- [ ] Build + `ctest` (+ docs).
+
+## 67. App blinks when the solve webview opens
+- Opening the capture/solve webview makes the whole app disappear for a
+  split second, then everything reloads back with the webview. Same
+  flicker happens under Settings already (the window below the webview
+  blinks), but with no settings pane it reads as the entire app
+  vanishing. Suspect: dialog modality/window flags or WebEngine view
+  creation hiding the parent.
+- [ ] Find the hide/show path; keep the main window up.
+- [ ] Build + `ctest` (+ docs).
+
+## 68. Gelbooru: every post shows comment/note pills
+- Every Gelbooru grid card carries the comments badge, but most posts
+  have no comments (viewer thread empty); every post is also flagged
+  as having annotations, wrongly for the majority. Suspects: live
+  Gelbooru post JSON carries keys the finishRemote presence check
+  misreads (vs the fixtures where comment_count=0/has_notes=false),
+  or the viewer-meta OR-in path marks from phantom fetch results.
+- [ ] Capture the live Gelbooru post shape; tighten presence parsing.
+- [ ] Build + `ctest` (+ docs).
+
+## 69. Omnibar Enter must commit pills even with the popup open — DONE
+##    (accepting a suggestion now commits like Enter; build OK)
+- With the suggest popup open, Enter fired `onCompleterActivated`
+  (fills the token) and never reached `onSearchReturn`, so the tag sat
+  in the omnibar: no pills, no clear, no search.
+- [x] Accept commits (click or Enter); multi-tag across accepts.
+- [x] Build + `ctest` (+ docs).
+
+## 70. Tag pills right-click to favourite — DONE
+##    (★ menu on plain-tag pills; metatags excluded; build OK)
+- Omnibar pills only removed on click; favouriting needed the sidebar
+  or viewer. Right-click on a plain-tag pill now offers the same
+  ★ Add/Remove favourite tags menu (rating:/filetype:/etc. excluded so
+  metatags can't pollute the suggestion ranking source).
+- [x] Context menu on active/default/single-group pills.
+- [x] Build + `ctest` (+ docs).
+
+## 71. Downloaded posts never light the viewer heart — DONE
+##    (`updateViewerBadges` never called `setFaved`; grid repaint added;
+##    build OK)
+- `favAutoFav` favourited the download, but `updateViewerBadges()`
+  refreshed everything except the heart, and the download-landed path
+  never repainted the grid ♥/↓ marks.
+- [x] `setFaved` in badge refresh + `repaintFavMarks()` on landed.
+- [x] Build + `ctest` (+ docs).

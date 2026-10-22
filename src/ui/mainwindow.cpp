@@ -1110,8 +1110,13 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
                 }
                 // New (or newly linked) favourites must show up in any
                 // open favourites tab immediately, not after a manual ↺.
-                if (touched)
+                // Grid ♥/↓ + viewer heart repaint too: the landing may
+                // have auto-favourited (repaintFavMarks covers the viewer
+                // badges as well).
+                if (touched) {
                     refreshFavTabs();
+                    repaintFavMarks();
+                }
                 if (favAdded > 0)
                     statusBar()->showMessage(
                         tr("Favourited %1 download(s)").arg(favAdded), 6000);
@@ -5237,6 +5242,7 @@ void MainWindow::updateViewerBadges() {
         m_favDb.isOpen() && m_favDb.isFavourite(site, pid);
     const bool downloaded = isPostDownloaded(p, nullptr);
     m_viewer->setStatusBadges(isAiPost(p), faved, downloaded);
+    m_viewer->setFaved(faved);
     m_viewer->setDownloaded(downloaded);
 }
 
@@ -5403,7 +5409,8 @@ void MainWindow::updateResultLabel() {
     m_pills->clear();
     const QColor accent(0x7c, 0x9e, 0xf8);
     auto addPill = [this](const QString &text, const QString &tip,
-                          const QColor &color, auto &&onClick) {
+                          const QColor &color, auto &&onClick,
+                          const QString &favTag = {}) {
         auto *b = new QPushButton(text, this);
         b->setFlat(true);
         b->setCursor(Qt::PointingHandCursor);
@@ -5417,6 +5424,25 @@ void MainWindow::updateResultLabel() {
                 .arg(color.blue())
                 .arg(color.rgb() & 0xffffff, 6, 16, QChar(u'0')));
         connect(b, &QPushButton::clicked, this, onClick);
+        if (!favTag.isEmpty()) {
+            // Right-click stars/unstars the tag (same ★ menu as the
+            // sidebar and viewer tags); left-click still removes it.
+            b->setContextMenuPolicy(Qt::CustomContextMenu);
+            connect(b, &QPushButton::customContextMenuRequested, this,
+                    [this, favTag](const QPoint &pos) {
+                        QMenu menu;
+                        const bool fav = isFavTag(favTag);
+                        QAction *favAct = menu.addAction(
+                            fav ? tr("★ Remove from favourite tags")
+                                : tr("★ Add to favourite tags"));
+                        connect(favAct, &QAction::triggered, this,
+                                [this, favTag] { toggleFavTag(favTag); });
+                        auto *src =
+                            qobject_cast<QPushButton *>(sender());
+                        menu.exec(src ? src->mapToGlobal(pos)
+                                      : QCursor::pos());
+                    });
+        }
         m_pills->addWidget(b);
     };
     QHash<QString, QString> browseBuckets;
@@ -5462,6 +5488,9 @@ void MainWindow::updateResultLabel() {
     for (const QString &t : m_activeTags) {
         const QString clean =
             t.startsWith(u'-') && t.size() > 1 ? t.mid(1) : t;
+        // Right-click stars plain tags only (metatags like rating:/
+        // filetype: would pollute the favourite-tags ranking source).
+        const QString fav = clean.contains(u':') ? QString() : clean;
         // System operators read as operators: metatag hues win over the
         // bucket white (rating:g, sort:random, score:>10, ...).
         const QColor meta = UiIcons::filterTagColor(clean);
@@ -5471,7 +5500,8 @@ void MainWindow::updateResultLabel() {
                     m_activeTags.removeAll(t);
                     updateResultLabel(); // pill vanishes now, fetch lands later
                     commitSearch();
-                });
+                },
+                fav);
     }
     if (isBrowse()) {
         // Entry defaults as removable cards: one per unique token across
@@ -5507,7 +5537,8 @@ void MainWindow::updateResultLabel() {
                                 updateResultLabel();
                                 commitSearch();
                             }
-                        });
+                        },
+                        clean.contains(u':') ? QString() : clean);
             }
         }
     }
@@ -5528,8 +5559,15 @@ void MainWindow::updateResultLabel() {
                 if (meta.isValid())
                     gcolor = meta;
             }
+            const QString singleFav =
+                (alts.size() == 1 && !alts.first().contains(u':'))
+                    ? QString(alts.first().startsWith(u'-') &&
+                                      alts.first().size() > 1
+                                  ? alts.first().mid(1)
+                                  : alts.first())
+                    : QString();
             addPill(label + QStringLiteral(" ×"), tr("Remove group"), gcolor,
-                    [this, gi] { removeQueryGroup(gi); });
+                    [this, gi] { removeQueryGroup(gi); }, singleFav);
             ++gi;
         }
         if (!qpq.andTokens.isEmpty()) {
@@ -5941,6 +5979,11 @@ void MainWindow::onCompleterActivated(const QString &text) {
     QString last = (pos >= 0) ? cur.mid(pos + 1) : cur;
     const QString dash = last.startsWith(u'-') ? QStringLiteral("-") : QString();
     m_searchEdit->setText(prefix + dash + text + u' ');
+    // Accepting a suggestion (click or Enter — Enter never reaches
+    // returnPressed while the popup is open) commits it like Enter:
+    // pills, cleared omnibar, search. Multi-tag queries build across
+    // repeated accepts, one search each.
+    onSearchReturn();
 }
 
 void MainWindow::onRatingChanged() {
