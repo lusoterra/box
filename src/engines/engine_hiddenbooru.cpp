@@ -1,8 +1,9 @@
 // HiddenBooru engine (single Tor-first instance + I2P mirror; shapes
 // reverse-engineered from the v0.8 source tarball in the repo, before it
 // is deleted):
-//   GET /api/posts?terms=&page= (1-indexed) &limit&order=ASC|DESC
-//     -> array of post objects (NO wrapper, NO total).
+//   GET /api/posts/search?terms=&page= (1-indexed) &limit&order=ASC|DESC
+//     -> array of post objects (NO wrapper, NO total). The bare
+//     /api/posts path has no route (app 404s with the horo page).
 //   GET /api/tag/complete?term= -> flat array of tag name strings.
 //   No comment list endpoint (create/delete only).
 // A post carries id/hash/htype/mtype/fmt/size/width/height/rating
@@ -41,7 +42,7 @@ class EngineHiddenbooru : public BooruEngineOps {
 public:
     QUrl searchUrl(const Context &ctx, const QStringList &tags, int page,
                    int limit) const override {
-        QUrl url(ctx.baseUrl + QStringLiteral("/api/posts"));
+        QUrl url(ctx.baseUrl + QStringLiteral("/api/posts/search"));
         QUrlQuery query;
         const QString q = joinTags(tags);
         if (!q.isEmpty())
@@ -76,7 +77,7 @@ public:
     }
     QUrl refreshUrl(const Context &ctx, qint64 id) const override {
         // No single-post endpoint: id: terms narrow the search to one row.
-        QUrl url(ctx.baseUrl + QStringLiteral("/api/posts"));
+        QUrl url(ctx.baseUrl + QStringLiteral("/api/posts/search"));
         QUrlQuery query;
         query.addQueryItem(QStringLiteral("terms"),
                            QStringLiteral("id:") + QString::number(id));

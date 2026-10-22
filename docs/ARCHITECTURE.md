@@ -32,7 +32,8 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     Szuru/Shimmie/Hybooru/Nuuru/Hiddenbooru`, `parseShimmieXml`
     (`src/engines/booruengine.h:25-95`).
     HiddenBooru notes: shapes from the v0.8 source tarball (Tor-first
-    instance + I2P mirror; plain fetches need the Tor stack); `terms=`
+    instance + I2P mirror; plain fetches need the Tor stack — or i2pd,
+    SOCKS5 at `socks5h://127.0.0.1:4447`); `terms=`
     search with `id:` refresh narrowing, `/api/tag/complete` suggestions,
     letter ratings, relative file URLs; md5 normalized into `rawJson`
     when the hash is md5. The API sits behind an HBS anti-bot wall (302

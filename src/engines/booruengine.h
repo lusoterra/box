@@ -55,7 +55,7 @@ Post fromHybooru(const QJsonObject &o, const QString &baseUrl);
 // rides the browser-backed stack (powWall quirk).
 Post fromNuuruSummary(const QJsonObject &o, const QString &baseUrl);
 Post fromNuuru(const QJsonObject &o, const QString &baseUrl);
-// HiddenBooru shapes (from the v0.8 source tarball): /api/posts array
+// HiddenBooru shapes (from the v0.8 source tarball): /api/posts/search array
 // search, /api/tag/complete suggestions, no comment list endpoint.
 Post fromHiddenbooru(const QJsonObject &o, const QString &baseUrl);
 // Entry default tags onto a query: space-split, appended in order,
