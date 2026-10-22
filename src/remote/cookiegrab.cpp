@@ -12,6 +12,7 @@
 #include <QMap>
 #include <QPlainTextEdit>
 #include <QPushButton>
+#include <QShowEvent>
 #include <QThread>
 #include <QTimer>
 #include <QUrl>
@@ -166,7 +167,8 @@ CookieGrabDialog::CookieGrabDialog(const QString &siteLabel,
                       .arg(first.toString(), wallKind));
     else
         setStatus(tr("Loading %1…").arg(first.toString()));
-    m_view->load(first);
+    m_first = first; // loaded on first show: the dialog chrome paints
+                     // before the renderer spins up (less open flicker)
     // The persistent jar replays its cookies as added-events on startup.
     // Only auto-save on challenges solved *in this capture*, not on a
     // restored login (which would self-accept the moment the dialog opens).
@@ -189,6 +191,29 @@ CookieGrabDialog::~CookieGrabDialog() {
         m_view = nullptr;
         m_page = nullptr; // was parented to the view
     }
+}
+
+void CookieGrabDialog::showEvent(QShowEvent *e) {
+    QDialog::showEvent(e);
+    if (m_loaded || !m_view)
+        return;
+    m_loaded = true;
+    m_view->load(m_first);
+}
+
+void CookieGrabDialog::prime(const QString &profilePath) {
+    if (profilePath.isEmpty())
+        return;
+    // Hidden probe on the shared profile: first WebEngine use happens
+    // here at idle, not when a capture dialog opens mid-session.
+    // Chromium stays initialized process-wide, so the probe's deletion
+    // costs nothing later. View-first teardown like everywhere else.
+    QWebEngineView *probe = new QWebEngineView();
+    probe->setPage(new QWebEnginePage(sharedCaptureProfile(profilePath), probe));
+    QObject::connect(probe, &QWebEngineView::loadFinished, probe,
+                     &QObject::deleteLater);
+    QTimer::singleShot(30000, probe, &QObject::deleteLater); // never linger
+    probe->load(QUrl(QStringLiteral("about:blank")));
 }
 
 void CookieGrabDialog::setStatus(const QString &text) {

@@ -152,6 +152,17 @@ public:
     static void refreshSilent(const QString &baseUrl,
                               const QString &profilePath,
                               std::function<void(const QStringList &)> done);
+    // Idle-time primer: first WebEngine use initializes Chromium on the
+    // GUI thread and can stall/repaint every window for a beat. Run once
+    // after startup so opening a capture dialog later doesn't blink the
+    // app. Safe to call repeatedly (second calls are no-ops in effect).
+    static void prime(const QString &profilePath);
+
+protected:
+    void showEvent(QShowEvent *e) override; // deferred first load: the
+        // dialog chrome paints before the renderer spins up
+
+private slots:
 
 private slots:
     void onLoadFinished(bool ok);
@@ -164,6 +175,8 @@ private slots:
 private:
     void setStatus(const QString &text);
     QString m_host;
+    QUrl m_first;      // loaded on first show, not in the ctor
+    bool m_loaded = false;
     QWebEngineView *m_view = nullptr;
     QWebEnginePage *m_page = nullptr;
     QWebEngineProfile *m_profile = nullptr;

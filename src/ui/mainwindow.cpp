@@ -602,6 +602,13 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
                              QStringLiteral("/favicons"));
     WebApiFetcher::setProfilePath(effectiveDataDir(m_settings) +
                                   QStringLiteral("/webprofile"));
+    // Warm up Chromium once at idle: first WebEngine use initializes on
+    // the GUI thread and can blink every window. A hidden probe now
+    // means capture dialogs later open without the stall.
+    QTimer::singleShot(20000, this, [this] {
+        CookieGrabDialog::prime(effectiveDataDir(m_settings) +
+                                QStringLiteral("/webprofile"));
+    });
     RemoteSource::setWebFetcher([](const QUrl &url, int timeoutMs) {
         const WebApiFetcher::Result r =
             WebApiFetcher::fetchJsonBlocking(url, timeoutMs);

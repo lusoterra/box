@@ -849,3 +849,23 @@
   ways. `ugoira` stays literal everywhere.
 - [x] Server drop + client net + tests.
 - [x] Build + `ctest` (+ docs).
+
+## 74. Comment/note presence goes engine-specific — DONE
+##    (per-family key lists in finishRemote; tolerant numeric/flag
+##    readers incl. string counts; commentmarks +string test; build OK)
+- The shared presence check read every engine's keys at once, so a
+  same-named key with a different meaning on one engine could mark
+  everything (Gelbooru phantom pills). Each family now reads only its
+  own spellings; counts tolerate numbers, numeric strings and bools.
+- [x] Engine-specific presence + tests.
+- [x] Build + `ctest` (+ docs).
+
+## 75. Webview-open app blink — DONE
+##    (idle Chromium primer + deferred dialog first-load; build OK)
+- Opening the capture webview blinked the whole app (and the prefs
+  window behind it). Suspect: first WebEngine use initializes Chromium
+  on the GUI thread mid-session. Mitigation: a hidden probe primes the
+  shared capture profile 20s after startup, and the dialog loads its
+  first page on show instead of in the ctor, so the chrome paints first.
+- [x] Primer + deferred load. Needs user eyes: still blinks?
+- [x] Build + `ctest` (+ docs).
