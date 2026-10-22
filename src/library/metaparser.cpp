@@ -5,6 +5,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonValue>
+#include <QSaveFile>
 #include <QSet>
 
 #include <cmath>
@@ -425,6 +426,20 @@ bool writeRefreshedSidecar(const QString &sidecarPath, const QJsonObject &fresh,
         cur.contains(QStringLiteral("tags")) && cur.value(QStringLiteral("tags")).isString();
 
     const FreshMeta m = freshFrom(fresh, siteKey);
+    // Atomic replace (QSaveFile tmp+rename, full-write checked): a kill
+    // between truncate and write used to leave 0B sidecars behind,
+    // which Syncthing-style mirrors then flag as local additions.
+    auto atomicReplace = [&](const QJsonDocument &doc) {
+        QSaveFile f(sidecarPath);
+        if (!f.open(QIODevice::WriteOnly))
+            return false;
+        const QByteArray bytes = doc.toJson(QJsonDocument::Indented); // jq-readable
+        if (f.write(bytes) != bytes.size()) {
+            f.cancelWriting();
+            return false;
+        }
+        return f.commit();
+    };
     if (isLosn) {
         // Rebuild the tag array with real types; blob tags stay "none"
         // (reclassifiable), split tags take their bucket names.
@@ -446,17 +461,11 @@ bool writeRefreshedSidecar(const QString &sidecarPath, const QJsonObject &fresh,
         cur[QStringLiteral("tags")] = tags;
         cur[QStringLiteral("score")] = QString::number(m.score);
         cur[QStringLiteral("rating")] = normalizeRating(m.rating);
-        if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate))
-            return false;
-        f.write(QJsonDocument(cur).toJson(QJsonDocument::Indented)); // jq-readable
-        return true;
+        return atomicReplace(QJsonDocument(cur));
     }
     if (isDanNative || isBlobNative) {
         // Same shape, fresher data: wholesale replacement.
-        if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate))
-            return false;
-        f.write(QJsonDocument(fresh).toJson(QJsonDocument::Indented)); // jq-readable
-        return true;
+        return atomicReplace(QJsonDocument(fresh));
     }
     return false;
 }

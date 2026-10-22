@@ -81,8 +81,11 @@ backup…`, `Download/Add Stray…`, `Update downloaded sidecars…`,
 `Redownload missing files…`, `Quit`.
 
 ## 05-tabs-menu — Tabs
-`Close Folder`, `♥ Favourites` (database-only tab), `Reload` (`F5` —
-rescan locally, re-search remotely).
+`Close Folder`, `Start fresh session` (closes every tab, forgets the
+saved session, shows home), `♥ Favourites` (database-only tab),
+`Reload` (`F5` — rescan locally, re-search remotely). Library archive
+roots are read-only: no Delete there, and tag refresh applies in
+memory only (session tags, no sidecar rewrite).
 
 ## 06-edit-menu — Edit
 `Preferences…` (`Ctrl+,`, tabbed dialog shots 12–16), `Load Custom

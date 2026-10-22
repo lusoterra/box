@@ -947,3 +947,25 @@
   Credentials now come from the entry resolved per fetch.
 - [x] Per-entry creds on every meta fetch.
 - [x] Build + `ctest` (+ docs).
+
+## 82. Read-only archives gain local additions (0B json over Syncthing) — DONE
+##    (atomic QSaveFile sidecar rewrites; archive roots refresh in memory
+##    only via temp copy; build OK, 32/32 tests)
+- Receive-only Syncthing folders keep sprouting local additions from
+  box — 0B `.json` files. Suspects: sidecar writes into archive roots
+  (refresh/update-sidecars/tag edits), failed/truncated writes, or
+  cache/scratch landing beside the media instead of the cache dir.
+  Repro: open a library tab read-only, watch for new files.
+- Found: `writeRefreshedSidecar` truncated-then-wrote (kill mid-write
+  = 0B file), and archive refresh rewrote sidecars in place.
+- [x] Find every write path into archive roots; gate read-only ones.
+- [x] Build + `ctest` (+ docs).
+
+## 83. Grid role collision: comment pills on every thumbnailed card — DONE
+##    (windowing pixmap flag moved +14 → +16; +14/+15 stay pills;
+##    build OK)
+- The windowed-grid pixmap flag (task 28) already owned model role
+  +14; the comment pills (task 51) reused it, so every row with a
+  loaded thumbnail wore a comment bubble. Root cause, not data.
+- [x] Pixmap flag to free role +16; pills keep +14/+15.
+- [x] Build + `ctest` (+ docs).

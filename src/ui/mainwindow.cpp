@@ -69,6 +69,7 @@
 #include <QStatusBar>
 #include <QStringListModel>
 #include <QStyledItemDelegate>
+#include <QTemporaryFile>
 #include <QTimer>
 #include <QUrl>
 #include <QVBoxLayout>
@@ -4653,12 +4654,43 @@ void MainWindow::onRefreshDone(qint64 reqId,
         }
     } else {
         // Local file: rewrite its sidecar, then re-parse through the normal path.
+        // Archive roots (outside the download dir) are read-only like
+        // everywhere else (no Delete there either): merge via a temp copy
+        // so Syncthing-style mirrors never see local additions.
         const QString sidecar = localSidecarFor(orig);
-        if (sidecar.isEmpty() || !writeRefreshedSidecar(sidecar, raw, siteKey)) {
+        if (sidecar.isEmpty()) {
             statusBar()->showMessage(tr("Refresh: sidecar not writable"), 6000);
             return;
         }
-        QFile f(sidecar);
+        const QString dlRoot =
+            QDir(effectiveDownloadDir(m_settings)).canonicalPath();
+        const QString absDir =
+            QDir(QFileInfo(orig.absFile).absolutePath()).canonicalPath();
+        const bool writable =
+            !dlRoot.isEmpty() &&
+            (absDir == dlRoot || absDir.startsWith(dlRoot + u'/'));
+        QString parsePath = sidecar;
+        QTemporaryFile tmp;
+        if (!writable) {
+            if (!tmp.open())
+                return;
+            QFile src(sidecar);
+            if (!src.open(QIODevice::ReadOnly))
+                return;
+            tmp.write(src.readAll());
+            tmp.flush();
+            parsePath = tmp.fileName();
+        }
+        if (!writeRefreshedSidecar(parsePath, raw, siteKey)) {
+            statusBar()->showMessage(tr("Refresh: sidecar not writable"), 6000);
+            return;
+        }
+        if (!writable)
+            statusBar()->showMessage(
+                tr("Archive is read-only: tags refreshed for this session "
+                   "only"),
+                6000);
+        QFile f(parsePath);
         Post updated;
         if (!f.open(QIODevice::ReadOnly) ||
             !MetaParser::parse(
@@ -5791,7 +5823,7 @@ void MainWindow::requestVisibleThumbs() {
                     m_model->data(idx, Qt::UserRole + 4).toString());
                 if (it != m_thumbCache.end()) {
                     m_model->setData(idx, *it, Qt::DecorationRole);
-                    m_model->setData(idx, true, Qt::UserRole + 14);
+                    m_model->setData(idx, true, Qt::UserRole + 16);
                 }
             }
         } else if (has) {
