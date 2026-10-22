@@ -703,7 +703,11 @@
 - [x] Preset baseUrl/engine + badge rule; preset + badge tests; docs.
 - [x] Build + `ctest`.
 
-## 61. C++20 modernization sweep (use it where it's better, not everywhere)
+## 61. C++20 modernization sweep (use it where it's better, not everywhere) — DONE
+##    (standard 17→20 + README; `using enum BooruEngine` ×6 switches,
+##    defaulted `==` for BooruSite/SavedTab, views pipeline for
+##    cleanTagTokens; build OK, 32/32 tests; no span wins in own code,
+##    no format/Qt-idiom churn per constraints)
 - Bump the standard 17 → 20 first (CMake + README), full rebuild + test.
   Then go file by file and adopt C++20 only where it reads better or
   removes hand-rolled code: ranges/views over temp-vector loops,
@@ -713,10 +717,9 @@
   idioms (`QString`, containers, `QtConcurrent`) with std equivalents
   for fashion, and churn without readability wins.
 - [x] Standard bump + green build + test.
-- [ ] Sweep areas one by one, each with build + `ctest`.
-  (done so far: `using enum BooruEngine` ×4 switches, defaulted `==`
-  for `BooruSite`/`SavedTab` replacing hand-rolled equality, views
-  pipeline for `cleanTagTokens`)
+- [x] Sweep areas one by one, each with build + `ctest`.
+  (`using enum BooruEngine` ×6 switches, defaulted `==` for
+  `BooruSite`/`SavedTab`, views pipeline for `cleanTagTokens`)
 
 ## 62. Omnibar tag suggestions like LoliSnatcher — DONE
 ##    (150ms-debounce + cancel already present; added: meta-tag completions,

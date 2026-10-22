@@ -940,24 +940,25 @@ QString postPageUrlFor(const BooruSite &site, qint64 id) {
     if (site.baseUrl.isEmpty() || id <= 0)
         return {};
     const QString base = site.baseUrl;
+    using enum BooruEngine;
     switch (site.engine) {
-    case BooruEngine::Danbooru:
+    case Danbooru:
         return base + QStringLiteral("/posts/") + QString::number(id);
-    case BooruEngine::Moebooru:
+    case Moebooru:
         return base + QStringLiteral("/post/show/") + QString::number(id);
-    case BooruEngine::Szurubooru:
+    case Szurubooru:
         return base + QStringLiteral("/post/") + QString::number(id);
-    case BooruEngine::Shimmie:
+    case Shimmie:
         return base + QStringLiteral("/post/view/") + QString::number(id);
-    case BooruEngine::Hybooru:
+    case Hybooru:
         return base + QStringLiteral("/posts/") + QString::number(id);
-    case BooruEngine::Nuuru:
+    case Nuuru:
         return base + QStringLiteral("/post/view/") + QString::number(id);
-    case BooruEngine::Hiddenbooru:
+    case Hiddenbooru:
         return base + QStringLiteral("/post/") + QString::number(id) +
                QStringLiteral("/view");
-    case BooruEngine::Gelbooru:
-    case BooruEngine::Safebooru:
+    case Gelbooru:
+    case Safebooru:
         return base + QStringLiteral("/index.php?page=post&s=view&id=") +
                QString::number(id);
     }
