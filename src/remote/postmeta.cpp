@@ -51,6 +51,8 @@ void PostMetaFetcher::fetch(const QString &siteKey, const QString &baseUrl,
     m_comments.clear();
     m_notesDone = false;
     m_commentsDone = false;
+    m_notesOk = true;
+    m_commentsOk = true;
     QNetworkRequest notesReq = timedRequest(
         PostMeta::notesUrl(engine, baseUrl, postId, m_gelUser, m_gelKey));
     QNetworkRequest commentsReq = timedRequest(
@@ -75,12 +77,21 @@ void PostMetaFetcher::fetch(const QString &siteKey, const QString &baseUrl,
         // Gelbooru dapi takes creds as query params (already in the URL).
     }
     if (!notesReq.url().isEmpty()) {
+        m_notesOk = false; // issued: must prove success below
         m_notesReply = m_nam->get(notesReq);
         connect(m_notesReply, &QNetworkReply::finished, this, [this] {
             QNetworkReply *r = m_notesReply;
             m_notesReply = nullptr;
-            if (r && r->error() == QNetworkReply::NoError)
-                m_notes = PostMeta::parseNotes(r->readAll());
+            // HTTP-level failure or an unparseable body (challenge page,
+            // wall HTML): not a definitive empty — the caller retries.
+            bool ok = false;
+            if (r && r->error() == QNetworkReply::NoError &&
+                r->attribute(QNetworkRequest::HttpStatusCodeAttribute)
+                        .toInt() /
+                    100 ==
+                2)
+                m_notes = PostMeta::parseNotes(r->readAll(), &ok);
+            m_notesOk = ok;
             if (r)
                 r->deleteLater();
             m_notesDone = true;
@@ -88,12 +99,19 @@ void PostMetaFetcher::fetch(const QString &siteKey, const QString &baseUrl,
         });
     }
     if (!commentsReq.url().isEmpty()) {
+        m_commentsOk = false; // issued: must prove success below
         m_commentsReply = m_nam->get(commentsReq);
         connect(m_commentsReply, &QNetworkReply::finished, this, [this] {
             QNetworkReply *r = m_commentsReply;
             m_commentsReply = nullptr;
-            if (r && r->error() == QNetworkReply::NoError)
-                m_comments = PostMeta::parseComments(r->readAll());
+            bool ok = false;
+            if (r && r->error() == QNetworkReply::NoError &&
+                r->attribute(QNetworkRequest::HttpStatusCodeAttribute)
+                        .toInt() /
+                    100 ==
+                2)
+                m_comments = PostMeta::parseComments(r->readAll(), &ok);
+            m_commentsOk = ok;
             if (r)
                 r->deleteLater();
             m_commentsDone = true;
@@ -119,7 +137,8 @@ void PostMetaFetcher::cancel() {
 void PostMetaFetcher::finishPart() {
     if (!m_notesDone || !m_commentsDone)
         return;
-    emit done(m_site, m_postId, m_notes, m_comments);
+    emit done(m_site, m_postId, m_notes, m_comments,
+              m_notesOk && m_commentsOk);
 }
 
 namespace PostMeta {
@@ -210,12 +229,17 @@ QUrl commentsUrl(BooruEngine engine, const QString &baseUrl, qint64 postId,
     return QUrl(baseUrl + QStringLiteral("/comment.json?post_id=") + id);
 }
 
-QVector<PostNote> parseNotes(const QByteArray &body) {
+QVector<PostNote> parseNotes(const QByteArray &body, bool *ok) {
     QVector<PostNote> out;
     QJsonParseError err;
     const QJsonDocument doc = QJsonDocument::fromJson(body, &err);
-    if (err.error != QJsonParseError::NoError)
+    if (err.error != QJsonParseError::NoError) {
+        if (ok)
+            *ok = false; // challenge HTML, wall pages: not definitive
         return out;
+    }
+    if (ok)
+        *ok = true;
     QJsonArray arr;
     if (doc.isArray())
         arr = doc.array();
@@ -237,12 +261,17 @@ QVector<PostNote> parseNotes(const QByteArray &body) {
     return out;
 }
 
-QVector<PostComment> parseComments(const QByteArray &body) {
+QVector<PostComment> parseComments(const QByteArray &body, bool *ok) {
     QVector<PostComment> out;
     QJsonParseError err;
     const QJsonDocument doc = QJsonDocument::fromJson(body, &err);
-    if (err.error != QJsonParseError::NoError)
+    if (err.error != QJsonParseError::NoError) {
+        if (ok)
+            *ok = false; // challenge HTML, wall pages: not definitive
         return out;
+    }
+    if (ok)
+        *ok = true;
     QJsonArray arr;
     if (doc.isArray())
         arr = doc.array();

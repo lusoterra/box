@@ -1678,17 +1678,10 @@ void ViewerPage::showCurrent() {
                                     : tr("Comments"));
     }
 
-    // Notes + comments for remote posts (cached per session).
-    if (p.isRemote && m_meta) {
-        // Entry key first: a custom instance must query its own host,
-        // not the preset its engine label maps to.
-        const QString key = !p.siteKey.isEmpty()
-                                ? p.siteKey
-                                : RemotePosts::keyForLabel(p.siteName);
-        const BooruSite *site = key.isEmpty() ? nullptr : RemoteSource::siteFor(key);
-        if (site && !m_metaCache.contains(metaKey()))
-            m_meta->fetch(key, site->baseUrl, p.id, site->engine);
-    }
+    // Notes + comments for remote posts (cached per session; failures
+    // never cache, so reopening refetches).
+    if (p.isRemote && m_meta)
+        refetchMeta(p);
 
     // Prerender: the grid thumbnail shows instantly while the full file
     // downloads; replaced below when the real media is ready. GIFs keep
@@ -1936,8 +1929,18 @@ void ViewerPage::rebuildMetaTail() {
 
 void ViewerPage::renderMetaSections() {
     m_metaSectionStart = m_tagLayout ? m_tagLayout->count() : 0;    const auto it = m_metaCache.find(metaKey());
-    if (it == m_metaCache.end())
-        return; // still fetching (or failed silently)
+    if (it == m_metaCache.end()) {
+        if (m_metaFailed.contains(metaKey())) {
+            auto *l = new QLabel(
+                tr("Notes/comments failed to load — press the reload "
+                   "button to retry."),
+                this);
+            l->setWordWrap(true);
+            l->setStyleSheet(QStringLiteral("color:#e0a055;font-size:11px;"));
+            m_tagLayout->addWidget(l);
+        }
+        return; // still fetching (or failed, noted above)
+    }
     const auto &[notes, comments] = *it;
     if (!notes.isEmpty()) {
         auto *hl = new QLabel(tr("NOTES (%1)").arg(notes.size()), this);
@@ -2006,9 +2009,37 @@ void ViewerPage::renderMetaSections() {
     }
 }
 
+void ViewerPage::refetchMeta(const Post &p) {
+    if (!p.isRemote || !m_meta)
+        return;
+    // Entry key first: a custom instance must query its own host,
+    // not the preset its engine label maps to.
+    const QString key = !p.siteKey.isEmpty()
+                            ? p.siteKey
+                            : RemotePosts::keyForLabel(p.siteName);
+    const BooruSite *site = key.isEmpty() ? nullptr : RemoteSource::siteFor(key);
+    if (site && !m_metaCache.contains(metaKey()))
+        m_meta->fetch(key, site->baseUrl, p.id, site->engine);
+}
+
 void ViewerPage::onMetaDone(const QString &site, qint64 postId,
-                             QVector<PostNote> notes, QVector<PostComment> comments) {
-    m_metaCache.insert(site + u'#' + QString::number(postId), {notes, comments});
+                             QVector<PostNote> notes, QVector<PostComment> comments, bool ok) {
+    const QString key = site + u'#' + QString::number(postId);
+    if (!ok) {
+        // Failed fetch (network, HTTP error, challenge page): never cache
+        // as definitive-empty, and keep any older marks untouched. The
+        // thread UI shows the failure with a retry; reopening refetches
+        // (the fetch gate only skips cached keys).
+        m_metaFailed.insert(key);
+        if (metaKey() == key) {
+            if (m_commentsBtn)
+                m_commentsBtn->setText(tr("Comments"));
+            rebuildMetaTail();
+        }
+        return;
+    }
+    m_metaFailed.remove(key);
+    m_metaCache.insert(key, {notes, comments});
     // Grid pills learn from the fetched tail too (OR-in downstream):
     // a post whose search row carried no stamp still earns its marks.
     emit metaMarksChanged(site, postId, !comments.isEmpty(), !notes.isEmpty());
@@ -2110,7 +2141,7 @@ void ViewerPage::showCommentsPopup() {
     auto *host = new QWidget(dlg);
     auto *vl = new QVBoxLayout(host);
     vl->setContentsMargins(2, 2, 2, 2);
-    auto fill = [this, vl, host, key] {
+    auto fill = [this, vl, host, key, p] {
         // Drop the previous content, keep the layout itself.
         QLayoutItem *child;
         while ((child = vl->takeAt(0)) != nullptr) {
@@ -2126,7 +2157,20 @@ void ViewerPage::showCommentsPopup() {
             vl->addWidget(l);
         } else {
             const auto it = m_metaCache.constFind(key);
-            if (it == m_metaCache.constEnd()) {
+            if (it == m_metaCache.constEnd() &&
+                m_metaFailed.contains(key)) {
+                auto *l = new QLabel(
+                    tr("Couldn't load the thread (network or login "
+                       "wall)."),
+                    host);
+                l->setWordWrap(true);
+                l->setStyleSheet(QStringLiteral("color:#e0a055;"));
+                vl->addWidget(l);
+                auto *retry = new QPushButton(tr("Retry"), host);
+                connect(retry, &QPushButton::clicked, this,
+                        [this, p] { refetchMeta(p); });
+                vl->addWidget(retry);
+            } else if (it == m_metaCache.constEnd()) {
                 auto *l = new QLabel(tr("Loading comments…"), host);
                 l->setWordWrap(true);
                 l->setStyleSheet(QStringLiteral("color:#4a5068;"));
@@ -2159,8 +2203,11 @@ void ViewerPage::showCommentsPopup() {
     lay->addWidget(buttons);
     // A fetch already in flight (triggered when the post opened) lands
     // here: refill once, then go quiet (context-owned: dies with dialog).
+    // Failures refill too (error + retry), since nothing was cached.
     connect(m_meta, &PostMetaFetcher::done, dlg,
-            [this, dlg, key, fill](const QString &site, qint64 postId) {
+            [this, dlg, key, fill](const QString &site, qint64 postId,
+                                   const QVector<PostNote> &,
+                                   const QVector<PostComment> &, bool) {
                 if (key.isEmpty() ||
                     key != site + u'#' + QString::number(postId))
                     return;

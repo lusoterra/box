@@ -35,8 +35,11 @@ public:
     void cancel();
 
 signals:
+    // ok=false: the fetch failed (network, HTTP error, or an unparseable
+    // body like a challenge page) — caches must NOT treat the empties as
+    // definitive, and the UI should offer a retry instead of silence.
     void done(const QString &siteKey, qint64 postId, QVector<PostNote> notes,
-              QVector<PostComment> comments);
+              QVector<PostComment> comments, bool ok);
 
 private:
     void finishPart();
@@ -49,6 +52,8 @@ private:
     QVector<PostComment> m_comments;
     bool m_notesDone = true;
     bool m_commentsDone = true;
+    bool m_notesOk = true;
+    bool m_commentsOk = true;
     QString m_danUser, m_danKey, m_gelUser, m_gelKey;
 };
 
@@ -57,6 +62,6 @@ QUrl notesUrl(BooruEngine engine, const QString &baseUrl, qint64 postId,
               const QString &gelUser = {}, const QString &gelKey = {});
 QUrl commentsUrl(BooruEngine engine, const QString &baseUrl, qint64 postId,
                  const QString &gelUser = {}, const QString &gelKey = {});
-QVector<PostNote> parseNotes(const QByteArray &body);
-QVector<PostComment> parseComments(const QByteArray &body);
+QVector<PostNote> parseNotes(const QByteArray &body, bool *ok = nullptr);
+QVector<PostComment> parseComments(const QByteArray &body, bool *ok = nullptr);
 } // namespace PostMeta

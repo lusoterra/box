@@ -903,7 +903,10 @@
 - [x] Last-session restore + fresh-start option + default-booru new tab.
 - [x] Build + `ctest` (+ docs).
 
-## 78. Comment badges vs threads disagree (esp. ATF forks)
+## 78. Comment badges vs threads disagree (esp. ATF forks) — DONE
+##    (fetch success tracked; failures never cached as empty, error +
+##    retry in thread UI; reopen refetches; parse ok-flags + tests;
+##    build OK)
 - ATF (danbooru fork, booru.allthefallen.moe): grid cards show comment
   badges but threads load empty, and posts WITH comments fail to load
   them. Forks don't maintain last_commented_at (always null), so parse
@@ -911,8 +914,10 @@
   thread fetch itself is clearance-flaky. Fix direction: don't cache
   failed fetches as definitive-empty (retry on reopen), surface fetch
   errors in the thread UI, and reconsider fork presence signals.
-- [ ] Distinguish failed fetch from empty thread + retry; surface errors.
-- [ ] Build + `ctest` (+ docs).
+- Root cause found: ANY failed fetch (network OR HTTP-200 challenge
+  page) cached empties as definitive while marks stayed sticky.
+- [x] Distinguish failed fetch from empty thread + retry; surface errors.
+- [x] Build + `ctest` (+ docs).
 
 ## 79. Refresh-tags blanks the viewer image — DONE
 ##    (displayed frame fed back as pending thumb on refresh re-show;

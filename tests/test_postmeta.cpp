@@ -70,6 +70,13 @@ private slots:
         QCOMPARE(gel.at(0).body, QStringLiteral("hi"));
         QVERIFY(PostMeta::parseNotes(QByteArray("nope")).isEmpty());
         QVERIFY(PostMeta::parseNotes(QByteArray("{}")).isEmpty());
+        // Answered-ness: valid JSON (even empty) counts as answered;
+        // challenge HTML does not (callers retry instead of caching).
+        bool ok = false;
+        QVERIFY(PostMeta::parseNotes(QByteArray("[]"), &ok).isEmpty());
+        QVERIFY(ok);
+        QVERIFY(PostMeta::parseNotes(QByteArray("<html>wall</html>"), &ok).isEmpty());
+        QVERIFY(!ok);
     }
     void parseCommentsShapes() {
         // Danbooru array shape.
@@ -96,6 +103,11 @@ private slots:
         QCOMPARE(szu.at(0).body, QStringLiteral("pretty"));
         QCOMPARE(szu.at(0).date, QStringLiteral("2026-02-02"));
         QVERIFY(PostMeta::parseComments(QByteArray("nope")).isEmpty());
+        bool ok = false;
+        QVERIFY(PostMeta::parseComments(QByteArray("[]"), &ok).isEmpty());
+        QVERIFY(ok);
+        QVERIFY(PostMeta::parseComments(QByteArray("<html>wall</html>"), &ok).isEmpty());
+        QVERIFY(!ok);
     }
 };
 
