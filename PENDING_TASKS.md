@@ -710,3 +710,24 @@
   the behaviour here: ranking, matching, caching, server mapping.
 - [x] Read LoliSnatcher suggestion code + gap analysis vs TagSuggester.
 - [x] Reimplement + tests; build + `ctest` (+ docs).
+## 63. Media-type dropdown via native tags (animated/animated_gif/video/ugoira)
+- Current box writes `filetype:` extension lists. Danbooru-family tags
+  (`animated` 137k, `animated_gif` 27k, `video` 86k, `ugoira` 23k —
+  verified live) and Konachan's `animated` (263) work server-side as plain
+  tags + negations. Gelbooru dapi now 401s anonymous (unverifiable);
+  yandere lacks `animated`; Nuuru native categories TBD via its tags API.
+- Direction: per-engine verified mapping (tag vs filetype:-fallback);
+  disable/omit kinds the engine can't do; keep negations working.
+- [ ] Live-verify each engine's scheme; wire per-engine tokens + fallback.
+- [ ] Build + `ctest` (+ docs).
+
+## 64. One failed video poisons all later videos — DONE
+##    (web-backend id collision: video hard-coded id 1 vs downloads counting
+##    from 1; unique high-range ids per start; build OK, 31/31 tests)
+- Clicking a video that fails to load breaks every subsequent video
+  (nothing loads after). Smells like shared-state poisoning: single-flight
+  id collision (`m_webId`), a stuck ImageCache/tmp fetch, or a poisoned
+  cache entry keyed wrongly.
+- [x] Repro + isolate the shared state; guard/reset on failure.
+- [x] Build + `ctest` (+ docs).
+

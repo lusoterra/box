@@ -8,6 +8,7 @@
 #include "webdlbackend.h"
 
 #include <QApplication>
+#include <atomic>
 #include <QAbstractItemModel>
 #include <QBoxLayout>
 #include <QClipboard>
@@ -832,7 +833,12 @@ void VideoPane::setUrl(const QUrl &url, const Post &post) {
                                          QCryptographicHash::Sha1)
                     .toHex()) +
             (ext.isEmpty() ? QStringLiteral(".mp4") : u'.' + ext);
-        m_webId = 1; // single flight: any id works, filtered on arrival
+        // Unique per start, far above DownloadManager's 1-upwards ids:
+        // the backend is shared and keys jobs by id, so the fixed 1 used
+        // to collide with early downloads (their completions landed in the
+        // player as ghost videos, and vice versa).
+        static std::atomic<qint64> nextWebId{1LL << 62};
+        m_webId = ++nextWebId;
         m_buf->setText(tr("buffering…"));
         m_buf->setVisible(true);
         m_webBackend->start(m_webId, url.toString(), m_tmpPath);
