@@ -32,12 +32,13 @@ within minutes are suppressed (the button stays).
 ## 03-omnibar — the control row under the tab bar
 Left to right: `★` favourite-tags menu (click a star to add it to the
 search) → tag search box (placeholder `Search tags…`, autocomplete
-popup ranked exact-match first, then starred tags, then most-used — `/` focuses, Enter
-searches) → rating dropdown (`All`, default label) → media dropdown
+popup ranked exact-match first, then starred tags, then most-used, then your
+recent tokens — `/` focuses, Enter searches) → rating dropdown (`All`, default label) → media dropdown
 (stills / animated GIFs / anything animated / videos / sound, adds a
 `filetype:` tag) → sort dropdown (`Recently added`/`Newest`/`Oldest`/`Top
-Rated`/`Low Rated`/`Random` — server-side `order:`/`sort:` tags in browse
-mode, client-side locally) → aspect dropdown (`1:1`, grid cell shape) →
+Rated`/`Low Rated`/`Random` — server-side via translated tags where the
+engine supports it (options that would only re-sort client-side disable
+themselves per tab; `Recently added`/`Newest` never reorder) → aspect dropdown (`1:1`, grid cell shape) →
 `Boorus…` (per-tab source picker, multibooru merge) → `AI` (one-click
 filter hiding AI-generated posts) → `Download (N)`
 (batch-downloads the selection) → `Clear` (resets pills/query) → reload
@@ -92,11 +93,13 @@ set re-searches immediately (`onSitesChanged`).
 ## 11-viewer — same-window post viewer (`ViewerPage`, `src/ui/viewerpage.cpp`)
 Toolbar: `Back`, `‹ 8 / 40 ›` stepping, `Fit`, `100%`, `Open post`
 (site page, http(s) only), `Image search` (SauceNAO, Yandex, Google
-Lens, IQDB, trace.moe — needs a remote file URL), `Download`, reload-everything (icon: tags, comments, media), `Notes`
-(translation overlays on the image, on by default), refresh,
-globe (`Open file URL`), `Copy file URL` (toggles to delete once the file
-is on disk, like the ♥ button), `Comments` (thread popup, reuses the fetched
-notes/comments cache). The omnibar hides in post view (grid tools would
+Lens, IQDB, trace.moe — needs a remote file URL), download icon (toggles to
+delete once the file is on disk, like the ♥ button), reload-everything (icon:
+tags, comments, media), `Notes`
+(translation overlays on the image, on by default),
+globe (`Open file`), `Copy file URL`, `Comments` (thread popup with cards,
+reuses the fetched notes/comments cache). The omnibar hides in post view
+(grid tools would
 misclick); it returns with the grid. Below the title: `AI` / `♥` / `↓`
 badges mirroring the grid marks. Downloading or (un)favouriting from
 the viewer never leaves it; the grid refreshes behind and the viewer
@@ -175,7 +178,7 @@ deleted behind the app's back.
 ## 19-badge-closeup — origin badge detail
 16px site favicon (auto-fetched to `favicons/auto/`, overridable in the
 Booru manager) + short name on the entry's badge color; `G` rating chip,
-score, `#id`, file name below.
+score, `#id`, file name below (synthesized `id - host - tags.ext` when the file URL has no name, e.g. Nuuru `/file`; downloads keep `site_md5` names).
 
 ## Not yet documented (keep unchecked until done)
 - [ ] Downloads tab (non-empty: sidecar-backed offline rows)

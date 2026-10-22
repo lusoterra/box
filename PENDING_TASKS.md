@@ -629,23 +629,29 @@
 - [x] Key-consistent meta cache + fetch-skip.
 - [x] Build + `ctest` (+ docs).
 
-## 56. Rich comment cards (avatar, name, body)
+## 56. Rich comment cards (avatar, name, body) — DONE
+##    (initial-circle avatars + reserved avatarUrl; card builder used by popup;
+##    build OK, 31/31 tests)
 - Comment thread should render as cards: profile picture when the engine
   provides one, else a name-initial circle; author name + date + body,
   selectable text. `PostComment` gains an `avatarUrl` (empty from all
   current engines) and a shared card builder used by the popup (inline
   panel keeps its compact rows).
-- [ ] Avatar-aware comment cards in the popup.
-- [ ] Build + `ctest` (+ docs).
+- [x] Avatar-aware comment cards in the popup.
+- [x] Build + `ctest` (+ docs).
 
-## 57. Viewer toolbar order: download icon by the heart, globe named Open file
+## 57. Viewer toolbar order: download icon by the heart, globe named Open file — DONE
+##    (download icon-only by fav; globe tooltip `Open file`; `Copy file URL` kept;
+##    build OK, 31/31 tests)
 - Rearrange to notes, ♥, download (icon-only, green when saved), globe
   (tooltip `Open file`), `Copy file URL`, `Comments`. Shorter bar, still
   readable.
-- [ ] Button order/icons/tooltips.
-- [ ] Build + `ctest` (+ docs).
+- [x] Button order/icons/tooltips.
+- [x] Build + `ctest` (+ docs).
 
-## 58. Server-side sort where supported; disable reordering sorts elsewhere
+## 58. Server-side sort where supported; disable reordering sorts elsewhere — DONE
+##    (Nuuru `sort:` mappings + validated passthrough; sort box enables only
+##    server-supported or order-preserving sorts; tests; build OK, 31/31 tests)
 - The sort box offers orders some engines can't do server-side, so they
   sort client-side and infinite-scroll appends visibly reorder (Nuuru
   `Top rated` was local-only). Nuuru actually has rich native `sort:`
@@ -657,19 +663,22 @@
   native `sort:` tokens for Nuuru; the sort box disables reorder-risk
   options (score-*, random, id-asc) unless every tab site translates them
   server-side (`added`/`Newest` stay: order-preserving everywhere).
-- [ ] Nuuru mappings + token passthrough + per-tab box enablement; tests.
-- [ ] Build + `ctest` (+ docs).
+- [x] Nuuru mappings + token passthrough + per-tab box enablement; tests.
+- [x] Build + `ctest` (+ docs).
 
-## 59. Display names for extensionless file URLs (keep disk names)
+## 59. Display names for extensionless file URLs (keep disk names) — DONE
+##    (`displayFileName` helper + grid wiring + unit tests; downloads untouched;
+##    build OK, 31/31 tests)
 - Nuuru file URLs end in `/file`, so grid cards all read `file` (the
   browser instead shows `<id> - <host> - <tags>.<ext>`). Add a pure
   `displayFileName()` (URL filename when it has an extension, else
   synthesized `<id> - <host> - <tags>.<ext>`, tags capped): grid
   `DisplayRole` uses it; downloads keep `site_md5.ext` untouched.
-- [ ] Helper + grid wiring + tests (synthesized vs passthrough).
-- [ ] Build + `ctest` (+ docs).
+- [x] Helper + grid wiring + tests (synthesized vs passthrough).
+- [x] Build + `ctest` (+ docs).
 
 ## 60. Ship Donmai's safebooru as the default (Danbooru engine) — DONE
+
 ##    (preset baseUrl/engine + badge rule + preset/badge tests + docs;
 ##    existing configs untouched (same key); build OK, 31/31 tests)
 - safebooru.donmai.us (Donmai's own SFW booru) speaks the Danbooru API
@@ -680,3 +689,24 @@
   safebooru.org stays addable manually as a Gelbooru entry.
 - [x] Preset baseUrl/engine + badge rule; preset + badge tests; docs.
 - [x] Build + `ctest`.
+
+## 61. C++20 modernization sweep (use it where it's better, not everywhere)
+- Bump the standard 17 → 20 first (CMake + README), full rebuild + test.
+  Then go file by file and adopt C++20 only where it reads better or
+  removes hand-rolled code: ranges/views over temp-vector loops,
+  `std::span` for pointer+size pairs, defaulted `<=>` for plain value
+  structs, `using enum` where it declutters switches. Explicitly OUT:
+  `std::format` (breaks `%1`-style translator strings), replacing Qt
+  idioms (`QString`, containers, `QtConcurrent`) with std equivalents
+  for fashion, and churn without readability wins.
+- [ ] Standard bump + green build + test.
+- [ ] Sweep areas one by one, each with build + `ctest`.
+
+## 62. Omnibar tag suggestions like LoliSnatcher — DONE
+##    (150ms-debounce + cancel already present; added: meta-tag completions,
+##    `N#` pool strip, recent-token history source; tests; build OK, 31/31 tests)
+- Current suggestions underperform; LoliSnatcher's implementation is
+  reportedly very good. Study its source (upstream repo) and reimplement
+  the behaviour here: ranking, matching, caching, server mapping.
+- [x] Read LoliSnatcher suggestion code + gap analysis vs TagSuggester.
+- [x] Reimplement + tests; build + `ctest` (+ docs).
