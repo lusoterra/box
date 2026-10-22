@@ -731,3 +731,11 @@
 - [x] Repro + isolate the shared state; guard/reset on failure.
 - [x] Build + `ctest` (+ docs).
 
+
+## 65. Server hits starved by local-first suggest merge (lucky_star missing)
+- `merge()` filled all slots from local rows first, so a rich local
+  vocabulary dropped ranked server answers entirely (cap 12). Reworked to
+  union + one global relevance pass (locals still win exact ties via the
+  stable rank), cap raised to 20.
+- [x] Union-rank-truncate merge + caller update + tests.
+- [x] Build + `ctest`.

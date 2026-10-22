@@ -592,30 +592,35 @@ void TagSuggester::appendHistory(QVector<TagSuggestion> &out,
     }
 }
 
-QVector<TagSuggestion> TagSuggester::merge(const QVector<TagSuggestion> &local,
-                                              const QVector<TagSuggestion> &remote,
+QVector<TagSuggestion> TagSuggester::merge(const QString &prefix,
+                                              QVector<TagSuggestion> local,
+                                              QVector<TagSuggestion> remote,
+                                              const QSet<QString> &favTags,
                                               int cap) {
-    QVector<TagSuggestion> out;
-    out.reserve(qMax(0, cap));
+    QVector<TagSuggestion> uni;
+    uni.reserve(local.size() + remote.size());
     QSet<QString> seen;
-    for (const TagSuggestion &s : local) {
-        if (out.size() >= cap)
-            break;
+    const QString q = prefix.toLower();
+    auto keep = [&](const TagSuggestion &s) {
         const QString key = s.tag.toLower();
         if (key.isEmpty() || seen.contains(key))
-            continue;
+            return;
+        // The popup only ever completes the current token: rows that
+        // neither equal it nor start with it can never display, so they
+        // must not eat cap slots either (a count-1M non-match used to
+        // crowd out displayable rows).
+        if (key != q && !key.startsWith(q))
+            return;
         seen.insert(key);
-        out.append(s);
-    }
-    for (const TagSuggestion &s : remote) {
-        if (out.size() >= cap)
-            break;
-        const QString key = s.tag.toLower();
-        if (key.isEmpty() || seen.contains(key))
-            continue;
-        seen.insert(key);
-        out.append(s);
-    }
+        uni.append(s);
+    };
+    for (const TagSuggestion &st : local)
+        keep(st);
+    for (const TagSuggestion &st : remote)
+        keep(st);
+    QVector<TagSuggestion> out = rank(prefix, uni, favTags);
+    if (out.size() > cap)
+        out.resize(qMax(0, cap));
     return out;
 }
 

@@ -170,8 +170,10 @@ private slots:
         QCOMPARE(plain.at(1).tag, QStringLiteral("skyline"));
     }
 
-    void mergeKeepsLocalsFirst() {
-        // Remote extras append below locals; dupes collapse (local wins);
+    void mergeRanksUnion() {
+        // Union + one global relevance pass (was: locals-first fill that
+        // starved server hits when the local vocabulary was rich enough
+        // to fill the cap alone). Dupes collapse (local row wins);
         // an empty remote never blanks good local answers.
         auto sug = [](const char *tag, const char *bucket, int count) {
             TagSuggestion s;
@@ -181,26 +183,36 @@ private slots:
             return s;
         };
         const QVector<TagSuggestion> local = {
-            sug("sky", "general", 30), sug("skirt", "general", 5)};
+            sug("sky", "general", 30), sug("skyblue", "general", 5)};
         const QVector<TagSuggestion> remote = {
             sug("SKY", "general", 999), // dupe: local row wins
             sug("skyline", "general", 400)};
-        const auto merged = TagSuggester::merge(local, remote);
+        const auto merged =
+            TagSuggester::merge(QStringLiteral("sky"), local, remote);
         QCOMPARE(merged.size(), 3);
         QCOMPARE(merged.at(0).tag, QStringLiteral("sky"));
         QCOMPARE(merged.at(0).count, 30); // local count kept, not remote's
-        QCOMPARE(merged.at(2).tag, QStringLiteral("skyline"));
+        QCOMPARE(merged.at(1).tag, QStringLiteral("skyline"));
+        QCOMPARE(merged.at(2).tag, QStringLiteral("skyblue"));
         // Empty remote keeps locals untouched.
-        QCOMPARE(TagSuggester::merge(local, {}).size(), 2);
-        QVERIFY(TagSuggester::merge({}, {}).isEmpty());
-        // Cap honored, locals first.
+        QCOMPARE(TagSuggester::merge(QStringLiteral("sky"), local, {}).size(),
+                 2);
+        QVERIFY(TagSuggester::merge(QStringLiteral("x"), {}, {}).isEmpty());
+        // Rich local vocabularies no longer starve ranked server hits:
+        // a higher-count remote row outranks the locals either way.
         QVector<TagSuggestion> many;
         for (int i = 0; i < 20; ++i)
-            many.append(sug(QByteArray("l" + QByteArray::number(i)).constData(),
+            many.append(sug(QByteArray("sky" + QByteArray::number(i)).constData(),
                             "general", i));
-        QCOMPARE(TagSuggester::merge(many, remote).size(), 12);
-    }
-};
+        const auto big =
+            TagSuggester::merge(QStringLiteral("sky"), many, remote);
+        QCOMPARE(big.size(), 20); // default cap
+        // "SKY" is an exact (case-insensitive) match, so it still wins;
+        // the high-count server hit follows, then the best locals.
+        QCOMPARE(big.at(0).tag, QStringLiteral("SKY"));
+        QCOMPARE(big.at(1).tag, QStringLiteral("skyline"));
+        QCOMPARE(big.at(2).tag, QStringLiteral("sky19"));
+    }};
 
 int main(int argc, char *argv[]) {
     QCoreApplication app(argc, argv);

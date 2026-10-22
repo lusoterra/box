@@ -5701,9 +5701,11 @@ void MainWindow::onRemoteSuggest(const QString &siteKey, const QString &prefix,
                        : QStringLiteral("general");
         local.append(s);
     }
-    const QVector<TagSuggestion> merged = TagSuggester::merge(
-        local, TagSuggester::rank(bare, suggestions, favTagSet())); // API order is
-        // count-only: rank exact-first (starred tags win ties) before merging, never replacing locals
+    // Union + one global relevance pass (locals win exact ties via
+    // the stable rank), truncated: rich local vocabularies must not
+    // starve ranked server hits.
+    const QVector<TagSuggestion> merged =
+        TagSuggester::merge(bare, local, suggestions, favTagSet());
     if (merged.isEmpty())
         return;
     words.clear();

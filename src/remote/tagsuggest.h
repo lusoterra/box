@@ -49,11 +49,16 @@ public:
                               const Index *index, int cap);
 
     static QVector<TagSuggestion> parse(BooruEngine engine, const QByteArray &body);
-    // Merge policy for one prefix: local rows first (your vocabulary wins
-    // ties), then remote extras, case-insensitive dedup, capped.
-    static QVector<TagSuggestion> merge(const QVector<TagSuggestion> &local,
-                                        const QVector<TagSuggestion> &remote,
-                                        int cap = 12);
+    // Merge policy for one prefix: union, case-insensitive dedup
+    // (local rows first so your vocabulary wins exact ties via the stable
+    // rank), then ONE global relevance pass, truncated to cap. A rich
+    // local vocabulary must never starve server hits (the old
+    // locals-first fill dropped ranked remote answers entirely).
+    static QVector<TagSuggestion> merge(const QString &prefix,
+                                        QVector<TagSuggestion> local,
+                                        QVector<TagSuggestion> remote,
+                                        const QSet<QString> &favTags = {},
+                                        int cap = 20);
     // Local meta-tag completions (no network): when the bare token is a
     // metatag head (`sort:`/`rating:`/`order:`/`filetype:`), complete its
     // value from the engine's verified spellings (Nuuru's native sort:
