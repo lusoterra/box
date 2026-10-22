@@ -59,6 +59,9 @@ struct BooruSite {
     // the server exclusions and rely on the client-side blacklist net.
     // Off by default; meant for *donmai.us entries.
     bool localBlacklist = false;
+    // All fields compare (needsCreds included: nothing in-app sets it,
+    // so this matches the old hand-rolled equality exactly).
+    bool operator==(const BooruSite &) const = default;
     // Proxy for this booru's traffic (http://host:port or
     // socks5://[user:pass@]host:port). Empty = direct connection.
     QString proxy;

@@ -712,8 +712,11 @@
   `std::format` (breaks `%1`-style translator strings), replacing Qt
   idioms (`QString`, containers, `QtConcurrent`) with std equivalents
   for fashion, and churn without readability wins.
-- [ ] Standard bump + green build + test.
+- [x] Standard bump + green build + test.
 - [ ] Sweep areas one by one, each with build + `ctest`.
+  (done so far: `using enum BooruEngine` ×4 switches, defaulted `==`
+  for `BooruSite`/`SavedTab` replacing hand-rolled equality, views
+  pipeline for `cleanTagTokens`)
 
 ## 62. Omnibar tag suggestions like LoliSnatcher — DONE
 ##    (150ms-debounce + cancel already present; added: meta-tag completions,

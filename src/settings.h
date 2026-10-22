@@ -100,6 +100,7 @@ struct AppSettings {
         QString rating = QStringLiteral("all");
         QString category;
         QString sort = QStringLiteral("id-desc");
+        bool operator==(const SavedTab &) const = default;
     };
     QList<SavedTab> savedTabs;
     int savedTabCurrent = 0;
@@ -190,24 +191,6 @@ inline QString effectiveDownloadDir(const AppSettings &s) {
     return effectiveDataDir(s) + QStringLiteral("/downloads");
 }
 
-inline bool operator==(const AppSettings::SavedTab &a,
-                       const AppSettings::SavedTab &b) {
-    return a.kind == b.kind && a.root == b.root && a.sites == b.sites &&
-           a.tags == b.tags && a.query == b.query && a.rating == b.rating &&
-           a.category == b.category && a.sort == b.sort;
-}
-
-inline bool booruSiteEqual(const BooruSite &a, const BooruSite &b) {
-    return a.key == b.key && a.label == b.label && a.shortName == b.shortName &&
-           a.badgeColor == b.badgeColor && a.baseUrl == b.baseUrl &&
-           a.engine == b.engine && a.user == b.user &&
-           a.secret == b.secret && a.cookies == b.cookies &&
-           a.skipAutoClassify == b.skipAutoClassify &&
-           a.disabledBuckets == b.disabledBuckets &&
-           a.defaultTags == b.defaultTags && a.proxy == b.proxy &&
-           a.localBlacklist == b.localBlacklist;
-}
-
 // True when every persisted field matches (window geometry excluded:
 // it changes on every move and must not keep Apply lit).
 inline bool operator==(const AppSettings &a, const AppSettings &b) {
@@ -215,7 +198,7 @@ inline bool operator==(const AppSettings &a, const AppSettings &b) {
         a.savedTabs.size() != b.savedTabs.size())
         return false;
     for (int i = 0; i < a.boorus.size(); ++i) {
-        if (!booruSiteEqual(a.boorus.at(i), b.boorus.at(i)))
+        if (!(a.boorus.at(i) == b.boorus.at(i)))
             return false;
     }
     for (int i = 0; i < a.savedTabs.size(); ++i) {

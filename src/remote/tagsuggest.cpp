@@ -652,23 +652,24 @@ QVector<TagSuggestion> TagSuggester::rank(const QString &prefix,
 
 QVector<TagSuggestion> TagSuggester::parse(BooruEngine engine,
                                            const QByteArray &body) {
+    using enum BooruEngine;
     switch (engine) {
-    case BooruEngine::Danbooru:
+    case Danbooru:
         return parseDanbooru(body);
-    case BooruEngine::Gelbooru:
-    case BooruEngine::Safebooru:
+    case Gelbooru:
+    case Safebooru:
         return parseGelbooru(body);
-    case BooruEngine::Moebooru:
+    case Moebooru:
         return parseMoebooru(body);
-    case BooruEngine::Szurubooru:
+    case Szurubooru:
         return parseSzuru(body);
-    case BooruEngine::Hybooru:
+    case Hybooru:
         return parseHybooru(body);
-    case BooruEngine::Nuuru:
+    case Nuuru:
         return parseNuuru(body);
-    case BooruEngine::Hiddenbooru:
+    case Hiddenbooru:
         return parseHiddenbooru(body);
-    case BooruEngine::Shimmie:
+    case Shimmie:
         return {};
     }
     return {};

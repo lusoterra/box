@@ -191,16 +191,17 @@ void BooruEngineOps::finishRemote(Post &p, const QString &siteLabel,
 namespace RemotePosts {
 
 QString engineKey(BooruEngine engine) {
+    using enum BooruEngine;
     switch (engine) {
-    case BooruEngine::Danbooru: return QStringLiteral("danbooru");
-    case BooruEngine::Gelbooru: return QStringLiteral("gelbooru");
-    case BooruEngine::Moebooru: return QStringLiteral("moebooru");
-    case BooruEngine::Szurubooru: return QStringLiteral("szurubooru");
-    case BooruEngine::Shimmie: return QStringLiteral("shimmie");
-    case BooruEngine::Hybooru: return QStringLiteral("hybooru");
-    case BooruEngine::Nuuru: return QStringLiteral("nuuru");
-    case BooruEngine::Hiddenbooru: return QStringLiteral("hiddenbooru");
-    case BooruEngine::Safebooru: return QStringLiteral("gelbooru"); // dapi family
+    case Danbooru: return QStringLiteral("danbooru");
+    case Gelbooru: return QStringLiteral("gelbooru");
+    case Moebooru: return QStringLiteral("moebooru");
+    case Szurubooru: return QStringLiteral("szurubooru");
+    case Shimmie: return QStringLiteral("shimmie");
+    case Hybooru: return QStringLiteral("hybooru");
+    case Nuuru: return QStringLiteral("nuuru");
+    case Hiddenbooru: return QStringLiteral("hiddenbooru");
+    case Safebooru: return QStringLiteral("gelbooru"); // dapi family
     }
     return QStringLiteral("danbooru");
 }
@@ -224,16 +225,17 @@ BooruEngine engineForKey(const QString &key) {
 }
 
 QString engineLabel(BooruEngine engine) {
+    using enum BooruEngine;
     switch (engine) {
-    case BooruEngine::Danbooru: return QStringLiteral("Danbooru");
-    case BooruEngine::Gelbooru: return QStringLiteral("Gelbooru");
-    case BooruEngine::Moebooru: return QStringLiteral("Moebooru");
-    case BooruEngine::Szurubooru: return QStringLiteral("Szurubooru");
-    case BooruEngine::Shimmie: return QStringLiteral("Shimmie");
-    case BooruEngine::Hybooru: return QStringLiteral("HyBooru");
-    case BooruEngine::Nuuru: return QStringLiteral("Nuuru (Soybooru)");
-    case BooruEngine::Hiddenbooru: return QStringLiteral("HiddenBooru");
-    case BooruEngine::Safebooru: return QStringLiteral("Safebooru");
+    case Danbooru: return QStringLiteral("Danbooru");
+    case Gelbooru: return QStringLiteral("Gelbooru");
+    case Moebooru: return QStringLiteral("Moebooru");
+    case Szurubooru: return QStringLiteral("Szurubooru");
+    case Shimmie: return QStringLiteral("Shimmie");
+    case Hybooru: return QStringLiteral("HyBooru");
+    case Nuuru: return QStringLiteral("Nuuru (Soybooru)");
+    case Hiddenbooru: return QStringLiteral("HiddenBooru");
+    case Safebooru: return QStringLiteral("Safebooru");
     }
     return QStringLiteral("Danbooru");
 }
@@ -635,23 +637,24 @@ const BooruEngineOps *hiddenbooruOps();
 } // namespace EngineInternal
 
 const BooruEngineOps *engineOps(BooruEngine engine) {
+    using enum BooruEngine;
     switch (engine) {
-    case BooruEngine::Gelbooru:
-    case BooruEngine::Safebooru: // same dapi family
+    case Gelbooru:
+    case Safebooru: // same dapi family
         return EngineInternal::gelbooruOps();
-    case BooruEngine::Moebooru:
+    case Moebooru:
         return EngineInternal::moebooruOps();
-    case BooruEngine::Szurubooru:
+    case Szurubooru:
         return EngineInternal::szurubooruOps();
-    case BooruEngine::Shimmie:
+    case Shimmie:
         return EngineInternal::shimmieOps();
-    case BooruEngine::Hybooru:
+    case Hybooru:
         return EngineInternal::hybooruOps();
-    case BooruEngine::Nuuru:
+    case Nuuru:
         return EngineInternal::nuuruOps();
-    case BooruEngine::Hiddenbooru:
+    case Hiddenbooru:
         return EngineInternal::hiddenbooruOps();
-    case BooruEngine::Danbooru:
+    case Danbooru:
         return EngineInternal::danbooruOps();
     }
     return EngineInternal::danbooruOps();

@@ -6532,8 +6532,7 @@ void MainWindow::applyPreferences(const AppSettings &app) {
             // limit, filters): appearance/scroll edits must not refetch.
             bool sitesEqual = old.boorus.size() == m_settings.boorus.size();
             for (int i = 0; sitesEqual && i < old.boorus.size(); ++i)
-                sitesEqual = booruSiteEqual(old.boorus.at(i),
-                                            m_settings.boorus.at(i));
+                sitesEqual = old.boorus.at(i) == m_settings.boorus.at(i);
             if (!sitesEqual ||
                 old.browseLimit != m_settings.browseLimit ||
                 old.blacklist != m_settings.blacklist ||

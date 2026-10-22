@@ -7,6 +7,8 @@
 #include <QSet>
 #include <QStringList>
 
+#include <ranges>
+
 // Post record. Mirrors the fields the Python prototypes exposed
 // (local archives, remote API results, favourites rows).
 // over /api/posts so filtering/sorting behaves the same.
@@ -227,12 +229,14 @@ inline bool tagTokenOk(const QString &t) {
 }
 
 inline QStringList cleanTagTokens(const QStringList &tags) {
+    // Trim once, keep the survivors: a transform+filter pipeline instead
+    // of the hand-rolled loop (which trimmed twice per tag).
+    auto good = tags | std::views::transform(
+                           [](const QString &t) { return t.trimmed(); }) |
+                std::views::filter(tagTokenOk);
     QStringList out;
     out.reserve(tags.size());
-    for (const QString &t : tags) {
-        const QString s = t.trimmed();
-        if (tagTokenOk(s))
-            out << s;
-    }
+    for (const QString &s : good)
+        out << s;
     return out;
 }
