@@ -233,7 +233,9 @@ private slots:
         QCOMPARE(back.boorus.size(), 1);
         QCOMPARE(back.boorus.first().key, QStringLiteral("safebooru"));
         QCOMPARE(back.boorus.first().label, QStringLiteral("Safebooru"));
-        QCOMPARE(back.boorus.first().baseUrl, QStringLiteral("https://safebooru.org"));
+        QCOMPARE(back.boorus.first().baseUrl,
+                 QStringLiteral("https://safebooru.donmai.us"));
+        QCOMPARE(back.boorus.first().engine, BooruEngine::Danbooru);
         // Second load keeps the seeded list (no reseed, no wipe).
         QCOMPARE(loadSettings().boorus.size(), 1);
     }

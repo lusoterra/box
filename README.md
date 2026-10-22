@@ -13,14 +13,14 @@ Local archives are treated read-only: browsing never modifies your library.
 
 | Engine | Example instances | Notes |
 | --- | --- | --- |
-| Danbooru | danbooru.donmai.us | API keys supported |
-| Gelbooru | Safebooru (ships as the default), Gelbooru, Rule34, AIBoru | Rule34 needs API credentials |
+| Danbooru | danbooru.donmai.us, safebooru.donmai.us (ships as the default) | API keys supported |
+| Gelbooru | Gelbooru, Rule34, AIBoru, safebooru.org (add manually) | Rule34 needs API credentials |
 | Moebooru | Konachan, Yandere | |
 | Szurubooru | any Szurubooru instance | |
 | Shimmie | any Shimmie instance | |
 | HyBooru | any HyBooru instance | |
 | Nuuru | soybooru.com | proof-of-work clearance solves itself in-app |
-| HiddenBooru | Tor onion service (+ slow I2P mirror) | needs a Tor proxy (`socks5h://127.0.0.1:9050`) |
+| HiddenBooru | Tor onion service (+ slow I2P mirror) | Tor proxy (`socks5h://127.0.0.1:9050`) or i2pd (`socks5h://127.0.0.1:4447`) |
 
 Any instance of a supported engine can be added in Preferences → Booru
 manager (base URL + engine type); only Safebooru ships preconfigured so

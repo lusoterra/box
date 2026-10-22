@@ -608,3 +608,75 @@
   existing client-side `blacklisted()` net instead.
 - [ ] Entry flag (persist + backup) + skip server exclusions when set.
 - [ ] Build + `ctest` (+ docs).
+
+## 54. HiddenBooru search route is /api/posts/search (not bare /api/posts) — DONE
+##    (searchUrl/refreshUrl pointed at the routed path; verified live: routed
+##    path hits the HBS wall instead of the app 404; build OK, 31/31 tests)
+- The v0.8 router has no bare `/api/posts` (verified in the tarball +
+  live: bare path app-404s with the horo page, `/api/posts/search`
+  routes to the HBS wall correctly). The engine used the bare path for
+  search + `id:` refresh, so every HiddenBooru search 404d.
+- [x] Point searchUrl/refreshUrl at `/api/posts/search`; fix the header comment.
+- [x] Build + `ctest` (+ docs).
+
+## 55. Comments never load: meta-cache key mismatch (label vs key) — DONE
+##    (key-form `metaKey()` + consistent fetch-skip; build OK, 31/31 tests)
+- `PostMetaFetcher` caches under the site KEY (`keyForLabel`), but
+  `ViewerPage::metaKey()` looks up by site LABEL — the keys never match,
+  so inline comments and the popup spinner both starve. Fix: key lookups
+  (and the fetch-skip check) by the stamped `siteKey`, falling back to
+  `keyForLabel(siteName)`.
+- [x] Key-consistent meta cache + fetch-skip.
+- [x] Build + `ctest` (+ docs).
+
+## 56. Rich comment cards (avatar, name, body)
+- Comment thread should render as cards: profile picture when the engine
+  provides one, else a name-initial circle; author name + date + body,
+  selectable text. `PostComment` gains an `avatarUrl` (empty from all
+  current engines) and a shared card builder used by the popup (inline
+  panel keeps its compact rows).
+- [ ] Avatar-aware comment cards in the popup.
+- [ ] Build + `ctest` (+ docs).
+
+## 57. Viewer toolbar order: download icon by the heart, globe named Open file
+- Rearrange to notes, ♥, download (icon-only, green when saved), globe
+  (tooltip `Open file`), `Copy file URL`, `Comments`. Shorter bar, still
+  readable.
+- [ ] Button order/icons/tooltips.
+- [ ] Build + `ctest` (+ docs).
+
+## 58. Server-side sort where supported; disable reordering sorts elsewhere
+- The sort box offers orders some engines can't do server-side, so they
+  sort client-side and infinite-scroll appends visibly reorder (Nuuru
+  `Top rated` was local-only). Nuuru actually has rich native `sort:`
+  tags (date[_asc|_desc], score[_asc|_desc], controversial[_desc],
+  id[_asc|_desc], filesize[_asc|_desc], tagcount[_asc|_desc], random —
+  observed in its own search UI): pass them through instead of stripping.
+- Direction: `sortSearchTag` gains Nuuru mappings (`id_desc`, `score_desc`,
+  `score_asc`, `random`, `id_asc`); `translateSearchTags` keeps validated
+  native `sort:` tokens for Nuuru; the sort box disables reorder-risk
+  options (score-*, random, id-asc) unless every tab site translates them
+  server-side (`added`/`Newest` stay: order-preserving everywhere).
+- [ ] Nuuru mappings + token passthrough + per-tab box enablement; tests.
+- [ ] Build + `ctest` (+ docs).
+
+## 59. Display names for extensionless file URLs (keep disk names)
+- Nuuru file URLs end in `/file`, so grid cards all read `file` (the
+  browser instead shows `<id> - <host> - <tags>.<ext>`). Add a pure
+  `displayFileName()` (URL filename when it has an extension, else
+  synthesized `<id> - <host> - <tags>.<ext>`, tags capped): grid
+  `DisplayRole` uses it; downloads keep `site_md5.ext` untouched.
+- [ ] Helper + grid wiring + tests (synthesized vs passthrough).
+- [ ] Build + `ctest` (+ docs).
+
+## 60. Ship Donmai's safebooru as the default (Danbooru engine) — DONE
+##    (preset baseUrl/engine + badge rule + preset/badge tests + docs;
+##    existing configs untouched (same key); build OK, 31/31 tests)
+- safebooru.donmai.us (Donmai's own SFW booru) speaks the Danbooru API
+  (verified live: `posts.json`, `tag_string`, letter ratings), but the
+  shipped `safebooru` preset pointed at safebooru.org (a Gelbooru fork)
+  with the Gelbooru engine. Point the preset at Donmai's host with the
+  Danbooru engine (same key/label, so existing configs are untouched);
+  safebooru.org stays addable manually as a Gelbooru entry.
+- [x] Preset baseUrl/engine + badge rule; preset + badge tests; docs.
+- [x] Build + `ctest`.

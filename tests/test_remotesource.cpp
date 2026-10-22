@@ -57,6 +57,11 @@ private slots:
         }
         QCOMPARE(sites.first().key, QStringLiteral("safebooru"));
         QVERIFY(!sites.first().baseUrl.isEmpty());
+        // Shipped default is Donmai's own SFW booru (Danbooru engine),
+        // not the Gelbooru-fork safebooru.org.
+        QCOMPARE(sites.first().baseUrl,
+                 QStringLiteral("https://safebooru.donmai.us"));
+        QCOMPARE(sites.first().engine, BooruEngine::Danbooru);
         QVERIFY(RemoteSource::siteFor(QStringLiteral("nope")) == nullptr);
     }
 
@@ -76,6 +81,9 @@ private slots:
                  QStringLiteral("#daac82"));
         QCOMPARE(defaultBadgeColor(QStringLiteral("https://safebooru.org"),
                                    BooruEngine::Gelbooru),
+                 QStringLiteral("#daac82"));
+        QCOMPARE(defaultBadgeColor(QStringLiteral("https://safebooru.donmai.us"),
+                                   BooruEngine::Danbooru),
                  QStringLiteral("#daac82"));
         QCOMPARE(defaultBadgeColor(QStringLiteral("https://shimmie.example"),
                                    BooruEngine::Shimmie),

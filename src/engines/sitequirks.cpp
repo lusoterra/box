@@ -46,6 +46,7 @@ QString defaultBadgeColor(const QString &baseUrl, BooruEngine engine) {
     if (subOf(QStringLiteral("aibooru.online")))
         return QStringLiteral("#44cc00");
     if (subOf(QStringLiteral("danbooru.donmai.us")) ||
+        subOf(QStringLiteral("safebooru.donmai.us")) ||
         subOf(QStringLiteral("safebooru.org")))
         return QStringLiteral("#daac82");
     if (engine == BooruEngine::Shimmie)
