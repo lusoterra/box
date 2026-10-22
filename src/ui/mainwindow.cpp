@@ -3334,9 +3334,30 @@ void MainWindow::showGridMenu(const QPoint &pos) {
         return;
     // Path-linked rows for Downloads locals (see favKeysByPath): identity
     // alone misses ("Site", id) rows behind ("local", hash) cards.
-    const auto byPath = favKeysByPath(m_favDb.localPaths());
+    const auto favLocalPaths = m_favDb.localPaths();
+    const auto byPath = favKeysByPath(favLocalPaths);
+    // On-disk file behind a row: absFile first, otherwise the downloaded
+    // copy the favourites DB links for remote rows (a download heals the
+    // row, but nothing stamps absFile back on it).
+    auto resolvedFile = [&](const Post &p) -> QString {
+        if (!p.absFile.isEmpty()) {
+            const QString c = QFileInfo(p.absFile).canonicalFilePath();
+            if (!c.isEmpty() && QFileInfo::exists(c))
+                return c;
+        }
+        if (p.isRemote) {
+            const auto it = favLocalPaths.find(favIdentity(p));
+            if (it != favLocalPaths.end() && !it.value().isEmpty()) {
+                const QString c = QFileInfo(it.value()).canonicalFilePath();
+                if (!c.isEmpty() && QFileInfo::exists(c))
+                    return c;
+            }
+        }
+        return {};
+    };
     bool allFav = true;
     bool anyRemote = false;
+    bool allDownloaded = !targets.isEmpty();
     QStringList anyFiles;
     for (const Post &p : targets) {
         bool marked = false;
@@ -3350,8 +3371,11 @@ void MainWindow::showGridMenu(const QPoint &pos) {
             allFav = false;
         if (p.isRemote && !p.fileUrl.isEmpty())
             anyRemote = true;
-        if (!p.absFile.isEmpty() && QFileInfo::exists(p.absFile))
-            anyFiles << QFileInfo(p.absFile).canonicalFilePath();
+        const QString res = resolvedFile(p);
+        if (res.isEmpty())
+            allDownloaded = false;
+        else
+            anyFiles << res;
     }
     anyFiles.removeDuplicates();
     QMenu menu(this);
@@ -3434,7 +3458,7 @@ void MainWindow::showGridMenu(const QPoint &pos) {
         });
     }
     QAction *dl = menu.addAction(tr("⭳ Download"));
-    dl->setEnabled(anyRemote);
+    dl->setEnabled(anyRemote && !allDownloaded); // downloaded rows delete instead
     connect(dl, &QAction::triggered, this, [this, targets] {
         QVector<Post> remote;
         for (const Post &p : targets) {
@@ -3484,13 +3508,18 @@ void MainWindow::showGridMenu(const QPoint &pos) {
         connect(edit, &QAction::triggered, this,
                 [this, post = targets.first()] { editStrayTags(post); });
     }
-    // Any on-disk file can become the home mascot (remote-only posts
-    // have no file yet — download them first).
-    if (targets.size() == 1 && !targets.first().absFile.isEmpty() &&
-        QFileInfo::exists(targets.first().absFile)) {
-        QAction *mascot = menu.addAction(tr("Set as mascot"));
-        connect(mascot, &QAction::triggered, this,
-                [this, post = targets.first()] { setAsMascot(post); });
+    // Any on-disk file can become the home mascot — including downloaded
+    // remote rows, whose copy the favourites DB links (absFile is empty
+    // on those). Download-first still applies: no file, no mascot.
+    if (targets.size() == 1) {
+        Post mascotPost = targets.first();
+        const QString res = resolvedFile(mascotPost);
+        if (!res.isEmpty()) {
+            mascotPost.absFile = res;
+            QAction *mascot = menu.addAction(tr("Set as mascot"));
+            connect(mascot, &QAction::triggered, this,
+                    [this, mascotPost] { setAsMascot(mascotPost); });
+        }
     }
     // Delete is a disk-only affair unless "deleting unfavourites" is on:
     // it removes the files (plus our download sidecars) and leaves the
@@ -3510,7 +3539,8 @@ void MainWindow::showGridMenu(const QPoint &pos) {
     }
     QAction *del = menu.addAction(tr("Delete from disk…"));
     del->setEnabled(!anyFiles.isEmpty() && !archiveTab);
-    connect(del, &QAction::triggered, this, [this, targets, anyFiles] {
+    connect(del, &QAction::triggered, this,
+            [this, targets, anyFiles, resolvedFile] {
         if (anyFiles.isEmpty())
             return;
         const bool unfav = m_settings.deleteUnfavs;
@@ -3556,11 +3586,8 @@ void MainWindow::showGridMenu(const QPoint &pos) {
             favByKey.insert(favIdentity(p), p);
         QSet<QString> warned;
         for (const Post &p : targets) {
-            if (p.absFile.isEmpty())
-                continue;
-            const QString abs =
-                QFileInfo(p.absFile).canonicalFilePath();
-            if (!anyFiles.contains(abs))
+            const QString abs = resolvedFile(p);
+            if (abs.isEmpty() || !anyFiles.contains(abs))
                 continue;
             const auto [site, pid] = favIdentity(p);
             if (!m_favDb.isFavourite(site, pid) || unfav)

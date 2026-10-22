@@ -598,15 +598,17 @@
 - [x] Parse counts + delegate pills.
 - [x] Build + `ctest` (+ docs).
 
-## 52. Grid right-click: delete when downloaded, restore mascot entry
+## 52. Grid right-click: delete when downloaded, restore mascot entry — DONE
+##    (resolvedFile: absFile else fav-linked copy; Download disabled when
+##    all on disk, Delete enabled, mascot shown; build OK, 32/32 tests)
 - Right-clicking an already-downloaded post still offers `⭳ Download`
   (should offer/emphasize `Delete from disk`); `Set as mascot` vanished
   for downloaded remote posts (menu only checks `absFile`, never the
   favourites relink path). Resolve on-disk paths via local paths for
   remote rows: downloaded ⇒ Download disabled, Delete enabled, mascot
   shown.
-- [ ] Menu state from resolved local paths.
-- [ ] Build + `ctest` (+ docs).
+- [x] Menu state from resolved local paths.
+- [x] Build + `ctest` (+ docs).
 
 ## 53. Per-booru local blacklist filter
 - Danbooru free accounts allow only 2 tags, so server-side `-tag`

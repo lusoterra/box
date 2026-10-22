@@ -64,7 +64,9 @@ bottom-left origin badge = site favicon + short name (`DAN`/`SFW`/…)
 keep the badge; below, info card with rating chip (`G`), score
 (`+12`), `#postid`, and the file name. The tooltip and the viewer
 link stay on the booru post page after a download (strays keep the
-local file). Tabs drag to reorder (welcome stays first).
+local file). Right-click menu resolves the on-disk file behind downloaded
+remote rows too: `⭳ Download` disables once everything selected is on
+disk, `Delete from disk…` enables, and `Set as mascot` shows. Tabs drag to reorder (welcome stays first).
 
 ## 04-file-menu — File
 `Open ▸` (folder picker), `Browse Downloads`, `Import LoliSnatcher
