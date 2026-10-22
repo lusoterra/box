@@ -216,11 +216,21 @@ GifView::GifView(QWidget *parent) : QGraphicsView(parent) {
 }
 
 void GifView::setFile(const QString &path) {
-    clear();
+    // Keep any placeholder thumb on screen: tearing it down here is what
+    // left GIFs on black while the first frame decoded. The frameChanged
+    // handler below swaps the placeholder pixmap in place when frame 0
+    // lands (same-size fast path, re-fit when the size changes).
+    if (m_movie) {
+        m_movie->stop();
+        delete m_movie;
+        m_movie = nullptr;
+    }
     m_movie = new QMovie(path, QByteArray(), this);
     if (!m_movie->isValid()) {
         delete m_movie;
         m_movie = nullptr;
+        m_scene->clear();
+        m_item = nullptr;
         auto *text = m_scene->addText(tr("Cannot play gif"));
         text->setDefaultTextColor(QColor(0xe0, 0x55, 0x55));
         Q_UNUSED(text);
@@ -273,6 +283,15 @@ void GifView::setFile(const QString &path) {
         return;
     }
     m_movie->start();
+}
+
+void GifView::setPlaceholder(const QPixmap &pm) {
+    clear();
+    if (pm.isNull())
+        return;
+    m_item = m_scene->addPixmap(pm);
+    m_scene->setSceneRect(m_item->boundingRect());
+    fit();
 }
 
 void GifView::clear() {
@@ -1557,17 +1576,23 @@ void ViewerPage::maybeFetchHybooruDetail() {
 
 void ViewerPage::primeThumb(int row) {
     // Navigation lands on the target's grid thumbnail instantly; the full
-    // file replaces it when ready. Videos and GIFs skip this (the player
-    // surface / gif pane would just flash over it — the gif flicker bug).
+    // file replaces it when ready. Videos skip this (the player surface
+    // would just flash over it). GIFs show the thumb inside the gif pane
+    // itself, so they never sit on black while the file downloads/decodes.
     if (!m_thumbModel || row < 0)
         return;
     const Post &p = m_posts.at(row);
-    if (isVideoExt(p.ext) || p.ext == QStringLiteral("gif"))
+    if (isVideoExt(p.ext))
         return;
     const QPixmap pm = qvariant_cast<QPixmap>(
         m_thumbModel->index(row, 0).data(Qt::DecorationRole));
     if (pm.isNull())
         return;
+    if (p.ext == QStringLiteral("gif")) {
+        m_stack->setCurrentWidget(m_gif);
+        m_gif->setPlaceholder(pm);
+        return;
+    }
     m_stack->setCurrentWidget(m_image);
     m_image->setImage(pm.toImage(), false);
 }
@@ -1629,11 +1654,17 @@ void ViewerPage::showCurrent() {
     }
 
     // Prerender: the grid thumbnail shows instantly while the full file
-    // downloads; replaced below when the real media is ready.
+    // downloads; replaced below when the real media is ready. GIFs keep
+    // the thumb inside the gif pane (never black while loading).
     m_image->setNotes({}, {});
     if (!m_pendingThumb.isNull()) {
-        m_stack->setCurrentWidget(m_image);
-        m_image->setImage(m_pendingThumb.toImage(), false);
+        if (p.ext == QStringLiteral("gif")) {
+            m_stack->setCurrentWidget(m_gif);
+            m_gif->setPlaceholder(m_pendingThumb);
+        } else if (!isVideoExt(p.ext)) {
+            m_stack->setCurrentWidget(m_image);
+            m_image->setImage(m_pendingThumb.toImage(), false);
+        }
         m_pendingThumb = QPixmap();
     }
 

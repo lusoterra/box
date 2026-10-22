@@ -563,7 +563,9 @@
 - [x] Per-tab viewer state save/restore.
 - [x] Build + `ctest` (+ docs).
 
-## 49. Stale-async race: refresh/video/ghost loads the wrong post
+## 49. Stale-async race: refresh/video/ghost loads the wrong post — DONE
+##    (refresh reqId generation guard already in tree; ghost-video id
+##    collision fixed under 64; video pane guards on url/gen verified)
 - Reports: tag refresh sometimes loads a random (danbooru) post instead
   of the current one; ATF videos sometimes show a ghost video from
   another tab, then the correct one. Smells like completion handlers
@@ -571,15 +573,18 @@
 - Direction: audit viewer refresh + video/image load completions for
   row/post identity checks (`m_webId`, pending-row guards); add
   generation stamps where absent; headless regression test if feasible.
-- [ ] Repro + guard the stale completions.
-- [ ] Build + `ctest` (+ docs).
+- [x] Repro + guard the stale completions.
+- [x] Build + `ctest` (+ docs).
 
-## 50. GIF loading thumbnail (not black)
+## 50. GIF loading thumbnail (not black) — DONE
+##    (`GifView::setPlaceholder` keeps the grid thumb on screen;
+##    `setFile` no longer clears it before frame 0; prime + pending
+##    paths route GIFs to the gif pane; build OK, 31/31 tests)
 - GIFs show straight black while loading (stills prerender the grid
   thumb via `m_pendingThumb`). Show the pending thumbnail in `GifView`
   until the first frame decodes.
-- [ ] Prerender path for GIFs mirroring stills.
-- [ ] Build + `ctest` (+ docs).
+- [x] Prerender path for GIFs mirroring stills.
+- [x] Build + `ctest` (+ docs).
 
 ## 51. Grid pills for comments and annotations
 - Grid cards show AI/♥/↓ marks; add 💬 when the post has comments and a

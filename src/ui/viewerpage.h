@@ -75,6 +75,7 @@ class GifView : public QGraphicsView {
 public:
     explicit GifView(QWidget *parent = nullptr);
     void setFile(const QString &path);
+    void setPlaceholder(const QPixmap &pm); // grid thumb until 1st frame lands
     void clear();
     void fit();
     void zoom100();
