@@ -1611,9 +1611,13 @@ void ViewerPage::showCurrent() {
 
     // Notes + comments for remote posts (cached per session).
     if (p.isRemote && m_meta) {
-        const QString key = RemotePosts::keyForLabel(p.siteName);
+        // Entry key first: a custom instance must query its own host,
+        // not the preset its engine label maps to.
+        const QString key = !p.siteKey.isEmpty()
+                                ? p.siteKey
+                                : RemotePosts::keyForLabel(p.siteName);
         const BooruSite *site = key.isEmpty() ? nullptr : RemoteSource::siteFor(key);
-        if (site && !m_metaCache.contains(p.siteName + u'#' + QString::number(p.id)))
+        if (site && !m_metaCache.contains(metaKey()))
             m_meta->fetch(key, site->baseUrl, p.id, site->engine);
     }
 
@@ -1834,7 +1838,14 @@ QString ViewerPage::metaKey() const {
     const Post &p = m_posts[m_row];
     if (!p.isRemote)
         return {};
-    return p.siteName + u'#' + QString::number(p.id);
+    // Key form (stamped entry key wins): the fetcher caches under the key
+    // it was given, never the display label — lookups must match it or
+    // cached comments are invisible and every view refetches.
+    const QString key =
+        !p.siteKey.isEmpty() ? p.siteKey : RemotePosts::keyForLabel(p.siteName);
+    if (key.isEmpty())
+        return {};
+    return key + u'#' + QString::number(p.id);
 }
 
 void ViewerPage::rebuildMetaTail() {
