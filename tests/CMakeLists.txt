@@ -122,6 +122,10 @@ add_unit_test(test_nuuru test_nuuru.cpp ${REMOTE_SOURCES}
               ../src/remote/tagsuggest.cpp ../src/library/tagtypes.cpp
               ../src/library/index.cpp ../src/library/metaparser.cpp
               ../src/library/cache.cpp ../src/settings.cpp)
+add_unit_test(test_commentmarks test_commentmarks.cpp ${REMOTE_SOURCES}
+              ../src/remote/tagsuggest.cpp ../src/library/tagtypes.cpp
+              ../src/library/index.cpp ../src/library/metaparser.cpp
+              ../src/library/cache.cpp ../src/settings.cpp)
 add_unit_test(test_hybooru test_hybooru.cpp ${REMOTE_SOURCES}
               ../src/remote/tagsuggest.cpp ../src/library/tagtypes.cpp
               ../src/library/index.cpp ../src/library/metaparser.cpp

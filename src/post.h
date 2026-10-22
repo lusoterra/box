@@ -41,6 +41,13 @@ struct Post {
     QString postUrl; // direct link to the post page (LOSN postURL); may be empty
     QString category;
     bool hasMeta = false;
+    // Comment/annotation presence for grid pills. Count when the API
+    // gives one (Szuru commentCount, Gelbooru comment_count); otherwise a
+    // last-comment/last-note stamp or flag means "has" (Danbooru/Moebooru
+    // timestamps, Gelbooru has_notes). False = none or not exposed.
+    int commentCount = 0;
+    bool hasComments = false;
+    bool hasNotes = false;
     // ── remote (browse mode) ──
     bool isRemote = false;
     QString siteName;   // "Danbooru", "Gelbooru", ...

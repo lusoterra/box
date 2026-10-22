@@ -1972,6 +1972,9 @@ void ViewerPage::renderMetaSections() {
 void ViewerPage::onMetaDone(const QString &site, qint64 postId,
                              QVector<PostNote> notes, QVector<PostComment> comments) {
     m_metaCache.insert(site + u'#' + QString::number(postId), {notes, comments});
+    // Grid pills learn from the fetched tail too (OR-in downstream):
+    // a post whose search row carried no stamp still earns its marks.
+    emit metaMarksChanged(site, postId, !comments.isEmpty(), !notes.isEmpty());
     // Re-render only if the user is still on that post (tag host was rebuilt
     // per show, so re-run the tail of showCurrent cheaply: rebuild panel).
     if (metaKey() != site + u'#' + QString::number(postId) || m_tagLayout == nullptr)

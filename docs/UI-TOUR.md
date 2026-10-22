@@ -55,7 +55,10 @@ so the two never stack).
 ## Grid card anatomy (see 19-badge-closeup)
 Thumbnail with, overlaid: top-right media kind (`▶` video / `GIF`);
 top-left status boxes, left to right: purple robot = AI-generated
-(`isAiPost`), red `♥` = favourited, green `↓` = downloaded;
+(`isAiPost`), red `♥` = favourited, green `↓` = downloaded,
+blue speech bubble = has comments, amber note = has annotations
+(counts/stamps where the engine exposes them; viewer-fetched threads
+mark the grid too);
 bottom-left origin badge = site favicon + short name (`DAN`/`SFW`/…)
 — downloaded rows resolve their folder back to the entry, so they
 keep the badge; below, info card with rating chip (`G`), score

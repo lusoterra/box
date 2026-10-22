@@ -100,6 +100,48 @@ void BooruEngineOps::finishRemote(Post &p, const QString &siteLabel,
                                   const QJsonObject &raw, BooruEngine engine,
                                   const QString &host) {
     p.isRemote = true;
+    // Comment/annotation presence for the grid pills. Shapes vary:
+    // numeric counts (Szuru commentCount, Gelbooru/Shimmie comment_count),
+    // last-comment stamps (Danbooru/Moebooru last_commented_at, Danbooru
+    // last_comment_bumped_at), note stamps (last_noted_at), flags
+    // (Gelbooru has_notes=yes), or arrays (Szuru notes).
+    auto present = [](const QJsonValue &v) {
+        if (v.isNull() || v.isUndefined())
+            return false;
+        if (v.isBool())
+            return v.toBool();
+        if (v.isDouble())
+            return v.toDouble() != 0.0;
+        if (v.isString()) {
+            const QString s = v.toString().trimmed();
+            return !s.isEmpty() && s != QStringLiteral("0") &&
+                   s.compare(QStringLiteral("no"), Qt::CaseInsensitive) != 0;
+        }
+        if (v.isArray())
+            return !v.toArray().isEmpty();
+        if (v.isObject())
+            return !v.toObject().isEmpty();
+        return false;
+    };
+    const double commentCount =
+        raw.value(QStringLiteral("comment_count")).toDouble(
+            raw.value(QStringLiteral("commentCount")).toDouble(-1.0));
+    if (commentCount > 0) {
+        p.commentCount = int(qMin<double>(commentCount, INT_MAX));
+        p.hasComments = true;
+    }
+    if (!p.hasComments &&
+        (present(raw.value(QStringLiteral("last_commented_at"))) ||
+         present(raw.value(QStringLiteral("last_comment_bumped_at")))))
+        p.hasComments = true;
+    const double noteCount =
+        raw.value(QStringLiteral("note_count")).toDouble(
+            raw.value(QStringLiteral("noteCount")).toDouble(0.0));
+    if (noteCount > 0 ||
+        present(raw.value(QStringLiteral("has_notes"))) ||
+        present(raw.value(QStringLiteral("last_noted_at"))) ||
+        present(raw.value(QStringLiteral("notes"))))
+        p.hasNotes = true;
     // Hygiene: every engine's tag blob funnels through here.
     p.tagsArtist = cleanTagTokens(splitTags(p.tagsArtist)).join(u' ');
     p.tagsCharacter = cleanTagTokens(splitTags(p.tagsCharacter)).join(u' ');

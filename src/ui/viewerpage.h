@@ -273,6 +273,10 @@ signals:
     void favouriteRequested(const Post &post);
     void refreshRequested(const Post &post);
     void pastEnd(); // nav stepped past the last loaded post
+    // Notes/comments arrived for a post: the grid ORs these into its pills
+    // (parse-time stamps miss posts whose meta only the viewer fetched).
+    void metaMarksChanged(const QString &siteKey, qint64 postId,
+                          bool hasComments, bool hasNotes);
 
 protected:
     void keyPressEvent(QKeyEvent *e) override;

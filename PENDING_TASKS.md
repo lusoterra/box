@@ -586,14 +586,17 @@
 - [x] Prerender path for GIFs mirroring stills.
 - [x] Build + `ctest` (+ docs).
 
-## 51. Grid pills for comments and annotations
+## 51. Grid pills for comments and annotations — DONE
+##    (`commentCount`/`hasComments`/`hasNotes` on Post via finishRemote;
+##    roles +14/+15 + hand-drawn bubble/note pills; viewer meta OR-in;
+##    commentmarks tests; build OK, 32/32 tests)
 - Grid cards show AI/♥/↓ marks; add 💬 when the post has comments and a
   notes mark when it has annotations, same pill style/positions. Data:
   record `comment_count` (and notes presence where the engine exposes
   it) on `Post` at parse, expose via model roles; cached viewer meta
   also marks.
-- [ ] Parse counts + delegate pills.
-- [ ] Build + `ctest` (+ docs).
+- [x] Parse counts + delegate pills.
+- [x] Build + `ctest` (+ docs).
 
 ## 52. Grid right-click: delete when downloaded, restore mascot entry
 - Right-clicking an already-downloaded post still offers `⭳ Download`

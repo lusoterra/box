@@ -197,6 +197,9 @@ private slots:
     // Recompute the current tab's ♥/↓ marks in place (bulk fav/unfav must
     // not wait for the next refill) and refresh the viewer badges.
     void repaintFavMarks();
+    // Viewer-fetched notes/comments OR into the grid pills in place.
+    void onMetaMarksChanged(const QString &siteKey, qint64 postId,
+                            bool hasComments, bool hasNotes);
     void showGridMenu(const QPoint &pos); // right-click actions on posts
     void maybeDeleteUnfavFile(const Post &post); // unfav-deletes-file option
     void importLosnBackup();

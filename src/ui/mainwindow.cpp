@@ -387,6 +387,36 @@ void GalleryDelegate::paint(QPainter *painter, const QStyleOptionViewItem &optio
                 QStringLiteral("\u2665"));
     if (index.data(Qt::UserRole + 13).toBool())
         markBox(QColor(0x2e, 0x8b, 0x6e, 210), QStringLiteral("\u2193"));
+    // Comments: steel-blue bubble with three white dots + tail (hand-drawn:
+    // emoji speech balloons are font-dependent tofu on minimal installs).
+    if (index.data(Qt::UserRole + 14).toBool()) {
+        const QRect cb(markX, imgR.top() + 4, 30, 18);
+        painter->setPen(Qt::NoPen);
+        painter->setBrush(QColor(0x4a, 0x90, 0xd9, 210));
+        painter->drawRoundedRect(cb, 4, 4);
+        QPolygon tail;
+        tail << QPoint(cb.left() + 7, cb.bottom() - 1)
+             << QPoint(cb.left() + 11, cb.bottom() - 1)
+             << QPoint(cb.left() + 8, cb.bottom() + 3);
+        painter->drawPolygon(tail);
+        painter->setBrush(Qt::white);
+        for (int i = 0; i < 3; ++i)
+            painter->drawEllipse(QPoint(cb.center().x() - 6 + i * 6,
+                                       cb.center().y() - 1),
+                                 1, 1);
+        markX += 34;
+    }
+    // Annotations: amber sticky note with two dark lines.
+    if (index.data(Qt::UserRole + 15).toBool()) {
+        const QRect nb(markX, imgR.top() + 4, 30, 18);
+        painter->setPen(Qt::NoPen);
+        painter->setBrush(QColor(0xb8, 0x8b, 0x2e, 210));
+        painter->drawRoundedRect(nb, 4, 4);
+        painter->setBrush(QColor(0x2a, 0x20, 0x10));
+        painter->drawRect(nb.left() + 7, nb.top() + 5, 16, 2);
+        painter->drawRect(nb.left() + 7, nb.top() + 10, 11, 2);
+        markX += 34;
+    }
 
     // Origin badge for remote posts (bottom-left over image):
     // site favicon + short text.
@@ -1151,6 +1181,8 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     });
     connect(m_viewer, &ViewerPage::refreshRequested, this,
             &MainWindow::refreshPost);
+    connect(m_viewer, &ViewerPage::metaMarksChanged, this,
+            &MainWindow::onMetaMarksChanged);
     connect(m_refresher, &PostRefresher::refreshed, this,
             &MainWindow::onRefreshDone);
     connect(m_refresher, &PostRefresher::failed, this,
@@ -3170,6 +3202,47 @@ void MainWindow::repaintFavMarks() {
         m_viewer->setFaved(m_favDb.isFavourite(site, pid));
     }
     updateViewerBadges();
+}
+
+void MainWindow::onMetaMarksChanged(const QString &siteKey, qint64 postId,
+                                    bool hasComments, bool hasNotes) {
+    if ((!hasComments && !hasNotes) || postId <= 0)
+        return;
+    // OR-in: parse-time stamps stay authoritative, the fetched tail only
+    // adds marks (a post whose search row carried no stamp earns them now).
+    auto markVec = [&](QVector<Post> &vec) {
+        for (Post &p : vec) {
+            if (!p.isRemote || p.id != postId)
+                continue;
+            const QString key = !p.siteKey.isEmpty()
+                                    ? p.siteKey
+                                    : RemotePosts::keyForLabel(p.siteName);
+            if (key != siteKey)
+                continue;
+            p.hasComments = p.hasComments || hasComments;
+            p.hasNotes = p.hasNotes || hasNotes;
+        }
+    };
+    markVec(m_current);
+    markVec(m_browseMerged);
+    if (BrowserTab *t = currentTab())
+        markVec(t->browseMerged);
+    for (int row = 0; row < m_model->rowCount() && row < m_current.size();
+         ++row) {
+        const Post &p = m_current.at(row);
+        if (!p.isRemote || p.id != postId)
+            continue;
+        const QString key = !p.siteKey.isEmpty()
+                                ? p.siteKey
+                                : RemotePosts::keyForLabel(p.siteName);
+        if (key != siteKey)
+            continue;
+        m_model->setData(m_model->index(row, 0),
+                         p.hasComments || p.commentCount > 0,
+                         Qt::UserRole + 14);
+        m_model->setData(m_model->index(row, 0), p.hasNotes,
+                         Qt::UserRole + 15);
+    }
 }
 
 void MainWindow::toggleFavourite(const Post &post) {
@@ -5231,6 +5304,10 @@ void MainWindow::fillModel() {
             item->setData(badgeFav, Qt::UserRole + 10);
         item->setData(badgeKey, Qt::UserRole + 11);
         item->setData(isAiPost(p), Qt::UserRole + 9); // grid "AI" chip
+        // Comments/annotations pills (parsed where the engine exposes
+        // counts/stamps/flags; viewer meta ORs in on arrival).
+        item->setData(p.hasComments || p.commentCount > 0, Qt::UserRole + 14);
+        item->setData(p.hasNotes, Qt::UserRole + 15);
         // Downloaded (under the download folder / linked favourite
         // file) and favourited marks, next to the AI chip.
         item->setData(isFavMarked(p, favLocal, favByPath),
