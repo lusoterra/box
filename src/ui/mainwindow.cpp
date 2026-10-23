@@ -1629,11 +1629,15 @@ void MainWindow::stageTabs() {
 bool MainWindow::restoreTabs() {
         if (m_settings.savedTabs.isEmpty())
         return false;
+    // Snapshot: every add below saves (stageTabs clears + rebuilds
+    // savedTabs), so iterating the live list is use-after-free — the
+    // once-per-version restore segfault.
+    const QList<AppSettings::SavedTab> saved = m_settings.savedTabs;
     bool any = false;
     m_tabBar->blockSignals(true);
     int current = 0;
     int n = 0;
-    for (const AppSettings::SavedTab &st : m_settings.savedTabs) {
+    for (const AppSettings::SavedTab &st : saved) {
         if (n >= 25)
             break;
         if (st.kind == QStringLiteral("local")) {
@@ -1656,7 +1660,7 @@ bool MainWindow::restoreTabs() {
         t->sort = st.sort.isEmpty() ? QStringLiteral("id-desc") : st.sort;
         updateTabTitle(m_tabs.size() - 1);
         if (n == qBound(0, m_settings.savedTabCurrent,
-                        m_settings.savedTabs.size() - 1))
+                        saved.size() - 1))
             current = m_tabs.size(); // tab-bar index (+1: tab 0 is welcome)
         n++;
         any = true;

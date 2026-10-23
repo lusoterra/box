@@ -999,3 +999,15 @@
   of standing on the error.
 - [x] Browser retry for walled still/gif loads.
 - [x] Build + `ctest` (+ docs).
+
+## 87. Restore segfault: iterating savedTabs while it rebuilds — DONE
+##    (snapshot copy before the restore loop; stale size ref fixed;
+##    xvfb-reproduced heap corruption, verified fixed; build OK)
+- First click after an upgrade segfaulted in
+  restoreTabs→addRemoteTab→updateTabTitle: the loop ranged over
+  `m_settings.savedTabs` while every added tab saved, and stageTabs
+  clears + rebuilds that same list mid-loop (use-after-free; heap
+  reuse decided whether it blew up). Reproduced headless (two saved
+  browse tabs + New browse tab = malloc abort).
+- [x] Iterate a snapshot copy; bound against it.
+- [x] Build + `ctest` (+ xvfb repro verification).
