@@ -970,3 +970,12 @@
   loaded thumbnail wore a comment bubble. Root cause, not data.
 - [x] Pixmap flag to free role +16; pills keep +14/+15.
 - [x] Build + `ctest` (+ docs).
+
+## 84. Failed viewer media is clickable for diagnostics — DONE
+##    (mediaFailed signal through video pane + viewer; redacted URL +
+##    reason in the status probe; build OK)
+- Double-clicking a card that won't play left only a status line.
+  Failures now arm the same clickable probe as search errors, so the
+  redacted request + reason open on click (useful for ATF walls).
+- [x] Failure signal + probe wiring.
+- [x] Build + `ctest` (+ docs).

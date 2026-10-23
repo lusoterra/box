@@ -171,6 +171,11 @@ public:
     // redirect cases the player cannot ride through itself).
     void setImageCache(class ImageCache *cache);
 
+signals:
+    // A fetch the player cannot recover from: surfaces in the status
+    // probe (clickable) with the redacted URL + reason.
+    void mediaFailed(const QString &url, const QString &error);
+
 protected:
     bool eventFilter(QObject *watched, QEvent *e) override; // click video = pause/resume
 
@@ -278,6 +283,9 @@ signals:
     void favouriteRequested(const Post &post);
     void refreshRequested(const Post &post);
     void pastEnd(); // nav stepped past the last loaded post
+    // Media the viewer cannot play (stills, GIFs, videos): surfaces in
+    // the status probe (clickable) with the redacted URL + reason.
+    void mediaFailed(const QString &url, const QString &error);
     // Notes/comments arrived for a post: the grid ORs these into its pills
     // (parse-time stamps miss posts whose meta only the viewer fetched).
     void metaMarksChanged(const QString &siteKey, qint64 postId,

@@ -1195,6 +1195,24 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
             &MainWindow::refreshPost);
     connect(m_viewer, &ViewerPage::metaMarksChanged, this,
             &MainWindow::onMetaMarksChanged);
+    connect(m_viewer, &ViewerPage::mediaFailed, this,
+            [this](const QString &url, const QString &error) {
+                // Double-clicked cards that won't play: the status line
+                // names it, and clicking it opens the redacted
+                // request/response like a search error does.
+                const QUrl u(url);
+                statusBar()->showMessage(
+                    u.host().isEmpty()
+                        ? tr("Media failed — click for details")
+                        : tr("Media failed on %1 — click for details")
+                              .arg(u.host()),
+                    10000);
+                setStatusProbe(
+                    tr("Media load failed"),
+                    RemotePosts::probeReportText(
+                        RemotePosts::redactSecrets(url), 0,
+                        error.toUtf8()));
+            });
     connect(m_refresher, &PostRefresher::refreshed, this,
             &MainWindow::onRefreshDone);
     connect(m_refresher, &PostRefresher::failed, this,

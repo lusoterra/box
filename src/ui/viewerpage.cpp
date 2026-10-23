@@ -952,6 +952,7 @@ void VideoPane::onCacheFailed(const QString &url, const QString &error) {
     m_buf->setText(error.isEmpty() ? tr("video unavailable") : error);
     m_buf->setStyleSheet(QStringLiteral("color:#e05555;"));
     m_buf->setVisible(true);
+    emit mediaFailed(url, error.isEmpty() ? tr("video unavailable") : error);
 }
 
 void VideoPane::onPlayerError(const QString &error) {
@@ -1019,6 +1020,8 @@ void VideoPane::onWebFinished(qint64 id, bool ok, const QString &error) {
         m_buf->setText(
             error.isEmpty() ? tr("video unavailable") : error);
         m_buf->setVisible(true);
+        emit mediaFailed(m_lastRemoteUrl,
+                         error.isEmpty() ? tr("video unavailable") : error);
     }
 }
 
@@ -1034,6 +1037,8 @@ ViewerPage::ViewerPage(QWidget *parent) : QWidget(parent) {
     m_image = new ImageView(this);
     m_gif = new GifView(this);
     m_video = new VideoPane(this);
+    connect(m_video, &VideoPane::mediaFailed, this,
+            &ViewerPage::mediaFailed); // straight relay to the shell
     m_stack->addWidget(m_image);
     m_stack->addWidget(m_gif);
     m_stack->addWidget(m_video);
@@ -1427,6 +1432,7 @@ void ViewerPage::onCacheFailed(const QString &url, const QString &error) {
     m_loadBar->setVisible(false);
     m_loadInfo->setVisible(false);
     showNote(tr("Download failed: %1").arg(error));
+    emit mediaFailed(url, error);
 }
 
 void ViewerPage::onCacheProgress(const QString &url, qint64 received, qint64 total) {
