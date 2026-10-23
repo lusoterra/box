@@ -979,3 +979,13 @@
   redacted request + reason open on click (useful for ATF walls).
 - [x] Failure signal + probe wiring.
 - [x] Build + `ctest` (+ docs).
+
+## 85. Media walls auto-refresh clearance once, then retry — DONE
+##    (silent profile re-ride on wall-marked media failures + re-show;
+##    session-scoped guard; build OK)
+- Rotating clearances (ATF) killed every viewer load until a manual
+  Booru-manager Refresh. A wall-marked media failure now triggers one
+  silent profile re-ride; changed cookies merge into the entry and the
+  post re-shows. Manual capture stays the fallback.
+- [x] Auto clearance refresh + retry on media walls.
+- [x] Build + `ctest` (+ docs).

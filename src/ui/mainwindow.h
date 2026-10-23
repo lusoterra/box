@@ -409,6 +409,9 @@ private:
     // explicit favourite or an explicit download request for the post.
     // Session-only: a fresh launch restores the automatic coupling.
     QSet<QString> m_unfavVeto;
+    // Media wall auto-heals already attempted (siteKey#id, session-only):
+    // one silent clearance re-ride per post, then the error stands.
+    QSet<QString> m_wallRefreshed;
     // Coalesced settings.ini flush (tab switches come in bursts; the
     // registry serialization is the slowest part of a switch).
     QTimer *m_saveTimer = nullptr;

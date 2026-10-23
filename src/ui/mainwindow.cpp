@@ -1212,6 +1212,66 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
                     RemotePosts::probeReportText(
                         RemotePosts::redactSecrets(url), 0,
                         error.toUtf8()));
+                // Rotating clearances (ATF): one silent profile re-ride
+                // per post, then re-show to refetch. Manual capture
+                // stays the fallback when the profile holds no session.
+                const QString low = error.toLower();
+                const bool walled =
+                    low.contains(QStringLiteral("hallenge")) ||
+                    low.contains(QStringLiteral("captcha")) ||
+                    low.contains(QStringLiteral("clearance")) ||
+                    low.contains(QStringLiteral("wall"));
+                if (!walled || !m_viewer->hasCurrent())
+                    return;
+                const Post cur = m_viewer->currentPost();
+                if (!cur.isRemote)
+                    return;
+                const QString key =
+                    !cur.siteKey.isEmpty()
+                        ? cur.siteKey
+                        : RemotePosts::keyForLabel(cur.siteName);
+                const QString tag =
+                    key + u'#' + QString::number(cur.id);
+                if (key.isEmpty() || m_wallRefreshed.contains(tag))
+                    return;
+                const BooruSite *cfg = RemoteSource::siteFor(key);
+                if (!cfg || cfg->baseUrl.isEmpty())
+                    return;
+                m_wallRefreshed.insert(tag);
+                statusBar()->showMessage(
+                    tr("Wall hit — refreshing clearance…"), 6000);
+                CookieGrabDialog::refreshSilent(
+                    cfg->baseUrl,
+                    effectiveDataDir(m_settings) +
+                        QStringLiteral("/webprofile"),
+                    [this, key](const QStringList &fresh) {
+                        if (fresh.isEmpty())
+                            return; // profile holds no session: manual path
+                        bool changed = false;
+                        for (BooruSite &b : m_settings.boorus) {
+                            if (b.key != key)
+                                continue;
+                            const QStringList merged =
+                                RemotePosts::normalizeCookies(b.cookies +
+                                                             fresh);
+                            if (merged != b.cookies) {
+                                b.cookies = merged;
+                                changed = true;
+                            }
+                            break;
+                        }
+                        if (!changed)
+                            return;
+                        saveSettings(m_settings);
+                        RemoteSource::setConfiguredBoorus(m_settings.boorus);
+                        applyBooruCreds();
+                        statusBar()->showMessage(
+                            tr("Clearance refreshed — retrying media…"),
+                            6000);
+                        if (m_pages->currentIndex() == 1 &&
+                            m_viewer->hasCurrent())
+                            m_viewer->showRow(m_viewer->currentRow());
+                    });
             });
     connect(m_refresher, &PostRefresher::refreshed, this,
             &MainWindow::onRefreshDone);
