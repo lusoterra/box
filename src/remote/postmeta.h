@@ -35,18 +35,24 @@ public:
     void cancel();
 
 signals:
-    // ok=false: the fetch failed (network, HTTP error, or an unparseable
-    // body like a challenge page) — caches must NOT treat the empties as
+    // ok=false: the fetch failed (network, HTTP error, challenge page,
+    // unparseable body) — caches must NOT treat the empties as
     // definitive, and the UI should offer a retry instead of silence.
+    // error names the reason (no URLs/secrets, safe for status lines).
     void done(const QString &siteKey, qint64 postId, QVector<PostNote> notes,
-              QVector<PostComment> comments, bool ok);
+              QVector<PostComment> comments, bool ok, const QString &error);
 
 private:
     void finishPart();
+    // Native PoW re-solve attempt for 449-gated stacks; true when a
+    // solve started (results arrive as a fresh done, not this one).
+    bool maybePowRetry(const QByteArray &body, int http);
     class QNetworkAccessManager *m_nam;
     class QNetworkReply *m_notesReply = nullptr;
     class QNetworkReply *m_commentsReply = nullptr;
     QString m_site;
+    QString m_baseUrl; // for PoW re-solve scoping
+    BooruEngine m_engine = BooruEngine::Danbooru;
     qint64 m_postId = 0;
     QVector<PostNote> m_notes;
     QVector<PostComment> m_comments;
@@ -54,6 +60,9 @@ private:
     bool m_commentsDone = true;
     bool m_notesOk = true;
     bool m_commentsOk = true;
+    bool m_powRetried = false; // one native PoW re-solve per fetch
+    QString m_notesErr;
+    QString m_commentsErr;
     QString m_danUser, m_danKey, m_gelUser, m_gelKey;
 };
 

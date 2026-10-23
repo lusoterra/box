@@ -1,5 +1,6 @@
 #include "postmeta.h"
 
+#include "powsolver.h"
 #include "remotesource.h"
 
 #include <QJsonArray>
@@ -46,7 +47,10 @@ void PostMetaFetcher::fetch(const QString &siteKey, const QString &baseUrl,
                             qint64 postId, BooruEngine engine) {
     cancel();
     m_site = siteKey;
+    m_baseUrl = baseUrl;
+    m_engine = engine;
     m_postId = postId;
+    m_powRetried = false;
     m_notes.clear();
     m_comments.clear();
     m_notesDone = false;
@@ -78,42 +82,64 @@ void PostMetaFetcher::fetch(const QString &siteKey, const QString &baseUrl,
     }
     if (!notesReq.url().isEmpty()) {
         m_notesOk = false; // issued: must prove success below
+        m_notesErr.clear();
         m_notesReply = m_nam->get(notesReq);
         connect(m_notesReply, &QNetworkReply::finished, this, [this] {
             QNetworkReply *r = m_notesReply;
             m_notesReply = nullptr;
             // HTTP-level failure or an unparseable body (challenge page,
             // wall HTML): not a definitive empty — the caller retries.
+            // Bodies read unconditionally: a 449 surfaces as a reply
+            // error but still carries the pow/captcha verdict below.
             bool ok = false;
-            if (r && r->error() == QNetworkReply::NoError &&
-                r->attribute(QNetworkRequest::HttpStatusCodeAttribute)
-                        .toInt() /
-                    100 ==
-                2)
-                m_notes = PostMeta::parseNotes(r->readAll(), &ok);
-            m_notesOk = ok;
-            if (r)
+            int http = 0;
+            QByteArray body;
+            if (r) {
+                http =
+                    r->attribute(QNetworkRequest::HttpStatusCodeAttribute)
+                        .toInt();
+                body = r->readAll();
+                if (r->error() == QNetworkReply::NoError && http / 100 == 2)
+                    m_notes = PostMeta::parseNotes(body, &ok);
+                else if (r->error() != QNetworkReply::NoError)
+                    m_notesErr = r->errorString();
+                else
+                    m_notesErr = tr("HTTP %1").arg(http);
                 r->deleteLater();
+            }
+            m_notesOk = ok;
+            if (!ok && maybePowRetry(body, http))
+                return; // native re-solve in flight; results land as new done
             m_notesDone = true;
             finishPart();
         });
     }
     if (!commentsReq.url().isEmpty()) {
         m_commentsOk = false; // issued: must prove success below
+        m_commentsErr.clear();
         m_commentsReply = m_nam->get(commentsReq);
         connect(m_commentsReply, &QNetworkReply::finished, this, [this] {
             QNetworkReply *r = m_commentsReply;
             m_commentsReply = nullptr;
             bool ok = false;
-            if (r && r->error() == QNetworkReply::NoError &&
-                r->attribute(QNetworkRequest::HttpStatusCodeAttribute)
-                        .toInt() /
-                    100 ==
-                2)
-                m_comments = PostMeta::parseComments(r->readAll(), &ok);
-            m_commentsOk = ok;
-            if (r)
+            int http = 0;
+            QByteArray body;
+            if (r) {
+                http =
+                    r->attribute(QNetworkRequest::HttpStatusCodeAttribute)
+                        .toInt();
+                body = r->readAll();
+                if (r->error() == QNetworkReply::NoError && http / 100 == 2)
+                    m_comments = PostMeta::parseComments(body, &ok);
+                else if (r->error() != QNetworkReply::NoError)
+                    m_commentsErr = r->errorString();
+                else
+                    m_commentsErr = tr("HTTP %1").arg(http);
                 r->deleteLater();
+            }
+            m_commentsOk = ok;
+            if (!ok && maybePowRetry(body, http))
+                return; // native re-solve in flight; results land as new done
             m_commentsDone = true;
             finishPart();
         });
@@ -137,8 +163,44 @@ void PostMetaFetcher::cancel() {
 void PostMetaFetcher::finishPart() {
     if (!m_notesDone || !m_commentsDone)
         return;
+    QString err = m_notesErr;
+    if (err.isEmpty())
+        err = m_commentsErr;
     emit done(m_site, m_postId, m_notes, m_comments,
-              m_notesOk && m_commentsOk);
+              m_notesOk && m_commentsOk, err);
+}
+
+// Native PoW re-solve for 449-gated stacks (Nuuru): the token is
+// IP-bound, so it must be minted on this exact NAM (same proxy and
+// egress, same jar) before retrying once. Captchas stay human —
+// the failure message says to solve in the browser, then Retry.
+bool PostMetaFetcher::maybePowRetry(const QByteArray &body, int http) {
+    if (m_powRetried || m_engine != BooruEngine::Nuuru || body.isEmpty())
+        return false;
+    const QString text = QString::fromUtf8(body);
+    if (!text.contains(QStringLiteral("pow_required"), Qt::CaseInsensitive)) {
+        if (text.contains(QStringLiteral("captcha_required"),
+                          Qt::CaseInsensitive)) {
+            const QString msg =
+                tr("Captcha required — solve it in the capture browser, "
+                   "then Retry.");
+            if (m_notesErr.isEmpty() && m_commentsErr.isEmpty()) {
+                m_notesErr = msg;
+                m_commentsErr = msg;
+            }
+        }
+        return false;
+    }
+    Q_UNUSED(http);
+    m_powRetried = true; // set before the async solve: both parts funnel here
+    PowSolver::solve(m_nam, m_baseUrl, this,
+                     [this](bool ok, const QStringList &, const QString &) {
+                         if (!ok)
+                             return; // solve failed: original failure stands
+                         fetch(m_site, m_baseUrl, m_postId, m_engine);
+                         m_powRetried = true; // fetch() resets; keep the guard
+                     });
+    return true;
 }
 
 namespace PostMeta {

@@ -906,6 +906,7 @@
 ## 78. Comment badges vs threads disagree (esp. ATF forks) — DONE
 ##    (fetch success tracked; failures never cached as empty, error +
 ##    retry in thread UI; reopen refetches; parse ok-flags + tests;
+##    Nuuru native PoW re-solve in fetcher; failure reasons surfaced;
 ##    build OK)
 - ATF (danbooru fork, booru.allthefallen.moe): grid cards show comment
   badges but threads load empty, and posts WITH comments fail to load

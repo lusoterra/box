@@ -1931,9 +1931,14 @@ void ViewerPage::renderMetaSections() {
     m_metaSectionStart = m_tagLayout ? m_tagLayout->count() : 0;    const auto it = m_metaCache.find(metaKey());
     if (it == m_metaCache.end()) {
         if (m_metaFailed.contains(metaKey())) {
+            const QString why = m_metaFailureReason.value(metaKey());
             auto *l = new QLabel(
-                tr("Notes/comments failed to load — press the reload "
-                   "button to retry."),
+                why.isEmpty()
+                    ? tr("Notes/comments failed to load — press the reload "
+                         "button to retry.")
+                    : tr("Notes/comments failed to load (%1) — press the "
+                         "reload button to retry.")
+                          .arg(why),
                 this);
             l->setWordWrap(true);
             l->setStyleSheet(QStringLiteral("color:#e0a055;font-size:11px;"));
@@ -2034,7 +2039,8 @@ void ViewerPage::refetchMeta(const Post &p) {
 }
 
 void ViewerPage::onMetaDone(const QString &site, qint64 postId,
-                             QVector<PostNote> notes, QVector<PostComment> comments, bool ok) {
+                             QVector<PostNote> notes, QVector<PostComment> comments, bool ok,
+                             const QString &error) {
     const QString key = site + u'#' + QString::number(postId);
     if (!ok) {
         // Failed fetch (network, HTTP error, challenge page): never cache
@@ -2042,6 +2048,7 @@ void ViewerPage::onMetaDone(const QString &site, qint64 postId,
         // thread UI shows the failure with a retry; reopening refetches
         // (the fetch gate only skips cached keys).
         m_metaFailed.insert(key);
+        m_metaFailureReason.insert(key, error);
         if (metaKey() == key) {
             if (m_commentsBtn)
                 m_commentsBtn->setText(tr("Comments"));
@@ -2050,6 +2057,7 @@ void ViewerPage::onMetaDone(const QString &site, qint64 postId,
         return;
     }
     m_metaFailed.remove(key);
+    m_metaFailureReason.remove(key);
     m_metaCache.insert(key, {notes, comments});
     // Grid pills learn from the fetched tail too (OR-in downstream):
     // a post whose search row carried no stamp still earns its marks.
@@ -2077,8 +2085,13 @@ void ViewerPage::reloadCurrent() {
     emit refreshRequested(p);
     // Comments/notes: drop the cached tail so the fetch below runs again
     // (the open popup, if any, refills itself on the done signal).
-    if (p.isRemote)
-        m_metaCache.remove(p.siteName + u'#' + QString::number(p.id));
+    // Key form matters (site key, not display label) or the stale tail
+    // survives and the retry silently replays it.
+    if (p.isRemote) {
+        m_metaCache.remove(metaKey());
+        m_metaFailed.remove(metaKey());
+        m_metaFailureReason.remove(metaKey());
+    }
     // Media bytes: drop the cached file so the re-show refetches.
     if (p.isRemote && m_imgCache) {
         const QString url = RemotePosts::viewerUrlFor(p);
@@ -2170,9 +2183,12 @@ void ViewerPage::showCommentsPopup() {
             const auto it = m_metaCache.constFind(key);
             if (it == m_metaCache.constEnd() &&
                 m_metaFailed.contains(key)) {
+                const QString why = m_metaFailureReason.value(key);
                 auto *l = new QLabel(
-                    tr("Couldn't load the thread (network or login "
-                       "wall)."),
+                    why.isEmpty()
+                        ? tr("Couldn't load the thread (network or login "
+                             "wall).")
+                        : tr("Couldn't load the thread (%1).").arg(why),
                     host);
                 l->setWordWrap(true);
                 l->setStyleSheet(QStringLiteral("color:#e0a055;"));
@@ -2218,7 +2234,8 @@ void ViewerPage::showCommentsPopup() {
     connect(m_meta, &PostMetaFetcher::done, dlg,
             [this, dlg, key, fill](const QString &site, qint64 postId,
                                    const QVector<PostNote> &,
-                                   const QVector<PostComment> &, bool) {
+                                   const QVector<PostComment> &, bool,
+                                   const QString &) {
                 if (key.isEmpty() ||
                     key != site + u'#' + QString::number(postId))
                     return;
@@ -2247,9 +2264,7 @@ void ViewerPage::stageNotes() {
     }
     // Always (re)stage, even when empty: otherwise the previous post's
     // boxes would linger onto an un-noted image.
-    const auto it = m_metaCache.find(p.isRemote
-                                         ? p.siteName + u'#' + QString::number(p.id)
-                                         : QString());
+    const auto it = m_metaCache.find(metaKey());
     if (it == m_metaCache.end())
         m_image->setNotes({}, {});
     else

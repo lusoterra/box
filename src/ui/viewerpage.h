@@ -296,7 +296,8 @@ private slots:
     QWidget *commentCard(const PostComment &c, QWidget *parent);
     void reloadCurrent(); // tags + comments/notes + media bytes, fresh
     void onMetaDone(const QString &site, qint64 postId, QVector<PostNote> notes,
-                    QVector<PostComment> comments, bool ok);
+                    QVector<PostComment> comments, bool ok,
+                    const QString &error);
     // Re-run the meta fetch for a post whose cache entry is missing or
     // failed (popup Retry, reopen). No-op when nothing remote applies.
     void refetchMeta(const Post &p);
@@ -353,6 +354,8 @@ private:
     // Meta fetches that failed (never cached as definitive-empty):
     // reopening refetches, and the thread UI offers a retry.
     QSet<QString> m_metaFailed;
+    // Failure reason per key (status-line safe, no URLs/secrets).
+    QHash<QString, QString> m_metaFailureReason;
     // Comments collapse state: long threads show the first few behind a
     // show-all toggle (reset on every post change).
     bool m_commentsExpanded = false;
