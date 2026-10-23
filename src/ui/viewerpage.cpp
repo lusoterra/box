@@ -59,6 +59,17 @@ QString formatBytes(qint64 bytes) {
         return QString::number(bytes / 1024.0, 'f', 1) + QStringLiteral(" KB");
     return QString::number(bytes / (1024.0 * 1024.0), 'f', 1) + QStringLiteral(" MB");
 }
+// Wall markers shared with the shell's auto-refresh gate: challenge and
+// captcha pages, clearances, and bare HTTP failures on walled hosts.
+bool isWallError(const QString &error) {
+    const QString low = error.toLower();
+    return low.contains(QStringLiteral("hallenge")) ||
+           low.contains(QStringLiteral("captcha")) ||
+           low.contains(QStringLiteral("clearance")) ||
+           low.contains(QStringLiteral("wall")) || low.contains(QStringLiteral("403")) ||
+           low.contains(QStringLiteral("449")) ||
+           low.startsWith(QStringLiteral("http"));
+}
 } // namespace
 
 // ── ImageView ────────────────────────────────────────────────────
@@ -1369,6 +1380,12 @@ void ViewerPage::setThumbModel(QAbstractItemModel *model) {
 
 void ViewerPage::setWebBackend(WebDownloadBackend *backend) {
     m_video->setWebBackend(backend);
+    if (m_stillWeb == backend)
+        return;
+    m_stillWeb = backend;
+    if (m_stillWeb)
+        connect(m_stillWeb, &WebDownloadBackend::finished, this,
+                &ViewerPage::onStillWebFinished);
 }
 
 void ViewerPage::setImageCache(ImageCache *cache) {
@@ -1433,6 +1450,81 @@ void ViewerPage::onCacheFailed(const QString &url, const QString &error) {
     m_loadInfo->setVisible(false);
     showNote(tr("Download failed: %1").arg(error));
     emit mediaFailed(url, error);
+    // Fingerprint-walled stills/GIFs (ATF originals): the browser stack
+    // re-runs page JS and mints fresh clearance where QNAM replays a
+    // dead cookie. One retry, then the error stands.
+    if (!m_webRetried && m_row >= 0 && m_row < m_posts.size() && m_stillWeb) {
+        const Post &p = m_posts.at(m_row);
+        const QString target =
+            !p.fileUrl.isEmpty() ? p.fileUrl : RemotePosts::viewerUrlFor(p);
+        if (p.isRemote && RemotePosts::needsWebDownload(p) &&
+            isWallError(error) && !target.isEmpty()) {
+            m_webRetried = true;
+            const QString ext =
+                QFileInfo(QUrl(target).path()).suffix().toLower();
+            const QString dir =
+                QStandardPaths::writableLocation(
+                    QStandardPaths::CacheLocation) +
+                QStringLiteral("/box/image-tmp");
+            QDir().mkpath(dir);
+            m_stillTmp =
+                dir + u'/' +
+                QString::fromLatin1(
+                    QCryptographicHash::hash(target.toUtf8(),
+                                             QCryptographicHash::Sha1)
+                        .toHex()) +
+                (ext.isEmpty() ? QStringLiteral(".bin") : u'.' + ext);
+            m_stillRow = m_row;
+            static std::atomic<qint64> nextStillWebId{1LL << 61};
+            m_stillWebId = ++nextStillWebId;
+            showNote(tr("Retrying in browser…"));
+            m_loadBar->setRange(0, 0);
+            m_loadBar->setVisible(true);
+            m_stillWeb->start(m_stillWebId, target, m_stillTmp);
+        }
+    }
+}
+
+void ViewerPage::onStillWebFinished(qint64 id, bool ok, const QString &error) {
+    if (id != m_stillWebId)
+        return;
+    m_stillWebId = -1;
+    const QString tmp = m_stillTmp;
+    m_stillTmp.clear();
+    if (m_stillRow < 0 || m_stillRow >= m_posts.size() ||
+        m_stillRow != m_row || !QFile::exists(tmp)) {
+        QFile::remove(tmp);
+        if (!ok)
+            showNote(tr("Download failed: %1").arg(error));
+        return;
+    }
+    if (!ok) {
+        QFile::remove(tmp);
+        showNote(tr("Download failed: %1").arg(error));
+        emit mediaFailed(m_posts.at(m_row).fileUrl, error);
+        return;
+    }
+    // Browser bytes win: show them like a cache hit (temp file lingers
+    // in the cache dir until the janitor ages it out).
+    m_pendingUrl.clear();
+    m_loadBar->setVisible(false);
+    showNote({});
+    if (m_posts.at(m_row).ext == QStringLiteral("gif")) {
+        m_stack->setCurrentWidget(m_gif);
+        m_gif->setFile(tmp);
+    } else {
+        loadLocalImage(tmp, m_row);
+    }
+}
+
+void ViewerPage::dropStillWeb() {
+    if (m_stillWebId >= 0 && m_stillWeb)
+        m_stillWeb->cancel(m_stillWebId);
+    m_stillWebId = -1;
+    if (!m_stillTmp.isEmpty()) {
+        QFile::remove(m_stillTmp);
+        m_stillTmp.clear();
+    }
 }
 
 void ViewerPage::onCacheProgress(const QString &url, qint64 received, qint64 total) {
@@ -1585,6 +1677,8 @@ void ViewerPage::showRow(int row) {
     m_pendingUrl.clear();
     m_pendingRow = -1;
     m_sampleFallback = false;
+    m_webRetried = false;
+    dropStillWeb(); // cancel any in-flight browser retry for the old row
     m_loadBar->setVisible(false);
     m_loadInfo->setVisible(false);
     showNote({});

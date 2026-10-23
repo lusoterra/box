@@ -127,7 +127,9 @@ failures, never while still loading/buffering; any failure also arms the
 status-bar probe, so clicking the `Media failed…` line opens the
 redacted URL + reason like a search error does; a wall-marked failure
 also triggers one silent clearance refresh from the capture profile,
-then retries the post automatically). Right: metadata (`#id`, site —
+then retries the post automatically; fingerprint-walled stills/GIFs
+additionally retry through the browser backend, which re-runs page JS
+where QNAM replays a dead cookie). Right: metadata (`#id`, site —
 downloaded rows show their booru `Label (Engine)` form —, URLs (the
 post page, not the downloaded file, except strays),
 score, rating with `(inferred)` flag, dimensions, ext) and clickable tag

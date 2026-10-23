@@ -989,3 +989,13 @@
   post re-shows. Manual capture stays the fallback.
 - [x] Auto clearance refresh + retry on media walls.
 - [x] Build + `ctest` (+ docs).
+
+## 86. Viewer stills/GIFs retry through the browser backend on walls — DONE
+##    (QNAM first, one browser re-fetch on wall errors for quirk hosts;
+##    temp-file load like cache hits; build OK)
+- ATF originals/samples die on QNAM (dead static cookie) while the
+  browser self-solves. Videos already rode the browser backend; stills
+  and GIFs now retry through it once on wall-marked failures instead
+  of standing on the error.
+- [x] Browser retry for walled still/gif loads.
+- [x] Build + `ctest` (+ docs).

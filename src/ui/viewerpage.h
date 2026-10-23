@@ -257,6 +257,8 @@ public:
     // Displayed still/gif frame (null for video/black): refresh re-shows
     // feed it back as the pending thumb so the media never blanks.
     QPixmap currentPixmap() const;
+    void onStillWebFinished(qint64 id, bool ok, const QString &error);
+    void dropStillWeb(); // cancel a browser-backed still/gif fetch
     void setPlaybackDefaults(bool muted, bool loop, int volume);
     // Quit path: halt video playback (and its buffered fetch) now so the
     // player teardown never holds the close event open.
@@ -356,6 +358,13 @@ private:
     QBoxLayout *m_tagLayout = nullptr;
     int m_maxSide = 2560;
     ImageCache *m_imgCache = nullptr;
+    // Browser-backed fetch for fingerprint-walled stills/GIFs (same
+    // backend the videos use): QNAM first, one browser retry on walls.
+    class WebDownloadBackend *m_stillWeb = nullptr;
+    qint64 m_stillWebId = -1;
+    QString m_stillTmp;
+    int m_stillRow = -1;
+    bool m_webRetried = false; // one browser retry per post max
     PostMetaFetcher *m_meta = nullptr;
     // (site#id) -> notes+comments, so back/forth never refetches.
     QHash<QString, QPair<QVector<PostNote>, QVector<PostComment>>> m_metaCache;
