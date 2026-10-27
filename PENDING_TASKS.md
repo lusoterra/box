@@ -1019,7 +1019,9 @@
 - [x] Iterate a snapshot copy; bound against it.
 - [x] Build + `ctest` (+ xvfb repro verification).
 
-## 88. Clickable meta-failure warning (why did comments/notes fail)
+## 88. Clickable meta-failure warning (why did comments/notes fail) — DONE
+##    (probeRequested signal + link labels in both the tag panel note
+##    and the comments popup; post URL + reason in the dialog; build OK)
 - The `Notes/comments failed to load (…)` note should open the probe
   dialog (redacted request + reason) like media/search failures do.
 - [x] Wire the note to the status probe.
@@ -1063,13 +1065,17 @@
 - [x] Repro + fix source swap on navigation.
 - [x] Build + `ctest` (+ docs).
 
-## 94. Filter pills hide in post view like the omnibar
+## 94. Filter pills hide in post view like the omnibar — DONE
+##    (pill bar hidden with the omnibar on viewer enter, restored on
+##    back-to-grid, kept hidden if results land while viewing; build OK)
 - Opening a post hides the omnibar but the pill bar stays visible and
   invites misclicks. Hide it together with the omnibar.
 - [x] Hide/show pill bar on viewer enter/exit.
 - [x] Build + `ctest` (+ docs).
 
-## 95. Tag-category labels: readable casing both panes
+## 95. Tag-category labels: readable casing both panes — DONE
+##    (ENTITY TYPE left, underscores→spaces right; empty categories hide;
+##    tiny categories auto-shrink; build OK)
 - Left sidebar: `Entity_type` → `ENTITY TYPE` (caps, no underscores).
   Right viewer panel: underscores → spaces (keep the case style there).
   Empty categories stop rendering entirely (until something shows up);
