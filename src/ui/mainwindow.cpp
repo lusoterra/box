@@ -59,6 +59,7 @@
 #include <QPushButton>
 #include <QProgressBar>
 #include <QProgressDialog>
+#include <QScrollArea>
 #include <QScrollBar>
 #include <QSet>
 #include <QShortcut>
@@ -1027,6 +1028,16 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     sideLay->addWidget(m_sideSplit, 1);
     side->setMinimumWidth(200);
     side->setMaximumWidth(460);
+    // Single-scroll mode wraps the splitter: per-category scrollbars
+    // disappear and one scrollbar scrolls through everything.
+    m_sideScroll = new QScrollArea(this);
+    m_sideScroll->setWidgetResizable(true);
+    m_sideScroll->setFrameShape(QFrame::NoFrame);
+    m_sideScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_sideScroll->setWidget(m_sideSplit);
+    sideLay->removeWidget(m_sideSplit);
+    sideLay->addWidget(m_sideScroll, 1);
+    applySidebarScrollMode();
 
     // ── Pages: grid + same-window viewer ──
     m_pages = new QStackedWidget(this);
@@ -3243,6 +3254,7 @@ void MainWindow::rebuildBrowseSidebar() {
         if (!customCounts.contains(it.key()))
             it->box->setVisible(false);
     }
+    applySidebarScrollMode(); // override heights for the scroll mode
 }
 
 void MainWindow::onViewerPastEnd() {
@@ -5361,6 +5373,39 @@ void MainWindow::rebuildSidebar() {
     rebuildTagTab(m_metaList, s.topMeta, QStringLiteral("meta"));
 }
 
+void MainWindow::applySidebarScrollMode() {
+    // Single-scroll: per-category scrollbars disappear and each section
+    // shrinks to its content so one outer scrollbar scrolls through
+    // everything. Per-category (default): each list scrolls itself.
+    const bool single = m_settings.sidebarSingleScroll;
+    for (int i = 0; i < m_sideSplit->count(); ++i) {
+        QWidget *box = m_sideSplit->widget(i);
+        if (!box)
+            continue;
+        auto *list = box->findChild<QListWidget *>();
+        if (!list)
+            continue;
+        list->setVerticalScrollBarPolicy(single ? Qt::ScrollBarAlwaysOff
+                                                : Qt::ScrollBarAsNeeded);
+        if (single) {
+            // Header (~16px) + rows (~22px each) + margins.
+            box->setMaximumHeight(22 + list->count() * 22 + 8);
+        } else if (list->count() > 0 && list->count() <= 3) {
+            // Tiny categories shrink so many fit at once (per-category
+            // mode only; single-scroll stacks them all anyway).
+            box->setMaximumHeight(18 + list->count() * 22 + 6);
+        } else {
+            box->setMaximumHeight(QWIDGETSIZE_MAX);
+        }
+    }
+    if (m_sideScroll) {
+        // The scroll area only matters in single mode; per-category mode
+        // lets the splitter fill the space without an outer scrollbar.
+        m_sideScroll->setVerticalScrollBarPolicy(
+            single ? Qt::ScrollBarAsNeeded : Qt::ScrollBarAlwaysOff);
+    }
+}
+
 void MainWindow::rebuildTagTab(QListWidget *list,
                                const QVector<QPair<QString, int>> &entries,
                                const QString &bucket) {
@@ -6797,6 +6842,7 @@ void MainWindow::applyPreferences(const AppSettings &app) {
     }
     applyBooruCreds();
     applyThemeFromSettings();
+    applySidebarScrollMode();
     setAspect(m_settings.aspectNum, m_settings.aspectDen);
     m_grid->setScrollRows(m_settings.gridScrollRows);
     const bool diskCachePrefs = m_settings.thumbCache;

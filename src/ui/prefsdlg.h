@@ -100,6 +100,7 @@ private:
     QColor m_booruColor;
     QCheckBox *m_booruNoClassify = nullptr;
     QCheckBox *m_booruLocalBlacklist = nullptr;
+    QCheckBox *m_sidebarSingleScroll = nullptr;
     QLineEdit *m_booruTags = nullptr;
     QLineEdit *m_booruProxy = nullptr;
     QSlider *m_mascotOpacity = nullptr;

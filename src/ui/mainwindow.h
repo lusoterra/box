@@ -29,6 +29,7 @@ class QLabel;
 class QLineEdit;
 class QListWidget;
 class QPushButton;
+class QScrollArea;
 class QStackedWidget;
 class QStringListModel;
 class QStandardItemModel;
@@ -385,6 +386,8 @@ private:
     QStackedWidget *m_stage = nullptr; // 0 = welcome, 1 = browser
     WelcomePage *m_welcome = nullptr;
     QSplitter *m_sideSplit = nullptr; // resizable tag sections
+    QScrollArea *m_sideScroll = nullptr; // wraps splitter in single-scroll mode
+    void applySidebarScrollMode(); // per-category vs one-big-scrollbar
     GridView *m_grid = nullptr;
     ViewerPage *m_viewer = nullptr;
     GalleryDelegate *m_delegate = nullptr;

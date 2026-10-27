@@ -142,6 +142,9 @@ struct AppSettings {
     QString tabsDefault = QStringLiteral("welcome"); // welcome|last|<sitekey>
     QByteArray geometry;
     QByteArray sideSplitter; // sidebar section sizes
+    // Sidebar scroll mode: false = per-category scrollbars (default),
+    // true = one big scrollbar through everything.
+    bool sidebarSingleScroll = false;
 };
 
 // Single data dir (favourites store.db, tag verdicts, downloads):
@@ -241,7 +244,8 @@ inline bool operator==(const AppSettings &a, const AppSettings &b) {
            a.videoMuted == b.videoMuted &&
            a.videoLoop == b.videoLoop && a.volume == b.volume &&
            a.viewerMaxSide == b.viewerMaxSide &&
-           a.tabsDefault == b.tabsDefault && a.sideSplitter == b.sideSplitter;
+           a.tabsDefault == b.tabsDefault && a.sideSplitter == b.sideSplitter &&
+           a.sidebarSingleScroll == b.sidebarSingleScroll;
 }
 
 inline bool operator!=(const AppSettings &a, const AppSettings &b) {

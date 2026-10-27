@@ -180,7 +180,9 @@ folds to general), `Explicit detection` word list (offline
 rating upgrades; edits invalidate the scan cache).
 
 ## 16-prefs-appearance — Preferences → Appearance
-`Theme`, `Accent`, `Custom .qss`, `Home mascot` path + `Mascot opacity`
+`Theme`, `Accent`, `Custom .qss`, `Sidebar: one scrollbar for all tag
+categories` (default off: each category scrolls on its own), `Home
+mascot` path + `Mascot opacity`
 slider + `Mascot margin` spinbox, `Grid` ratio/scroll, `Video playback`
 (mute/loop/volume), `Viewer` max side.
 

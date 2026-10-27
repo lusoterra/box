@@ -338,7 +338,11 @@ QVector<PostComment> parseComments(const QByteArray &body, bool *ok) {
     if (doc.isArray())
         arr = doc.array();
     else if (doc.isObject()) {
+        // Gelbooru {"comment": [...]}, Nuuru {"comments": [...]},
+        // Szurubooru {"results": [...]}.
         arr = doc.object().value(QStringLiteral("comment")).toArray();
+        if (arr.isEmpty())
+            arr = doc.object().value(QStringLiteral("comments")).toArray();
         if (arr.isEmpty())
             arr = doc.object().value(QStringLiteral("results")).toArray(); // szuru
     }

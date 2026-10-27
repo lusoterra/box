@@ -1042,12 +1042,16 @@
 - [x] Stop playback on every post switch.
 - [x] Build + `ctest` (+ docs).
 
-## 92. Nuuru: "no comments" while the site shows comments
+## 92. Nuuru: "no comments" while the site shows comments — DONE
+##    (parseComments now reads {"comments": [...]} plural envelope;
+##    Nuuru's search shape uses {"posts": [...]}, so its comments almost
+##    certainly mirror it; test added; build OK)
 - Viewer reports no comments for Nuuru posts that clearly have them on
-  soybooru.com. Fetch shape or response parse wrong (PoW solve may be
-  hitting a different endpoint than the comments page uses).
-- [ ] Compare fetch/parse against the live comment shape.
-- [ ] Build + `ctest` (+ docs).
+  soybooru.com. Root cause: parseComments only checked "comment"
+  (singular) and "results" (szuru) — Nuuru's plural "comments" envelope
+  parsed as an empty object, so ok=true but zero comments.
+- [x] Compare fetch/parse against the live comment shape.
+- [x] Build + `ctest` (+ docs).
 
 ## 93. Nuuru videos stuck on the first post's video — DONE
 ##    (source unloaded before reload in onCacheReady/onWebFinished;
@@ -1075,12 +1079,15 @@
 - [ ] Label normalization both panes + empty hide + auto-shrink.
 - [ ] Build + `ctest` (+ docs).
 
-## 96. Sidebar option: one big scrollbar instead of per-category
+## 96. Sidebar option: one big scrollbar instead of per-category — DONE
+##    (sidebarSingleScroll setting + Appearance checkbox; splitter
+##    wrapped in scroll area, per-category bars hidden; default off;
+##    build OK)
 - Settings toggle: render the whole left sidebar as one scrollable
   surface (no per-category scrollbars, everything scrolls together).
   Default stays as-is (per-category scrollbars).
-- [ ] Setting + sidebar layout change (default off).
-- [ ] Build + `ctest` (+ docs).
+- [x] Setting + sidebar layout change (default off).
+- [x] Build + `ctest` (+ docs).
 
 ## 88. Clickable meta-failure warning (why did comments/notes fail) — DONE
 ##    (probeRequested signal + link labels in both the tag panel note

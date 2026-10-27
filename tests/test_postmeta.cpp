@@ -102,6 +102,16 @@ private slots:
         QCOMPARE(szu.at(0).author, QStringLiteral("carol"));
         QCOMPARE(szu.at(0).body, QStringLiteral("pretty"));
         QCOMPARE(szu.at(0).date, QStringLiteral("2026-02-02"));
+        // Nuuru {"comments": [...]} plural envelope (matches its
+        // {"posts": [...]} search shape). Field names are the flexible
+        // ones parseComments already accepts.
+        const auto nuu = PostMeta::parseComments(
+            QByteArray(R"({"comments":[{"author":"dave","body":"cool",)"
+                       R"("created_at":"2026-03-03T00:00:00Z"}],)"
+                       R"("totalCount":1,"totalPages":1})"));
+        QCOMPARE(nuu.size(), 1);
+        QCOMPARE(nuu.at(0).author, QStringLiteral("dave"));
+        QCOMPARE(nuu.at(0).body, QStringLiteral("cool"));
         QVERIFY(PostMeta::parseComments(QByteArray("nope")).isEmpty());
         bool ok = false;
         QVERIFY(PostMeta::parseComments(QByteArray("[]"), &ok).isEmpty());

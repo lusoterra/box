@@ -168,6 +168,8 @@ AppSettings loadSettings() {
         s.tabsDefault = QStringLiteral("last"); // legacy toggle
     s.geometry = c.value(QStringLiteral("window/geometry")).toByteArray();
     s.sideSplitter = c.value(QStringLiteral("window/sideSplitter")).toByteArray();
+    s.sidebarSingleScroll =
+        c.value(QStringLiteral("window/sidebarSingleScroll"), false).toBool();
     s.boorus = loadBoorus(c);
     if (c.contains(QStringLiteral("explicit/tags")))
         s.explicitTags =
@@ -277,6 +279,8 @@ void writeSettingsTo(QSettings &c, const AppSettings &s) {
     c.setValue(QStringLiteral("startup/defaultTab"), s.tabsDefault);
     c.setValue(QStringLiteral("window/geometry"), s.geometry);
     c.setValue(QStringLiteral("window/sideSplitter"), s.sideSplitter);
+    c.setValue(QStringLiteral("window/sidebarSingleScroll"),
+               s.sidebarSingleScroll);
     saveBoorus(c, s.boorus);
     c.setValue(QStringLiteral("explicit/tags"), s.explicitTags);
     c.setValue(QStringLiteral("theme/mode"), s.themeMode);

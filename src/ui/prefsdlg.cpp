@@ -1011,6 +1011,13 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     ssRow->addWidget(ssBrowse);
     ssRow->addWidget(ssClear);
     appLay->addRow(tr("Custom .qss:"), ssRow);
+    m_sidebarSingleScroll = new QCheckBox(
+        tr("Sidebar: one scrollbar for all tag categories"), this);
+    m_sidebarSingleScroll->setChecked(current.sidebarSingleScroll);
+    m_sidebarSingleScroll->setToolTip(
+        tr("Default: each category scrolls on its own. On: the whole "
+           "sidebar scrolls together with one scrollbar."));
+    appLay->addRow(QString(), m_sidebarSingleScroll);
     m_mascot = new QLineEdit(current.mascotPath, this);
     m_mascot->setPlaceholderText(tr("Optional home-page mascot image"));
     auto *mascotBrowse = new QPushButton(tr("Browse…"), this);
@@ -1221,6 +1228,7 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
                 m_thumbCache->setChecked(d.thumbCache);
                 m_thumbSize->setCurrentIndex(qMax(0, m_thumbSize->findData(d.thumbLongSide)));
                 m_themeMode->setCurrentIndex(0);
+                m_sidebarSingleScroll->setChecked(false);
                 m_accent = QColor(d.accent);
                 setSwatch(m_accent);
                 m_stylesheet->clear();
@@ -1932,6 +1940,7 @@ void PrefsDialog::harvestInto(AppSettings &out) {
     out.themeMode = m_themeMode->currentData().toString();
     out.accent = m_accent.name();
     out.stylesheet = m_stylesheet->text().trimmed();
+    out.sidebarSingleScroll = m_sidebarSingleScroll->isChecked();
     out.mascotPath = m_mascot ? m_mascot->text().trimmed() : QString();
     out.mascotOpacity = m_mascotOpacity ? m_mascotOpacity->value() / 100.0
                                         : out.mascotOpacity;
