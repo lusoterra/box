@@ -852,6 +852,9 @@ void VideoPane::setUrl(const QUrl &url, const Post &post) {
     const bool viaCache = remote && m_imgCache &&
                           !RemotePosts::globalProxySpec().isEmpty();
     if (viaCache) {
+        // setSource() lands only when the fetch completes: halt the old
+        // video now or it plays on through the buffering phase.
+        m_player->stop();
         startCacheFetch(url, post);
         return;
     }
@@ -879,6 +882,10 @@ void VideoPane::setUrl(const QUrl &url, const Post &post) {
         m_webId = ++nextWebId;
         m_buf->setText(tr("buffering…"));
         m_buf->setVisible(true);
+        // setSource() lands only when the browser fetch completes: halt
+        // the old video now or it plays on (the "still playing the first
+        // video" bug) through the whole buffering phase.
+        m_player->stop();
         m_webBackend->start(m_webId, url.toString(), m_tmpPath);
         return;
     }
@@ -951,6 +958,11 @@ void VideoPane::onCacheReady(const QString &url, const QString &localPath) {
     m_errorShown = false;
     ++m_errorGen; // direct-stream error no longer applies
     m_buf->setVisible(false);
+    // Unload the previous source first: stop() keeps it loaded, and a
+    // play() against a half-loaded new source resumes the OLD video
+    // (the "still playing the first video" bug). The empty source's
+    // async InvalidMedia is swallowed by the error-gen bump above.
+    m_player->setSource(QUrl());
     m_player->setSource(QUrl::fromLocalFile(localPath));
     m_player->play();
 }
@@ -1024,6 +1036,11 @@ void VideoPane::onWebFinished(qint64 id, bool ok, const QString &error) {
     m_webId = -1;
     if (ok && QFile::exists(m_tmpPath)) {
         m_buf->setVisible(false);
+        // Unload the previous source first (see onCacheReady): stop()
+        // keeps it loaded, so play() against a half-loaded source would
+        // resume the OLD video.
+        ++m_errorGen;
+        m_player->setSource(QUrl());
         m_player->setSource(QUrl::fromLocalFile(m_tmpPath));
         m_player->play();
     } else {
@@ -1665,12 +1682,11 @@ void ViewerPage::step(int d) {
 void ViewerPage::showRow(int row) {
     if (row < 0 || row >= m_posts.size() || m_posts.isEmpty())
         return;
-    // stop previous media + drop any in-flight remote fetch. The player
-    // teardown is skipped unless we are actually leaving the video pane:
-    // QMediaPlayer calls are not free, and image->image switches have no
-    // pipeline to tear down (stop() runs on every switch otherwise).
-    if (m_stack->currentWidget() == m_video)
-        m_video->stop();
+    // Stop previous media + drop any in-flight remote fetch. The player
+    // halts on every navigation (not just when the stack shows it): a
+    // still's primeThumb can switch the stack away while audio from the
+    // previous video keeps going.
+    m_video->stop();
     m_gif->clear();
     if (m_imgCache && !m_pendingUrl.isEmpty())
         m_imgCache->cancelUrl(m_pendingUrl);

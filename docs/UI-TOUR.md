@@ -124,7 +124,8 @@ badges mirroring the grid marks. Downloading or (un)favouriting from
 the viewer never leaves it; the grid refreshes behind and the viewer
 follows it (removed rows resolve to the nearest surviving post,
 twin copies collapse so stepping never sticks). Media area: wheel-zoom/drag-pan stills, GIFs,
-looping video with seek/volume/rate (a set global proxy, or a failed direct
+looping video with seek/volume/rate (playback halts on every post
+switch — no background audio; a set global proxy, or a failed direct
 stream, buffers through the download stack instead — same referer +
 cookies + proxy as stills; the red error label only appears for terminal
 failures, never while still loading/buffering; any failure also arms the

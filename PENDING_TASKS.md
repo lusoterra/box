@@ -1033,12 +1033,14 @@
 - [ ] Diagnose live; decide scrape fallback.
 - [ ] Build + `ctest` (+ docs).
 
-## 91. Videos keep playing when switching posts
+## 91. Videos keep playing when switching posts — DONE
+##    (unconditional player stop on every navigation; async loads halt
+##    playback too; build OK)
 - Switching to another post (or gif/image) leaves the previous video
   playing in the background. Teardown on every navigation, not just
   video→video.
-- [ ] Stop playback on every post switch.
-- [ ] Build + `ctest` (+ docs).
+- [x] Stop playback on every post switch.
+- [x] Build + `ctest` (+ docs).
 
 ## 92. Nuuru: "no comments" while the site shows comments
 - Viewer reports no comments for Nuuru posts that clearly have them on
@@ -1047,12 +1049,16 @@
 - [ ] Compare fetch/parse against the live comment shape.
 - [ ] Build + `ctest` (+ docs).
 
-## 93. Nuuru videos stuck on the first post's video
+## 93. Nuuru videos stuck on the first post's video — DONE
+##    (source unloaded before reload in onCacheReady/onWebFinished;
+##    stop() keeps the old source loaded, so play() resumed it; build OK)
 - Clicking another Nuuru video keeps playing the FIRST video clicked;
-  gifs and images load normally. Player source not swapping (or the
-  web-download id/temp file stays on the old job).
-- [ ] Repro + fix source swap on navigation.
-- [ ] Build + `ctest` (+ docs).
+  gifs and images load normally. Root cause: stop() leaves the old
+  source loaded, so when the async (browser) fetch landed and
+  setSource+play ran against a half-loaded player, play() resumed the
+  old video. Fixed by unloading the source first.
+- [x] Repro + fix source swap on navigation.
+- [x] Build + `ctest` (+ docs).
 
 ## 94. Filter pills hide in post view like the omnibar
 - Opening a post hides the omnibar but the pill bar stays visible and
