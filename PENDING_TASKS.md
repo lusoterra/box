@@ -792,27 +792,34 @@
   (PoW/captcha start URLs pointing at API JSON now open the entry
   root instead — bare JSON runs no worker and fires no challenge;
   media/file URLs keep the failing address.)
-- [ ] Build + `ctest` (+ docs).
+- [x] Build + `ctest` (+ docs).
 
-## 67. App blinks when the solve webview opens
+## 67. App blinks when the solve webview opens — DONE
+##    (idle Chromium primer + deferred dialog first-load; mitigated,
+##    needs user eyes to confirm; build OK)
+
 - Opening the capture/solve webview makes the whole app disappear for a
   split second, then everything reloads back with the webview. Same
   flicker happens under Settings already (the window below the webview
   blinks), but with no settings pane it reads as the entire app
   vanishing. Suspect: dialog modality/window flags or WebEngine view
   creation hiding the parent.
-- [ ] Find the hide/show path; keep the main window up.
-- [ ] Build + `ctest` (+ docs).
+- [x] Find the hide/show path; keep the main window up.
+- [x] Build + `ctest` (+ docs).
 
-## 68. Gelbooru: every post shows comment/note pills
+## 68. Gelbooru: every post shows comment/note pills — DONE
+##    (root cause: grid role +14 collision between the windowing
+##    pixmap flag and the comment pills — every thumbnailed card wore
+##    a bubble; fixed in 83. Parse also made engine-specific in 74.)
+
 - Every Gelbooru grid card carries the comments badge, but most posts
   have no comments (viewer thread empty); every post is also flagged
   as having annotations, wrongly for the majority. Suspects: live
   Gelbooru post JSON carries keys the finishRemote presence check
   misreads (vs the fixtures where comment_count=0/has_notes=false),
   or the viewer-meta OR-in path marks from phantom fetch results.
-- [ ] Capture the live Gelbooru post shape; tighten presence parsing.
-- [ ] Build + `ctest` (+ docs).
+- [x] Capture the live Gelbooru post shape; tighten presence parsing.
+- [x] Build + `ctest` (+ docs).
 
 ## 69. Omnibar Enter must commit pills even with the popup open — DONE
 ##    (accepting a suggestion now commits like Enter; build OK)
@@ -932,11 +939,11 @@
 
 ## 80. HiddenBooru: captcha clears but searches load 0 posts (low priority)
 - The HiddenBooru captcha solves and the cookie is stored, but searches
-  still come back with 0 posts. Suspects: search-route params the v0.8
-  router expects (terms/page/limit/order), the cookie not riding the
-  search NAM, or the HBS wall fallback eating the result. Very unknown
+  still come back with 0 posts even logged in. v0.8 API shape verified
+  correct (the instance answers [] for the API even in-browser, so it
+  is instance-side or needs an HTML scrape fallback). Very unknown
   Tor/I2P booru; investigate only with a live onion in reach.
-- [ ] Repro against live onion; fix route/cookie/result handling.
+- [ ] Diagnose live; decide scrape fallback.
 - [ ] Build + `ctest` (+ docs).
 
 ## 81. Meta fetcher uses the entry's own credentials — DONE
@@ -1015,22 +1022,14 @@
 ## 88. Clickable meta-failure warning (why did comments/notes fail)
 - The `Notes/comments failed to load (…)` note should open the probe
   dialog (redacted request + reason) like media/search failures do.
-- [ ] Wire the note to the status probe.
-- [ ] Build + `ctest` (+ docs).
+- [x] Wire the note to the status probe.
+- [x] Build + `ctest` (+ docs).
 
 ## 89. HyBooru: tags populate only when stepping posts, not on open
 - Opening a HyBooru post shows empty tag groups until you click through
   the posts; the lazy detail fetch seems to fire late or not at all on
   first open. Make tags populate as soon as the post opens.
 - [ ] Repro + fix first-open detail fetch timing.
-- [ ] Build + `ctest` (+ docs).
-
-## 90. HiddenBooru loads nothing (still)
-- Captcha clears, cookies stored, but search returns 0 posts even
-  logged in (v0.8 API shape verified correct; instance answers []
-  for the API even in-browser). Investigate HTML scrape fallback or
-  instance-side cause when a live onion is in reach.
-- [ ] Diagnose live; decide scrape fallback.
 - [ ] Build + `ctest` (+ docs).
 
 ## 91. Videos keep playing when switching posts — DONE
@@ -1067,8 +1066,8 @@
 ## 94. Filter pills hide in post view like the omnibar
 - Opening a post hides the omnibar but the pill bar stays visible and
   invites misclicks. Hide it together with the omnibar.
-- [ ] Hide/show pill bar on viewer enter/exit.
-- [ ] Build + `ctest` (+ docs).
+- [x] Hide/show pill bar on viewer enter/exit.
+- [x] Build + `ctest` (+ docs).
 
 ## 95. Tag-category labels: readable casing both panes
 - Left sidebar: `Entity_type` → `ENTITY TYPE` (caps, no underscores).
@@ -1076,8 +1075,8 @@
   Empty categories stop rendering entirely (until something shows up);
   tiny categories (2-3 tags) auto-shrink to save space when many
   categories are on screen.
-- [ ] Label normalization both panes + empty hide + auto-shrink.
-- [ ] Build + `ctest` (+ docs).
+- [x] Label normalization both panes + empty hide + auto-shrink.
+- [x] Build + `ctest` (+ docs).
 
 ## 96. Sidebar option: one big scrollbar instead of per-category — DONE
 ##    (sidebarSingleScroll setting + Appearance checkbox; splitter
