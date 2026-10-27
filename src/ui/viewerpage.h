@@ -288,6 +288,9 @@ signals:
     // Media the viewer cannot play (stills, GIFs, videos): surfaces in
     // the status probe (clickable) with the redacted URL + reason.
     void mediaFailed(const QString &url, const QString &error);
+    // Meta (comments/notes) fetch failed: open the diagnostics dialog
+    // directly from the in-viewer warning link.
+    void probeRequested(const QString &title, const QString &text);
     // Notes/comments arrived for a post: the grid ORs these into its pills
     // (parse-time stamps miss posts whose meta only the viewer fetched).
     void metaMarksChanged(const QString &siteKey, qint64 postId,
@@ -322,6 +325,7 @@ private:
     void primeThumb(int row);      // instant grid thumbnail on navigation
     void preloadNeighbours();      // full files for row-1/row+1 into cache
     QString metaKey() const;
+    QString metaProbeText() const; // post URL + failure reason (redacted)
     void renderMetaSections();
     void showNote(const QString &text);
     void loadLocalImage(const QString &path, int row);

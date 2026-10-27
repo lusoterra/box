@@ -1011,3 +1011,83 @@
   browse tabs + New browse tab = malloc abort).
 - [x] Iterate a snapshot copy; bound against it.
 - [x] Build + `ctest` (+ xvfb repro verification).
+
+## 88. Clickable meta-failure warning (why did comments/notes fail)
+- The `Notes/comments failed to load (…)` note should open the probe
+  dialog (redacted request + reason) like media/search failures do.
+- [ ] Wire the note to the status probe.
+- [ ] Build + `ctest` (+ docs).
+
+## 89. HyBooru: tags populate only when stepping posts, not on open
+- Opening a HyBooru post shows empty tag groups until you click through
+  the posts; the lazy detail fetch seems to fire late or not at all on
+  first open. Make tags populate as soon as the post opens.
+- [ ] Repro + fix first-open detail fetch timing.
+- [ ] Build + `ctest` (+ docs).
+
+## 90. HiddenBooru loads nothing (still)
+- Captcha clears, cookies stored, but search returns 0 posts even
+  logged in (v0.8 API shape verified correct; instance answers []
+  for the API even in-browser). Investigate HTML scrape fallback or
+  instance-side cause when a live onion is in reach.
+- [ ] Diagnose live; decide scrape fallback.
+- [ ] Build + `ctest` (+ docs).
+
+## 91. Videos keep playing when switching posts
+- Switching to another post (or gif/image) leaves the previous video
+  playing in the background. Teardown on every navigation, not just
+  video→video.
+- [ ] Stop playback on every post switch.
+- [ ] Build + `ctest` (+ docs).
+
+## 92. Nuuru: "no comments" while the site shows comments
+- Viewer reports no comments for Nuuru posts that clearly have them on
+  soybooru.com. Fetch shape or response parse wrong (PoW solve may be
+  hitting a different endpoint than the comments page uses).
+- [ ] Compare fetch/parse against the live comment shape.
+- [ ] Build + `ctest` (+ docs).
+
+## 93. Nuuru videos stuck on the first post's video
+- Clicking another Nuuru video keeps playing the FIRST video clicked;
+  gifs and images load normally. Player source not swapping (or the
+  web-download id/temp file stays on the old job).
+- [ ] Repro + fix source swap on navigation.
+- [ ] Build + `ctest` (+ docs).
+
+## 94. Filter pills hide in post view like the omnibar
+- Opening a post hides the omnibar but the pill bar stays visible and
+  invites misclicks. Hide it together with the omnibar.
+- [ ] Hide/show pill bar on viewer enter/exit.
+- [ ] Build + `ctest` (+ docs).
+
+## 95. Tag-category labels: readable casing both panes
+- Left sidebar: `Entity_type` → `ENTITY TYPE` (caps, no underscores).
+  Right viewer panel: underscores → spaces (keep the case style there).
+  Empty categories stop rendering entirely (until something shows up);
+  tiny categories (2-3 tags) auto-shrink to save space when many
+  categories are on screen.
+- [ ] Label normalization both panes + empty hide + auto-shrink.
+- [ ] Build + `ctest` (+ docs).
+
+## 96. Sidebar option: one big scrollbar instead of per-category
+- Settings toggle: render the whole left sidebar as one scrollable
+  surface (no per-category scrollbars, everything scrolls together).
+  Default stays as-is (per-category scrollbars).
+- [ ] Setting + sidebar layout change (default off).
+- [ ] Build + `ctest` (+ docs).
+
+## 88. Clickable meta-failure warning (why did comments/notes fail) — DONE
+##    (probeRequested signal + link labels in both the tag panel note
+##    and the comments popup; post URL + reason in the dialog; build OK)
+- The `Notes/comments failed to load (…)` note now links to the probe
+  dialog (redacted request + reason) like media/search failures do.
+- [x] Wire the note to the status probe.
+- [x] Build + `ctest` (+ docs).
+
+## 94. Filter pills hide in post view like the omnibar — DONE
+##    (pill bar hidden with the omnibar on viewer enter, restored on
+##    back-to-grid, kept hidden if results land while viewing; build OK)
+- Opening a post hides the omnibar but the pill bar stays visible and
+  invites misclicks. Hide it together with the omnibar.
+- [x] Hide/show pill bar on viewer enter/exit.
+- [x] Build + `ctest` (+ docs).

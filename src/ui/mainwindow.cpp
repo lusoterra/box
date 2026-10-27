@@ -1195,6 +1195,10 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
             &MainWindow::refreshPost);
     connect(m_viewer, &ViewerPage::metaMarksChanged, this,
             &MainWindow::onMetaMarksChanged);
+    connect(m_viewer, &ViewerPage::probeRequested, this,
+            [this](const QString &title, const QString &text) {
+                RemotePosts::showProbeDialog(this, title, text);
+            });
     connect(m_viewer, &ViewerPage::mediaFailed, this,
             [this](const QString &url, const QString &error) {
                 // Double-clicked cards that won't play: the status line
@@ -3078,6 +3082,13 @@ void MainWindow::rebuildBrowseSidebar() {
     // posts carry splits; blobs stay general).
     // Sections follow the tab's booru(s): a bucket hidden in EVERY
     // selected host hides its whole section (union in multibooru).
+    // Category labels read like words, not slugs: "entity_type" ->
+    // "ENTITY TYPE" (caps, no underscores).
+    auto sidebarLabel = [](const QString &raw) {
+        QString s = raw;
+        s.replace(u'_', u' ');
+        return s.toUpper();
+    };
     static const QList<QPair<QString, int>> sections = {
         {QStringLiteral("copyright"), 0}, {QStringLiteral("character"), 1},
         {QStringLiteral("artist"), 2},    {QStringLiteral("general"), 3},
@@ -3108,8 +3119,6 @@ void MainWindow::rebuildBrowseSidebar() {
                 hidden.insert(bucket);
         }
     }
-    for (const auto &[bucket, idx] : sections)
-        m_sideSplit->widget(idx)->setVisible(!hidden.contains(bucket));
     QHash<QString, QHash<QString, int>> counts = {
         {QStringLiteral("artist"), {}},   {QStringLiteral("character"), {}},
         {QStringLiteral("copyright"), {}}, {QStringLiteral("general"), {}},
@@ -3156,20 +3165,38 @@ void MainWindow::rebuildBrowseSidebar() {
             v.resize(30);
         return v;
     };
-    rebuildTagTab(m_copyList, hidden.contains(QStringLiteral("copyright"))
-                                   ? QVector<QPair<QString, int>>()
-                                   : top(counts[QStringLiteral("copyright")]), QStringLiteral("copyright"));
-    rebuildTagTab(m_charList, hidden.contains(QStringLiteral("character"))
-                                   ? QVector<QPair<QString, int>>()
-                                   : top(counts[QStringLiteral("character")]), QStringLiteral("character"));
-    rebuildTagTab(m_artistList, hidden.contains(QStringLiteral("artist"))
-                                    ? QVector<QPair<QString, int>>()
-                                    : top(counts[QStringLiteral("artist")]), QStringLiteral("artist"));
-    rebuildTagTab(m_tagList, top(counts[QStringLiteral("general")]),
-                    QStringLiteral("general"));
-    rebuildTagTab(m_metaList, hidden.contains(QStringLiteral("meta"))
-                                  ? QVector<QPair<QString, int>>()
-                                  : top(counts[QStringLiteral("meta")]), QStringLiteral("meta"));
+    // Section visibility + fill in one pass: a bucket hidden in every
+    // host, or simply empty on this page, stops rendering entirely —
+    // it comes back the moment tags show up. Tiny categories shrink so
+    // many sections fit at once.
+    auto fillSection = [&](int idx, QListWidget *list, const QString &bucket,
+                           const QVector<QPair<QString, int>> &entries) {
+        QWidget *box = m_sideSplit->widget(idx);
+        const bool show = !hidden.contains(bucket) && !entries.isEmpty();
+        box->setVisible(show);
+        box->setMaximumHeight(
+            show && entries.size() <= 3 ? 18 + int(entries.size()) * 22 + 6
+                                        : QWIDGETSIZE_MAX);
+        rebuildTagTab(list, entries, bucket);
+    };
+    fillSection(0, m_copyList, QStringLiteral("copyright"),
+                hidden.contains(QStringLiteral("copyright"))
+                    ? QVector<QPair<QString, int>>()
+                    : top(counts[QStringLiteral("copyright")]));
+    fillSection(1, m_charList, QStringLiteral("character"),
+                hidden.contains(QStringLiteral("character"))
+                    ? QVector<QPair<QString, int>>()
+                    : top(counts[QStringLiteral("character")]));
+    fillSection(2, m_artistList, QStringLiteral("artist"),
+                hidden.contains(QStringLiteral("artist"))
+                    ? QVector<QPair<QString, int>>()
+                    : top(counts[QStringLiteral("artist")]));
+    fillSection(3, m_tagList, QStringLiteral("general"),
+                top(counts[QStringLiteral("general")]));
+    fillSection(4, m_metaList, QStringLiteral("meta"),
+                hidden.contains(QStringLiteral("meta"))
+                    ? QVector<QPair<QString, int>>()
+                    : top(counts[QStringLiteral("meta")]));
     // Unmapped custom categories render as their own sections (same list
     // behaviour as the fixed five: click filters, right-click stars).
     static constexpr int kMaxCustomSections = 8;
@@ -3183,7 +3210,7 @@ void MainWindow::rebuildBrowseSidebar() {
             auto *secLay = new QVBoxLayout(box);
             secLay->setContentsMargins(0, 0, 0, 0);
             secLay->setSpacing(2);
-            auto *h = new QLabel(it.key().toUpper(), this);
+            auto *h = new QLabel(sidebarLabel(it.key()), this);
             h->setStyleSheet(QStringLiteral(
                 "color:#4a5068;font-size:10px;font-weight:bold;"));
             secLay->addWidget(h);
@@ -3201,12 +3228,14 @@ void MainWindow::rebuildBrowseSidebar() {
                     &MainWindow::onTagContextMenu);
             sec = m_customSections.insert(it.key(), {box, h, list});
         }
-        QString title = it.key();
-        if (!title.isEmpty())
-            title[0] = title[0].toUpper();
-        sec->title->setText(title);
+        sec->title->setText(sidebarLabel(it.key()));
         rebuildTagTab(sec->list, top(it.value()), QStringLiteral("custom"));
         sec->box->setVisible(true);
+        // Tiny custom categories shrink like the fixed five.
+        const int n = qMin<int>(it.value().size(), 30);
+        sec->box->setMaximumHeight(n <= 3 && n > 0
+                                       ? 18 + n * 22 + 6
+                                       : QWIDGETSIZE_MAX);
         ++shown;
     }
     for (auto it = m_customSections.begin(); it != m_customSections.end();
@@ -5819,7 +5848,9 @@ void MainWindow::updateResultLabel() {
                     commitFilter();
                 });
     }
-    m_pillBar->setVisible(m_pills->count() > 0);
+    // Stay hidden while a post is open (grid tools invite misclicks).
+    m_pillBar->setVisible(m_pills->count() > 0 &&
+                          m_pages->currentIndex() != 1);
 }
 
 // Visible model rows via item geometry. indexAt() misses IconMode
@@ -7104,6 +7135,9 @@ void MainWindow::showViewer(int row) {
     }
     if (m_omniBar)
         m_omniBar->setVisible(false);
+    // Pills act on the grid too (same misclick risk as the omnibar).
+    if (m_pillBar)
+        m_pillBar->setVisible(false);
     m_pages->setCurrentIndex(1);
 }
 
@@ -7115,6 +7149,8 @@ void MainWindow::backToGrid() {
     m_pages->setCurrentIndex(0);
     if (m_omniBar)
         m_omniBar->setVisible(true);
+    if (m_pillBar)
+        m_pillBar->setVisible(m_pills->count() > 0);
     m_grid->setFocus();
     requestVisibleThumbs();
 }

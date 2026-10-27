@@ -1989,6 +1989,7 @@ void ViewerPage::showCurrent() {
             if (it.value().isEmpty())
                 continue;
             QString label = it.key();
+            label.replace(u'_', u' ');
             if (!label.isEmpty())
                 label[0] = label[0].toUpper();
             addTagGroup(m_tagLayout, label, it.value().join(QChar::Space),
@@ -2016,6 +2017,19 @@ QString ViewerPage::metaKey() const {
     return key + u'#' + QString::number(p.id);
 }
 
+QString ViewerPage::metaProbeText() const {
+    // Post page + failure reason, no URLs/secrets leak (redact first).
+    if (m_row < 0 || m_row >= m_posts.size())
+        return {};
+    const Post &p = m_posts.at(m_row);
+    const QString why = m_metaFailureReason.value(metaKey());
+    return QStringLiteral("Post: %1\n\n%2")
+        .arg(RemotePosts::redactSecrets(p.postUrl.isEmpty() ? p.fileUrl
+                                                            : p.postUrl),
+             why.isEmpty() ? QStringLiteral("(no reason reported)")
+                           : why);
+}
+
 void ViewerPage::rebuildMetaTail() {
     if (!m_tagLayout)
         return;
@@ -2032,16 +2046,24 @@ void ViewerPage::renderMetaSections() {
     if (it == m_metaCache.end()) {
         if (m_metaFailed.contains(metaKey())) {
             const QString why = m_metaFailureReason.value(metaKey());
-            auto *l = new QLabel(
+            auto *l = new QLabel(this);
+            l->setTextFormat(Qt::RichText);
+            l->setText(
                 why.isEmpty()
-                    ? tr("Notes/comments failed to load — press the reload "
-                         "button to retry.")
-                    : tr("Notes/comments failed to load (%1) — press the "
-                         "reload button to retry.")
-                          .arg(why),
-                this);
+                    ? tr("Notes/comments failed to load — <a href=\"#\">click "
+                         "for details</a> or reload.")
+                    : tr("Notes/comments failed to load (%1) — "
+                         "<a href=\"#\">click for details</a>.")
+                          .arg(why.toHtmlEscaped()));
             l->setWordWrap(true);
-            l->setStyleSheet(QStringLiteral("color:#e0a055;font-size:11px;"));
+            l->setOpenExternalLinks(false);
+            l->setStyleSheet(
+                QStringLiteral("color:#e0a055;font-size:11px;"));
+            l->setTextInteractionFlags(Qt::TextBrowserInteraction);
+            connect(l, &QLabel::linkActivated, this, [this] {
+                emit probeRequested(tr("Notes/comments load failed"),
+                                    metaProbeText());
+            });
             m_tagLayout->addWidget(l);
         }
         return; // still fetching (or failed, noted above)
@@ -2284,14 +2306,25 @@ void ViewerPage::showCommentsPopup() {
             if (it == m_metaCache.constEnd() &&
                 m_metaFailed.contains(key)) {
                 const QString why = m_metaFailureReason.value(key);
-                auto *l = new QLabel(
+                auto *l = new QLabel(host);
+                l->setTextFormat(Qt::RichText);
+                l->setText(
                     why.isEmpty()
                         ? tr("Couldn't load the thread (network or login "
-                             "wall).")
-                        : tr("Couldn't load the thread (%1).").arg(why),
-                    host);
+                             "wall). <a href=\"#\">Details</a>")
+                        : tr("Couldn't load the thread (%1). "
+                             "<a href=\"#\">Details</a>")
+                              .arg(why.toHtmlEscaped()));
                 l->setWordWrap(true);
+                l->setOpenExternalLinks(false);
                 l->setStyleSheet(QStringLiteral("color:#e0a055;"));
+                l->setTextInteractionFlags(Qt::TextBrowserInteraction);
+                connect(l, &QLabel::linkActivated, this,
+                        [this] {
+                            emit probeRequested(
+                                tr("Notes/comments load failed"),
+                                metaProbeText());
+                        });
                 vl->addWidget(l);
                 auto *retry = new QPushButton(tr("Retry"), host);
                 connect(retry, &QPushButton::clicked, this,

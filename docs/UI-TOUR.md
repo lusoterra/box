@@ -22,7 +22,9 @@ Left: sidebar tag sections (COPYRIGHT, CHARACTERS, ARTISTS, TAGS, META)
 with counts, each tinted in its bucket colour like the filter pills, plus
 extra sections for native custom categories (Nuuru flags, Szuru
 categories) seen on the page — or folded into a classic bucket when
-mapped under Preferences → Tags;
+mapped under Preferences → Tags. Category labels read as words
+(`ENTITY TYPE`, not `entity_type`); empty categories hide entirely until
+tags show up, and tiny ones (≤3 tags) shrink so many fit at once;
 click toggles filter pills, right-click stars/un-stars favourite tags. A captcha/PoW wall failure pops the solve browser open (opt out in Preferences → Browse, back to a small menu: solve the challenge in the capture browser, or drop the booru (deselect in multibooru, close a solo tab)). Center: post grid. Bottom-left: `40 results · page 1` and infinite scroll (more loads at the bottom); a failed query leaves its one-liner there (click = full server response) plus a `Solve … in browser…` button while walls are reported. The browser
 opens AT the failing URL (failed search request, failed file URL) instead of
 the homepage, since file/media hosts challenge while `/` lets you through.
@@ -113,9 +115,11 @@ delete once the file is on disk, like the ♥ button), reload-everything (icon:
 tags, comments, media), `Notes`
 (translation overlays on the image, on by default),
 globe (`Open file`), `Copy file URL`, `Comments` (thread popup with cards,
-reuses the fetched notes/comments cache). The omnibar hides in post view
-(grid tools would
-misclick); it returns with the grid. Below the title: `AI` / `♥` / `↓`
+reuses the fetched notes/comments cache). The omnibar and filter pills
+hide in post view (grid tools would
+misclick); they return with the grid. A failed comments/notes fetch shows
+a clickable warning (`click for details`) opening the same diagnostics
+dialog as media failures. Below the title: `AI` / `♥` / `↓`
 badges mirroring the grid marks. Downloading or (un)favouriting from
 the viewer never leaves it; the grid refreshes behind and the viewer
 follows it (removed rows resolve to the nearest surviving post,
