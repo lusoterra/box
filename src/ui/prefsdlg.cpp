@@ -37,6 +37,8 @@
 #include <QPushButton>
 #include <QTimer>
 #include <QScrollArea>
+#include <QStandardItem>
+#include <QStandardItemModel>
 #include <QSlider>
 #include <QDoubleSpinBox>
 #include <QSpinBox>
@@ -693,8 +695,14 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
                            RemotePosts::engineKey(BooruEngine::Hybooru));
     m_booruEngine->addItem(RemotePosts::engineLabel(BooruEngine::Nuuru),
                            RemotePosts::engineKey(BooruEngine::Nuuru));
+    const int hbsIdx = m_booruEngine->count();
     m_booruEngine->addItem(RemotePosts::engineLabel(BooruEngine::Hiddenbooru),
                            RemotePosts::engineKey(BooruEngine::Hiddenbooru));
+    // Grey out (instance returns no posts even logged in, 2026-10).
+    // Existing entries keep working; new ones can't pick it.
+    if (auto *mi = qobject_cast<QStandardItemModel *>(m_booruEngine->model()))
+        if (QStandardItem *item = mi->item(hbsIdx))
+            item->setEnabled(false);
     m_booruUser = new QLineEdit(this);
     m_booruSecret = new QLineEdit(this);
     m_booruSecret->setEchoMode(QLineEdit::Password);

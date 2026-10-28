@@ -4629,6 +4629,16 @@ void MainWindow::openFavTab() {
 // ── Tag refresh ──────────────────────────────────────────────
 
 QString MainWindow::refreshReason(const Post &post) {
+    // Library archives are read-only: no sidecar writes, no edits.
+    if (!post.isRemote) {
+        const QString dlRoot =
+            QDir(effectiveDownloadDir(m_settings)).canonicalPath();
+        const QString absDir =
+            QDir(QFileInfo(post.absFile).absolutePath()).canonicalPath();
+        if (dlRoot.isEmpty() || absDir.isEmpty() ||
+            (absDir != dlRoot && !absDir.startsWith(dlRoot + u'/')))
+            return tr("Library archives are read-only");
+    }
     RefreshTarget t = resolveRefreshTarget(post);
     if (!t.valid()) {
         if (!post.isRemote)

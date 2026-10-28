@@ -1109,3 +1109,23 @@
   invites misclicks. Hide it together with the omnibar.
 - [x] Hide/show pill bar on viewer enter/exit.
 - [x] Build + `ctest` (+ docs).
+
+## 97. Disable write features on local read-only archives — DONE
+##    (refreshReason returns "Library archives are read-only" for
+##    posts outside the download dir; button shows the reason;
+##    build OK)
+- Tag refresh and other write operations on library archives must be
+  disabled (archives are read-only — no sidecar writes, no edits).
+  The refresh button should show a reason instead of firing.
+- [x] Gate refresh + other write paths on archive vs download dir.
+- [x] Build + `ctest` (+ docs).
+
+## 98. Disable HiddenBooru engine (grey out, don't delete) — DONE
+##    (Hiddenbooru item in the engine combo is disabled via
+##    QStandardItemModel; code intact; existing entries unaffected;
+##    build OK)
+- HiddenBooru loads nothing even logged in (instance-side issue). Keep
+  the code but grey out the engine in the Booru manager so it can't be
+  selected for new entries. Existing entries stay functional.
+- [x] Grey out Hiddenbooru in the engine combo.
+- [x] Build + `ctest` (+ docs).
