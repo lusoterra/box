@@ -15,6 +15,7 @@ class QComboBox;
 class QLineEdit;
 class QListWidget;
 class QPushButton;
+class QRadioButton;
 class QSlider;
 
 class FaviconCache;
@@ -100,6 +101,10 @@ private:
     QColor m_booruColor;
     QCheckBox *m_booruNoClassify = nullptr;
     QCheckBox *m_booruLocalBlacklist = nullptr;
+    QRadioButton *m_booruCacheInherit = nullptr;
+    QRadioButton *m_booruCacheAll = nullptr;
+    QRadioButton *m_booruCacheSfw = nullptr;
+    QRadioButton *m_booruCacheNone = nullptr;
     QCheckBox *m_sidebarSingleScroll = nullptr;
     QLineEdit *m_booruTags = nullptr;
     QLineEdit *m_booruProxy = nullptr;
@@ -121,7 +126,10 @@ private:
     // row switch). While set, commitBooruEditor is a no-op.
     bool m_loadingBooru = false;
     QCheckBox *m_indexCache;
-    QCheckBox *m_thumbCache;
+    QRadioButton *m_cacheAll = nullptr;
+    QRadioButton *m_cacheSfw = nullptr;
+    QRadioButton *m_cacheNone = nullptr;
+    QPushButton *m_deleteMediaCache = nullptr;
     QListWidget *m_tagOverrides = nullptr;
     QLineEdit *m_tagOverrideEdit = nullptr;
     QListWidget *m_customBuckets = nullptr; // native category -> bucket

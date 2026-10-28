@@ -2,6 +2,7 @@
 #include "appinfo.h"
 #include "cache.h"
 #include "cachejanitor.h"
+#include "cachepolicy.h"
 #include "cookiegrab.h"
 #include "downloadmanager.h"
 #include "filehash.h"
@@ -593,6 +594,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
       m_refresher(new PostRefresher(this)),
       m_downloads(new DownloadManager(this)) {
     m_settings = loadSettings();
+    MediaCache::configure(m_settings.cacheMode, m_settings.boorus);
     setActiveExplicitTags(
         QSet<QString>(m_settings.explicitTags.begin(), m_settings.explicitTags.end()));
     // Before the first QWebEngine* object (webDownloads below): route the
@@ -668,11 +670,12 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     }
     CacheJanitor::configure(
         appCacheDir(), qint64(m_settings.cacheLimitMB) * 1024 * 1024);
-    // Thumbnail/full disk caches live in the platform cache dir.
-    const bool diskCache = m_settings.thumbCache;
+    // Thumbnail/full disk caches live in the platform cache dir; the
+    // cache mode is applied per request so per-booru overrides work.
     const QString thumbDir = appCacheDir() + u'/' + QStringLiteral("thumbs");
-    m_thumbs->setCacheDir(diskCache ? thumbDir : QString());
-    m_videoThumbs->setCacheDir(diskCache ? thumbDir : QString());
+    const bool thumbDisk = m_settings.cacheMode != CacheMode::None;
+    m_thumbs->setCacheDir(thumbDisk ? thumbDir : QString());
+    m_videoThumbs->setCacheDir(thumbDisk ? thumbDir : QString());
 
     auto *fileMenu = menuBar()->addMenu(tr("&File"));
     QMenu *openMenu = fileMenu->addMenu(tr("&Open"));
@@ -5970,6 +5973,9 @@ void MainWindow::requestVisibleThumbs() {
     for (int row = qMax(0, lo - overscan); row <= qMin(hi + overscan, m_current.size() - 1);
          ++row) {
         const Post &p = m_current[row];
+        const bool persistThumb = MediaCache::persistForPost(p);
+        const bool nsfwThumb = MediaCache::isNsfwRating(p.rating);
+        const QString siteKey = p.isRemote ? p.siteKey : QString();
         if (p.isRemote) {
             const QString thumb = RemotePosts::thumbUrlFor(p);
             if (thumb.isEmpty())
@@ -5982,11 +5988,13 @@ void MainWindow::requestVisibleThumbs() {
                 if (p.fileUrl.isEmpty())
                     continue;
                 m_videoThumbs->request(key, p.fileUrl, 0, 0,
-                                       m_settings.thumbLongSide);
+                                       m_settings.thumbLongSide, persistThumb,
+                                       nsfwThumb, siteKey);
             } else {
                 // Image preview (incl. video thumbnails): fast pool decode.
                 m_thumbs->request(key, thumb, 0, 0, m_settings.thumbLongSide,
-                                  RemotePosts::mediaRefererFor(p));
+                                  RemotePosts::mediaRefererFor(p), persistThumb,
+                                  nsfwThumb, siteKey);
             }
             continue;
         }
@@ -5999,10 +6007,12 @@ void MainWindow::requestVisibleThumbs() {
             continue;
         if (isVideoExt(p.ext))
             m_videoThumbs->request(key, p.absFile, mtime, fi.size(),
-                                   m_settings.thumbLongSide);
+                                   m_settings.thumbLongSide, persistThumb,
+                                   nsfwThumb, siteKey);
         else
             m_thumbs->request(key, p.absFile, mtime, fi.size(),
-                              m_settings.thumbLongSide);
+                              m_settings.thumbLongSide, QString(), persistThumb,
+                              nsfwThumb, siteKey);
     }
     // Pixmap windowing: decoded pixmaps (the actual memory) live only on
     // near-visible rows. Rows scrolled far away drop back to the shared
@@ -6822,6 +6832,7 @@ void MainWindow::applyPreferences(const AppSettings &app) {
     }
     CacheJanitor::configure(
         appCacheDir(), qint64(m_settings.cacheLimitMB) * 1024 * 1024);
+    MediaCache::configure(m_settings.cacheMode, m_settings.boorus);
     setActiveExplicitTags(
         QSet<QString>(m_settings.explicitTags.begin(), m_settings.explicitTags.end()));
     RemoteSource::setConfiguredBoorus(m_settings.boorus);
@@ -6883,7 +6894,7 @@ void MainWindow::applyPreferences(const AppSettings &app) {
     applySidebarScrollMode();
     setAspect(m_settings.aspectNum, m_settings.aspectDen);
     m_grid->setScrollRows(m_settings.gridScrollRows);
-    const bool diskCachePrefs = m_settings.thumbCache;
+    const bool diskCachePrefs = m_settings.cacheMode != CacheMode::None;
     const QString thumbDirPrefs = appCacheDir() + u'/' + QStringLiteral("thumbs");
     m_thumbs->setCacheDir(diskCachePrefs ? thumbDirPrefs : QString());
     m_videoThumbs->setCacheDir(diskCachePrefs ? thumbDirPrefs : QString());

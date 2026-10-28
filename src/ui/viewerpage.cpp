@@ -943,12 +943,12 @@ void VideoPane::startCacheFetch(const QUrl &url, const Post &post) {
     m_buf->setText(tr("buffering\u2026"));
     m_buf->setStyleSheet(QStringLiteral("color:#7c9ef8;"));
     m_buf->setVisible(true);
-    const QString have = m_imgCache->localPath(m_cacheUrl);
+    const QString have = m_imgCache->localPath(m_cacheUrl, &post);
     if (!have.isEmpty()) {
         onCacheReady(m_cacheUrl, have);
         return;
     }
-    m_imgCache->request(m_cacheUrl, RemotePosts::mediaRefererFor(post));
+    m_imgCache->request(m_cacheUrl, RemotePosts::mediaRefererFor(post), &post);
 }
 
 void VideoPane::onCacheReady(const QString &url, const QString &localPath) {
@@ -1453,12 +1453,12 @@ void ViewerPage::onCacheFailed(const QString &url, const QString &error) {
             showNote(tr("Full file unavailable — showing sample"));
             m_loadBar->setRange(0, 0); // busy until progress lands
             m_loadBar->setVisible(true);
-            const QString have = m_imgCache->localPath(p.sampleUrl);
+            const QString have = m_imgCache->localPath(p.sampleUrl, &p);
             if (!have.isEmpty())
                 onCacheReady(p.sampleUrl, have);
             else
                 m_imgCache->request(p.sampleUrl,
-                                    RemotePosts::mediaRefererFor(p));
+                                    RemotePosts::mediaRefererFor(p), &p);
             return;
         }
     }
@@ -1768,7 +1768,7 @@ void ViewerPage::preloadNeighbours() {
                               ? np.fileUrl
                               : RemotePosts::viewerUrlFor(np);
         if (!u.isEmpty())
-            m_imgCache->request(u, RemotePosts::mediaRefererFor(np));
+            m_imgCache->request(u, RemotePosts::mediaRefererFor(np), &np);
     }
 }
 
@@ -1864,11 +1864,12 @@ void ViewerPage::showCurrent() {
                 m_loadLastTime = 0;
                 m_loadBar->setRange(0, 0); // busy until progress lands
                 m_loadBar->setVisible(true);
-                const QString have = m_imgCache->localPath(url);
+                const QString have = m_imgCache->localPath(url, &p);
                 if (!have.isEmpty())
                     onCacheReady(url, have);
                 else
-                    m_imgCache->request(url, RemotePosts::mediaRefererFor(p));
+                    m_imgCache->request(url, RemotePosts::mediaRefererFor(p),
+                                        &p);
             }
         } else {
             // Local file: bail early with a clear note if the path is
@@ -1907,11 +1908,12 @@ void ViewerPage::showCurrent() {
                 m_loadLastTime = 0;
                 m_loadBar->setRange(0, 0); // busy until progress lands
                 m_loadBar->setVisible(true);
-                const QString have = m_imgCache->localPath(url);
+                const QString have = m_imgCache->localPath(url, &p);
                 if (!have.isEmpty())
                     onCacheReady(url, have);
                 else
-                    m_imgCache->request(url, RemotePosts::mediaRefererFor(p));
+                    m_imgCache->request(url, RemotePosts::mediaRefererFor(p),
+                                        &p);
             }
         } else {
             stageNotes();

@@ -1,10 +1,13 @@
 #include "prefsdlg.h"
+#include "cachejanitor.h"
+#include "cachepolicy.h"
 #include "cookiegrab.h"
 #include "faviconcache.h"
 #include "tagtypes.h"
 
 #include <QAbstractItemView>
 #include <QApplication>
+#include <QButtonGroup>
 #include <QCheckBox>
 #include <QColorDialog>
 #include <QComboBox>
@@ -35,6 +38,7 @@
 #include <QPlainTextEdit>
 #include <QPointer>
 #include <QPushButton>
+#include <QRadioButton>
 #include <QTimer>
 #include <QScrollArea>
 #include <QStandardItem>
@@ -276,9 +280,44 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     auto *libLay = new QVBoxLayout(lib);
     m_indexCache = new QCheckBox(
         tr("Scan index cache (fast rescans of large archives)"), this);
-    m_thumbCache = new QCheckBox(tr("Thumbnail disk cache"), this);
     m_indexCache->setChecked(current.indexCache);
-    m_thumbCache->setChecked(current.thumbCache);
+    libLay->addWidget(m_indexCache);
+    libLay->addWidget(new QLabel(tr("Media cache:"), this));
+    m_cacheAll = new QRadioButton(tr("Cache everything"), lib);
+    m_cacheSfw = new QRadioButton(
+        tr("Cache only SFW pictures/videos"), lib);
+    m_cacheNone = new QRadioButton(
+        tr("Cache nothing (session only)"), lib);
+    auto *cacheGroup = new QButtonGroup(this);
+    for (QRadioButton *r : {m_cacheAll, m_cacheSfw, m_cacheNone})
+        cacheGroup->addButton(r);
+    switch (current.cacheMode) {
+    case CacheMode::None:
+        m_cacheNone->setChecked(true);
+        break;
+    case CacheMode::SfwOnly:
+        m_cacheSfw->setChecked(true);
+        break;
+    case CacheMode::All:
+    default:
+        m_cacheAll->setChecked(true);
+        break;
+    }
+    libLay->addWidget(m_cacheAll);
+    libLay->addWidget(m_cacheSfw);
+    libLay->addWidget(m_cacheNone);
+    libLay->addWidget(note(tr(
+        "Media cache = thumbnails and full-quality files kept on disk. "
+        "\"Nothing\" keeps media in memory/session temp only; downloads you "
+        "explicitly request always land in the download folder. The "
+        "favourites database and scan index stay.")));
+    auto selectedMode = [this] {
+        if (m_cacheNone->isChecked())
+            return CacheMode::None;
+        if (m_cacheSfw->isChecked())
+            return CacheMode::SfwOnly;
+        return CacheMode::All;
+    };
     m_classify = new QCheckBox(
         tr("Classify untyped tags online (Gelbooru/Danbooru, cached)"),
         this);
@@ -292,7 +331,7 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     classifyRow->addWidget(classifyNow);
     classifyRow->addStretch(1);
     m_fullCache = new QCheckBox(
-        tr("Cache full-quality images while browsing"), this);
+        tr("Also cache full-quality images while browsing (large)"), this);
     m_fullCache->setChecked(current.fullCache);
     auto *limitRow = new QHBoxLayout();
     limitRow->addWidget(new QLabel(tr("Cache size limit:"), this));
@@ -311,17 +350,57 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
         qMax(0, m_thumbSize->findData(current.thumbLongSide)));
     sizeRow->addWidget(m_thumbSize);
     sizeRow->addStretch(1);
-    auto *clearBtn = new QPushButton(tr("Clear caches…"), this);
+    m_deleteMediaCache = new QPushButton(tr("Delete cached media…"), this);
+    auto syncDelete = [this] {
+        const bool on = !m_cacheAll->isChecked();
+        m_deleteMediaCache->setEnabled(on);
+        m_deleteMediaCache->setToolTip(
+            on ? (m_cacheNone->isChecked()
+                      ? tr("Remove every cached thumbnail and full image")
+                      : tr("Remove cached NSFW media, leaving SFW entries"))
+               : tr("Disabled while caching everything"));
+    };
+    connect(m_cacheAll, &QRadioButton::toggled, this,
+            [syncDelete] { syncDelete(); });
+    connect(m_cacheSfw, &QRadioButton::toggled, this,
+            [syncDelete] { syncDelete(); });
+    connect(m_cacheNone, &QRadioButton::toggled, this,
+            [syncDelete] { syncDelete(); });
+    syncDelete();
+    connect(m_deleteMediaCache, &QPushButton::clicked, this,
+            [this, selectedMode] {
+                const CacheMode mode = selectedMode();
+                if (mode == CacheMode::All)
+                    return;
+                const bool everything = mode == CacheMode::None;
+                const QString question =
+                    everything
+                        ? tr("Delete every cached thumbnail and full image?\n\n"
+                             "Downloads, favourites and the scan index are "
+                             "not touched.")
+                        : tr("Delete cached NSFW media?\n\n"
+                             "SFW cached entries stay; NSFW and unknown/legacy "
+                             "entries are removed. Downloads and favourites "
+                             "are not touched.");
+                if (QMessageBox::question(this, tr("Delete cached media"),
+                                          question) != QMessageBox::Yes)
+                    return;
+                const int removed =
+                    CacheJanitor::purgeMedia(/*keepSfwOnly=*/!everything);
+                QMessageBox::information(
+                    this, tr("Delete cached media"),
+                    tr("Removed %1 cached file(s).").arg(removed));
+            });
+    auto *clearBtn = new QPushButton(tr("Clear scan index…"), this);
     connect(clearBtn, &QPushButton::clicked, this, [] {
-        clearCaches();
+        clearIndexCache();
         QMessageBox::information(
-            nullptr, tr("Caches"),
-            tr("Scan index and thumbnail caches cleared.\n"
-                           "They rebuild on the next scan."));
+            nullptr, tr("Scan index"),
+            tr("Scan index cleared. It rebuilds on the next scan; "
+               "cached media is untouched."));
     });
+    sizeRow->addWidget(m_deleteMediaCache);
     sizeRow->addWidget(clearBtn);
-    libLay->addWidget(m_indexCache);
-    libLay->addWidget(m_thumbCache);
     libLay->addWidget(m_fullCache);
     libLay->addWidget(m_classify);
     libLay->addLayout(classifyRow);
@@ -329,7 +408,8 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     libLay->addWidget(note(tr("Untyped tags (tagType \"none\", Gelbooru blobs) get their category "
         "from public tag APIs. Results cache forever; misses stay general.")));
     libLay->addLayout(sizeRow);
-    libLay->addWidget(note(tr("Cache toggles take effect on the next scan.")));
+    libLay->addWidget(note(tr("Cache changes apply on Apply; existing files "
+                              "stay until you delete them.")));
     libraryPage->addWidget(lib);
 
     // ── Tag type overrides: manual bucket per tag ──
@@ -760,6 +840,33 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     accForm->addRow(tr("Tags:"), m_booruNoClassify);
     accForm->addRow(tr("Blacklist:"), m_booruLocalBlacklist);
     accForm->addRow(tr("Default tags:"), m_booruTags);
+    auto *cacheBox = new QWidget(this);
+    {
+        auto *cacheRow = new QHBoxLayout(cacheBox);
+        cacheRow->setContentsMargins(0, 0, 0, 0);
+        m_booruCacheInherit = new QRadioButton(tr("Global"), cacheBox);
+        m_booruCacheAll = new QRadioButton(tr("All"), cacheBox);
+        m_booruCacheSfw = new QRadioButton(tr("SFW only"), cacheBox);
+        m_booruCacheNone = new QRadioButton(tr("Nothing"), cacheBox);
+        auto *group = new QButtonGroup(cacheBox);
+        for (QRadioButton *r : {m_booruCacheInherit, m_booruCacheAll,
+                                m_booruCacheSfw, m_booruCacheNone}) {
+            group->addButton(r);
+            cacheRow->addWidget(r);
+        }
+        cacheRow->addStretch(1);
+        m_booruCacheInherit->setToolTip(
+            tr("Use the global media cache mode"));
+        m_booruCacheAll->setToolTip(
+            tr("Cache this booru's media on disk (still limited by the "
+               "global mode)"));
+        m_booruCacheSfw->setToolTip(
+            tr("Cache only this booru's SFW pictures/videos"));
+        m_booruCacheNone->setToolTip(
+            tr("Keep this booru's media in memory/session only"));
+        m_booruCacheInherit->setChecked(true);
+    }
+    accForm->addRow(tr("Media cache:"), cacheBox);
     auto *catBox = new QWidget(this);
     {
         auto *catRow = new QHBoxLayout(catBox);
@@ -1233,7 +1340,18 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
                             : Qt::Unchecked);
                 }
                 m_indexCache->setChecked(d.indexCache);
-                m_thumbCache->setChecked(d.thumbCache);
+                switch (d.cacheMode) {
+                case CacheMode::None:
+                    m_cacheNone->setChecked(true);
+                    break;
+                case CacheMode::SfwOnly:
+                    m_cacheSfw->setChecked(true);
+                    break;
+                case CacheMode::All:
+                default:
+                    m_cacheAll->setChecked(true);
+                    break;
+                }
                 m_thumbSize->setCurrentIndex(qMax(0, m_thumbSize->findData(d.thumbLongSide)));
                 m_themeMode->setCurrentIndex(0);
                 m_sidebarSingleScroll->setChecked(false);
@@ -1291,6 +1409,9 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     const auto boxes = findChildren<QCheckBox *>();
     for (QCheckBox *b : boxes)
         connect(b, &QCheckBox::toggled, this, track);
+    const auto radios = findChildren<QRadioButton *>();
+    for (QRadioButton *r : radios)
+        connect(r, &QRadioButton::toggled, this, track);
     const auto combos = findChildren<QComboBox *>();
     for (QComboBox *cb : combos) {
         if (cb != m_tagOverrideBucket) // picked bucket alone changes nothing
@@ -1580,6 +1701,14 @@ void PrefsDialog::commitBooruEditor(const QString &key) {
         b.secret = m_booruSecret->text();
         b.skipAutoClassify = m_booruNoClassify->isChecked();
         b.localBlacklist = m_booruLocalBlacklist->isChecked();
+        if (m_booruCacheInherit->isChecked())
+            b.cacheMode = CacheMode::Inherit;
+        else if (m_booruCacheNone->isChecked())
+            b.cacheMode = CacheMode::None;
+        else if (m_booruCacheSfw->isChecked())
+            b.cacheMode = CacheMode::SfwOnly;
+        else
+            b.cacheMode = CacheMode::All;
         b.defaultTags = m_booruTags->text().trimmed();
         b.proxy = m_booruProxy->text().trimmed();
         // Fresh entries still wearing the generic blue inherit the new
@@ -1763,6 +1892,7 @@ void PrefsDialog::loadBooruEditor(int row) {
         m_booruShort->clear();
         m_booruNoClassify->setChecked(false);
         m_booruLocalBlacklist->setChecked(false);
+        m_booruCacheInherit->setChecked(true);
         for (auto it = m_booruBuckets.begin(); it != m_booruBuckets.end();
              ++it)
             it.value()->setChecked(true);
@@ -1788,6 +1918,21 @@ void PrefsDialog::loadBooruEditor(int row) {
     m_booruSecret->setText(found->secret);
     m_booruNoClassify->setChecked(found->skipAutoClassify);
     m_booruLocalBlacklist->setChecked(found->localBlacklist);
+    switch (found->cacheMode) {
+    case CacheMode::All:
+        m_booruCacheAll->setChecked(true);
+        break;
+    case CacheMode::SfwOnly:
+        m_booruCacheSfw->setChecked(true);
+        break;
+    case CacheMode::None:
+        m_booruCacheNone->setChecked(true);
+        break;
+    case CacheMode::Inherit:
+    default:
+        m_booruCacheInherit->setChecked(true);
+        break;
+    }
     m_booruTags->setText(found->defaultTags);
     m_booruProxy->setText(found->proxy);
     for (auto it = m_booruBuckets.begin(); it != m_booruBuckets.end();
@@ -1943,7 +2088,12 @@ void PrefsDialog::harvestInto(AppSettings &out) {
     out.fullCache = m_fullCache->isChecked();
     out.cacheLimitMB = m_cacheLimit->value();
     out.indexCache = m_indexCache->isChecked();
-    out.thumbCache = m_thumbCache->isChecked();
+    if (m_cacheNone->isChecked())
+        out.cacheMode = CacheMode::None;
+    else if (m_cacheSfw->isChecked())
+        out.cacheMode = CacheMode::SfwOnly;
+    else
+        out.cacheMode = CacheMode::All;
     out.thumbLongSide = m_thumbSize->currentData().toInt();
     out.themeMode = m_themeMode->currentData().toString();
     out.accent = m_accent.name();

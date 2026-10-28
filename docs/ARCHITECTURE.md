@@ -112,7 +112,10 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
   - `sidecarrefresh.h`: `SidecarRefresh::collect()` (`:24`), `SidecarBatch`
     bulk re-fetch (`:29`).
   - `stray.h:14` `Stray`: `_Stray` folder convention; `losnimport`
-    (LOSN `store.db` import); `cachejanitor` (10 GB cap enforcement).
+    (LOSN `store.db` import); `cachejanitor` (10 GB cap enforcement +
+    per-entry rating/site tracking so "delete NSFW cache" can keep SFW
+    files); `cachepolicy` (global + per-booru disk-cache mode, applied to
+    thumbnails and full-image cache).
 - `src/ui/` — `mainwindow.h:105` `MainWindow` (all tabs, all searches);
   `BrowserTab` session state (`:47-61`); `PendingSite` OR fan-out (`:342-350`).
   - `viewerpage.h:170` `ViewerPage` (same-window viewer; `ImageView` `:33`,
@@ -204,16 +207,16 @@ switches/edits coalesce 1500 ms (`saveTabs`).
 |---|---|---|
 | Config  | `~/.config/box/settings.ini` (+ `.bak` last-good backup, `.tmp` stage) | all keys below; `boorus/*` registry; atomic tmp+rename writes |
 | Data    | `~/.local/share/box/` (or `storage/dataDir`) | `store.db` favs, `tag_types.db` verdicts, `downloads/`, `session.lock`, `box.log[.1-.3]` rotating logs (`src/applog.cpp`) (`settings.h:122-167`, `main.cpp:112`) |
-| Cache   | `~/.cache/box/` (`appCacheDir`, `settings.cpp:15`) | `roots/` scan index, `thumbs/`, full-image cache, `cache.db`; `clearCaches()` drops `roots/`+`thumbs/` (`settings.cpp:250`) |
+| Cache   | `~/.cache/box/` (`appCacheDir`, `settings.cpp:15`) | `roots/` scan index, `thumbs/`, full-image cache, `cache.db`; `clearIndexCache()` drops `roots/` only. Media deletes go through `CacheJanitor::purgeMedia()` (SFW-only keeps provably SFW entries; everything removes `thumbs/`+`full/`) and never touch favourites, downloads, or the scan index. |
 
-Key `settings.ini` groups: `cache/` (index, thumbs, full, limitMB,
+Key `settings.ini` groups: `cache/` (index, mode=all|sfw|none, full, limitMB,
 thumbSize), `library/` (root, history), `app/` (restoreSession, language),
 `fav/` (autoDownload, autoFav, unfavDeletesFile, deleteUnfavs),
 `stray/autoFav`, `filter/blacklist`, `classify/enabled`,
 `tagtypes/` (manual, disabledBuckets), `browse/` (mode, sites, limit),
 `tabs/saved*` + `last/*` (session restore, cap 25), `downloads/dir`,
-`storage/dataDir`, `startup/defaultTab`, `window/`, `boorus/`,
-`explicit/tags`, `theme/`, `home/mascot*`, `grid/`, `viewer/`.
+`storage/dataDir`, `startup/defaultTab`, `window/`, `boorus/` (+ per-entry
+`cacheMode`), `explicit/tags`, `theme/`, `home/mascot*`, `grid/`, `viewer/`.
 Never a group named `General` (QSettings reserves it; see
 `src/settings.cpp:39-43`).
 

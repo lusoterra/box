@@ -1,4 +1,5 @@
 #include "settings.h"
+#include "cachepolicy.h"
 #include "tagtypes.h"
 
 #include <QDir>
@@ -45,7 +46,15 @@ AppSettings loadSettings() {
     AppSettings s;
     QSettings c = openSettings();
     s.indexCache = c.value(QStringLiteral("cache/index"), s.indexCache).toBool();
-    s.thumbCache = c.value(QStringLiteral("cache/thumbs"), s.thumbCache).toBool();
+    if (c.contains(QStringLiteral("cache/mode"))) {
+        s.cacheMode = MediaCache::modeFromKey(
+            c.value(QStringLiteral("cache/mode")).toString(), s.cacheMode);
+    } else if (!c.value(QStringLiteral("cache/thumbs"), true).toBool()) {
+        // Legacy "thumbnail disk cache" toggle: off meant no media cache.
+        s.cacheMode = CacheMode::None;
+    }
+    if (s.cacheMode == CacheMode::Inherit)
+        s.cacheMode = CacheMode::All;
     s.fullCache = c.value(QStringLiteral("cache/full"), s.fullCache).toBool();
     s.cacheLimitMB =
         qBound(0, c.value(QStringLiteral("cache/limitMB"), s.cacheLimitMB).toInt(),
@@ -212,7 +221,10 @@ namespace {
 // can stage through a temp file (atomic replace, see below).
 void writeSettingsTo(QSettings &c, const AppSettings &s) {
     c.setValue(QStringLiteral("cache/index"), s.indexCache);
-    c.setValue(QStringLiteral("cache/thumbs"), s.thumbCache);
+    c.setValue(QStringLiteral("cache/mode"), MediaCache::modeKey(s.cacheMode));
+    // Legacy key kept in sync for older builds reading the same ini.
+    c.setValue(QStringLiteral("cache/thumbs"),
+               s.cacheMode != CacheMode::None);
     c.setValue(QStringLiteral("cache/full"), s.fullCache);
     c.setValue(QStringLiteral("cache/limitMB"), s.cacheLimitMB);
     c.setValue(QStringLiteral("cache/thumbSize"), s.thumbLongSide);
@@ -336,9 +348,8 @@ void noteFolderOpened(AppSettings &s, const QString &dir) {
         s.history.removeLast();
 }
 
-void clearCaches() {
+void clearIndexCache() {
     QDir(appCacheDir() + QStringLiteral("/roots")).removeRecursively();
-    QDir(appCacheDir() + QStringLiteral("/thumbs")).removeRecursively();
 }
 
 namespace {
@@ -388,6 +399,8 @@ QList<BooruSite> loadBoorus(QSettings &c) {
         b.proxy = c.value(QStringLiteral("proxy")).toString();
         b.localBlacklist =
             c.value(QStringLiteral("localBlacklist"), false).toBool();
+        b.cacheMode = MediaCache::modeFromKey(
+            c.value(QStringLiteral("cacheMode")).toString(), CacheMode::Inherit);
         c.endGroup();
         out.append(b);
     }
@@ -465,6 +478,8 @@ void saveBoorus(QSettings &c, const QList<BooruSite> &boorus) {
         c.setValue(QStringLiteral("tags"), b.defaultTags);
         c.setValue(QStringLiteral("proxy"), b.proxy);
         c.setValue(QStringLiteral("localBlacklist"), b.localBlacklist);
+        c.setValue(QStringLiteral("cacheMode"),
+                   MediaCache::modeKey(b.cacheMode));
         c.endGroup();
     }
     c.setValue(QStringLiteral("boorus/order"), order);

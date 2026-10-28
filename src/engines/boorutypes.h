@@ -30,6 +30,12 @@ struct SearchResult {
 // Engine taxonomy (mirrors LoliSnatcher's BooruType for these families).
 enum class BooruEngine { Danbooru, Gelbooru, Moebooru, Safebooru, Szurubooru, Shimmie, Hybooru, Nuuru, Hiddenbooru };
 
+// On-disk media cache policy. Inherit is only valid on a configured booru
+// entry (meaning "use the global setting"); the app-wide mode is never
+// Inherit. Lower values are more permissive: the effective policy is the
+// stricter of global and per-site.
+enum class CacheMode { Inherit = -1, All = 0, SfwOnly = 1, None = 2 };
+
 struct BooruSite {
     QString key;      // stable id: "danbooru", "gelbooru", "yandere", ...
     QString label;    // UI name: "Danbooru" (renames orphan old favourites)
@@ -65,4 +71,7 @@ struct BooruSite {
     // Proxy for this booru's traffic (http://host:port or
     // socks5://[user:pass@]host:port). Empty = direct connection.
     QString proxy;
+    // Media cache override for this entry: Inherit = global setting,
+    // otherwise narrows it (see MediaCache::effectiveMode).
+    CacheMode cacheMode = CacheMode::Inherit;
 };

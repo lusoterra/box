@@ -31,6 +31,13 @@
   `src/post.h:19`); baked into scan cache via `explicitTagsHash()`.
 - skipAutoClassify = per-entry opt-out of tag categorization
   (`RemotePosts::skipAutoClassify`, `src/remote/remotesource.h:147`).
+- media cache / cache nothing = on-disk thumbnails + full-quality browsing
+  files controlled by `MediaCache` (`src/library/cachepolicy.h`): global
+  `cache/mode` (`all/sfw/none`) narrowed per `BooruSite::cacheMode`.
+  Explicit downloads are never affected; favourites DB/scan index stay.
+- delete cached media = `CacheJanitor::purgeMedia()`: SFW mode removes
+  NSFW + unknown/legacy entries and keeps provably SFW files; Nothing mode
+  removes all `thumbs/` + `full/` media.
 - localBlacklist = per-entry flag: skip server-side `-blacklist`
   exclusions, filter locally (`BooruSite::localBlacklist`).
 - relink = `relinkFavourites()`: match unlinked fav rows to files on disk

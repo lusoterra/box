@@ -1,5 +1,6 @@
 #include "settingsexport.h"
 
+#include "cachepolicy.h"
 #include "settings.h"
 #include "tagtypes.h"
 
@@ -42,6 +43,7 @@ QJsonObject booruToJson(const BooruSite &b) {
     o[QStringLiteral("defaultTags")] = b.defaultTags;
     o[QStringLiteral("proxy")] = b.proxy;
     o[QStringLiteral("localBlacklist")] = b.localBlacklist;
+    o[QStringLiteral("cacheMode")] = MediaCache::modeKey(b.cacheMode);
     return o;
 }
 BooruSite booruFromJson(const QJsonObject &o) {
@@ -67,6 +69,8 @@ BooruSite booruFromJson(const QJsonObject &o) {
     b.defaultTags = o.value(QStringLiteral("defaultTags")).toString();
     b.proxy = o.value(QStringLiteral("proxy")).toString();
     b.localBlacklist = o.value(QStringLiteral("localBlacklist")).toBool();
+    b.cacheMode = MediaCache::modeFromKey(
+        o.value(QStringLiteral("cacheMode")).toString(), CacheMode::Inherit);
     return b;
 }
 } // namespace

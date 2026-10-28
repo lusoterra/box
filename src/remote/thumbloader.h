@@ -31,8 +31,13 @@ public:
     // key: stable id for the request (caller-chosen). path/mtime/size
     // identify the file version. longSide: output pixel size. referer:
     // sent verbatim (hotlink-protected CDNs need it, e.g. Gelbooru).
+    // persistToDisk=false keeps the decode in memory only (no read or
+    // write of the thumbnail cache); nsfw/siteKey are recorded with the
+    // cache entry so "delete NSFW cache" can find it later.
     void request(const QString &key, const QString &path, qint64 mtime,
-                 qint64 size, int longSide = 360, const QString &referer = {});
+                 qint64 size, int longSide = 360, const QString &referer = {},
+                 bool persistToDisk = true, bool nsfw = false,
+                 const QString &siteKey = {});
     // Drop everything queued (quit path): in-flight tasks are bounded by
     // their own network timeouts, but nothing new may start — otherwise
     // the pool destructor's waitForDone holds the close event open.
@@ -56,7 +61,9 @@ private:
 class ThumbTask : public QRunnable {
 public:
     ThumbTask(ThumbLoader *loader, QString key, QString path, qint64 mtime,
-              qint64 size, int longSide, QString referer = {});
+              qint64 size, int longSide, QString referer = {},
+              bool persistToDisk = true, bool nsfw = false,
+              QString siteKey = {});
     void run() override;
 
 private:
@@ -67,6 +74,9 @@ private:
     qint64 m_size;
     int m_longSide;
     QString m_referer;
+    bool m_persistToDisk;
+    bool m_nsfw;
+    QString m_siteKey;
 };
 
 class QMediaPlayer;
@@ -85,7 +95,8 @@ public:
     void setAspect(int num, int den);
     void setCacheDir(const QString &dir);
     void request(const QString &key, const QString &path, qint64 mtime,
-                 qint64 size, int longSide = 360);
+                 qint64 size, int longSide = 360, bool persistToDisk = true,
+                 bool nsfw = false, const QString &siteKey = {});
     // Quit path: drop the queue and stop the player so neither late
     // frames nor the timeout can fire after the window is gone.
     void cancel();
@@ -103,6 +114,9 @@ private:
         qint64 mtime = 0;
         qint64 size = 0;
         int longSide = 360;
+        bool persistToDisk = true;
+        bool nsfw = false;
+        QString siteKey;
     };
     QList<Job> m_queue;
     QSet<QString> m_queued; // keys already waiting (de-dupe scroll spam)

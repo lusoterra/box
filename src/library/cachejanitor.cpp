@@ -6,6 +6,7 @@
 #include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
+#include <QHash>
 #include <QMutexLocker>
 #include <QSet>
 #include <QSqlDatabase>
@@ -66,8 +67,27 @@ QSqlDatabase janitorDb() {
         return QSqlDatabase();
     QSqlQuery q(t_db);
     if (!q.exec(QStringLiteral("CREATE TABLE IF NOT EXISTS files ("
-                               "path TEXT PRIMARY KEY, size INTEGER, seen INTEGER)")))
+                               "path TEXT PRIMARY KEY, size INTEGER, seen INTEGER,"
+                               "nsfw INTEGER DEFAULT -1, site TEXT DEFAULT '')")))
         return QSqlDatabase();
+    // Older tracking DBs (pre-cache-policy) lack the media columns.
+    // SQLite has no IF NOT EXISTS for columns: probe, then add once.
+    bool hasNsfw = false;
+    bool hasSite = false;
+    if (QSqlQuery info(t_db);
+        info.exec(QStringLiteral("PRAGMA table_info(files)"))) {
+        while (info.next()) {
+            const QString name = info.value(1).toString();
+            hasNsfw = hasNsfw || name == QStringLiteral("nsfw");
+            hasSite = hasSite || name == QStringLiteral("site");
+        }
+    }
+    if (!hasNsfw)
+        QSqlQuery(t_db).exec(
+            QStringLiteral("ALTER TABLE files ADD COLUMN nsfw INTEGER DEFAULT -1"));
+    if (!hasSite)
+        QSqlQuery(t_db).exec(
+            QStringLiteral("ALTER TABLE files ADD COLUMN site TEXT DEFAULT ''"));
     return t_db;
 }
 
@@ -75,13 +95,17 @@ qint64 nowMs() {
     return QDateTime::currentMSecsSinceEpoch();
 }
 
-void putRow(QSqlDatabase &db, const QString &path, qint64 size, qint64 seen) {
+void putRow(QSqlDatabase &db, const QString &path, qint64 size, qint64 seen,
+            int nsfw = -1, const QString &site = QString()) {
     QSqlQuery q(db);
     q.prepare(QStringLiteral(
-        "INSERT OR REPLACE INTO files (path, size, seen) VALUES (?, ?, ?)"));
+        "INSERT OR REPLACE INTO files (path, size, seen, nsfw, site) "
+        "VALUES (?, ?, ?, ?, ?)"));
     q.addBindValue(path);
     q.addBindValue(size);
     q.addBindValue(seen);
+    q.addBindValue(nsfw);
+    q.addBindValue(site);
     q.exec();
 }
 } // namespace
@@ -112,7 +136,21 @@ void CacheJanitor::record(const QString &path) {
     QSqlDatabase db = janitorDb();
     if (!db.isOpen())
         return;
-    putRow(db, path, fi.size(), nowMs());
+    // Unknown rating: kept by "everything", removed by "SFW only" (fail
+    // closed, so legacy/untracked entries never masquerade as safe).
+    putRow(db, path, fi.size(), nowMs(), -1, QString());
+}
+
+void CacheJanitor::record(const QString &path, bool nsfw,
+                          const QString &siteKey) {
+    const QFileInfo fi(path);
+    if (!fi.exists())
+        return;
+    QMutexLocker lock(&mutex());
+    QSqlDatabase db = janitorDb();
+    if (!db.isOpen())
+        return;
+    putRow(db, path, fi.size(), nowMs(), nsfw ? 1 : 0, siteKey);
 }
 
 void CacheJanitor::hit(const QString &path) {
@@ -217,4 +255,53 @@ void CacheJanitor::enforce(bool force) {
             del.exec();
         }
     }
+}
+
+int CacheJanitor::purgeMedia(bool keepSfwOnly) {
+    QMutexLocker lock(&mutex());
+    const QString base = baseDir().isEmpty() ? appCacheDir() : baseDir();
+    if (base.isEmpty())
+        return 0;
+    int removed = 0;
+    QHash<QString, int> known; // path -> nsfw (0 = SFW, 1 = NSFW, -1 = unknown)
+    QSqlDatabase db = janitorDb();
+    if (db.isOpen()) {
+        QSqlQuery q(db);
+        if (q.exec(QStringLiteral("SELECT path, nsfw FROM files"))) {
+            while (q.next()) {
+                known.insert(q.value(0).toString(),
+                             q.value(1).isNull() ? -1 : q.value(1).toInt());
+            }
+        }
+    }
+    // Walk the media cache itself: untracked files count as unknown and
+    // are purged by the SFW-only filter (they cannot be proven safe).
+    for (const QString &sub :
+         {QStringLiteral("thumbs"), QStringLiteral("full")}) {
+        const QString dirPath = base + u'/' + sub;
+        QDirIterator it(dirPath, QDir::Files, QDirIterator::Subdirectories);
+        QStringList doomed;
+        while (it.hasNext()) {
+            it.next();
+            const QString path = it.fileInfo().absoluteFilePath();
+            const bool keep = keepSfwOnly && known.value(path, -1) == 0;
+            if (!keep)
+                doomed << path;
+        }
+        for (const QString &path : doomed) {
+            if (QFile::remove(path))
+                ++removed;
+        }
+    }
+    if (db.isOpen()) {
+        QSqlQuery q(db);
+        q.exec(keepSfwOnly
+                   ? QStringLiteral("DELETE FROM files WHERE nsfw<>0")
+                   : QStringLiteral("DELETE FROM files"));
+    }
+    // Keep the cache roots alive for the next write in this session.
+    QDir().mkpath(base + QStringLiteral("/thumbs"));
+    QDir().mkpath(base + QStringLiteral("/full"));
+    lastCheckMs() = 0;
+    return removed;
 }

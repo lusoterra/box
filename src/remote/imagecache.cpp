@@ -1,6 +1,7 @@
 #include "imagecache.h"
 
 #include "cachejanitor.h"
+#include "cachepolicy.h"
 #include "remotesource.h"
 
 #include <QCryptographicHash>
@@ -50,12 +51,12 @@ QString ImageCache::extOfUrl(const QString &url) {
     return (ext.size() >= 2 && ext.size() <= 5) ? ext : QStringLiteral("bin");
 }
 
-QString ImageCache::targetPath(const QString &url) const {
+QString ImageCache::targetPath(const QString &url, bool persist) const {
     const QString name =
         QString::fromLatin1(
             QCryptographicHash::hash(url.toUtf8(), QCryptographicHash::Sha1).toHex()) +
         u'.' + extOfUrl(url);
-    if (m_enabled && !m_baseDir.isEmpty())
+    if (persist && m_enabled && !m_baseDir.isEmpty())
         return m_baseDir + u'/' + name;
     QString tmp = QStandardPaths::writableLocation(QStandardPaths::TempLocation) +
                   QStringLiteral("/box");
@@ -63,11 +64,18 @@ QString ImageCache::targetPath(const QString &url) const {
     return tmp + u'/' + name;
 }
 
-QString ImageCache::localPath(const QString &url) const {
+QString ImageCache::localPath(const QString &url, const Post *post) const {
     // Only persistent files count as "cached"; temp files are re-fetched.
     if (!m_enabled || m_baseDir.isEmpty())
         return {};
-    const QString p = targetPath(url);
+    // Per-post policy: entries the current mode forbids behave as if the
+    // cache did not contain them (so "don't cache this booru" really
+    // starts cold instead of silently replaying old disk entries).
+    if (post && !MediaCache::persistForPost(*post))
+        return {};
+    if (!post && !MediaCache::persistFor(QString(), QString()))
+        return {};
+    const QString p = targetPath(url, true);
     if (!QFile::exists(p))
         return {};
     // Bookkeeping off the UI thread: the janitor is thread-safe, and a
@@ -77,21 +85,27 @@ QString ImageCache::localPath(const QString &url) const {
     return p;
 }
 
-void ImageCache::request(const QString &url, const QString &referer) {
+void ImageCache::request(const QString &url, const QString &referer,
+                         const Post *post) {
     if (url.isEmpty())
         return;
     if (!RemotePosts::isHttpUrl(url)) {
         emit failed(url, tr("Unsupported URL scheme"));
         return;
     }
-    const QString have = localPath(url);
+    const bool persist =
+        m_enabled && (post ? MediaCache::persistForPost(*post)
+                           : MediaCache::persistFor(QString(), QString()));
+    const bool nsfw = post && MediaCache::isNsfwRating(post->rating);
+    const QString siteKey = post && post->isRemote ? post->siteKey : QString();
+    const QString have = localPath(url, post);
     if (!have.isEmpty()) {
         emit ready(url, have);
         return;
     }
     if (m_active.contains(url))
         return; // already downloading
-    const QString dest = targetPath(url);
+    const QString dest = targetPath(url, persist);
     QDir().mkpath(QFileInfo(dest).absolutePath());
     QNetworkRequest req{QUrl(url)};
     req.setTransferTimeout(60000);
@@ -109,7 +123,8 @@ void ImageCache::request(const QString &url, const QString &referer) {
                 if (m_active.contains(url))
                     emit downloadProgress(url, received, total);
             });
-    connect(reply, &QNetworkReply::finished, this, [this, url, dest, reply] {
+    connect(reply, &QNetworkReply::finished, this, [this, url, dest, reply,
+                                                    persist, nsfw, siteKey] {
         m_active.remove(url);
         if (reply->error() != QNetworkReply::NoError) {
             emit failed(url, reply->errorString());
@@ -137,11 +152,11 @@ void ImageCache::request(const QString &url, const QString &referer) {
             if (f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
                 f.write(reply->readAll());
                 f.close();
-                if (m_enabled) {
+                if (persist) {
                     // Same off-thread bookkeeping as localPath(): the
                     // enforcement walk must not stall this reply handler.
-                    (void)QtConcurrent::run([dest] {
-                        CacheJanitor::record(dest);
+                    (void)QtConcurrent::run([dest, nsfw, siteKey] {
+                        CacheJanitor::record(dest, nsfw, siteKey);
                         CacheJanitor::enforce();
                     });
                 }
@@ -156,9 +171,11 @@ void ImageCache::request(const QString &url, const QString &referer) {
 
 void ImageCache::drop(const QString &url) {
     cancelUrl(url);
-    const QString have = localPath(url);
-    if (!have.isEmpty())
-        QFile::remove(have);
+    if (!m_baseDir.isEmpty()) {
+        const QString have = targetPath(url, true);
+        if (QFile::exists(have))
+            QFile::remove(have);
+    }
 }
 
 void ImageCache::cancelUrl(const QString &url) {
@@ -169,6 +186,8 @@ void ImageCache::cancelUrl(const QString &url) {
     it.value()->abort();
     it.value()->deleteLater();
     m_active.erase(it);
-    // Drop the partial file if one was started.
-    QFile::remove(targetPath(url));
+    // Drop the partial file if one was started. Both locations are safe
+    // to probe: the temp path exists only for policy-denied entries.
+    QFile::remove(targetPath(url, true));
+    QFile::remove(targetPath(url, false));
 }

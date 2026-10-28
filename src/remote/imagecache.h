@@ -15,6 +15,8 @@
 #include <QObject>
 #include <QString>
 
+#include "post.h"
+
 class QNetworkAccessManager;
 class QNetworkReply;
 
@@ -25,9 +27,14 @@ public:
 
     void setEnabled(bool on);
     void setBaseDir(const QString &dir);
-    // Existing cached file, or "" (caller should request()).
-    QString localPath(const QString &url) const;
-    void request(const QString &url, const QString &referer = {});
+    // Existing cached file, or "" (caller should request()). Passing the
+    // post applies the cache policy: denied entries behave as uncached
+    // and are not read back from disk.
+    QString localPath(const QString &url, const Post *post = nullptr) const;
+    // Media policy is applied per post (global cache mode narrowed by
+    // the entry's own override). A null post keeps the global mode.
+    void request(const QString &url, const QString &referer = {},
+                 const Post *post = nullptr);
     void cancelUrl(const QString &url);
     // Forget one entry (delete the cached file): the next request()
     // refetches bytes. Used by viewer reload, not by normal browsing.
@@ -40,7 +47,7 @@ signals:
     void downloadProgress(const QString &url, qint64 received, qint64 total);
 
 private:
-    QString targetPath(const QString &url) const;
+    QString targetPath(const QString &url, bool persist) const;
     static QString extOfUrl(const QString &url);
     QNetworkAccessManager *namForProxy(const QString &proxySpec);
 

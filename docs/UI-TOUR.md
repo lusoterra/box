@@ -152,8 +152,12 @@ Bottom: `Defaults` (reset page), `OK` / `Apply` (greys out when clean —
 `updateApplyState`) / `Cancel`.
 
 ## 13-prefs-library — Preferences → Library
-Index cache, thumbnail cache (+ disk), full-image cache, auto tag
-classification, `Cache size limit`, `Thumbnail size`, `Clear caches…`.
+Scan index cache, `Media cache` radios (`Cache everything` /
+`Cache only SFW pictures/videos` / `Cache nothing (session only)`),
+`Also cache full-quality images…`, auto tag classification,
+`Cache size limit`, `Thumbnail size`, `Delete cached media…` (greyed
+when caching everything; SFW deletes NSFW/unknown entries, Nothing
+removes all media) and `Clear scan index…`.
 
 ## 14-prefs-browse — Preferences → Browse
 `Page size`, `Default boorus` checklist (new tabs + fallbacks), `Data
@@ -173,7 +177,8 @@ HiddenBooru is greyed out in the engine list (instance returns no
 posts); existing entries keep working, new ones can't select it.
 Per-entry `Tags` (skip auto-categorization), `Blacklist` (filter
 blacklist locally instead of server `-tags`, for tag-capped accounts),
-`Default tags`, `Proxy`.
+`Default tags`, `Media cache` (`Global` / `All` / `SFW only` / `Nothing`
+for this booru, narrowed by the global mode), `Proxy`.
 
 ## 15-prefs-tags — Preferences → Tags
 `Tag type overrides` (manual `tag → bucket`, wins over fetches),

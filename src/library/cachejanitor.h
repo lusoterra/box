@@ -24,13 +24,21 @@ public:
     // Call before any other use when relocated.
     static void setTrackingDir(const QString &dir);
     static QString dbPath();
-    // Record a newly written file (or re-record size changes).
+    // Record a newly written file (or re-record size changes). The
+    // no-argument overload marks the rating as unknown (kept by every
+    // purge except "SFW only", which must fail closed).
     static void record(const QString &path);
+    static void record(const QString &path, bool nsfw, const QString &siteKey);
     // Mark an existing file seen (cache hit). Adopts untracked files.
     static void hit(const QString &path);
     // Adopt unknown files, drop stale rows, delete oldest-seen past the cap.
     // Throttled: at most once a minute unless forced.
     static void enforce(bool force = false);
+    // Delete cached media files: keepSfwOnly=false removes every thumb +
+    // full-image cache file; true removes NSFW and unknown/legacy entries
+    // (entries not provably SFW), leaving SFW files. Returns the number of
+    // files removed. Scan indexes and favicons are never touched.
+    static int purgeMedia(bool keepSfwOnly);
 
 private:
     static QRecursiveMutex &mutex(); // recursive: hit() shares code with record()

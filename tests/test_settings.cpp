@@ -2,6 +2,7 @@
 // booru-credential migration. Fully isolated via
 // XDG_CONFIG_HOME/XDG_DATA_HOME temp dirs (never touches real config).
 #include "settings.h"
+#include "cachepolicy.h"
 #include "tagtypes.h"
 
 #include <QTemporaryDir>
@@ -23,7 +24,8 @@ private slots:
 
     void defaultsSane() {
         const AppSettings s;
-        QVERIFY(s.indexCache && s.thumbCache);
+        QVERIFY(s.indexCache);
+        QVERIFY(s.cacheMode == CacheMode::All); // thumbnails cached like before
         QVERIFY(!s.hideAi); // AI-content filter defaults OFF
         QVERIFY(s.wallAutoPopup); // wall solve browser auto-pops
         QVERIFY(s.customBucketMap.isEmpty());
@@ -47,6 +49,7 @@ private slots:
     void settingsRoundTrip() {
         AppSettings s;
         s.indexCache = false;
+        s.cacheMode = CacheMode::SfwOnly;
         s.cacheLimitMB = 512;
         s.thumbLongSide = 512;
         s.lastRoot = QStringLiteral("/pics/dump");
@@ -80,6 +83,7 @@ private slots:
         custom.defaultTags = QStringLiteral("rating:safe solo");
         custom.proxy = QStringLiteral("socks5://127.0.0.1:1080");
         custom.localBlacklist = true;
+        custom.cacheMode = CacheMode::None;
         s.boorus = {custom};
         s.explicitTags = {QStringLiteral("customtag")};
         s.disabledBuckets = {QStringLiteral("gelbooru:character")};
@@ -104,6 +108,7 @@ private slots:
         saveSettings(s);
         const AppSettings back = loadSettings();
         QCOMPARE(back.indexCache, false);
+        QVERIFY(back.cacheMode == CacheMode::SfwOnly);
         QCOMPARE(back.cacheLimitMB, 512);
         QCOMPARE(back.thumbLongSide, 512);
         QCOMPARE(back.lastRoot, QStringLiteral("/pics/dump"));
@@ -140,6 +145,7 @@ private slots:
         QCOMPARE(back.boorus.first().proxy,
                  QStringLiteral("socks5://127.0.0.1:1080"));
         QVERIFY(back.boorus.first().localBlacklist);
+        QVERIFY(back.boorus.first().cacheMode == CacheMode::None);
         QCOMPARE(back.disabledBuckets,
                  QSet<QString>({QStringLiteral("gelbooru:character")}));
         QCOMPARE(back.explicitTags, QStringList({QStringLiteral("customtag")}));
@@ -220,8 +226,31 @@ private slots:
         QVERIFY(loadSettings().favTags.isEmpty());
     }
 
-    void legacyCredsMigrateToBoorus() {
-        // Simulate a pre-registry config: legacy keys, no boorus/order.
+    void cachePolicyNarrowsPerBooru() {
+        BooruSite noCache;
+        noCache.key = QStringLiteral("nocache");
+        noCache.cacheMode = CacheMode::None;
+        BooruSite sfw;
+        sfw.key = QStringLiteral("sfw");
+        sfw.cacheMode = CacheMode::SfwOnly;
+        const QList<BooruSite> sites = {noCache, sfw};
+        MediaCache::configure(CacheMode::All, sites);
+        QVERIFY(MediaCache::persistFor(QStringLiteral("other"),
+                                       QStringLiteral("explicit")));
+        QVERIFY(!MediaCache::persistFor(QStringLiteral("nocache"),
+                                        QStringLiteral("general")));
+        QVERIFY(MediaCache::persistFor(QStringLiteral("sfw"),
+                                       QStringLiteral("general")));
+        QVERIFY(!MediaCache::persistFor(QStringLiteral("sfw"),
+                                        QStringLiteral("explicit")));
+        // Global "nothing" is a hard floor: per-site "all" cannot reopen.
+        MediaCache::configure(CacheMode::None, {});
+        QVERIFY(!MediaCache::persistFor(QStringLiteral("other"),
+                                        QStringLiteral("general")));
+        MediaCache::configure(CacheMode::All, {});
+    }
+
+    void legacyCredsMigrateToBoorus() {        // Simulate a pre-registry config: legacy keys, no boorus/order.
         // Fresh profiles seed Safebooru-only now; legacy credentials for
         // unshipped boorus are dropped (existing profiles keep theirs).
         QSettings c(settingsFilePath(), QSettings::IniFormat);

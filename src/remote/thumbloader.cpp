@@ -47,14 +47,17 @@ void ThumbLoader::setWebBackend(WebDownloadBackend *backend) {
 }
 
 void ThumbLoader::request(const QString &key, const QString &path, qint64 mtime,
-                          qint64 size, int longSide, const QString &referer) {
+                          qint64 size, int longSide, const QString &referer,
+                          bool persistToDisk, bool nsfw,
+                          const QString &siteKey) {
     {
         QMutexLocker lock(&m_inflightMutex);
         if (m_inflight.contains(key))
             return; // scroll spam: this row already has a task queued
         m_inflight.insert(key);
     }
-    auto *task = new ThumbTask(this, key, path, mtime, size, longSide, referer);
+    auto *task = new ThumbTask(this, key, path, mtime, size, longSide, referer,
+                               persistToDisk, nsfw, siteKey);
     task->setAutoDelete(true);
     m_pool->start(task);
 }
@@ -74,10 +77,12 @@ void ThumbLoader::cancel() {
 }
 
 ThumbTask::ThumbTask(ThumbLoader *loader, QString key, QString path, qint64 mtime,
-                     qint64 size, int longSide, QString referer)
+                     qint64 size, int longSide, QString referer,
+                     bool persistToDisk, bool nsfw, QString siteKey)
     : m_loader(loader), m_key(std::move(key)), m_path(std::move(path)),
       m_mtime(mtime), m_size(size), m_longSide(longSide),
-      m_referer(std::move(referer)) {}
+      m_referer(std::move(referer)), m_persistToDisk(persistToDisk),
+      m_nsfw(nsfw), m_siteKey(std::move(siteKey)) {}
 
 void ThumbTask::run() {
     const int num = m_loader->m_aspectNum;
@@ -87,7 +92,7 @@ void ThumbTask::run() {
 
     // Disk cache lookup.
     QString diskPath;
-    if (!m_loader->m_cacheDir.isEmpty()) {
+    if (m_persistToDisk && !m_loader->m_cacheDir.isEmpty()) {
         const QByteArray id = QStringLiteral("%1|%2|%3|%4x%5|%6")
                                   .arg(m_path)
                                   .arg(m_mtime)
@@ -204,7 +209,7 @@ void ThumbTask::run() {
 
     if (!diskPath.isEmpty()) {
         img.save(diskPath, "JPEG", 82); // best effort
-        CacheJanitor::record(diskPath);
+        CacheJanitor::record(diskPath, m_nsfw, m_siteKey);
         CacheJanitor::enforce();
     }
     m_loader->releaseKey(m_key);
@@ -266,13 +271,17 @@ QString videoDiskPath(const QString &cacheDir, const QString &path, qint64 mtime
 }
 
 void VideoThumbGrabber::request(const QString &key, const QString &path, qint64 mtime,
-                                qint64 size, int longSide) {
+                                qint64 size, int longSide, bool persistToDisk,
+                                bool nsfw, const QString &siteKey) {
     // Disk cache first: same store the pool loader uses.
-    const QString dp =
-        videoDiskPath(m_cacheDir, path, mtime, size, m_aspectNum, m_aspectDen, longSide);
+    const QString dp = persistToDisk
+                           ? videoDiskPath(m_cacheDir, path, mtime, size,
+                                           m_aspectNum, m_aspectDen, longSide)
+                           : QString();
     if (!dp.isEmpty()) {
         QImage cached;
         if (cached.load(dp)) {
+            CacheJanitor::hit(dp);
             emit thumbnailReady(key, cached);
             return;
         }
@@ -280,7 +289,8 @@ void VideoThumbGrabber::request(const QString &key, const QString &path, qint64 
     if (m_queued.contains(key))
         return;
     m_queued.insert(key);
-    m_queue.append({key, path, mtime, size, longSide});
+    m_queue.append({key, path, mtime, size, longSide, persistToDisk, nsfw,
+                    siteKey});
     pump();
 }
 
@@ -290,9 +300,12 @@ void VideoThumbGrabber::pump() {
     m_busy = true;
     m_current = m_queue.takeFirst();
     m_want = double(m_aspectNum) / double(m_aspectDen);
-    m_diskPath = videoDiskPath(m_cacheDir, m_current.path, m_current.mtime,
-                               m_current.size, m_aspectNum, m_aspectDen,
-                               m_current.longSide);
+    m_diskPath =
+        m_current.persistToDisk
+            ? videoDiskPath(m_cacheDir, m_current.path, m_current.mtime,
+                            m_current.size, m_aspectNum, m_aspectDen,
+                            m_current.longSide)
+            : QString();
     // Fresh sink per job: frames decoded for the previous video but
     // delivered late must never be attributed to this job (a wrong
     // thumbnail here is then frozen by the disk cache). A late emission
@@ -323,8 +336,11 @@ void VideoThumbGrabber::finishCurrent(const QImage &img) {
     m_queued.remove(m_current.key);
     m_busy = false;
     QImage out = ThumbCommon::cropScale(img, m_want, m_current.longSide);
-    if (!m_diskPath.isEmpty())
+    if (!m_diskPath.isEmpty()) {
         out.save(m_diskPath, "JPEG", 82); // best effort
+        CacheJanitor::record(m_diskPath, m_current.nsfw, m_current.siteKey);
+        CacheJanitor::enforce();
+    }
     emit thumbnailReady(m_current.key, out);
     pump();
 }

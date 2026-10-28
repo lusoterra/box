@@ -19,9 +19,14 @@
 struct AppSettings {
     // Library
     bool indexCache = true;
-    bool thumbCache = true;
+    // On-disk media cache policy (thumbnails + full-quality browsing
+    // cache). "Nothing" keeps only in-memory/session data; explicit
+    // downloads are never affected. Per-booru entries can narrow this
+    // further (BooruSite::cacheMode).
+    CacheMode cacheMode = CacheMode::All;
     // Full-quality image cache while browsing. OFF by default: silent full
     // downloads would fill the disk with images you never asked to keep.
+    // It is also subject to cacheMode (and any per-booru override).
     bool fullCache = false;
     // Total cache cap in MB (thumbs + full images). 0 = unlimited.
     int cacheLimitMB = 10240;
@@ -212,7 +217,7 @@ inline bool operator==(const AppSettings &a, const AppSettings &b) {
         return false;
     if (a.hasLastPlace && !(a.lastPlace == b.lastPlace))
         return false;
-    return a.indexCache == b.indexCache && a.thumbCache == b.thumbCache &&
+    return a.indexCache == b.indexCache && a.cacheMode == b.cacheMode &&
            a.fullCache == b.fullCache && a.cacheLimitMB == b.cacheLimitMB &&
            a.thumbLongSide == b.thumbLongSide && a.lastRoot == b.lastRoot &&
            a.history == b.history && a.historyTokens == b.historyTokens &&
@@ -273,6 +278,6 @@ class QSettings;
 QList<BooruSite> loadBoorus(QSettings &c);
 void saveBoorus(QSettings &c, const QList<BooruSite> &boorus);
 
-// Wipes the scan-index + thumbnail caches (fresh rescan/re-decode after).
-// Only our own cache subdirs are touched.
-void clearCaches();
+// Wipes the scan-index cache (fresh rescan after). Media caches are left
+// alone; use CacheJanitor::purgeMedia() for those.
+void clearIndexCache();
