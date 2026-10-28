@@ -86,8 +86,8 @@ backup…`, `Download/Add Stray…`, `Update downloaded sidecars…`,
 `Close Folder`, `Start fresh session` (closes every tab, forgets the
 saved session, shows home), `♥ Favourites` (database-only tab),
 `Reload` (`F5` — rescan locally, re-search remotely). Library archive
-roots are read-only: no Delete there, and tag refresh applies in
-memory only (session tags, no sidecar rewrite).
+roots are read-only: no Delete there, and tag refresh is disabled
+(the button shows "Library archives are read-only" as its reason).
 
 ## 06-edit-menu — Edit
 `Preferences…` (`Ctrl+,`, tabbed dialog shots 12–16), `Load Custom
@@ -168,6 +168,8 @@ manager: entry list + `Name`/`short` (grid badge text)/`Badge color`
 (known hosts get house colors: gelbooru blue, rule34 green, aibooru green,
 danbooru/safebooru tan, shimmie gray; editable anytime)/`Base
 URL`/`Type` (engine) editor with cookie capture + favicon override.
+HiddenBooru is greyed out in the engine list (instance returns no
+posts); existing entries keep working, new ones can't select it.
 Per-entry `Tags` (skip auto-categorization), `Blacklist` (filter
 blacklist locally instead of server `-tags`, for tag-capped accounts),
 `Default tags`, `Proxy`.
