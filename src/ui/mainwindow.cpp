@@ -1193,6 +1193,9 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
                                   QMessageBox::Yes | QMessageBox::No,
                                   QMessageBox::No) != QMessageBox::Yes)
             return;
+        // Hard safeguard: library archive roots are never written to.
+        if (refuseArchiveWrite(abs, effectiveDownloadDir(m_settings)))
+            return;
         QFile::remove(abs);
         const QFileInfo fi(abs);
         QFile::remove(fi.absolutePath() + u'/' + fi.completeBaseName() +
@@ -3492,6 +3495,9 @@ void MainWindow::maybeDeleteUnfavFile(const Post &post) {
     const QString dlRoot =
         QDir(effectiveDownloadDir(m_settings)).canonicalPath();
     const QString abs = QFileInfo(post.absFile).canonicalFilePath();
+    // Hard safeguard: library archive roots are never written to.
+    if (refuseArchiveWrite(abs, dlRoot))
+        return;
     if (!dlRoot.isEmpty() && !abs.isEmpty() &&
         (abs == dlRoot || abs.startsWith(dlRoot + u'/'))) {
         if (QFile::remove(abs))
@@ -3821,6 +3827,9 @@ void MainWindow::showGridMenu(const QPoint &pos) {
             QDir(effectiveDownloadDir(m_settings)).canonicalPath();
         int gone = 0;
         for (const QString &f : anyFiles) {
+            // Hard safeguard: library archive roots are never written to.
+            if (refuseArchiveWrite(f, dlRoot))
+                continue;
             if (QFile::remove(f)) {
                 gone++;
                 // Our download sidecar shares the stem (<stem>.json):
@@ -4315,6 +4324,12 @@ void MainWindow::editStrayTags(const Post &post) {
     }
     obj[QStringLiteral("tags")] = kept.join(u' ');
     obj[QStringLiteral("stray")] = true;
+    // Hard safeguard: library archive roots are never written to.
+    if (refuseArchiveWrite(sidecar, effectiveDownloadDir(m_settings))) {
+        statusBar()->showMessage(
+            tr("Library archives are read-only"), 6000);
+        return;
+    }
     {
         QFile f(sidecar);
         if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
@@ -4328,10 +4343,12 @@ void MainWindow::editStrayTags(const Post &post) {
     // The scan cache keys on the MEDIA file (mtime+size): a sidecar-only
     // edit would read stale, so the tags never became searchable. Touch
     // the media so future rescans reparse the sidecar too.
-    QFile touch(post.absFile);
-    if (touch.open(QIODevice::ReadWrite))
-        touch.setFileTime(QDateTime::currentDateTime(),
-                          QFileDevice::FileModificationTime);
+    if (!refuseArchiveWrite(post.absFile, effectiveDownloadDir(m_settings))) {
+        QFile touch(post.absFile);
+        if (touch.open(QIODevice::ReadWrite))
+            touch.setFileTime(QDateTime::currentDateTime(),
+                              QFileDevice::FileModificationTime);
+    }
     // Apply now (no rescan flash): reparse what we just wrote, patch the
     // live index, and run the classifier so the new tags categorize
     // immediately (manual overrides always, online fetch when enabled).
@@ -4813,6 +4830,17 @@ void MainWindow::onRefreshDone(qint64 reqId,
             tmp.write(src.readAll());
             tmp.flush();
             parsePath = tmp.fileName();
+        }
+        // Hard safeguard: never write a sidecar into a library archive.
+        // parsePath is the temp copy for archives (passes), or the real
+        // sidecar in the download dir (passes). Catches any miscalc of
+        // the `writable` flag above.
+        if (refuseArchiveWrite(parsePath, effectiveDownloadDir(m_settings))) {
+            statusBar()->showMessage(
+                tr("Archive is read-only: tags refreshed for this session "
+                   "only"),
+                6000);
+            return;
         }
         if (!writeRefreshedSidecar(parsePath, raw, siteKey)) {
             statusBar()->showMessage(tr("Refresh: sidecar not writable"), 6000);

@@ -1111,12 +1111,16 @@
 - [x] Build + `ctest` (+ docs).
 
 ## 97. Disable write features on local read-only archives — DONE
-##    (refreshReason returns "Library archives are read-only" for
-##    posts outside the download dir; button shows the reason;
+##    (refreshReason returns "Library archives are read-only"; hard
+##    `refuseArchiveWrite` guard on every write path: delete loop,
+##    viewer delete, sidecar refresh, stray tag edit + media touch;
 ##    build OK)
 - Tag refresh and other write operations on library archives must be
   disabled (archives are read-only — no sidecar writes, no edits).
-  The refresh button should show a reason instead of firing.
+  The refresh button should show a reason instead of firing. Hard
+  safeguard: `refuseArchiveWrite` refuses any write outside the
+  download dir — called from delete loops, viewer delete, sidecar
+  refresh, stray tag edit and media touch.
 - [x] Gate refresh + other write paths on archive vs download dir.
 - [x] Build + `ctest` (+ docs).
 

@@ -1,7 +1,9 @@
 #include "metaparser.h"
 #include "explicittags.h"
 
+#include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonValue>
@@ -402,6 +404,15 @@ FreshMeta freshFrom(const QJsonObject &o, const QString &siteKey) {
     return m;
 }
 } // namespace
+
+bool refuseArchiveWrite(const QString &path, const QString &downloadDir) {
+    const QString dlRoot = QDir(downloadDir).canonicalPath();
+    const QString absDir =
+        QDir(QFileInfo(path).absolutePath()).canonicalPath();
+    if (dlRoot.isEmpty() || absDir.isEmpty())
+        return true; // safety: unresolvable = refuse
+    return absDir != dlRoot && !absDir.startsWith(dlRoot + u'/');
+}
 
 bool writeRefreshedSidecar(const QString &sidecarPath, const QJsonObject &fresh,
                            const QString &siteKey) {

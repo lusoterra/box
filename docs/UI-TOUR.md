@@ -86,8 +86,9 @@ backup…`, `Download/Add Stray…`, `Update downloaded sidecars…`,
 `Close Folder`, `Start fresh session` (closes every tab, forgets the
 saved session, shows home), `♥ Favourites` (database-only tab),
 `Reload` (`F5` — rescan locally, re-search remotely). Library archive
-roots are read-only: no Delete there, and tag refresh is disabled
-(the button shows "Library archives are read-only" as its reason).
+roots are read-only: no Delete there, tag refresh is disabled, and a
+hard `refuseArchiveWrite` guard refuses any file write outside the
+download dir (Syncthing-safe).
 
 ## 06-edit-menu — Edit
 `Preferences…` (`Ctrl+,`, tabbed dialog shots 12–16), `Load Custom

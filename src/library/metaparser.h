@@ -31,3 +31,9 @@ private:
 // are replaced wholesale). Returns false when the sidecar shape is unknown.
 bool writeRefreshedSidecar(const QString &sidecarPath, const QJsonObject &fresh,
                            const QString &siteKey);
+
+// Hard write-refusal for library archive roots (everything outside the
+// download dir). All file-write code paths call this first: if it
+// returns true the write MUST be skipped, no exceptions. Keeps
+// read-only mirrors (Syncthing, etc.) free of local additions.
+bool refuseArchiveWrite(const QString &path, const QString &downloadDir);
