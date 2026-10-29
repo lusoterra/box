@@ -21,8 +21,9 @@ struct AppSettings {
     bool indexCache = true;
     // On-disk media cache policy (thumbnails + full-quality browsing
     // cache). "Nothing" keeps only in-memory/session data; explicit
-    // downloads are never affected. Per-booru entries can narrow this
-    // further (BooruSite::cacheMode).
+    // downloads are never affected. "SFW only" still caches explicitly
+    // downloaded media (Post::downloaded), never favourites-only rows.
+    // Per-booru entries can narrow this further (BooruSite::cacheMode).
     CacheMode cacheMode = CacheMode::All;
     // Full-quality image cache while browsing. OFF by default: silent full
     // downloads would fill the disk with images you never asked to keep.

@@ -12,6 +12,12 @@
 // action) always write to the download folder, and viewed media still
 // stages in the OS temp dir because the image/video readers need a file.
 //
+// SFW only has one exception: media the user explicitly downloaded (bytes
+// present under the download folder, `Post::downloaded`) may be cached
+// even when NSFW. Favouriting/bookmarking alone does NOT qualify - a
+// favourite with no downloaded file stays subject to the rating filter.
+// "Nothing" remains a hard floor: no disk cache, downloads included.
+//
 // Ratings: general/safe are SFW. sensitive/questionable/explicit and any
 // unknown rating count as NSFW (fail closed when deciding what to purge).
 #include <QHash>
@@ -106,11 +112,15 @@ inline bool isNsfwRating(const QString &rating) {
 
 // Disk persistence for one media item from a given site. `siteKey` may be
 // empty (local archive rows): those follow the global mode only.
-inline bool persistFor(const QString &siteKey, const QString &rating) {
+// `explicitDownload` marks bytes the user asked to keep (download folder):
+// they bypass the SFW rating gate, never the "Nothing" floor.
+inline bool persistFor(const QString &siteKey, const QString &rating,
+                       bool explicitDownload = false) {
     const CacheMode mode = effectiveMode(siteKey);
     if (mode == CacheMode::None)
         return false;
-    if (mode == CacheMode::SfwOnly && isNsfwRating(rating))
+    if (mode == CacheMode::SfwOnly && isNsfwRating(rating) &&
+        !explicitDownload)
         return false;
     return true;
 }
@@ -118,7 +128,8 @@ inline bool persistFor(const QString &siteKey, const QString &rating) {
 inline bool persistForPost(const Post &post) {
     // Per-booru choices describe booru traffic; local archive thumbnails
     // follow the global mode (the files are already on disk anyway).
-    return persistFor(post.isRemote ? post.siteKey : QString(), post.rating);
+    return persistFor(post.isRemote ? post.siteKey : QString(), post.rating,
+                      post.downloaded);
 }
 
 } // namespace MediaCache

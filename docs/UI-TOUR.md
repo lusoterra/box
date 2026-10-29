@@ -157,7 +157,9 @@ Scan index cache, `Media cache` radios (`Cache everything` /
 `Also cache full-quality images…`, auto tag classification,
 `Cache size limit`, `Thumbnail size`, `Delete cached media…` (greyed
 when caching everything; SFW deletes NSFW/unknown entries, Nothing
-removes all media) and `Clear scan index…`.
+removes all media) and `Clear scan index…`. Under SFW-only, media you
+explicitly downloaded stays cacheable even when NSFW; favouriting alone
+does not lift the filter.
 
 ## 14-prefs-browse — Preferences → Browse
 `Page size`, `Default boorus` checklist (new tabs + fallbacks), `Data

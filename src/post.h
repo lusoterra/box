@@ -66,6 +66,13 @@ struct Post {
     // Empty = unknown, never deduped on.
     QString md5;
     QJsonObject rawJson; // original API post object (written as download sidecar)
+    // Runtime-only cache-policy hint (never persisted / never sent to the
+    // sidecar): true only when the bytes are explicitly kept under the
+    // download folder. MainWindow stamps it from isPostDownloaded() before
+    // snapshots reach the grid, viewer and thumbnail queues. A favourite
+    // without a downloaded file stays false, so "liked" alone never lifts
+    // the SFW-only cache restriction.
+    bool downloaded = false;
 };
 
 inline bool isVideoExt(const QString &ext) {

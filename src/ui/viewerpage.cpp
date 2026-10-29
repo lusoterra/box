@@ -1639,6 +1639,11 @@ void ViewerPage::setFaved(bool faved) {
 
 void ViewerPage::setDownloaded(bool downloaded) {
     m_downloaded = downloaded;
+    // Keep the snapshot's cache-policy hint in sync: a post downloaded
+    // while its viewer is open becomes cacheable (SFW-only exception) on
+    // the next reload/step without rebuilding the grid.
+    if (m_row >= 0 && m_row < m_posts.size())
+        m_posts[m_row].downloaded = downloaded;
     if (downloaded)
         m_downloadBtn->setIcon(
             UiIcons::icon(QStringLiteral("download"), QColor(0x2e, 0x8b, 0x6e)));

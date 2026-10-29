@@ -250,6 +250,26 @@ private slots:
         MediaCache::configure(CacheMode::All, {});
     }
 
+    void downloadedNsfwBypassesSfwCacheOnly() {
+        BooruSite sfw;
+        sfw.key = QStringLiteral("sfw");
+        sfw.cacheMode = CacheMode::SfwOnly;
+        MediaCache::configure(CacheMode::SfwOnly, {sfw});
+        Post p;
+        p.isRemote = true;
+        p.siteKey = QStringLiteral("sfw");
+        p.rating = QStringLiteral("explicit");
+        // Favourited only: still denied while SFW-only.
+        QVERIFY(!MediaCache::persistForPost(p));
+        // Explicitly downloaded bytes lift the rating gate.
+        p.downloaded = true;
+        QVERIFY(MediaCache::persistForPost(p));
+        // "Nothing" stays a hard floor, downloads included.
+        MediaCache::configure(CacheMode::None, {sfw});
+        QVERIFY(!MediaCache::persistForPost(p));
+        MediaCache::configure(CacheMode::All, {});
+    }
+
     void legacyCredsMigrateToBoorus() {        // Simulate a pre-registry config: legacy keys, no boorus/order.
         // Fresh profiles seed Safebooru-only now; legacy credentials for
         // unshipped boorus are dropped (existing profiles keep theirs).

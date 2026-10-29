@@ -34,7 +34,9 @@
 - media cache / cache nothing = on-disk thumbnails + full-quality browsing
   files controlled by `MediaCache` (`src/library/cachepolicy.h`): global
   `cache/mode` (`all/sfw/none`) narrowed per `BooruSite::cacheMode`.
-  Explicit downloads are never affected; favourites DB/scan index stay.
+  Explicit downloads are never affected; in SFW mode, downloaded NSFW
+  media is cacheable (`Post::downloaded`) while a favourites-only row is
+  not; favourites DB/scan index stay.
 - delete cached media = `CacheJanitor::purgeMedia()`: SFW mode removes
   NSFW + unknown/legacy entries and keeps provably SFW files; Nothing mode
   removes all `thumbs/` + `full/` media.

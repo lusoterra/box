@@ -3384,12 +3384,13 @@ void MainWindow::repaintFavMarks() {
     const auto byPath = favKeysByPath(favLocal);
     for (int row = 0; row < m_model->rowCount() && row < m_current.size();
          ++row) {
-        const Post &p = m_current.at(row);
+        Post &p = m_current[row];
+        p.downloaded = isPostDownloaded(p, &favLocal);
         m_model->setData(m_model->index(row, 0),
                          isFavMarked(p, favLocal, byPath),
                          Qt::UserRole + 12);
-        m_model->setData(m_model->index(row, 0),
-                         isPostDownloaded(p, &favLocal), Qt::UserRole + 13);
+        m_model->setData(m_model->index(row, 0), p.downloaded,
+                         Qt::UserRole + 13);
     }
     if (m_viewer && m_viewer->hasCurrent()) {
         const Post &cur = m_viewer->currentPost();
@@ -5604,6 +5605,12 @@ void MainWindow::fillModel() {
         m_favDb.isOpen() ? m_favDb.localPaths()
                          : QHash<QPair<QString, qint64>, QString>();
     const auto favByPath = favKeysByPath(favLocal);
+    // Stamp the download state once per refill: the cache policy lets
+    // explicitly downloaded NSFW media persist under "SFW only" (a bare
+    // favourite does not), and the thumbnail queue + viewer copies below
+    // must carry the same flag.
+    for (Post &p : m_current)
+        p.downloaded = isPostDownloaded(p, &favLocal);
     for (const Post &p : m_current) {
         auto *item = new QStandardItem();
         QString key;
@@ -5675,7 +5682,7 @@ void MainWindow::fillModel() {
         // file) and favourited marks, next to the AI chip.
         item->setData(isFavMarked(p, favLocal, favByPath),
                       Qt::UserRole + 12);
-        item->setData(isPostDownloaded(p, &favLocal), Qt::UserRole + 13);
+        item->setData(p.downloaded, Qt::UserRole + 13);
         item->setEditable(false);
         // The tooltip stays on the post page even after a download
         // links the row to disk; strays (no post URL) keep the file.
