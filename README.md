@@ -9,6 +9,8 @@ Box (**Bo**oru e**x**plorer) is a Booru client for online boorus and local
 of downloaded posts, browse Danbooru/Gelbooru and more online, download in full
 quality, and keep favourites.
 
+![env](environment.jxl)
+
 ## Supported boorus
 
 <details>
@@ -23,11 +25,14 @@ quality, and keep favourites.
 | Shimmie | any Shimmie instance | |
 | HyBooru | any HyBooru instance | |
 | Nuuru | soybooru.com | proof-of-work clearance solves itself in-app |
-| HiddenBooru | Tor onion service (+ slow I2P mirror) | Tor proxy (`socks5h://127.0.0.1:9050`) or i2pd (`socks5h://127.0.0.1:4447`) |
+| HiddenBooru | Tor onion service (+ slow I2P mirror) | **Paused** - support is frozen and no longer offered in the UI; code/docs stay for existing entries. Tor proxy (`socks5h://127.0.0.1:9050`) or i2pd (`socks5h://127.0.0.1:4447`). |
 
 Any instance of a supported engine can be added in Preferences → Booru
 manager (base URL + engine type); only Safebooru ships preconfigured so
-fresh installs start SFW-only.
+fresh installs start SFW-only. New booru entries default to the
+`furry:g` default tag, which is expanded to `furry rating:general` on
+the wire: furry posts stay allowed, but only general-rated ones by
+default. Existing entries keep their own default tags.
 </details>
 
 ## Requirements
@@ -85,7 +90,7 @@ gallery-dl --write-metadata -D ~/pics/safebooru \
   "https://safebooru.org/index.php?page=post&s=list&tags=hatsune_miku"
 ```
 
-`--write-metadata` writes the per-file sidecar the scanner reads — without
+`--write-metadata` writes the per-file sidecar the scanner reads - without
 it you get untagged files. Re-run the same command later for new posts;
 add `--download-archive ~/pics/archive.sqlite3` to skip what you already
 have. The `--write-info-json` is also useful.
@@ -95,3 +100,12 @@ have. The `--write-info-json` is also useful.
 This project is licensed under the **GNU Affero General Public License v3.0** - see the [LICENSE](LICENSE) file for details.
 
 [![AGPL-3.0](https://www.gnu.org/graphics/agplv3-with-text-162x68.png)](https://www.gnu.org/licenses/agpl-3.0.html)
+
+## Themes
+
+Bundled themes live in `themes/*.ini` and are embedded into the binary
+(reconfigure after adding one). You can also drop a file into
+`~/.config/box/themes/` to add or override a theme without rebuilding.
+Each file is a tiny `[theme]` INI with `name`, `order`, `dark`, and hex
+colours (`window`, `base`, `alternate`, `button`, `text`, `dim`,
+`disabled`, `border`, `accent`); see `themes/nord.ini` for the shape.
