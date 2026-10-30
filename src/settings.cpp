@@ -66,7 +66,7 @@ AppSettings loadSettings() {
     s.history = c.value(QStringLiteral("library/history")).toStringList();
     s.historyTokens =
         c.value(QStringLiteral("library/historyTokens")).toStringList().mid(0, 200);
-    // NOTE: never a group literally named general/General — QSettings
+    // NOTE: never a group literally named general/General - QSettings
     // reserves General for groupless keys, so that group can neither be
     // written readably nor read back (settings silently reset every
     // launch). app/ holds these instead; General/ is a read fallback
@@ -113,6 +113,25 @@ AppSettings loadSettings() {
             c.value(QStringLiteral("tagtypes/customBuckets")).toStringList());
     s.tagCategoryMerges = TagCategories::fromLines(
         c.value(QStringLiteral("tagtypes/categoryMerges")).toStringList());
+    s.customTagCategories.clear();
+    for (const QString &cat :
+         c.value(QStringLiteral("tagtypes/customCategories")).toStringList()) {
+        const QString t = cat.trimmed();
+        if (!t.isEmpty() && !s.customTagCategories.contains(t))
+            s.customTagCategories << t;
+    }
+    s.tagCustomCategories.clear();
+    for (const QString &line :
+         c.value(QStringLiteral("tagtypes/tagCustomCategories"))
+             .toStringList()) {
+        const int eq = line.indexOf(u'=');
+        if (eq <= 0)
+            continue;
+        const QString tag = line.left(eq).trimmed().toLower();
+        const QString cat = line.mid(eq + 1).trimmed();
+        if (!tag.isEmpty() && !cat.isEmpty())
+            s.tagCustomCategories.insert(tag, cat);
+    }
     if (c.contains(QStringLiteral("tagtypes/disabledBuckets"))) {
         s.disabledBuckets.clear();
         for (const QString &e :
@@ -263,6 +282,13 @@ void writeSettingsTo(QSettings &c, const AppSettings &s) {
                  TagTypes::serializeTagOverrides(s.customBucketMap));
     c.setValue(QStringLiteral("tagtypes/categoryMerges"),
                TagCategories::toLines(s.tagCategoryMerges));
+    c.setValue(QStringLiteral("tagtypes/customCategories"),
+               s.customTagCategories);
+    QStringList customPairs;
+    for (auto it = s.tagCustomCategories.begin();
+         it != s.tagCustomCategories.end(); ++it)
+        customPairs << it.key() + u'=' + it.value();
+    c.setValue(QStringLiteral("tagtypes/tagCustomCategories"), customPairs);
     c.setValue(QStringLiteral("tagtypes/disabledBuckets"),
                QStringList(s.disabledBuckets.begin(), s.disabledBuckets.end()));
     c.setValue(QStringLiteral("browse/mode"), s.browseMode);
@@ -392,6 +418,7 @@ QList<BooruSite> loadBoorus(QSettings &c) {
         BooruSite b;
         b.key = key;
         b.label = c.value(QStringLiteral("label"), key).toString();
+        b.enabled = c.value(QStringLiteral("enabled"), true).toBool();
         b.shortName = c.value(QStringLiteral("short")).toString();
         if (b.shortName.isEmpty())
             b.shortName = RemotePosts::shortFor(b.label);
@@ -485,6 +512,7 @@ void saveBoorus(QSettings &c, const QList<BooruSite> &boorus) {
         order << b.key;
         c.beginGroup(QStringLiteral("boorus/") + booruGroupKey(b.key));
         c.setValue(QStringLiteral("label"), b.label);
+        c.setValue(QStringLiteral("enabled"), b.enabled);
         c.setValue(QStringLiteral("short"), b.shortName);
         c.setValue(QStringLiteral("badgeColor"), b.badgeColor);
         c.setValue(QStringLiteral("base"), b.baseUrl);

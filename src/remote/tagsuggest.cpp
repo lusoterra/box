@@ -193,7 +193,7 @@ QVector<TagSuggestion> parseSzuru(const QByteArray &body) {
 }
 
 QVector<TagSuggestion> parseHybooru(const QByteArray &body) {
-    // {"tags": {name: usage-count}, ...} — namespaces mirror the detail
+    // {"tags": {name: usage-count}, ...} - namespaces mirror the detail
     // objects; buckets follow the same mapping as fromHybooru.
     QVector<TagSuggestion> out;
     QJsonParseError err;

@@ -41,7 +41,7 @@ int main(int argc, char *argv[]) {
     // Cloudflare's challenges compute in WebGL/WebGPU, and since ~M128
     // Chromium offers NO software fallback unless this flag is present.
     // Machines whose GPU process fails (VMs, Xvfb, flaky Wayland/NVIDIA
-    // drivers — note the VDPAU/WebGPU errors in terminal output) would
+    // drivers - note the VDPAU/WebGPU errors in terminal output) would
     // otherwise retry the challenge forever while a normal browser, on
     // hardware GL, passes. Hardware path untouched; user's own flags kept.
     {

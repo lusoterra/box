@@ -27,6 +27,7 @@ QJsonObject booruToJson(const BooruSite &b) {
     QJsonObject o;
     o[QStringLiteral("key")] = b.key;
     o[QStringLiteral("label")] = b.label;
+    o[QStringLiteral("enabled")] = b.enabled;
     o[QStringLiteral("short")] = b.shortName;
     o[QStringLiteral("badgeColor")] = b.badgeColor;
     o[QStringLiteral("baseUrl")] = b.baseUrl;
@@ -50,6 +51,9 @@ BooruSite booruFromJson(const QJsonObject &o) {
     BooruSite b;
     b.key = o.value(QStringLiteral("key")).toString();
     b.label = o.value(QStringLiteral("label")).toString();
+    b.enabled = o.contains(QStringLiteral("enabled"))
+                    ? o.value(QStringLiteral("enabled")).toBool()
+                    : true;
     b.shortName = o.value(QStringLiteral("short")).toString();
     if (!o.value(QStringLiteral("badgeColor")).toString().isEmpty())
         b.badgeColor = o.value(QStringLiteral("badgeColor")).toString();
@@ -187,6 +191,12 @@ QJsonObject exportJson(const AppSettings &s, const QVector<Post> &favs) {
     o[QStringLiteral("customBuckets")] = customBuckets;
     o[QStringLiteral("tagCategoryMerges")] =
         strList(TagCategories::toLines(s.tagCategoryMerges));
+    o[QStringLiteral("customTagCategories")] = strList(s.customTagCategories);
+    QStringList customPairs;
+    for (auto it = s.tagCustomCategories.begin();
+         it != s.tagCustomCategories.end(); ++it)
+        customPairs << it.key() + u'=' + it.value();
+    o[QStringLiteral("tagCustomCategories")] = strList(customPairs);
     o[QStringLiteral("explicitTags")] = strList(s.explicitTags);
     QJsonObject theme;
     theme[QStringLiteral("mode")] = s.themeMode;
@@ -304,6 +314,28 @@ bool importJson(const QJsonObject &o, AppSettings *s, QVector<Post> *favs,
     if (o.contains(QStringLiteral("tagCategoryMerges")))
         s->tagCategoryMerges = TagCategories::fromLines(
             strList(o.value(QStringLiteral("tagCategoryMerges"))));
+    if (o.contains(QStringLiteral("customTagCategories"))) {
+        s->customTagCategories.clear();
+        for (const QString &cat :
+             strList(o.value(QStringLiteral("customTagCategories")))) {
+            const QString t = cat.trimmed();
+            if (!t.isEmpty() && !s->customTagCategories.contains(t))
+                s->customTagCategories << t;
+        }
+    }
+    if (o.contains(QStringLiteral("tagCustomCategories"))) {
+        s->tagCustomCategories.clear();
+        for (const QString &line :
+             strList(o.value(QStringLiteral("tagCustomCategories")))) {
+            const int eq = line.indexOf(u'=');
+            if (eq <= 0)
+                continue;
+            const QString tag = line.left(eq).trimmed().toLower();
+            const QString cat = line.mid(eq + 1).trimmed();
+            if (!tag.isEmpty() && !cat.isEmpty())
+                s->tagCustomCategories.insert(tag, cat);
+        }
+    }
     if (o.contains(QStringLiteral("explicitTags")))
         s->explicitTags =
             normalizeExplicitTags(strList(o.value(QStringLiteral("explicitTags"))));

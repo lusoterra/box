@@ -150,7 +150,7 @@ private slots:
 
     void refreshTargetPrefersStampedKey() {
         // Custom same-family instances (ATF vs gelbooru.com): the label
-        // resolves to the wrong entry, so the stamped key must win —
+        // resolves to the wrong entry, so the stamped key must win -
         // otherwise refresh fires at the wrong host with the same id
         // (the "random post from the wrong booru" bug).
         BooruSite gel;
@@ -458,7 +458,7 @@ private slots:
         QVERIFY(!RemotePosts::isTransientSearchError(
             401, QStringLiteral("HTTP 401 (Unauthorized)")));
         QVERIFY(!RemotePosts::isTransientSearchError(
-            403, QStringLiteral("HTTP 403 — challenge")));
+            403, QStringLiteral("HTTP 403 - challenge")));
         QVERIFY(!RemotePosts::isTransientSearchError(
             400, QStringLiteral("HTTP 400 (Bad Request)")));
         QVERIFY(!RemotePosts::isTransientSearchError(200, QString()));
@@ -524,6 +524,11 @@ private slots:
                      {}, QStringLiteral("  rating:safe  "), {}),
                  QStringList({QStringLiteral("rating:safe")}));
         QVERIFY(RemotePosts::defaultTagsFor({}, {}, {}).isEmpty());
+        // Default new-booru tag: portable furry + general rating.
+        QCOMPARE(RemotePosts::defaultTagsFor(
+                     {}, QStringLiteral("furry:g"), {}),
+                 QStringList({QStringLiteral("furry"),
+                              QStringLiteral("rating:general")}));
     }
 
     void filetypeKeptOnlyOnDanbooru() {

@@ -12,9 +12,9 @@ user; everything else follows the tags below.
 
 | LoliSnatcher has | box has | note |
 |---|---|---|
-| Danbooru / Gelbooru / Moebooru / Shimmie / Szurubooru | yes | — |
-| Safebooru-as-dapi | yes (box concept, no losn equiv) | — |
-| HyBooru | yes (box concept) | — |
+| Danbooru / Gelbooru / Moebooru / Shimmie / Szurubooru | yes | - |
+| Safebooru-as-dapi | yes (box concept, no losn equiv) | - |
+| HyBooru | yes (box concept) | - |
 | e621 | no | PICK: biggest missing engine (furry). |
 | Philomena / BooruOnRails (Twibooru) | no | PICK: pony family. |
 | Sankaku (+Idol) | no | PICK: needs account + anti-bot handling. |
@@ -50,13 +50,13 @@ Share-to-Hydrus: WONT-DO (no Hydrus target on desktop; Open post covers it).
   without any server).
 - PICK: external-player button, GIF-as-thumbnail toggle.
 - WONT-DO: LoliSync device sync (desktop single-user; no server
-  component wanted) — the export file above is the offline answer.
+  component wanted) - the export file above is the offline answer.
 - WONT-DO: biometric lock, update checker, Discord button, onboarding
   tours, wakelock/vibration/incognito-keyboard (mobile-only concerns).
 - Reverse search: box is AHEAD (adds IQDB + trace.moe; losn adds ImgOps
-  + plain Google — not worth chasing).
+  + plain Google - not worth chasing).
 - Notes: parity (both overlay + toggle). Comments: box inline-collapsed
-  vs losn dialog — equivalent, keep box's.
+  vs losn dialog - equivalent, keep box's.
 
 ## Downloads
 
@@ -65,10 +65,10 @@ Share-to-Hydrus: WONT-DO (no Hydrus target on desktop; Open post covers it).
 - LoliSnatcher extras: stuck-watchdog auto-retry with retry buckets UI,
   per-snatch cooldown, custom filename templates, per-booru download
   subfolder override, download notifications. PICK as a batch (download
-  robustness pack) — none filed individually.
+  robustness pack) - none filed individually.
 - Coupling toggles both directions: parity (`snatchOnFavourite` =
   auto-download; box fav-auto-download defaults OFF, losn defaults differ
-  — keep box defaults).
+  - keep box defaults).
 - Backup import: favourite (`isFavourite`) and downloaded (`isSnatched`)
   flags are independent. Box's import dialog supports favs → favs,
   favs → download, downloads → downloads, downloads → favourites-only
@@ -83,7 +83,7 @@ Share-to-Hydrus: WONT-DO (no Hydrus target on desktop; Open post covers it).
   spoofing, rotation lock, predictive back, desktop/mobile shell
   duality (Flutter-mobile concerns, not Qt desktop).
 - PICK: gallery layout modes (grid/waterfall/staggered), thumbnail
-  preload tuning (overlaps task 28 windowing work — decide there).
+  preload tuning (overlaps task 28 windowing work - decide there).
 
 ## Tabs
 

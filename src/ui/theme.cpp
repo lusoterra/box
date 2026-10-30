@@ -3,9 +3,14 @@
 #include "uicons.h"
 
 #include <QApplication>
+#include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QMap>
 #include <QPalette>
+#include <QSettings>
+#include <QStandardPaths>
+#include <algorithm>
 #include <QStyle>
 #include <QStyleFactory>
 
@@ -64,8 +69,8 @@ PaletteColors keepassxcLight(const QColor &accentIn) {
 PaletteColors genericLight(const QColor &accentIn) {
     return {
         hex("#F5F6F8"), hex("#FFFFFF"), hex("#EEF1F6"), hex("#E6E8ED"),
-        hex("#20242E"), hex("#5B6272"), hex("#9AA0AE"), hex("#C9CEDB"),
-        themedAccent(accentIn, hex("#3A7EC2")), false,
+        hex("#20242E"), hex("#4B5567"), hex("#7B8496"), hex("#B8C1D1"),
+        themedAccent(accentIn, hex("#2F6FBF")), false,
     };
 }
 
@@ -186,29 +191,126 @@ void applyColors(QApplication &app, const PaletteColors &c) {
 
 } // namespace
 
+namespace {
+
+QString userThemeDir() {
+    return QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) +
+           QStringLiteral("/box/themes");
+}
+
+bool safeThemeKey(const QString &key) {
+    return !key.isEmpty() && key == QFileInfo(key).fileName() &&
+           !key.contains(u'/') && !key.contains(u'\\') &&
+           key != QStringLiteral(".") && key != QStringLiteral("..");
+}
+
+QString themePathForKey(const QString &key) {
+    if (!safeThemeKey(key))
+        return {};
+    const QString user = userThemeDir() + u'/' + key + QStringLiteral(".ini");
+    if (QFile::exists(user))
+        return user;
+    const QString builtin =
+        QStringLiteral(":/themes/") + key + QStringLiteral(".ini");
+    return QFile::exists(builtin) ? builtin : QString();
+}
+
+PaletteColors loadThemeFile(const QString &path, const QColor &accentIn,
+                            bool *ok) {
+    PaletteColors c = builtinDark(accentIn);
+    *ok = false;
+    QSettings s(path, QSettings::IniFormat);
+    s.beginGroup(QStringLiteral("theme"));
+    if (!s.contains(QStringLiteral("window")))
+        return c;
+    auto read = [&](const char *key, const QColor &fallback) {
+        const QColor v(s.value(QLatin1String(key)).toString());
+        return v.isValid() ? v : fallback;
+    };
+    c.window = read("window", c.window);
+    c.base = read("base", c.base);
+    c.alternate = read("alternate", c.alternate);
+    c.button = read("button", c.button);
+    c.text = read("text", c.text);
+    c.dim = read("dim", c.dim);
+    c.disabled = read("disabled", c.disabled);
+    c.border = read("border", c.border);
+    c.dark = s.value(QStringLiteral("dark"), c.dark).toBool();
+    const QColor fileAccent(s.value(QStringLiteral("accent")).toString());
+    if (fileAccent.isValid())
+        c.accent = themedAccent(accentIn, fileAccent);
+    *ok = true;
+    return c;
+}
+
+} // namespace
+
+QList<ThemeInfo> availableThemes() {
+    QMap<QString, ThemeInfo> byKey;
+    auto scan = [&](const QString &dir, bool user) {
+        const QDir d(dir);
+        for (const QString &f :
+             d.entryList({QStringLiteral("*.ini")}, QDir::Files)) {
+            const QString path = d.filePath(f);
+            QSettings s(path, QSettings::IniFormat);
+            s.beginGroup(QStringLiteral("theme"));
+            const QString key = f.left(f.size() - 4);
+            ThemeInfo info;
+            info.key = user ? key : key; // user files may override built-ins
+            info.label = s.value(QStringLiteral("name"), key).toString();
+            info.dark = s.value(QStringLiteral("dark"), true).toBool();
+            info.order = s.value(QStringLiteral("order"), user ? 1000 : 100)
+                             .toInt();
+            if (user)
+                info.order += 1000; // drop-ins sort after the shipped set
+            byKey.insert(key, info);
+        }
+    };
+    scan(QStringLiteral(":/themes"), false);
+    scan(userThemeDir(), true);
+    QList<ThemeInfo> out = byKey.values();
+    if (out.isEmpty()) {
+        // Resource listing failed (stripped build): keep the shipped keys
+        // selectable instead of showing only "System native".
+        const QList<QPair<QString, QString>> fallback = {
+            {QStringLiteral("builtin"), QStringLiteral("Box dark")},
+            {QStringLiteral("keepassxc-dark"), QStringLiteral("KeePassXC dark")},
+            {QStringLiteral("keepassxc-light"), QStringLiteral("KeePassXC light")},
+            {QStringLiteral("light"), QStringLiteral("Light")},
+            {QStringLiteral("nord"), QStringLiteral("Nord")},
+            {QStringLiteral("catppuccin-latte"), QStringLiteral("Catppuccin Latte")},
+            {QStringLiteral("catppuccin-frappe"), QStringLiteral("Catppuccin Frappé")},
+            {QStringLiteral("catppuccin-macchiato"), QStringLiteral("Catppuccin Macchiato")},
+            {QStringLiteral("catppuccin-mocha"), QStringLiteral("Catppuccin Mocha")},
+            {QStringLiteral("dracula"), QStringLiteral("Dracula")},
+            {QStringLiteral("atom-one-dark"), QStringLiteral("Atom One Dark")},
+            {QStringLiteral("tokyo-night"), QStringLiteral("Tokyo Night")},
+        };
+        int order = 0;
+        for (const auto &[key, label] : fallback)
+            out.append({key, label, true, order++});
+    }
+    std::sort(out.begin(), out.end(), [](const ThemeInfo &a,
+                                         const ThemeInfo &b) {
+        if (a.order != b.order)
+            return a.order < b.order;
+        return a.label.localeAwareCompare(b.label) < 0;
+    });
+    return out;
+}
+
 PaletteColors colorsFor(const QString &mode, const QColor &accent) {
-    if (mode == QStringLiteral("keepassxc-dark"))
-        return keepassxcDark(accent);
-    if (mode == QStringLiteral("keepassxc-light"))
-        return keepassxcLight(accent);
-    if (mode == QStringLiteral("light"))
-        return genericLight(accent);
-    if (mode == QStringLiteral("nord"))
-        return nord(accent);
-    if (mode == QStringLiteral("catppuccin-latte"))
-        return catppuccin(QStringLiteral("latte"), accent);
-    if (mode == QStringLiteral("catppuccin-frappe"))
-        return catppuccin(QStringLiteral("frappe"), accent);
-    if (mode == QStringLiteral("catppuccin-macchiato"))
-        return catppuccin(QStringLiteral("macchiato"), accent);
-    if (mode == QStringLiteral("catppuccin-mocha"))
-        return catppuccin(QStringLiteral("mocha"), accent);
-    if (mode == QStringLiteral("dracula"))
-        return dracula(accent);
-    if (mode == QStringLiteral("atom-one-dark"))
-        return atomOneDark(accent);
-    if (mode == QStringLiteral("tokyo-night"))
-        return tokyoNight(accent);
+    // Themes are data files now: built-ins live in :/themes/*.ini, user
+    // drop-ins in ~/.config/box/themes/*.ini (user overrides a built-in
+    // with the same file name). Unknown/legacy keys fall back to the dark
+    // default so an old settings.ini never breaks startup.
+    bool ok = false;
+    const QString path = themePathForKey(mode);
+    if (!path.isEmpty()) {
+        PaletteColors c = loadThemeFile(path, accent, &ok);
+        if (ok)
+            return c;
+    }
     return builtinDark(accent);
 }
 

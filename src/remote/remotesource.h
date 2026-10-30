@@ -185,7 +185,7 @@ bool skipAutoClassify(const Post &post);
 // family (legacy grid). Identity otherwise ("general" never folds).
 QString foldedBucketFor(const Post &post, const QString &bucket);
 // The user agent of the cookie-capture browser ONLY (never sent by API,
-// media or metadata requests — those identify honestly, since a browser
+// media or metadata requests - those identify honestly, since a browser
 // UA over QNAM's OpenSSL stack is exactly the mismatch walls flag).
 // The browser reports the engine's real default UA (see the setter);
 // requests carry harvested clearance in the Cookie header instead.
@@ -221,7 +221,7 @@ QString chromiumProxyServer(const QString &spec);
 // Stamp --proxy-server=... into QTWEBENGINE_CHROMIUM_FLAGS before the first
 // WebEngine object exists, so the capture browser, PoW fetches and media
 // downloads ride the proxy too (QNetworkProxy never reaches Chromium's
-// stack — without this, .onion hosts fail in WebEngine views with
+// stack - without this, .onion hosts fail in WebEngine views with
 // ERR_NAME_NOT_RESOLVED). No-op when a --proxy-server flag is already set
 // (explicit user flags win) or when no proxy parses. Global wins;
 // otherwise the first usable per-entry proxy is used (process-global flag).

@@ -226,7 +226,7 @@ static void hybooruFillCommon(Post &p, const QJsonObject &o,
 
 Post fromHybooruSummary(const QJsonObject &o, const QString &baseUrl) {
     // Search shape: id/sha256/md5?/size/mime/posted/extension. No tags,
-    // no dimensions — the viewer lazy-fetches the detail object on open.
+    // no dimensions - the viewer lazy-fetches the detail object on open.
     Post p;
     hybooruFillCommon(p, o, baseUrl);
     BooruEngineOps::finishRemote(p, QStringLiteral("HyBooru"), o,

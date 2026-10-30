@@ -536,7 +536,7 @@ bool DownloadManager::completeJob(DownloadJob &job, QString *error,
             *walled = true;
         if (error)
             *error = tr("Server returned a page, not media (challenge "
-                        "still active — solve once in Capture in browser…)");
+                        "still active - solve once in Capture in browser…)");
         return false;
     }
     // No API md5 and no md5-looking URL stem (Site_losn123 from
@@ -712,7 +712,7 @@ void DownloadsDialog::onFileFinished(const QString &fileName, bool ok,
         m_current->setText(tr("Saved %1").arg(fileName));
     } else {
         const QString why = error.isEmpty() ? fileName : error;
-        addRow(fileName, tr("✗ %1 — %2").arg(fileName, why));
+        addRow(fileName, tr("✗ %1 - %2").arg(fileName, why));
         m_current->setText(tr("Failed %1").arg(fileName));
     }
 }
@@ -720,7 +720,7 @@ void DownloadsDialog::onFileFinished(const QString &fileName, bool ok,
 void DownloadsDialog::onFileSkipped(const QString &fileName) {
     if (fileName.isEmpty())
         return;
-    addRow(fileName, tr("— %1 (already on disk)").arg(fileName));
+    addRow(fileName, tr("- %1 (already on disk)").arg(fileName));
 }
 
 void DownloadsDialog::onFileRenamed(const QString &oldName, const QString &newName) {

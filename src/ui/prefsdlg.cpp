@@ -4,6 +4,7 @@
 #include "cookiegrab.h"
 #include "faviconcache.h"
 #include "tagtypes.h"
+#include "theme.h"
 
 #include <QAbstractItemView>
 #include <QApplication>
@@ -101,7 +102,7 @@ public:
             // Number inputs never take the wheel here: focus lingers
             // after typing/dragging, so every later hover-wheel would
             // silently rewrite the value. Type, nudge with the arrows,
-            // or drag — the page scrolls instead.
+            // or drag - the page scrolls instead.
             allow = false;
         } else {
             allow = owner->hasFocus(); // clicked first
@@ -179,9 +180,18 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     const QList<BooruSite> tabBoorus =
         current.boorus.isEmpty() ? RemoteSource::presetBoorus() : current.boorus;
     for (const BooruSite &s : tabBoorus)
-        m_defaultTab->addItem(tr("%1 browse").arg(s.label), s.key);
-    m_defaultTab->setCurrentIndex(
-        qMax(0, m_defaultTab->findData(current.tabsDefault)));
+        if (s.enabled)
+            m_defaultTab->addItem(tr("%1 browse").arg(s.label), s.key);
+    int defaultIdx = m_defaultTab->findData(current.tabsDefault);
+    if (defaultIdx < 0 && !current.tabsDefault.isEmpty() &&
+        current.tabsDefault != QStringLiteral("welcome") &&
+        current.tabsDefault != QStringLiteral("last")) {
+        m_defaultTab->addItem(
+            tr("%1 (disabled)").arg(current.tabsDefault),
+            current.tabsDefault);
+        defaultIdx = m_defaultTab->count() - 1;
+    }
+    m_defaultTab->setCurrentIndex(qMax(0, defaultIdx));
     defRow->addWidget(m_defaultTab, 1);
     genLay->addLayout(defRow);
     auto *langRow = new QHBoxLayout();
@@ -535,6 +545,133 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     customRow->addWidget(customAdd);
     customRow->addWidget(customDel);
     typesLay->addLayout(customRow);
+
+    // ── User-created categories: assign any tag to its own group ──
+    typesLay->addWidget(note(tr(
+        "Custom tag categories: create a group, then assign tags to it. "
+        "Assigned tags move out of Artist/Character/Copyright/Meta/Tags "
+        "into that group in the sidebar and viewer.")));
+    m_customCategories = new QListWidget(this);
+    m_customCategories->setMinimumHeight(58);
+    for (const QString &cat : current.customTagCategories)
+        new QListWidgetItem(cat, m_customCategories);
+    typesLay->addWidget(m_customCategories);
+    auto *customCatRow = new QHBoxLayout();
+    m_customCategoryEdit = new QLineEdit(this);
+    m_customCategoryEdit->setPlaceholderText(tr("new category name"));
+    auto *customCatAdd = new QPushButton(tr("Add category"), this);
+    auto *customCatDel = new QPushButton(tr("Remove category"), this);
+    customCatRow->addWidget(m_customCategoryEdit, 1);
+    customCatRow->addWidget(customCatAdd);
+    customCatRow->addWidget(customCatDel);
+    typesLay->addLayout(customCatRow);
+
+    m_tagCustomAssignments = new QListWidget(this);
+    m_tagCustomAssignments->setMinimumHeight(80);
+    for (auto it = current.tagCustomCategories.begin();
+         it != current.tagCustomCategories.end(); ++it) {
+        auto *item = new QListWidgetItem(
+            tr("%1 → %2").arg(it.key(), it.value()), m_tagCustomAssignments);
+        item->setData(Qt::UserRole, it.key());
+        item->setData(Qt::UserRole + 1, it.value());
+    }
+    typesLay->addWidget(m_tagCustomAssignments);
+    auto *catTagRow = new QHBoxLayout();
+    m_tagCustomEdit = new QLineEdit(this);
+    m_tagCustomEdit->setPlaceholderText(tr("tag"));
+    m_tagCustomCategory = new QComboBox(this);
+    m_tagCustomCategory->setEditable(true);
+    m_tagCustomCategory->setPlaceholderText(tr("category"));
+    auto *catTagAdd = new QPushButton(tr("Assign"), this);
+    auto *catTagDel = new QPushButton(tr("Remove"), this);
+    catTagRow->addWidget(m_tagCustomEdit, 1);
+    catTagRow->addWidget(m_tagCustomCategory, 1);
+    catTagRow->addWidget(catTagAdd);
+    catTagRow->addWidget(catTagDel);
+    typesLay->addLayout(catTagRow);
+    auto refreshCatCombo = [this]() {
+        if (!m_tagCustomCategory)
+            return;
+        const QString keep = m_tagCustomCategory->currentText();
+        m_tagCustomCategory->clear();
+        for (int i = 0; i < m_customCategories->count(); ++i)
+            m_tagCustomCategory->addItem(
+                m_customCategories->item(i)->text());
+        if (!keep.isEmpty())
+            m_tagCustomCategory->setEditText(keep);
+    };
+    refreshCatCombo();
+    connect(customCatAdd, &QPushButton::clicked, this,
+            [this, refreshCatCombo] {
+        const QString cat = m_customCategoryEdit->text().trimmed();
+        if (cat.isEmpty())
+            return;
+        for (int i = 0; i < m_customCategories->count(); ++i) {
+            if (m_customCategories->item(i)->text().compare(
+                    cat, Qt::CaseInsensitive) == 0) {
+                m_customCategoryEdit->clear();
+                return;
+            }
+        }
+        new QListWidgetItem(cat, m_customCategories);
+        m_customCategoryEdit->clear();
+        refreshCatCombo();
+        updateApplyState();
+    });
+    connect(customCatDel, &QPushButton::clicked, this,
+            [this, refreshCatCombo] {
+        const int row = m_customCategories->currentRow();
+        if (row < 0)
+            return;
+        const QString cat = m_customCategories->item(row)->text();
+        delete m_customCategories->takeItem(row);
+        for (int i = m_tagCustomAssignments->count() - 1; i >= 0; --i) {
+            if (m_tagCustomAssignments->item(i)
+                    ->data(Qt::UserRole + 1)
+                    .toString()
+                    .compare(cat, Qt::CaseInsensitive) == 0)
+                delete m_tagCustomAssignments->takeItem(i);
+        }
+        refreshCatCombo();
+        updateApplyState();
+    });
+    connect(catTagAdd, &QPushButton::clicked, this,
+            [this, refreshCatCombo] {
+        const QString tag = m_tagCustomEdit->text().trimmed().toLower();
+        const QString cat = m_tagCustomCategory->currentText().trimmed();
+        if (tag.isEmpty() || cat.isEmpty())
+            return;
+        bool haveCat = false;
+        for (int i = 0; i < m_customCategories->count(); ++i)
+            if (m_customCategories->item(i)->text().compare(
+                    cat, Qt::CaseInsensitive) == 0)
+                haveCat = true;
+        if (!haveCat)
+            new QListWidgetItem(cat, m_customCategories);
+        for (int i = 0; i < m_tagCustomAssignments->count(); ++i) {
+            QListWidgetItem *item = m_tagCustomAssignments->item(i);
+            if (item->data(Qt::UserRole).toString() == tag) {
+                item->setText(tr("%1 → %2").arg(tag, cat));
+                item->setData(Qt::UserRole + 1, cat);
+                m_tagCustomEdit->clear();
+                refreshCatCombo();
+                updateApplyState();
+                return;
+            }
+        }
+        auto *item = new QListWidgetItem(
+            tr("%1 → %2").arg(tag, cat), m_tagCustomAssignments);
+        item->setData(Qt::UserRole, tag);
+        item->setData(Qt::UserRole + 1, cat);
+        m_tagCustomEdit->clear();
+        refreshCatCombo();
+        updateApplyState();
+    });
+    connect(catTagDel, &QPushButton::clicked, this, [this] {
+        delete m_tagCustomAssignments->takeItem(
+            m_tagCustomAssignments->currentRow());
+        updateApplyState();
+    });
     tagsPage->addWidget(types);
 
     // ── Merge tag categories: one group/rename per booru ──
@@ -549,7 +686,7 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     m_mergeScope = new QComboBox(this);
     m_mergeScope->addItem(tr("All boorus"), QString());
     for (const BooruSite &b : current.boorus) {
-        if (!b.key.isEmpty())
+        if (b.enabled && !b.key.isEmpty())
             m_mergeScope->addItem(b.label.isEmpty() ? b.key : b.label,
                                   b.key);
     }
@@ -630,6 +767,8 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     m_defBoorus = new QListWidget(this);
     m_defBoorus->setMinimumHeight(110);
     for (const BooruSite &s : tabBoorus) {
+        if (!s.enabled)
+            continue;
         auto *item = new QListWidgetItem(s.label, m_defBoorus);
         item->setData(Qt::UserRole, s.key);
         item->setCheckState(current.browseSites.contains(s.key) ? Qt::Checked
@@ -652,7 +791,7 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     browseLay->addRow(tr("Data folder:"), dataRow);
     browseLay->addRow(QStringLiteral(""), note(tr(
         "Favourites and tag verdicts live here (store.db, "
-        "tag_types.db). Changing it starts fresh there — move "
+        "tag_types.db). Changing it starts fresh there - move "
         "your existing files over to keep them.")));
     m_downloadDefault = effectiveDownloadDir(current);
     m_downloadDir = new QLineEdit(
@@ -701,11 +840,11 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     m_globalProxy->setToolTip(tr("Global proxy for all traffic "
                                 "(http:// or socks5:// host:port). SOCKS5 routes "
                                 "the hostname through the proxy too, like curl "
-                                "socks5h — nothing leaks to local DNS. A per-booru "
+                                "socks5h - nothing leaks to local DNS. A per-booru "
                                 "proxy overrides this one; \"direct\" forces that "
                                 "booru direct. Empty = direct. The embedded "
                                 "browser (capture, PoW walls, onion sites) "
-                                "reads it at startup — restart after changing it."));
+                                "reads it at startup - restart after changing it."));
     connect(m_globalProxy, &QLineEdit::textChanged, this,
             &PrefsDialog::updateApplyState);
     browseLay->addRow(tr("Global proxy:"), m_globalProxy);
@@ -771,8 +910,28 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
         refreshBooruList();
         updateApplyState();
     });
+    auto *booruUp = new QPushButton(tr("↑"), this);
+    booruUp->setToolTip(tr("Move this booru up"));
+    auto *booruDown = new QPushButton(tr("↓"), this);
+    booruDown->setToolTip(tr("Move this booru down"));
+    auto moveBooru = [this](int delta) {
+        const int row = m_booruList->currentRow();
+        const int dst = row + delta;
+        if (row < 0 || dst < 0 || dst >= m_booruEdits.size())
+            return;
+        m_booruEdits.move(row, dst);
+        refreshBooruList();
+        m_booruList->setCurrentRow(dst);
+        updateApplyState();
+    };
+    connect(booruUp, &QPushButton::clicked, this,
+            [moveBooru] { moveBooru(-1); });
+    connect(booruDown, &QPushButton::clicked, this,
+            [moveBooru] { moveBooru(1); });
     accBtnRow->addWidget(booruAdd);
     accBtnRow->addWidget(booruDel);
+    accBtnRow->addWidget(booruUp);
+    accBtnRow->addWidget(booruDown);
     accLeft->addLayout(accBtnRow);
     accLeft->addWidget(booruDefaults);
     auto *faviconRefresh = new QPushButton(tr("Refresh favicons"), this);
@@ -830,6 +989,14 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
                                 "(http:// or socks5://; empty = global proxy, "
                                 "\"direct\" = bypass it)."));
     accForm->addRow(tr("Name:"), m_booruName);
+    m_booruEnabled = new QCheckBox(tr("Enabled (hide from pickers when off)"),
+                                   this);
+    m_booruEnabled->setToolTip(
+        tr("Keeps the entry and its credentials, but hides this booru from "
+           "new-tab, source and default-booru menus."));
+    connect(m_booruEnabled, &QCheckBox::toggled, this,
+            [this] { updateApplyState(); });
+    accForm->addRow(QString(), m_booruEnabled);
     m_booruShort = new QLineEdit(this);
     m_booruShort->setMaxLength(6);
     m_booruShort->setToolTip(tr("Short text on grid badges"));
@@ -941,7 +1108,7 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     cookieRefresh->setToolTip(tr("Reload the site in a hidden browser to "
                                  "renew short-lived challenge cookies "
                                  "(proof-of-work walls rotate them even when "
-                                 "logged in) — no puzzle to solve."));
+                                 "logged in) - no puzzle to solve."));
     connect(cookieRefresh, &QPushButton::clicked, this, [this, cookieRefresh] {
         saveBooruEditor();
         BooruSite *e = currentBooruEntry();
@@ -973,7 +1140,7 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
                     btn->setEnabled(true);
                 if (fresh.isEmpty()) {
                     self->m_accStatus->setText(
-                        tr("✗ %1: still challenged — open Capture in "
+                        tr("✗ %1: still challenged - open Capture in "
                            "browser… and solve it.").arg(label));
                     return;
                 }
@@ -990,7 +1157,7 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
                 self->updateCookieLabel();
                 self->updateApplyState();
                 self->m_accStatus->setText(
-                    tr("✓ %1: %2 cookie(s) refreshed — Apply to save.")
+                    tr("✓ %1: %2 cookie(s) refreshed - Apply to save.")
                         .arg(label).arg(fresh.size()));
             });
     });
@@ -1014,7 +1181,7 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
         if (!e)
             return;
         const QString src = QFileDialog::getOpenFileName(
-            this, tr("Custom favicon — %1").arg(e->label),
+            this, tr("Custom favicon - %1").arg(e->label),
             QDir::homePath(),
             tr("Images (*.png *.jpg *.jpeg *.ico *.svg *.webp);;All files (*)"));
         if (src.isEmpty())
@@ -1092,25 +1259,18 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     auto *app = new QGroupBox(tr("Appearance"), this);
     auto *appLay = new QFormLayout(app);
     m_themeMode = new QComboBox(this);
-    const QList<QPair<QString, QString>> themes = {
-        {tr("Box dark (default)"), QStringLiteral("builtin")},
-        {tr("KeePassXC dark"), QStringLiteral("keepassxc-dark")},
-        {tr("KeePassXC light"), QStringLiteral("keepassxc-light")},
-        {tr("Light"), QStringLiteral("light")},
-        {tr("Nord"), QStringLiteral("nord")},
-        {tr("Catppuccin Latte"), QStringLiteral("catppuccin-latte")},
-        {tr("Catppuccin Frappé"), QStringLiteral("catppuccin-frappe")},
-        {tr("Catppuccin Macchiato"), QStringLiteral("catppuccin-macchiato")},
-        {tr("Catppuccin Mocha"), QStringLiteral("catppuccin-mocha")},
-        {tr("Dracula"), QStringLiteral("dracula")},
-        {tr("Atom One Dark"), QStringLiteral("atom-one-dark")},
-        {tr("Tokyo Night"), QStringLiteral("tokyo-night")},
-        {tr("System native"), QStringLiteral("native")},
-    };
-    for (const auto &[label, key] : themes)
-        m_themeMode->addItem(label, key);
-    m_themeMode->setCurrentIndex(
-        qMax(0, m_themeMode->findData(current.themeMode)));
+    for (const Theme::ThemeInfo &info : Theme::availableThemes())
+        m_themeMode->addItem(info.label, info.key);
+    m_themeMode->addItem(tr("System native"), QStringLiteral("native"));
+    int themeIdx = m_themeMode->findData(current.themeMode);
+    if (themeIdx < 0) {
+        // A removed custom theme: keep the key visible instead of silently
+        // switching the user to the first entry.
+        m_themeMode->addItem(tr("%1 (missing file)").arg(current.themeMode),
+                             current.themeMode);
+        themeIdx = m_themeMode->count() - 1;
+    }
+    m_themeMode->setCurrentIndex(qMax(0, themeIdx));
     appLay->addRow(tr("Theme:"), m_themeMode);
     m_accentBtn = new QPushButton(tr("Pick…"), this);
     setSwatch(m_accent);
@@ -1379,6 +1539,12 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
                     m_categoryMerges->clear();
                 if (m_mergeScope)
                     m_mergeScope->setCurrentIndex(0);
+                if (m_customCategories)
+                    m_customCategories->clear();
+                if (m_tagCustomAssignments)
+                    m_tagCustomAssignments->clear();
+                if (m_tagCustomCategory)
+                    m_tagCustomCategory->clear();
                 m_booruEdits = RemoteSource::presetBoorus();
                 refreshBooruList();
                 for (int i = 0; i < m_defBoorus->count(); ++i) {
@@ -1643,7 +1809,7 @@ void PrefsDialog::detectBooruEngine(QPushButton *detectBtn) {
                 watcher->deleteLater();
                 if (found < 0) {
                     m_accStatus->setText(
-                        tr("✗ engine not recognized — pick it manually"));
+                        tr("✗ engine not recognized - pick it manually"));
                     return;
                 }
                 const BooruEngine engine = static_cast<BooruEngine>(found);
@@ -1721,7 +1887,7 @@ void PrefsDialog::showProbeDetails() {
             ? tr("(none)")
             : m_lastProbe.sentCookieNames.join(QStringLiteral(", "));
     RemotePosts::showProbeDialog(
-        this, tr("Server response — %1").arg(m_lastProbe.siteLabel),
+        this, tr("Server response - %1").arg(m_lastProbe.siteLabel),
         RemotePosts::probeReportText(
             RemotePosts::redactSecrets(
                 m_lastProbe.url.toString(QUrl::FullyEncoded)),
@@ -1738,6 +1904,7 @@ void PrefsDialog::commitBooruEditor(const QString &key) {
         b.label = m_booruName->text().trimmed();
         if (b.label.isEmpty())
             b.label = b.key;
+        b.enabled = m_booruEnabled->isChecked();
         b.shortName = m_booruShort->text().trimmed();
         if (b.shortName.isEmpty())
             b.shortName = RemotePosts::shortFor(b.label);
@@ -1901,7 +2068,7 @@ void PrefsDialog::updateFaviconPreview() {
         }
     }
     if (pm.isNull()) {
-        m_booruFavicon->setText(tr("—"));
+        m_booruFavicon->setText(tr("-"));
         m_booruFavicon->setToolTip(tr("No icon yet"));
     } else {
         m_booruFavicon->setText(QString());
@@ -1941,6 +2108,7 @@ void PrefsDialog::loadBooruEditor(int row) {
         m_booruShort->clear();
         m_booruNoClassify->setChecked(false);
         m_booruLocalBlacklist->setChecked(false);
+        m_booruEnabled->setChecked(true);
         m_booruCacheInherit->setChecked(true);
         m_booruTags->clear();
         m_booruProxy->clear();
@@ -1952,6 +2120,7 @@ void PrefsDialog::loadBooruEditor(int row) {
         return;
     }
     m_booruName->setText(found->label);
+    m_booruEnabled->setChecked(found->enabled);
     m_booruShort->setText(found->shortName);
     m_booruColor = QColor(found->badgeColor);
     if (!m_booruColor.isValid())
@@ -2011,8 +2180,13 @@ void PrefsDialog::refreshBooruList() {
     m_booruList->blockSignals(true);
     m_booruList->clear();
     for (const BooruSite &b : m_booruEdits) {
-        auto *item = new QListWidgetItem(b.label, m_booruList);
+        auto *item = new QListWidgetItem(
+            b.enabled ? b.label : tr("%1 (disabled)").arg(b.label),
+            m_booruList);
         item->setData(Qt::UserRole, b.key);
+        if (!b.enabled)
+            item->setForeground(palette().color(QPalette::Disabled,
+                                                QPalette::Text));
     }
     m_booruList->blockSignals(false);
     if (m_booruList->count() > 0 && m_booruList->currentRow() < 0)
@@ -2027,7 +2201,14 @@ void PrefsDialog::refreshBooruListLabels() {
         const QString key = item->data(Qt::UserRole).toString();
         for (const BooruSite &b : m_booruEdits) {
             if (b.key == key) {
-                item->setText(b.label);
+                item->setText(b.enabled
+                                  ? b.label
+                                  : tr("%1 (disabled)").arg(b.label));
+                item->setForeground(
+                    b.enabled
+                        ? palette().color(QPalette::Text)
+                        : palette().color(QPalette::Disabled,
+                                          QPalette::Text));
                 break;
             }
         }
@@ -2041,7 +2222,7 @@ void PrefsDialog::harvest() {
 
 // Custom favicons: convert staged choices to
 // <dataDir>/favicons/<key>.png, drop files for removed entries (and
-// staged removals). Runs only on real Apply/OK — harvestInto doubles
+// staged removals). Runs only on real Apply/OK - harvestInto doubles
 // as the Apply-state comparison and must never touch files.
 void PrefsDialog::commitPendingFavicons() {
     if (m_pendingFavicons.isEmpty())
@@ -2200,6 +2381,24 @@ void PrefsDialog::harvestInto(AppSettings &out) {
             const QString bucket = item->data(Qt::UserRole + 1).toString();
             if (!cat.isEmpty() && TagTypes::isValidBucket(bucket))
                 out.customBucketMap.insert(cat, bucket);
+        }
+    }
+    out.customTagCategories.clear();
+    if (m_customCategories) {
+        for (int i = 0; i < m_customCategories->count(); ++i) {
+            const QString cat = m_customCategories->item(i)->text().trimmed();
+            if (!cat.isEmpty() && !out.customTagCategories.contains(cat))
+                out.customTagCategories << cat;
+        }
+    }
+    out.tagCustomCategories.clear();
+    if (m_tagCustomAssignments) {
+        for (int i = 0; i < m_tagCustomAssignments->count(); ++i) {
+            const QListWidgetItem *item = m_tagCustomAssignments->item(i);
+            const QString tag = item->data(Qt::UserRole).toString();
+            const QString cat = item->data(Qt::UserRole + 1).toString();
+            if (!tag.isEmpty() && !cat.isEmpty())
+                out.tagCustomCategories.insert(tag, cat);
         }
     }
     out.tagCategoryMerges.clear();

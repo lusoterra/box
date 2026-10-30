@@ -1,5 +1,5 @@
 // HiddenBooru engine: search/detail/tag shapes from the v0.8 source
-// tarball (no live calls — Tor-only host). Post pages at /post/<id>/view,
+// tarball (no live calls - Tor-only host). Post pages at /post/<id>/view,
 // files served relative (resolved against base).
 #include "booruengine.h"
 #include "tagsuggest.h"

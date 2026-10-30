@@ -2,7 +2,7 @@
 // in every card. Headless (offscreen platform, temp XDG dirs): opens a
 // 700-file fixture archive in a real MainWindow, scrolls through it, and
 // asserts far rows share the single placeholder pixmap (one cache key)
-// while near rows carry real thumbs — i.e. memory stays flat.
+// while near rows carry real thumbs - i.e. memory stays flat.
 #include "mainwindow.h"
 
 #include <QApplication>

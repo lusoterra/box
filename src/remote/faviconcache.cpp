@@ -56,7 +56,7 @@ void FaviconCache::setCustomDir(const QString &dir) {
                 m_files.insert(key, dest);
             if (m_icons.contains(key)) {
                 // QIcons hold their file path: re-point at the moved
-                // file (GUI only — headless/test use re-resolves later).
+                // file (GUI only - headless/test use re-resolves later).
                 if (qobject_cast<QGuiApplication *>(
                         QCoreApplication::instance()))
                     m_icons.insert(key, QIcon(dest));
@@ -204,7 +204,7 @@ void FaviconCache::finishFetch() {
             }
         } else {
             // Not an image: an HTML 404/landing page may advertise the
-            // real icon via <link rel=icon> — queue those (untried only)
+            // real icon via <link rel=icon> - queue those (untried only)
             // before falling through to the remaining candidates.
             if (body.toLower().contains("<link")) {
                 const QString pageUrl = reply->url().toString();

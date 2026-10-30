@@ -5,6 +5,7 @@
 #include "tagcategories.h"
 
 #include <QHash>
+#include <QMap>
 #include <QLabel>
 #include <QMovie>
 #include <QProgressBar>
@@ -72,7 +73,7 @@ private:
 
 // Zoomable/pannable gif view: same QGraphicsView machinery as stills
 // (frames land on a pixmap item, the view transform zooms), so wheel,
-// drag and anchors behave identically — no label/scrollbar fighting.
+// drag and anchors behave identically - no label/scrollbar fighting.
 class GifView : public QGraphicsView {
     Q_OBJECT
 public:
@@ -101,7 +102,7 @@ private:
 
 // Frame-driven video item: sizes itself from the decoded frames it
 // actually receives. Player metadata / nativeSizeChanged stay silent
-// for some containers, but frames always carry dimensions — so a
+// for some containers, but frames always carry dimensions - so a
 // rendering video can never be stuck sizeless (tiny top-left).
 class VideoFrameItem : public QGraphicsItem {
 public:
@@ -256,6 +257,11 @@ public:
     // Instant prerender: show the (cached) grid thumbnail while the full
     // file downloads. Replaced by the real media when it arrives.
     void showThumbPreview(const QPixmap &thumb);
+    // A single-post refresh landed: update the matching snapshot and, when
+    // it is the post on screen, repaint only the tag panel (media stays).
+    void applyRefreshedPost(const Post &post);
+    // The lazy HyBooru detail fetch failed: allow a retry on a later open.
+    void detailFetchFailed(const Post &post);
     // Displayed still/gif frame (null for video/black): refresh re-shows
     // feed it back as the pending thumb so the media never blanks.
     QPixmap currentPixmap() const;
@@ -272,6 +278,8 @@ public:
     void setImageCache(ImageCache *cache);
     // Per-booru category merge/rename rules (Preferences → Tags).
     void setCategoryMerges(const QList<TagCategoryMerge> &merges);
+    // User-created groups: lowercase tag -> category label.
+    void setCustomTagCategories(const QMap<QString, QString> &tags);
     void setWebBackend(class WebDownloadBackend *backend);
     // Grid model for instant stepping: the target row's thumbnail shows
     // the moment navigation lands, before its full file arrives.
@@ -285,6 +293,7 @@ signals:
     // Right-click on a tag button (globalPos for the menu).
     void tagContextRequested(const QString &tag, const QPoint &globalPos);
     void downloadRequested(const Post &post);
+    void variantsRequested(const Post &post); // search parent/child family
     void deleteRequested(const Post &post); // button acts as delete toggle
     void favouriteRequested(const Post &post);
     void refreshRequested(const Post &post);
@@ -334,6 +343,7 @@ private:
     QString metaKey() const;
     QString metaProbeText() const; // post URL + failure reason (redacted)
     void renderMetaSections();
+    void renderTags(); // rebuild just the tag groups from m_posts[m_row]
     void showNote(const QString &text);
     void loadLocalImage(const QString &path, int row);
     void addTagGroup(QBoxLayout *lay, const QString &name, const QString &tags,
@@ -341,6 +351,7 @@ private:
 
     QVector<Post> m_posts;
     QList<TagCategoryMerge> m_categoryMerges;
+    QMap<QString, QString> m_customTagCategories;
     int m_row = 0;
     QLabel *m_aiBadge = nullptr;
     QLabel *m_favBadge = nullptr;
@@ -358,6 +369,7 @@ private:
     QPushButton *m_favBtn = nullptr;
     QPushButton *m_refreshBtn = nullptr;
     bool m_downloaded = false; // current post is on disk
+    QPushButton *m_variantsBtn = nullptr; // parent/child family search
     QPushButton *m_commentsBtn = nullptr; // popup with the post's thread
     QLabel *m_note = nullptr;
     QProgressBar *m_loadBar;
@@ -394,6 +406,7 @@ private:
     // HyBooru details already fetched this session (site#id): genuinely
     // tagless posts must not refetch on every open.
     QSet<QString> m_detailFetched;
+    QSet<QString> m_detailInFlight; // guard duplicate opens, retried on failure
     QString m_pendingUrl; // remote file currently being fetched
     int m_pendingRow = -1;
     bool m_sampleFallback = false; // full failed, sample fetch in flight

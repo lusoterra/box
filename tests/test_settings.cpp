@@ -68,6 +68,9 @@ private slots:
         s.tagCategoryMerges.append(
             {QStringLiteral("soy"), {QStringLiteral("*")},
              QStringLiteral("soybooru_specific")});
+        s.customTagCategories = {QStringLiteral("Favourite faces")};
+        s.tagCustomCategories.insert(QStringLiteral("smile"),
+                                     QStringLiteral("Favourite faces"));
         s.blacklist = {QStringLiteral("loli"), QStringLiteral("shota")};
         s.browseSites = {QStringLiteral("danbooru")};
         BooruSite custom;
@@ -86,6 +89,7 @@ private slots:
         custom.defaultTags = QStringLiteral("rating:safe solo");
         custom.proxy = QStringLiteral("socks5://127.0.0.1:1080");
         custom.localBlacklist = true;
+        custom.enabled = false;
         custom.cacheMode = CacheMode::None;
         s.boorus = {custom};
         s.explicitTags = {QStringLiteral("customtag")};
@@ -130,6 +134,8 @@ private slots:
         QVERIFY(!back.wallAutoPopup);
         QCOMPARE(back.customBucketMap.value(QStringLiteral("series")), QStringLiteral("copyright"));
         QCOMPARE(back.tagCategoryMerges, s.tagCategoryMerges);
+        QCOMPARE(back.customTagCategories, s.customTagCategories);
+        QCOMPARE(back.tagCustomCategories, s.tagCustomCategories);
         QCOMPARE(back.blacklist, s.blacklist);
         QCOMPARE(back.browseSites, QStringList({QStringLiteral("danbooru")}));
         QCOMPARE(back.boorus.size(), 1);
@@ -150,6 +156,7 @@ private slots:
         QCOMPARE(back.boorus.first().proxy,
                  QStringLiteral("socks5://127.0.0.1:1080"));
         QVERIFY(back.boorus.first().localBlacklist);
+        QVERIFY(!back.boorus.first().enabled);
         QVERIFY(back.boorus.first().cacheMode == CacheMode::None);
         QCOMPARE(back.disabledBuckets,
                  QSet<QString>({QStringLiteral("gelbooru:character")}));
@@ -300,6 +307,36 @@ private slots:
         // "Nothing" stays a hard floor, downloads included.
         MediaCache::configure(CacheMode::None, {sfw});
         QVERIFY(!MediaCache::persistForPost(p));
+        MediaCache::configure(CacheMode::All, {});
+    }
+
+    void sfwCacheIsAggressiveAndHonorsBlacklist() {
+        BooruSite sfw;
+        sfw.key = QStringLiteral("sfw");
+        sfw.cacheMode = CacheMode::SfwOnly;
+        MediaCache::configure(CacheMode::SfwOnly, {sfw});
+        MediaCache::setSfwBlacklist({QStringLiteral("guro")});
+        Post p;
+        p.isRemote = true;
+        p.siteKey = QStringLiteral("sfw");
+        p.rating.clear(); // unknown is not provably SFW
+        QVERIFY(!MediaCache::persistForPost(p));
+        p.tags = QStringLiteral("1girl rating:g");
+        QVERIFY(MediaCache::persistForPost(p)); // explicit rating tag
+        p.tags = QStringLiteral("1girl guro rating:g");
+        QVERIFY(!MediaCache::persistForPost(p)); // blacklist wins
+        p.downloaded = true;
+        QVERIFY(!MediaCache::persistForPost(p)); // blacklist beats downloads
+        MediaCache::setSfwBlacklist({});
+        p.tags = QStringLiteral("1girl rating:g");
+        QVERIFY(MediaCache::persistForPost(p));
+        p.rating = QStringLiteral("general");
+        QVERIFY(MediaCache::persistForPost(p));
+        p.rating = QStringLiteral("explicit");
+        QVERIFY(MediaCache::persistForPost(p)); // downloaded exception
+        p.downloaded = false;
+        QVERIFY(!MediaCache::persistForPost(p));
+        MediaCache::setSfwBlacklist({});
         MediaCache::configure(CacheMode::All, {});
     }
 

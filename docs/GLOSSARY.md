@@ -1,4 +1,4 @@
-# GLOSSARY — spoken term -> code concept
+# GLOSSARY - spoken term -> code concept
 
 - booru tab = browse tab: `BrowserTab.isRemote` (`src/ui/mainwindow.h:47`);
   remote search tab over one or more configured sites.
@@ -33,13 +33,20 @@
   `src/post.h:19`); baked into scan cache via `explicitTagsHash()`.
 - skipAutoClassify = per-entry opt-out of tag categorization
   (`RemotePosts::skipAutoClassify`, `src/remote/remotesource.h:147`).
+- custom tag categories = `customTagCategories` + `tagCustomCategories`
+  (Preferences → Tags): named groups with manual `tag -> group`
+  assignments; assigned tags render in their own sidebar/viewer group.
+- disabled booru = `BooruSite::enabled=false`: config/credentials and
+  old tabs/favourites keep resolving, but every picker/menu hides it.
+- variants = viewer `Variants` button: builds a parent/child/id OR group
+  and returns to the grid, so only the post family is searched.
 - merge tag categories = `TagCategoryMerge` rows (`src/library/tagcategories.h`,
   Preferences → Tags): `source1, source2 → Target`, scoped to one booru
   or all; a classic target joins/renames that bucket, anything else is
   one custom group. `*` matches every category.
-- themes = `Theme::colorsFor/applyTheme` (`src/ui/theme.cpp`): built-in
-  dark, KeePassXC dark/light, Light, Nord, Catppuccin (4 flavours),
-  Dracula, Atom One Dark, Tokyo Night, plus native.
+- themes = `Theme::availableThemes/colorsFor` (`src/ui/theme.cpp`): INI
+  files in `themes/` (embedded) or `~/.config/box/themes/` (drop-in),
+  plus native. See `docs/UI-TOUR.md` for the key list.
 - media cache / cache nothing = on-disk thumbnails + full-quality browsing
   files controlled by `MediaCache` (`src/library/cachepolicy.h`): global
   `cache/mode` (`all/sfw/none`) narrowed per `BooruSite::cacheMode`.
@@ -48,7 +55,10 @@
   not; favourites DB/scan index stay.
 - delete cached media = `CacheJanitor::purgeMedia()`: SFW mode removes
   NSFW + unknown/legacy entries and keeps provably SFW files; Nothing mode
-  removes all `thumbs/` + `full/` media.
+  removes all `thumbs/` + `full/` media. SFW-only caching treats an
+  empty/unknown rating as NSFW, requires a safe/general rating or
+  `rating:g`/`safety:safe`-style tag, and refuses blacklisted posts
+  (blacklist beats the downloaded exception).
 - localBlacklist = per-entry flag: skip server-side `-blacklist`
   exclusions, filter locally (`BooruSite::localBlacklist`).
 - relink = `relinkFavourites()`: match unlinked fav rows to files on disk

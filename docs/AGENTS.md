@@ -1,4 +1,4 @@
-# AGENTS — instructions for future AI sessions
+# AGENTS - instructions for future AI sessions
 
 - Read `docs/ARCHITECTURE.md` + `docs/GLOSSARY.md` before touching code;
   `docs/TESTING.md` before building or testing.

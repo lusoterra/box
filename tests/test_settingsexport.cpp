@@ -31,6 +31,9 @@ AppSettings sampleSettings() {
     s.tagCategoryMerges.append(
         {QStringLiteral("soy"), {QStringLiteral("*")},
          QStringLiteral("soybooru_specific")});
+    s.customTagCategories = {QStringLiteral("Favourite faces")};
+    s.tagCustomCategories.insert(QStringLiteral("smile"),
+                                 QStringLiteral("Favourite faces"));
     s.manualTagTypes.insert(QStringLiteral("sky"), QStringLiteral("general"));
     s.ugoiraFormat = QStringLiteral("jxl");
     s.ugoiraFrameDelayMs = 150;
@@ -78,6 +81,8 @@ private slots:
         QVERIFY(back.boorus.first().localBlacklist);
         QVERIFY(back.disabledBuckets.contains(QStringLiteral("gelbooru:character")));
         QCOMPARE(back.tagCategoryMerges, sampleSettings().tagCategoryMerges);
+        QCOMPARE(back.customTagCategories, sampleSettings().customTagCategories);
+        QCOMPARE(back.tagCustomCategories, sampleSettings().tagCustomCategories);
         QCOMPARE(back.manualTagTypes.value(QStringLiteral("sky")), QStringLiteral("general"));
         QCOMPARE(back.ugoiraFormat, QStringLiteral("jxl"));
         QCOMPARE(back.ugoiraFrameDelayMs, 150);

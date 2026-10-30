@@ -474,7 +474,7 @@ void RemoteSource::search(const QStringList &tags, int page, int limit) {
                  RemotePosts::looksLikeChallengePage(body))) {
                 // Challenge wall (Cloudflare "Just a moment", captchas,
                 // rule34.xxx's main-host wall): the HTML body names nothing
-                // actionable, so say what to do — including whether any
+                // actionable, so say what to do - including whether any
                 // cookies were even sent, which decides capture vs Apply.
                 // PoW-walled hosts get one silent browser-backed retry
                 // first (its TLS stack passes where QNAM's cannot).
@@ -485,13 +485,13 @@ void RemoteSource::search(const QStringList &tags, int page, int limit) {
                 }
                 if (m_site.cookies.isEmpty()) {
                     result.error =
-                        tr("HTTP 403 — challenge from %1. This entry has no "
+                        tr("HTTP 403 - challenge from %1. This entry has no "
                            "cookies saved: capture them (Booru manager → "
                            "Capture in browser…), Apply, then retry.")
                             .arg(QUrl(m_baseUrl).host());
                 } else {
                     result.error =
-                        tr("HTTP 403 — challenge from %1. The saved clearance "
+                        tr("HTTP 403 - challenge from %1. The saved clearance "
                            "was rejected or expired: re-capture (Booru "
                            "manager → Capture in browser…), Apply, then "
                            "retry.")
@@ -582,7 +582,7 @@ void RemoteSource::search(const QStringList &tags, int page, int limit) {
                     return;
                 }
                 result.error =
-                    tr("HTTP 200 — verification challenge from %1 instead of "
+                    tr("HTTP 200 - verification challenge from %1 instead of "
                        "data. Solve it in the capture browser (Booru manager "
                        "→ Capture in browser…), then retry.")
                         .arg(host);

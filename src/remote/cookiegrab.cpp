@@ -34,7 +34,7 @@ CookieEditorDialog::CookieEditorDialog(const QStringList &cookies,
     auto *lay = new QVBoxLayout(this);
     auto *note = new QLabel(
         tr("One <b>name=value</b> per line. Pasting a whole "
-           "<b>a=1; b=2</b> header (or Set-Cookie lines) works too — "
+           "<b>a=1; b=2</b> header (or Set-Cookie lines) works too - "
            "attributes are dropped, garbage is ignored."),
         this);
     note->setWordWrap(true);
@@ -111,18 +111,18 @@ CookieGrabDialog::CookieGrabDialog(const QString &siteLabel,
     if (startUrl.isValid())
         m_host = first.host().toLower();
     if (wallKind == QStringLiteral("pow"))
-        setWindowTitle(tr("Solve proof-of-work — %1").arg(siteLabel));
+        setWindowTitle(tr("Solve proof-of-work - %1").arg(siteLabel));
     else if (wallKind == QStringLiteral("captcha"))
-        setWindowTitle(tr("Solve captcha — %1").arg(siteLabel));
+        setWindowTitle(tr("Solve captcha - %1").arg(siteLabel));
     else
-        setWindowTitle(tr("Capture cookies — %1").arg(siteLabel));
+        setWindowTitle(tr("Capture cookies - %1").arg(siteLabel));
     resize(960, 680);
     // Qt6 initializes WebEngine on first use; no manual init needed.
     auto *lay = new QVBoxLayout(this);
     auto *note = new QLabel(
         tr("Log in and solve any captcha/verification challenge in the "
            "page below. A solved challenge collects the cookies but the "
-           "window stays open — verify the page, then press <b>Use these "
+           "window stays open - verify the page, then press <b>Use these "
            "cookies</b> to save. The login itself stays in a separate "
            "capture profile; only the harvested <b>name=value</b> pairs "
            "are kept with this booru."),
@@ -160,7 +160,7 @@ CookieGrabDialog::CookieGrabDialog(const QString &siteLabel,
     lay->addWidget(buttons);
     if (wallKind == QStringLiteral("pow") ||
         wallKind == QStringLiteral("captcha"))
-        setStatus(tr("Loading %1… — then search for anything on the site "
+        setStatus(tr("Loading %1… - then search for anything on the site "
                      "so the %2 appears (proof-of-work solves itself, a "
                      "captcha needs you), then press <b>Use these "
                      "cookies</b>.")
@@ -175,7 +175,7 @@ CookieGrabDialog::CookieGrabDialog(const QString &siteLabel,
     QTimer::singleShot(3000, this, [this] {
         m_armed = true;
         if (m_restoredClearance && m_cookies.isEmpty())
-            setStatus(tr("Existing login found — press <b>Use these "
+            setStatus(tr("Existing login found - press <b>Use these "
                          "cookies</b> if it is still valid, or log in "
                          "again to refresh it."));
     });
@@ -226,7 +226,7 @@ void CookieGrabDialog::onUrlChanged(const QUrl &url) {
 
 void CookieGrabDialog::onLoadFinished(bool ok) {
     if (!ok)
-        setStatus(tr("Page failed to load — check the address and retry."));
+        setStatus(tr("Page failed to load - check the address and retry."));
 }
 
 void CookieGrabDialog::onCookieAdded(const QNetworkCookie &cookie) {
@@ -261,9 +261,9 @@ void CookieGrabDialog::onCookieAdded(const QNetworkCookie &cookie) {
     if (!solved)
         return;
     // Settle briefly (redirect + follow-up cookies still landing),
-    // then collect — but stay open so the result can be verified.
+    // then collect - but stay open so the result can be verified.
     m_autoFired = true;
-    setStatus(tr("Challenge solved — collecting cookies…"));
+    setStatus(tr("Challenge solved - collecting cookies…"));
     QTimer::singleShot(1500, this, &CookieGrabDialog::autoHarvest);
 }
 
@@ -277,7 +277,7 @@ void CookieGrabDialog::autoHarvest() {
 void CookieGrabDialog::useCookies() {
     // Async flush: loadAllCookies() replays the jar through cookieAdded,
     // then finishHarvest() collects. The old nested QEventLoop here kept
-    // pumping renderer callbacks while the dialog could close underneath —
+    // pumping renderer callbacks while the dialog could close underneath -
     // a textbook use-after-free.
     if (m_flushing)
         return;
@@ -295,7 +295,7 @@ void CookieGrabDialog::finishHarvest() {
         m_useBtn->setEnabled(true);
     m_cookies = RemotePosts::harvestCookies(m_seen, m_host);
     if (m_cookies.isEmpty()) {
-        setStatus(tr("No cookies for this site yet — log in (or solve the "
+        setStatus(tr("No cookies for this site yet - log in (or solve the "
                      "challenge) first, then try again."));
         m_autoAccept = true;
         return;
@@ -304,7 +304,7 @@ void CookieGrabDialog::finishHarvest() {
         // Solved-challenge collection: report, stay open for verification.
         // The next manual press harvests fresh and closes as before.
         m_autoAccept = true;
-        setStatus(tr("Challenge solved — %1 cookies ready. Verify the page, "
+        setStatus(tr("Challenge solved - %1 cookies ready. Verify the page, "
                      "then press <b>Use these cookies</b> to save.")
                       .arg(m_cookies.size()));
         return;
@@ -547,7 +547,7 @@ void WebEngineDownloadBackend::finishJob(qint64 id, bool ok,
                   ok ? QString()
                      : (error.isEmpty()
                             ? tr("Server returned a page, not media "
-                                 "(challenge still active — solve once in "
+                                 "(challenge still active - solve once in "
                                  "Capture in browser…)")
                             : error));
 }

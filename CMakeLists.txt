@@ -99,6 +99,23 @@ qt_add_resources(box "app_translations"
     FILES ${APP_QM_FILES}
 )
 
+# Themes: drop a new `themes/<key>.ini` in place and reconfigure; it is
+# embedded as :/themes/<key>.ini and appears in Preferences. User copies
+# under ~/.config/box/themes/ are discovered at runtime without a rebuild.
+file(GLOB APP_THEME_FILES CONFIGURE_DEPENDS
+     ${CMAKE_CURRENT_SOURCE_DIR}/themes/*.ini)
+if(APP_THEME_FILES)
+    foreach(theme IN LISTS APP_THEME_FILES)
+        get_filename_component(theme_name "${theme}" NAME)
+        set_source_files_properties("${theme}" PROPERTIES
+            QT_RESOURCE_ALIAS "${theme_name}")
+    endforeach()
+    qt_add_resources(box "app_themes"
+        PREFIX "/themes"
+        FILES ${APP_THEME_FILES}
+    )
+endif()
+
 include(GNUInstallDirs)
 include(CTest)
 add_subdirectory(tests)

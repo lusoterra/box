@@ -68,7 +68,7 @@ StrayDialog::StrayDialog(bool autoFav, QWidget *parent) : QDialog(parent) {
 StrayTagDialog::StrayTagDialog(const QString &fileName, const QString &tags,
                                QWidget *parent)
     : QDialog(parent) {
-    setWindowTitle(tr("Edit tags — %1").arg(fileName));
+    setWindowTitle(tr("Edit tags - %1").arg(fileName));
     resize(440, 220);
     auto *lay = new QVBoxLayout(this);
     lay->addWidget(new QLabel(

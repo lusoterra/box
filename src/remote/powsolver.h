@@ -5,8 +5,8 @@
 // egress IP (verified live: same-IP calls pass, any other IP 449s), so a
 // browser-solved token dies on every egress change (Tor exit rotation
 // especially) and re-capture can never converge. PowSolver instead runs
-// the site's own protocol — GET /api/pow/challenge, SHA-256 prefix
-// search (a port of its pow-worker), POST /api/pow/verify — on the
+// the site's own protocol - GET /api/pow/challenge, SHA-256 prefix
+// search (a port of its pow-worker), POST /api/pow/verify - on the
 // caller's QNAM (same proxy, same egress, same cookie jar): the token
 // lands in that jar and the retried request just works. No browser
 // involved; captchas still need a human.

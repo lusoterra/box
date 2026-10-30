@@ -25,6 +25,7 @@
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QImageReader>
+#include <QJsonValue>
 #include <QKeyEvent>
 #include <QLabel>
 #include <QMediaDevices>
@@ -252,7 +253,7 @@ void GifView::setFile(const QString &path) {
         return; // nothing to render: leave the scene empty
     }
     // First real frame sizes the scene (header probes misreported 0x0
-    // before — this was the blank-gif bug); every frame after that just
+    // before - this was the blank-gif bug); every frame after that just
     // swaps the pixmap, so zoom never touches widget geometry.
     // Animated frames can report varying sizes (placeholders, disposal
     // rects): when the size changes, refresh the scene rect and re-apply
@@ -401,7 +402,7 @@ void VideoFrameItem::setFrame(const QVideoFrame &frame) {
         img = f.toImage();
         // Mappable-handle fallback only: map() on a non-readable frame
         // (broken hardware surfaces) warns `Cannot map ... ReadOnly`
-        // and has preceded a SIGSEGV in the backend — never attempt it.
+        // and has preceded a SIGSEGV in the backend - never attempt it.
         if (img.isNull() && f.isReadable() && f.map(QVideoFrame::ReadOnly)) {
             img = f.toImage(); // mapped-state path for exotic handles
             f.unmap();
@@ -763,7 +764,7 @@ void VideoPane::zoom100View() {
 bool VideoPane::eventFilter(QObject *watched, QEvent *e) {
     // Left-click on the picture toggles pause; anything else (side
     // buttons included) keeps its normal path to the parent viewer.
-    // NOTE: drag-pan starts with a left press too — the click only
+    // NOTE: drag-pan starts with a left press too - the click only
     // toggles when the pointer never moved (i.e. not a pan), and only
     // then is the release consumed so pans always finish cleanly.
     if (watched == m_view->viewport() &&
@@ -1090,6 +1091,10 @@ ViewerPage::ViewerPage(QWidget *parent) : QWidget(parent) {
     m_postBtn = new QPushButton(tr("Open post"), this);
     m_postBtn->setIcon(UiIcons::icon(QStringLiteral("external-link")));
     m_postBtn->setIconSize(QSize(15, 15));
+    m_variantsBtn = new QPushButton(tr("Variants"), this);
+    m_variantsBtn->setToolTip(
+        tr("Show this post's parent/child variants in a filtered search"));
+    m_variantsBtn->setVisible(false);
     m_imgSearchBtn = new QPushButton(tr("Image search"), this);
     m_imgSearchBtn->setIcon(UiIcons::icon(QStringLiteral("search")));
     m_imgSearchBtn->setIconSize(QSize(15, 15));
@@ -1168,6 +1173,10 @@ ViewerPage::ViewerPage(QWidget *parent) : QWidget(parent) {
         else
             m_image->zoom100();
     });
+    connect(m_variantsBtn, &QPushButton::clicked, this, [this] {
+        if (m_row >= 0 && m_row < m_posts.size())
+            emit variantsRequested(m_posts[m_row]);
+    });
     connect(m_postBtn, &QPushButton::clicked, this, [this] {
         // Scheme-gated: a rogue sidecar/API postUrl like file:///etc
         // must never reach the local file handler on click.
@@ -1231,6 +1240,7 @@ ViewerPage::ViewerPage(QWidget *parent) : QWidget(parent) {
     m_loadInfo->setVisible(false);
     bar->addWidget(m_loadInfo);
     bar->addStretch(1);
+    bar->addWidget(m_variantsBtn);
     bar->addWidget(m_postBtn);
     bar->addWidget(m_imgSearchBtn);
     bar->addWidget(m_refreshBtn);
@@ -1410,6 +1420,11 @@ void ViewerPage::setCategoryMerges(
     m_categoryMerges = merges;
 }
 
+void ViewerPage::setCustomTagCategories(
+    const QMap<QString, QString> &tags) {
+    m_customTagCategories = tags;
+}
+
 void ViewerPage::setImageCache(ImageCache *cache) {
     if (m_imgCache)
         disconnect(m_imgCache, nullptr, this, nullptr);
@@ -1455,7 +1470,7 @@ void ViewerPage::onCacheFailed(const QString &url, const QString &error) {
             p.sampleUrl != p.fileUrl && m_imgCache) {
             m_sampleFallback = true;
             m_pendingUrl = p.sampleUrl;
-            showNote(tr("Full file unavailable — showing sample"));
+            showNote(tr("Full file unavailable - showing sample"));
             m_loadBar->setRange(0, 0); // busy until progress lands
             m_loadBar->setVisible(true);
             const QString have = m_imgCache->localPath(p.sampleUrl, &p);
@@ -1732,10 +1747,42 @@ void ViewerPage::maybeFetchHybooruDetail() {
     if (!entry || entry->engine != BooruEngine::Hybooru)
         return;
     const QString key = entry->key + u'#' + QString::number(p.id);
-    if (m_detailFetched.contains(key))
+    if (m_detailFetched.contains(key) || m_detailInFlight.contains(key))
         return;
-    m_detailFetched.insert(key);
+    // Marked in-flight, not fetched: a failed/cancelled request must retry
+    // on the next open (the old code permanently blacklisted the post).
+    m_detailInFlight.insert(key);
     emit refreshRequested(p);
+}
+
+void ViewerPage::applyRefreshedPost(const Post &post) {
+    if (!post.isRemote)
+        return;
+    const BooruSite *entry = RemotePosts::entryForPost(post);
+    const QString key =
+        entry ? entry->key + u'#' + QString::number(post.id)
+              : (post.siteKey + u'#' + QString::number(post.id));
+    m_detailInFlight.remove(key);
+    m_detailFetched.insert(key);
+    for (int i = 0; i < m_posts.size(); ++i) {
+        Post &p = m_posts[i];
+        if (!p.isRemote || p.siteName != post.siteName || p.id != post.id)
+            continue;
+        p = post;
+        if (i == m_row)
+            renderTags(); // tags/meta only: media must not reload/restart
+        break;
+    }
+}
+
+void ViewerPage::detailFetchFailed(const Post &post) {
+    if (!post.isRemote)
+        return;
+    const BooruSite *entry = RemotePosts::entryForPost(post);
+    const QString key =
+        entry ? entry->key + u'#' + QString::number(post.id)
+              : (post.siteKey + u'#' + QString::number(post.id));
+    m_detailInFlight.remove(key);
 }
 
 void ViewerPage::primeThumb(int row) {
@@ -1790,6 +1837,23 @@ void ViewerPage::showCurrent() {
     m_nextBtn->setEnabled(m_row + 1 < m_posts.size());
     m_postBtn->setEnabled(!p.postUrl.isEmpty());
     m_postBtn->setToolTip(p.postUrl);
+    // Parent/child family: shown only when the API object says one exists
+    // (Danbooru/Gelbooru/HyBooru style keys). Some engines use `parent`.
+    qint64 parentId = 0;
+    for (const char *key : {"parent_id", "parent"}) {
+        const QJsonValue v = p.rawJson.value(QLatin1String(key));
+        if (!v.isNull() && !v.isUndefined()) {
+            parentId = v.toVariant().toLongLong();
+            if (parentId > 0)
+                break;
+        }
+    }
+    const bool hasChildren =
+        p.rawJson.value(QStringLiteral("has_children")).toBool() ||
+        p.rawJson.value(QStringLiteral("has_active_children")).toBool() ||
+        p.rawJson.value(QStringLiteral("has_visible_children")).toBool();
+    m_variantsBtn->setVisible(p.isRemote && p.id > 0 &&
+                              (parentId > 0 || hasChildren));
     // Reverse image search needs a fetchable remote file (engines cannot
     // take local paths).
     if (m_imgSearchBtn)
@@ -1832,7 +1896,7 @@ void ViewerPage::showCurrent() {
         if (p.isRemote) {
             if (p.fileUrl.isEmpty()) {
                 // Stale row (login-wall era or pre-file_url): a single-post
-                // refresh may restore the URL — once per post per session,
+                // refresh may restore the URL - once per post per session,
                 // then the note below stands.
                 const QString key =
                     p.siteName + u'#' + QString::number(p.id);
@@ -1988,6 +2052,14 @@ void ViewerPage::showCurrent() {
                             : QStringLiteral("<a href=\"%1\">%1</a>")
                                   .arg(p.source.toHtmlEscaped()));
 
+    renderTags();
+}
+
+void ViewerPage::renderTags() {
+    if (m_row < 0 || m_row >= m_posts.size())
+        return;
+    const Post &p = m_posts.at(m_row);
+
     // Rebuild the tag panel from scratch: destroying the host widget takes
     // all previous tag buttons with it (deleting layouts alone orphans them).
     delete m_tagHost;
@@ -2008,7 +2080,21 @@ void ViewerPage::showCurrent() {
         QMap<QString, QStringList> customGroups;
         QMap<QString, QString> labels; // bucket/key -> display label
         auto appendGroup = [&](const QString &target,
-                               const QStringList &tags) {
+                               const QStringList &tagsIn) {
+            if (tagsIn.isEmpty())
+                return;
+            QStringList tags;
+            for (const QString &t : tagsIn) {
+                const auto custom =
+                    m_customTagCategories.constFind(t.toLower());
+                if (custom == m_customTagCategories.constEnd()) {
+                    tags << t;
+                    continue;
+                }
+                const QString key = TagCategories::normalizeKey(custom.value());
+                customGroups[key] << t;
+                labels.insert(key, custom.value());
+            }
             if (tags.isEmpty())
                 return;
             const QString bucket = TagCategories::classicBucket(target);
@@ -2087,7 +2173,7 @@ QString ViewerPage::metaKey() const {
     if (!p.isRemote)
         return {};
     // Key form (stamped entry key wins): the fetcher caches under the key
-    // it was given, never the display label — lookups must match it or
+    // it was given, never the display label - lookups must match it or
     // cached comments are invisible and every view refetches.
     const QString key =
         !p.siteKey.isEmpty() ? p.siteKey : RemotePosts::keyForLabel(p.siteName);
@@ -2129,9 +2215,9 @@ void ViewerPage::renderMetaSections() {
             l->setTextFormat(Qt::RichText);
             l->setText(
                 why.isEmpty()
-                    ? tr("Notes/comments failed to load — <a href=\"#\">click "
+                    ? tr("Notes/comments failed to load - <a href=\"#\">click "
                          "for details</a> or reload.")
-                    : tr("Notes/comments failed to load (%1) — "
+                    : tr("Notes/comments failed to load (%1) - "
                          "<a href=\"#\">click for details</a>.")
                           .arg(why.toHtmlEscaped()));
             l->setWordWrap(true);
@@ -2305,7 +2391,7 @@ void ViewerPage::reloadCurrent() {
 }
 
 // Comment card: avatar circle (initial; no engine exposes photo URLs
-// yet — avatarUrl is reserved), bold name · date, selectable body.
+// yet - avatarUrl is reserved), bold name · date, selectable body.
 QWidget *ViewerPage::commentCard(const PostComment &c, QWidget *parent) {
     auto *card = new QWidget(parent);
     auto *lay = new QHBoxLayout(card);
@@ -2354,7 +2440,7 @@ void ViewerPage::showCommentsPopup() {
     const QString key = metaKey();
     auto *dlg = new QDialog(this);
     dlg->setAttribute(Qt::WA_DeleteOnClose);
-    dlg->setWindowTitle(p.isRemote ? tr("Comments — %1 #%2")
+    dlg->setWindowTitle(p.isRemote ? tr("Comments - %1 #%2")
                                             .arg(p.siteName)
                                             .arg(p.id)
                                   : tr("Comments"));

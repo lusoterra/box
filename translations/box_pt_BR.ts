@@ -224,8 +224,8 @@
         <translation type="unfinished">Downloads concluídos - reescaneie a pasta de downloads para navegar.</translation>
     </message>
     <message>
-        <source>%1 already downloaded — skipped.</source>
-        <translation type="obsolete">%1 já baixados — ignorados.</translation>
+        <source>%1 already downloaded - skipped.</source>
+        <translation type="obsolete">%1 já baixados - ignorados.</translation>
     </message>
     <message>
         <location filename="../src/losnimport.cpp" line="418" />
@@ -247,20 +247,20 @@
         <translation type="unfinished">Baixando %1 arquivos…</translation>
     </message>
     <message>
-        <source>%1 — %2% (%3 / %4)</source>
-        <translation type="obsolete">%1 — %2% (%3 / %4)</translation>
+        <source>%1 - %2% (%3 / %4)</source>
+        <translation type="obsolete">%1 - %2% (%3 / %4)</translation>
     </message>
     <message>
-        <source>%1 — %2</source>
-        <translation type="obsolete">%1 — %2</translation>
+        <source>%1 - %2</source>
+        <translation type="obsolete">%1 - %2</translation>
     </message>
     <message>
-        <source> — done</source>
-        <translation type="obsolete"> — pronto</translation>
+        <source> - done</source>
+        <translation type="obsolete"> - pronto</translation>
     </message>
     <message>
-        <source>Downloads finished — rescan the download folder to browse them.</source>
-        <translation type="obsolete">Downloads concluídos — reescaneie a pasta de downloads para navegar.</translation>
+        <source>Downloads finished - rescan the download folder to browse them.</source>
+        <translation type="obsolete">Downloads concluídos - reescaneie a pasta de downloads para navegar.</translation>
     </message>
 </context>
 <context>
@@ -429,12 +429,12 @@
         <translation type="unfinished">META</translation>
     </message>
     <message>
-        <source>Gelbooru rejected the API credentials — using public sources (check User ID + key in Preferences)</source>
-        <translation type="obsolete">Gelbooru rejeitou as credenciais da API — usando fontes públicas (verifique ID de usuário + chave nas Preferências)</translation>
+        <source>Gelbooru rejected the API credentials - using public sources (check User ID + key in Preferences)</source>
+        <translation type="obsolete">Gelbooru rejeitou as credenciais da API - usando fontes públicas (verifique ID de usuário + chave nas Preferências)</translation>
     </message>
     <message>
-        <source>Tag API rate-limited — pausing briefly…</source>
-        <translation type="obsolete">API de tags limitada — pausando um instante…</translation>
+        <source>Tag API rate-limited - pausing briefly…</source>
+        <translation type="obsolete">API de tags limitada - pausando um instante…</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="749" />
@@ -782,8 +782,8 @@
         <translation type="unfinished">Fechar</translation>
     </message>
     <message>
-        <source>Done with %1 failures — retry on the next update.</source>
-        <translation type="obsolete">Concluído com %1 falhas — nova tentativa na próxima atualização.</translation>
+        <source>Done with %1 failures - retry on the next update.</source>
+        <translation type="obsolete">Concluído com %1 falhas - nova tentativa na próxima atualização.</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="2959" />
@@ -1400,8 +1400,8 @@ Eles serão reconstruídos no próximo escaneamento.</translation>
         <translation type="obsolete">Contas booru</translation>
     </message>
     <message>
-        <source>No credentials needed — public tag and post endpoints.</source>
-        <translation type="obsolete">Sem credenciais necessárias — endpoints públicos de tags e posts.</translation>
+        <source>No credentials needed - public tag and post endpoints.</source>
+        <translation type="obsolete">Sem credenciais necessárias - endpoints públicos de tags e posts.</translation>
     </message>
     <message>
         <source>Username:</source>

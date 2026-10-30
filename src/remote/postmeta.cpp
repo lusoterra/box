@@ -88,7 +88,7 @@ void PostMetaFetcher::fetch(const QString &siteKey, const QString &baseUrl,
             QNetworkReply *r = m_notesReply;
             m_notesReply = nullptr;
             // HTTP-level failure or an unparseable body (challenge page,
-            // wall HTML): not a definitive empty — the caller retries.
+            // wall HTML): not a definitive empty - the caller retries.
             // Bodies read unconditionally: a 449 surfaces as a reply
             // error but still carries the pow/captcha verdict below.
             bool ok = false;
@@ -172,7 +172,7 @@ void PostMetaFetcher::finishPart() {
 
 // Native PoW re-solve for 449-gated stacks (Nuuru): the token is
 // IP-bound, so it must be minted on this exact NAM (same proxy and
-// egress, same jar) before retrying once. Captchas stay human —
+// egress, same jar) before retrying once. Captchas stay human -
 // the failure message says to solve in the browser, then Retry.
 bool PostMetaFetcher::maybePowRetry(const QByteArray &body, int http) {
     if (m_powRetried || m_engine != BooruEngine::Nuuru || body.isEmpty())
@@ -182,7 +182,7 @@ bool PostMetaFetcher::maybePowRetry(const QByteArray &body, int http) {
         if (text.contains(QStringLiteral("captcha_required"),
                           Qt::CaseInsensitive)) {
             const QString msg =
-                tr("Captcha required — solve it in the capture browser, "
+                tr("Captcha required - solve it in the capture browser, "
                    "then Retry.");
             if (m_notesErr.isEmpty() && m_commentsErr.isEmpty()) {
                 m_notesErr = msg;

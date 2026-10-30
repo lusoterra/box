@@ -302,7 +302,7 @@ void TagTypeFetcher::fetch(const QStringList &tags, const QString &dbPath) {
     m_cache.open(dbPath); // best effort; results still emitted on failure
     m_order.clear();
     // Gelbooru needs credentials (its tag API 401s anonymously); without
-    // them the anonymous Danbooru index goes first — same tag universe,
+    // them the anonymous Danbooru index goes first - same tag universe,
     // same category numbering. Safebooru (SFW subset) then yandere cover
     // the misses.
     if (!m_gelbooruUser.isEmpty() && !m_gelbooruKey.isEmpty())

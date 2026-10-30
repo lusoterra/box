@@ -1,4 +1,4 @@
-# ARCHITECTURE — box (booru client, Qt6 C++)
+# ARCHITECTURE - box (booru client, Qt6 C++)
 
 Native C++/Qt6 client for local image archives + online boorus. Local
 archives are read-only; downloads + favourites feed back into offline browsing.
@@ -7,7 +7,7 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
 - Process/thread model: one GUI-thread process (second copy exits,
   `src/main.cpp:112`). Close is instant: `closeEvent` (`mainwindow.cpp`)
   hides + blanks the stage first, cancels scans/downloads/fetchers/thumb
-  work, then persists — teardown waits never hold the event open.
+  work, then persists - teardown waits never hold the event open.
   - `Scanner::scan` is blocking, run via `QtConcurrent::run`
     (`src/library/scanner.h:26`); progress via signals on owner.
   - `ThumbLoader` owns a `QThreadPool` (`src/remote/thumbloader.cpp:26`);
@@ -24,7 +24,7 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
 
 ## Module map
 
-- `src/engines/` — per-engine API shapes behind `BooruEngineOps`
+- `src/engines/` - per-engine API shapes behind `BooruEngineOps`
   (`src/engines/booruengine.h:99`: `searchUrl`/`parseSearch`/`refreshUrl`/
   `parseSingle`/`applyAuth`; `engineOps()` at `:146`).
   - Pure shared helpers in `RemotePosts`: `translateSearchTags`,
@@ -32,7 +32,7 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     Szuru/Shimmie/Hybooru/Nuuru/Hiddenbooru`, `parseShimmieXml`
     (`src/engines/booruengine.h:25-95`).
     HiddenBooru notes: shapes from the v0.8 source tarball (Tor-first
-    instance + I2P mirror; plain fetches need the Tor stack — or i2pd,
+    instance + I2P mirror; plain fetches need the Tor stack - or i2pd,
     SOCKS5 at `socks5h://127.0.0.1:4447`); `terms=`
     search with `id:` refresh narrowing, `/api/tag/complete` suggestions,
     letter ratings, relative file URLs; md5 normalized into `rawJson`
@@ -65,7 +65,7 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
   - `sitequirks.h` = per-host quirks (api subdomain, cookies, PoW walls).
   - `boorutypes.h` = `BooruEngine` enum, `BooruSite`, `SiteCreds`,
     `SearchResult`.
-- `src/remote/` — QNAM plumbing + batch jobs.
+- `src/remote/` - QNAM plumbing + batch jobs.
   - `remotesource.h:18` `RemoteSource`: registry (`presetBoorus`,
     `siteFor`, `setConfiguredBoorus`), async `search()` (`:48`), credential
     `probeCredentials`/`testCredentials` (`:52-66`), cookie attach
@@ -84,7 +84,7 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     (grid thumbs), `tagsuggest` (per-engine autocomplete), `faviconcache`
     (site icons), `cookiegrab` (WebEngine cookie capture for walled hosts),
     `postmeta` (notes + comments fetch for viewer).
-- `src/library/` — local data + classification.
+- `src/library/` - local data + classification.
   - `scanner.h:19` `Scanner`: recursive scan, both sidecar layouts, emits
     `progress`/`cacheStats`; impl `src/library/scanner.cpp:156`.
   - `metaparser` (`metaparser.h`): sidecar JSON -> `Post` (gallery-dl native/
@@ -95,7 +95,7 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     `suggest()` buckets for colored autocomplete, `collectUntyped()` (`:53`),
     `applyTagTypes()` (`:64`); `applyTagBuckets()` (`:91`) = same core for
     browse vectors.
-  - `queryor.h:16` `QueryOr`: `~(...)` OR-groups — `parse()` (`:28`),
+  - `queryor.h:16` `QueryOr`: `~(...)` OR-groups - `parse()` (`:28`),
     `expand()` cartesian cap `kMaxCombos = 12` (`:36`), `groupsMatch()`
     (`:40`), `suggestBare()` (`:45`).
   - `favdb.h:12` `FavDb` (`store.db`): identity `pidFor`/`siteFor` (`:24`),
@@ -119,7 +119,7 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
 - `tagcategories.h`: per-booru category merge/rename rules
   (`TagCategoryMerge`, source aliases + classic/custom target); consumed
   by the browse sidebar, filter pills and viewer tag groups.
-- `src/ui/` — `mainwindow.h:105` `MainWindow` (all tabs, all searches);
+- `src/ui/` - `mainwindow.h:105` `MainWindow` (all tabs, all searches);
   `BrowserTab` session state (`:47-61`); `PendingSite` OR fan-out (`:342-350`).
   - `viewerpage.h:170` `ViewerPage` (same-window viewer; `ImageView` `:33`,
     `GifView` `:65`, `VideoView` `:93`); software video decoding forced in
@@ -171,7 +171,7 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     implies the file exists). Grid drops local rows whose file is gone
     instead of carding blanks; the DB rows stay for relink.
     `redownloadMissingFiles()` (File menu) re-pulls missing files that
-    still have a source URL — previously-downloaded rows only,
+    still have a source URL - previously-downloaded rows only,
     never-downloaded favourites are never fetched unasked
     (same gate on stray regen).
   - Explicit-rating healing on fav list (`favdb.cpp:467,505`,
@@ -216,10 +216,12 @@ Key `settings.ini` groups: `cache/` (index, mode=all|sfw|none, full, limitMB,
 thumbSize), `library/` (root, history), `app/` (restoreSession, language),
 `fav/` (autoDownload, autoFav, unfavDeletesFile, deleteUnfavs),
 `stray/autoFav`, `filter/blacklist`, `classify/enabled`,
-`tagtypes/` (manual, customBuckets, categoryMerges, legacy disabledBuckets), `browse/` (mode, sites, limit),
+`tagtypes/` (manual, customBuckets, categoryMerges, customCategories,
+ tagCustomCategories, legacy disabledBuckets), `boorus/*/enabled`, `browse/` (mode, sites, limit),
 `tabs/saved*` + `last/*` (session restore, cap 25), `downloads/dir`,
 `storage/dataDir`, `startup/defaultTab`, `window/`, `boorus/` (+ per-entry
-`cacheMode`), `explicit/tags`, `theme/`, `home/mascot*` (default embedded `マニフェスト.jpg`), `grid/`, `viewer/`.
+`cacheMode`), `explicit/tags`, `theme/` (values are `themes/*.ini` keys),
+`home/mascot*` (default embedded `マニフェスト.jpg`), `grid/`, `viewer/`.
 Never a group named `General` (QSettings reserves it; see
 `src/settings.cpp:39-43`).
 

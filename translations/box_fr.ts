@@ -224,8 +224,8 @@
         <translation type="unfinished">Téléchargements terminés - réanalysez le dossier de téléchargement pour les parcourir.</translation>
     </message>
     <message>
-        <source>%1 already downloaded — skipped.</source>
-        <translation type="obsolete">%1 déjà téléchargés — ignorés.</translation>
+        <source>%1 already downloaded - skipped.</source>
+        <translation type="obsolete">%1 déjà téléchargés - ignorés.</translation>
     </message>
     <message>
         <location filename="../src/losnimport.cpp" line="418" />
@@ -247,20 +247,20 @@
         <translation type="unfinished">Téléchargement de %1 fichiers…</translation>
     </message>
     <message>
-        <source>%1 — %2% (%3 / %4)</source>
-        <translation type="obsolete">%1 — %2% (%3 / %4)</translation>
+        <source>%1 - %2% (%3 / %4)</source>
+        <translation type="obsolete">%1 - %2% (%3 / %4)</translation>
     </message>
     <message>
-        <source>%1 — %2</source>
-        <translation type="obsolete">%1 — %2</translation>
+        <source>%1 - %2</source>
+        <translation type="obsolete">%1 - %2</translation>
     </message>
     <message>
-        <source> — done</source>
-        <translation type="obsolete"> — terminé</translation>
+        <source> - done</source>
+        <translation type="obsolete"> - terminé</translation>
     </message>
     <message>
-        <source>Downloads finished — rescan the download folder to browse them.</source>
-        <translation type="obsolete">Téléchargements terminés — réanalysez le dossier de téléchargement pour les parcourir.</translation>
+        <source>Downloads finished - rescan the download folder to browse them.</source>
+        <translation type="obsolete">Téléchargements terminés - réanalysez le dossier de téléchargement pour les parcourir.</translation>
     </message>
 </context>
 <context>
@@ -429,12 +429,12 @@
         <translation type="unfinished">META</translation>
     </message>
     <message>
-        <source>Gelbooru rejected the API credentials — using public sources (check User ID + key in Preferences)</source>
-        <translation type="obsolete">Gelbooru a rejeté les identifiants API — sources publiques utilisées (vérifiez l'ID utilisateur + la clé dans les Préférences)</translation>
+        <source>Gelbooru rejected the API credentials - using public sources (check User ID + key in Preferences)</source>
+        <translation type="obsolete">Gelbooru a rejeté les identifiants API - sources publiques utilisées (vérifiez l'ID utilisateur + la clé dans les Préférences)</translation>
     </message>
     <message>
-        <source>Tag API rate-limited — pausing briefly…</source>
-        <translation type="obsolete">API de tags limitée — pause momentanée…</translation>
+        <source>Tag API rate-limited - pausing briefly…</source>
+        <translation type="obsolete">API de tags limitée - pause momentanée…</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="749" />
@@ -782,8 +782,8 @@
         <translation type="unfinished">Fermer</translation>
     </message>
     <message>
-        <source>Done with %1 failures — retry on the next update.</source>
-        <translation type="obsolete">Terminé avec %1 échecs — nouvel essai à la prochaine mise à jour.</translation>
+        <source>Done with %1 failures - retry on the next update.</source>
+        <translation type="obsolete">Terminé avec %1 échecs - nouvel essai à la prochaine mise à jour.</translation>
     </message>
     <message>
         <location filename="../src/mainwindow.cpp" line="2959" />
@@ -1400,8 +1400,8 @@ Ils seront reconstruits à la prochaine analyse.</translation>
         <translation type="obsolete">Comptes booru</translation>
     </message>
     <message>
-        <source>No credentials needed — public tag and post endpoints.</source>
-        <translation type="obsolete">Aucun identifiant requis — endpoints publics de tags et de posts.</translation>
+        <source>No credentials needed - public tag and post endpoints.</source>
+        <translation type="obsolete">Aucun identifiant requis - endpoints publics de tags et de posts.</translation>
     </message>
     <message>
         <source>Username:</source>

@@ -4,13 +4,13 @@
 # Pending multi-task plan (written 2026-10-20, before starting)
 # Work through step by step; tick boxes as each lands + tests pass.
 
-## 1. Selected tab colours more visible — DONE (accent underline + bold
+## 1. Selected tab colours more visible - DONE (accent underline + bold
 ##    selected-tab text in `MarqueeTabBar::paintEvent`; build OK, 22/22 tests)
 - [x] Find selected-tab painting (`src/ui/tabbar.cpp` MarqueeTabBar + `src/ui/theme.cpp`).
 - [x] Strengthen selected state (brighter bg / accent underline / bolder text).
 - [x] Build, screenshot-check under xvfb if feasible, `ctest`.
 
-## 2. Comprehensible stdout logging + rotating log file — DONE (new
+## 2. Comprehensible stdout logging + rotating log file - DONE (new
 ##    `src/applog.*`: level-prefixed stderr lines, spam denylist, 128MB
 ##    rotating box.log in data dir; verified by throwaway harness PASS)
 - [x] Find current logging (`src/main.cpp`: message handler? none yet?).
@@ -20,7 +20,7 @@
       128 MB with rotation (e.g. N x rotated files, size-checked on write).
 - [x] Setting for dir/cap optional; keep defaults sane. `ctest`.
 
-## 3. Default badge colours (user-changeable) — DONE
+## 3. Default badge colours (user-changeable) - DONE
 ##    (`RemotePosts::defaultBadgeColor` in `sitequirks`; stamped on presets +
 ##    fresh customs; `badgeColorDefaults` test PASS; 22/22 ctest)
 - gelbooru.com -> #0870fa, rule34.xxx + clones -> #55aa00,
@@ -32,7 +32,7 @@
       mapping); existing user values must NOT be clobbered.
 - [x] Build + `ctest` (translations check for any new strings).
 
-## 4. Multiple favourites tabs — DONE (`openFavTab()` always opens fresh;
+## 4. Multiple favourites tabs - DONE (`openFavTab()` always opens fresh;
 ##    `restoreTabs()` restores every saved fav tab; build OK, 22/22 tests)
 - [x] `openFavTab()` currently reuses the single fav tab; allow many
       (like remote tabs), each with own tags/query/rating/sort.
@@ -40,7 +40,7 @@
       paths that assume a single `isFavourites` tab; update all.
 - [x] Update `docs/UI-TOUR.md` favourites section. Build + `ctest`.
 
-## 5. Videos flashing red "can't play" while still loading — DONE
+## 5. Videos flashing red "can't play" while still loading - DONE
 ##    (VideoPane defers red label 650ms + only terminal statuses; transient
 ##    Loading/Buffering/Stalled errors ignored; build OK, 22/22 tests)
 - [x] Find error label in `src/ui/viewerpage.cpp` (VideoView/VideoPane).
@@ -48,22 +48,22 @@
       error), not during Loading/Buffering/Stalled; or small delay.
 - [x] Headless/xvfb verify if possible. Build + `ctest`.
 
-## 6. Robust tab saving (crashes lose tabs) — DONE (synchronous
+## 6. Robust tab saving (crashes lose tabs) - DONE (synchronous
 ##    `saveTabsNow()` on add/close/move; atomic tmp+rename `saveSettings`
 ##    with `settings.ini.bak` rotation + heal-on-load; switches stay
 ##    coalesced; 2 new settings tests; build OK, 22/22 tests)
-- [x] `stageTabs()` coalesces ini writes (1500 ms) — a crash inside the window
+- [x] `stageTabs()` coalesces ini writes (1500 ms) - a crash inside the window
       loses everything. Save synchronously on tab add/close/move; atomic
       write (QSaveFile or tmp+rename); keep a backup of last-good tabs.
 - [x] Build + `ctest`.
 
-## 7. Colour the left-hand tag menu — DONE (`rebuildTagTab` paints items
+## 7. Colour the left-hand tag menu - DONE (`rebuildTagTab` paints items
 ##    with `UiIcons::tagBucketColor(bucket)`; new `test_tagcolors` palette
 ##    test; build OK, 23/23 tests)
 - [x] Sidebar tag lists should carry bucket colours (like filter pills).
 - [x] Build + `ctest`.
 
-## 8. Slow/unloading videos wedge the app, then segfault — DONE
+## 8. Slow/unloading videos wedge the app, then segfault - DONE
 ##    (software FFmpeg decoding forced via `QT_FFMPEG_DECODING_HW_DEVICE_TYPES=,`
 ##    in `main.cpp`; `setFrame` skips non-readable maps; thumb grabber stays
 ##    single-flight + 8s timeout; invalid-frame test; build OK, 23/23 tests)
@@ -75,7 +75,7 @@
 - [x] Also: cap concurrent decode cost, don't let one bad video wedge UI.
 - [x] Build + `ctest` (+ smoke harness if feasible).
 
-## 9. Close fast on X / Alt+Q (KDE) — DONE (`closeEvent` hides + blanks
+## 9. Close fast on X / Alt+Q (KDE) - DONE (`closeEvent` hides + blanks
 ##    first, cancels refresher/sources/thumb pools/video, persists last;
 ##    `ThumbLoader::cancel` + `VideoThumbGrabber::cancel` +
 ##    `ViewerPage::stopPlayback` new; build OK, 23/23 tests)
@@ -83,7 +83,7 @@
       cancel scans/downloads/workers fast, then quit; never block the event.
 - [x] Build + `ctest`.
 
-## 10. Captcha/PoW wall UX — DONE (new `RemoteSource::lastWall()` flag on
+## 10. Captcha/PoW wall UX - DONE (new `RemoteSource::lastWall()` flag on
 ##    both challenge branches; `showWallMenu` on fresh searches: per-site
 ##    solve-in-browser (cookies saved + re-search) or drop booru (deselect
 ##    in multibooru, close solo tab); `wallDetectors` test; docs; 23/23)
@@ -92,13 +92,13 @@
       multibooru mode.
 - [x] Build + `ctest` (+ docs).
 
-## 11. Default booru tags as cards — DONE (entry `defaultTags` render as
+## 11. Default booru tags as cards - DONE (entry `defaultTags` render as
 ##    pills via `RemotePosts::defaultTagsFor` + tab `droppedDefaults`; × drops
 ##    the token and re-searches; helper unit-tested; docs; build OK, 23/23)
 - [x] Entry `defaultTags` should render as removable cards like typed tags.
 - [x] Build + `ctest` (+ docs).
 
-## 12. Tag suggestion relevance — DONE (tiered rank: exact, prefix by
+## 12. Tag suggestion relevance - DONE (tiered rank: exact, prefix by
 ##    count, substring last; `TagSuggester::rank` for remote, same rule in
 ##    `Index::suggest`; stale-row prune in `onRemoteSuggest`; fetch width
 ##    12→24; rank/suggest tests; build OK, 23/23 tests)
@@ -106,7 +106,7 @@
       dedupe irrelevant entries. Tags the user wants rarely surface today.
 - [x] Build + `ctest`.
 
-## 13. Favourite tags system — DONE (sidebar + viewer right-click star;
+## 13. Favourite tags system - DONE (sidebar + viewer right-click star;
 ##    omnibar ★ menu; starred tags outrank plain prefix matches in both
 ##    suggest paths; `fav/tags` in settings.ini; 3 new tests; docs;
 ##    build OK, 23/23 tests)
@@ -114,14 +114,14 @@
       favourites get priority in search suggestions. Add a menu for them.
 - [x] Persist in settings.ini; build + `ctest` (+ docs).
 
-## 14. One-click AI-content filter — DONE (omnibar AI toggle backed by
+## 14. One-click AI-content filter - DONE (omnibar AI toggle backed by
 ##    `filter/hideAi`; server `-ai_*` exclusions + `isAiPost` client nets in
 ##    browse/local/fav paths; `aiContentTags()` shared list; settings tests;
 ##    docs; build OK, 23/23 tests)
 - [x] Convenient button to exclude AI tags (`ai_generated`, etc.).
 - [x] Build + `ctest` (+ docs).
 
-## 15. HyBooru engine support — DONE (RE'd live instance + client bundle:
+## 15. HyBooru engine support - DONE (RE'd live instance + client bundle:
 ##    `/files/f{sha}{ext}`, thumbs, `/posts/<id>`, tag namespaces, star
 ##    ratings; `BooruEngine::Hybooru` + `engine_hybooru.cpp` with summary/
 ##    detail mappers; tagsuggest + refresh + viewer lazy-detail wired;
@@ -133,7 +133,7 @@
 - [x] Prefs Booru-manager `Type` list entry; badge default color?
 - [x] Fixtures + unit tests (no network); build + `ctest` (+ docs).
 
-## 16. Stale favourite/downloaded marks + ghost cards (bug report 2026-10-20) — DONE
+## 16. Stale favourite/downloaded marks + ghost cards (bug report 2026-10-20) - DONE
 ##    (shared `favKeysByPath`/`favKeysFor` path-reverse-map in bulk fav/unfav,
 ##    `allFav`, single toggle + delete dedup; `remove()` reports
 ##    `numRowsAffected()>0`; `repaintFavMarks()` recomputes ♥/↓ + viewer
@@ -144,7 +144,7 @@
       rows drop from fav tabs without manual Refresh.
 - [x] Build + `ctest`.
 
-## 17. Annotations (translated text overlays) — DONE (overlay boxes already
+## 17. Annotations (translated text overlays) - DONE (overlay boxes already
 ##    scaled with the image; added toolbar Notes show/hide toggle with
 ##    persistent per-image note store; fixed stale boxes lingering across
 ##    navigation; Safebooru notes/comments now use dapi (were Moebooru
@@ -154,7 +154,7 @@
       show/hide toggle in `ViewerPage`.
 - [x] Build + `ctest` (+ docs).
 
-## 18. Read-only comments on post view — DONE (fetch + section already
+## 18. Read-only comments on post view - DONE (fetch + section already
 ##    existed; made long threads collapsed: first 5 + show-all toggle with
 ##    deferred tail rebuild; `parseCommentsShapes` fixtures; docs;
 ##    build OK, 25/25 tests)
@@ -162,13 +162,13 @@
       comments section in `ViewerPage` (collapsed/long-list friendly).
 - [x] Build + `ctest` (+ docs).
 
-## 19. Reverse image search buttons — DONE (shared
+## 19. Reverse image search buttons - DONE (shared
 ##    `RemotePosts::reverseSearchUrls` helper gated on http(s) file URLs;
 ##    viewer `Image search` toolbar menu button + grid card submenu (per-post
 ##    labels for multi-select); URL tests; docs; build OK, 25/25 tests)
 - [x] Viewer menu/buttons + grid context actions; build + `ctest` (+ docs).
 
-## 20. Favourite videos only play after download (bug report 2026-10-20) — DONE
+## 20. Favourite videos only play after download (bug report 2026-10-20) - DONE
 ##    (in-memory `ext` heal in `rowToPost` from file URL/path, no migration;
 ##    viewer single-post refresh fallback for empty file URLs, once per
 ##    post per session; `extHealedFromFileUrl` test; 25/25 tests)
@@ -177,8 +177,8 @@
 - Suspects: fav rows with empty `file_url` and/or empty `ext` (favourited
   from contexts where the post lacked them, or pre-`file_url` rows):
   `ViewerPage::showRow` (`viewerpage.cpp:1485`) routes on `p.isRemote` +
-  `p.fileUrl` + `isVideoExt(p.ext)` — empty ext misroutes to the image
-  branch, empty fileUrl shows "No file URL" — while the downloaded-copy
+  `p.fileUrl` + `isVideoExt(p.ext)` - empty ext misroutes to the image
+  branch, empty fileUrl shows "No file URL" - while the downloaded-copy
   override in `rowToPost` (`favdb.cpp:503`) heals both (local path + ext
   from suffix), which is why downloading "fixes" it.
 - [x] Backfill/heal `file_url`+`ext` on fav rows (single-post refresh at
@@ -186,32 +186,32 @@
       a refresh when a remote fav video lacks a file URL.
 - [x] Build + `ctest`.
 
-## 21. Dropdown filters render as typed-tag pills — DONE (rating box writes
+## 21. Dropdown filters render as typed-tag pills - DONE (rating box writes
 ##    strip typed `rating:` tokens, typed `rating:` clears the box via
 ##    `normalizeTypedRating()`; pills render as `rating:<v>`/plain; docs;
 ##    build OK, 23/23 tests)
 - Rating/category dropdowns are shortcuts for typing: a rating choice
   renders as a `rating:<value>` pill (rose metatag color), a source choice
-  as a plain pill — same look and × behavior as typed tags. Typing a
+  as a plain pill - same look and × behavior as typed tags. Typing a
   `rating:` tag clears the box to `All`; picking from the box drops
   conflicting typed `rating:`/`safety:` tags, so the two never stack.
 - [x] `onRatingChanged` strips typed rating tokens; `normalizeTypedRating()`
       in `commitSearch`/`commitFilter`; pill restyles in `updateResultLabel`.
 - [x] Build + `ctest` (+ docs).
 
-## 22. LoliSnatcher feature parity check — DONE (mirror surveyed;
+## 22. LoliSnatcher feature parity check - DONE (mirror surveyed;
 ##    writeup in `docs/LOSNSNATCHER-PARITY.md` with ADOPT/WONT-DO/PICK;
 ##    adopt-items filed as tasks 31–32; engines left for user picks)
 - Mirror: `https://git.lusosterone.net/mirrors/LoliSnatcher_Droid` (use the
   mirror, not github).
 - Compare this app's features against LoliSnatcher's and record parity gaps.
-  Many gaps will be deliberate non-goals — mark each as adopt or wont-do
+  Many gaps will be deliberate non-goals - mark each as adopt or wont-do
   with a one-line reason, so the list stays a decision log, not a todo pile.
 - [x] Survey LoliSnatcher features (search, filters, downloads, favourites,
       tags, viewer, settings, booru coverage); write up parity notes.
 - [x] File adopt-items as follow-up tasks; wont-do items stay documented.
 
-## 23. Nuuru (Soybooru) engine support — DONE (RE'd live HTML/JS + SSR
+## 23. Nuuru (Soybooru) engine support - DONE (RE'd live HTML/JS + SSR
 ##    embeds: `/api/booru/posts` search (1-indexed), single, tags/search,
 ##    comments; `/api/booru/posts/<id>/file|/thumbnail`; `/post/view/<id>`;
 ##    native taxonomy in `customTags` with Series→copyright,
@@ -222,7 +222,7 @@
 - [x] Add `BooruEngine::Nuuru` mapping behind `BooruEngineOps` + manager entry.
 - [x] Fixtures + unit tests (no network); build + `ctest` (+ docs).
 
-## 24. HiddenBooru engine support (Tor hidden service, single instance) — DONE
+## 24. HiddenBooru engine support (Tor hidden service, single instance) - DONE
 ##    (shapes from the v0.8 tarball: array search with terms/page/limit/order,
 ##    `id:` refresh narrowing, tag/complete suggestions, letter ratings,
 ##    relative URLs resolved at base; powWall quirk on both hosts; prefs
@@ -231,13 +231,13 @@
   fallback): Tor `http://hbooru5cef5tkb7a7m5de5kjxqg6abfh3447sxw36n5pe7utnnei25yd.onion/`,
   I2P `https://hiddenbooru.i2p` (I2P socks5 `localhost:4447`, or http `4444`).
   Route via the entry proxy (`socks5h://` Tor); like Nuuru, probably the
-  only instance ever — name it `HiddenBooru` in the Booru manager list.
+  only instance ever - name it `HiddenBooru` in the Booru manager list.
 - Source tarball (`hiddenbooru_v0.8.tar.gz`, v0.8, Perl/Mojolicious,
   gitignored) RE'd 2026-10-21: `GET /api/posts?terms=&page=` (1-indexed,
   matches box) `&limit&order=ASC|DESC` -> array of `{type:"post", id,
   hash, htype (sha1/md5), mtype ('i'/'v'), fmt, size, width, height,
   rating ('u'/'s'/'q'/'e' letter or full name), file_url (may be
-  RELATIVE — resolve against base), preview_url, source_url, tags
+  RELATIVE - resolve against base), preview_url, source_url, tags
   (space-separated)}`; tag search at `/api/tag/complete?term=` (flat
   string array); comments are create/delete only (no list endpoint);
   post pages at `/post/<id>/view`. Full endpoint list: `lib/HB.pm` routes,
@@ -247,10 +247,10 @@
       (rating letters map cleanly; relative file URLs resolved; tag
       namespaces per instance taxonomy); entry proxy guidance in prefs.
 - [x] Prefs Booru-manager `Type` list entry; badge default color?
-- [x] Fixtures + unit tests (no network — use tarball shapes); build +
+- [x] Fixtures + unit tests (no network - use tarball shapes); build +
       `ctest` (+ docs).
 
-## 25. Cross-entry duplicate detection via md5 — DONE (`md5` on `Post`,
+## 25. Cross-entry duplicate detection via md5 - DONE (`md5` on `Post`,
 ##    populated in `finishRemote` from `md5`/`checksumMD5` (validated hex);
 ##    `dedupeKeyFor` keys remote rows site-agnostically when present;
 ##    `md5DedupeKey`+`isMd5Hex` unit-tested, HyBooru propagation tested;
@@ -258,7 +258,7 @@
 - Same booru reachable at two URLs (Tor onion + I2P HiddenBooru, or any
   mirror pair) cards every post twice in multibooru: `dedupeKeyFor` keys
   remote rows by site+id, so cross-entry twins never collapse. No
-  perceptual/AI hashing — plain md5 equality is enough (plus eyes).
+  perceptual/AI hashing - plain md5 equality is enough (plus eyes).
 - Direction: carry `md5` on `Post` (populated from APIs that provide it:
   danbooru `md5`, HyBooru `md5`, HiddenBooru `hash`+`htype`, else
   content-hash on download like the rename flow), then key remote dedupe
@@ -269,12 +269,12 @@
       verify Tor/I2P twins collapse without touching distinct posts.
 - [x] Build + `ctest`.
 
-## 26. Media-type filter dropdown (stills / GIF / animated / video / sound) — DONE
+## 26. Media-type filter dropdown (stills / GIF / animated / video / sound) - DONE
 ##    (dropdown writes single `filetype:` tag pills; client matching in
 ##    `matchesTokens`/`index.query`/browse net; Danbooru-only passthrough;
 ##    combos `AdjustToContents`; filetype tests; docs; 25/25 tests)
 - Quick dropdown next to the omnibar: still images, animated GIFs
-  (ugoira + animated webp/jxl all count as GIF — no separate ugoira
+  (ugoira + animated webp/jxl all count as GIF - no separate ugoira
   kind), anything animated, videos, sound (implies video: audio-carrying
   formats). Like the other dropdowns it just adds a typed tag pill
   (`filetype:` single-select; picking replaces existing `filetype:` tags,
@@ -288,7 +288,7 @@
       `index.query`, browse net); per-engine pass/strip; pill + tests.
 - [x] Build + `ctest` (+ docs).
 
-## 27. File > Open history (recent folders) — DONE (last folders inline
+## 27. File > Open history (recent folders) - DONE (last folders inline
 ##    in the Open menu + `Folder…` + full-list picker; `noteFolderOpened`
 ##    helper records opens, prunes dead on show; unit test; docs;
 ##    build OK, 27/27 tests)
@@ -303,9 +303,9 @@
       Open history… picker); prune missing on show.
 - [x] Build + `ctest` (+ docs).
 
-## 28. Windowed grid (don't hold everything in memory) — DONE (pixmaps
+## 28. Windowed grid (don't hold everything in memory) - DONE (pixmaps
 
-## 29. LoliSnatcher "merge" orphans: restore parent booru + no-redownload reimports — DONE
+## 29. LoliSnatcher "merge" orphans: restore parent booru + no-redownload reimports - DONE
 ##    (file-URL host fallback + donmai CDN rule; `md5sOnDisk` cross-folder
 ##    skip on reimport; merge-row + md5 tests; 29/29 tests, build OK)
 - Symptom: items from LoliSnatcher archives/DB imports are named `merge_*`
@@ -313,7 +313,7 @@
   postUrl, so `siteForHost` in `losnimport.cpp:215` cannot resolve them;
   `targetPaths` then files them under a literal `merge` host folder).
   Local `merge_*` sidecars DO still carry file URLs (and tags/post links)
-  pointing at real boorus — use those.
+  pointing at real boorus - use those.
 - Fix direction: (a) resolve each merge row's booru from its file URL
   host (CDN→site map like `fsTagForPost` uses in reverse) and/or post
   tags, file imports under the proper host folder with a proper
@@ -341,28 +341,28 @@
       verify a 700-pic archive stays flat while scrolling both ways.
 - [x] Build + `ctest`.
 
-## 30. Ugoira downloads as animated webp/jxl (never gif) — DONE
+## 30. Ugoira downloads as animated webp/jxl (never gif) - DONE
 ##    (vendored miniz; download-time convert via ffmpeg/cjxl with pixiv
 ##    frame delays + configured fallback; `webp`/`jxl`/`zip` + delay prefs;
 ##    `test_ugoira` incl. real encode; found: Danbooru serves .zip + optional
 ##    pixiv_ugoira_frame_data, Safebooru pre-converts to .gif; build OK, 29/29 tests)
 - Treat all animated pictures (ugoira, gifs, webps, …) as GIFs for
-  classification/filtering — but never convert anything TO gif (poor
+  classification/filtering - but never convert anything TO gif (poor
   colouring, dithering).
 - Download ugoira as animated webp or animated jxl instead (user choice
-  in Preferences — easier on disk, loads faster). Framerate: pixiv
+  in Preferences - easier on disk, loads faster). Framerate: pixiv
   frame delays when present, else the configured default.
 - [x] Ugoira detection at download time; webp/jxl encode choice in
       prefs; framerate source decided; verify playback + thumbs.
 - [x] Build + `ctest` (+ docs).
 
-## 31. Video audio keeps playing after leaving the viewer — DONE
+## 31. Video audio keeps playing after leaving the viewer - DONE
 ##    (`backToGrid` + `showWelcome` now call `ViewerPage::stopPlayback`;
 ##    the player used to live on after its page hid; build OK, 25/25 tests)
 - [x] Stop playback when returning to the grid or home.
 - [x] Build + `ctest`.
 
-## 32. Settings backup/restore (JSON export/import) — DONE (portable
+## 32. Settings backup/restore (JSON export/import) - DONE (portable
 ##    `settingsexport` module: settings + boorus + favs; File menu
 ##    Backup/Restore; boorus merge by key, favourites dedupe on import;
 ##    roundtrip/merge/reject tests; docs; build OK, 30/30 tests)
@@ -372,14 +372,14 @@
 - [x] Export/import round-trip ( prefs dialog or File menu); fixtures;
       build + `ctest` (+ docs).
 
-## 33. Video playback speed control — DONE (rate menu button in the
+## 33. Video playback speed control - DONE (rate menu button in the
 ##    video controls, 0.25×–2× via `setPlaybackRate`, session-sticky
 ##    across videos; crash-safety test; docs; build OK, 30/30 tests)
 - Viewer video menu: playback rate (0.25×–2×) via `QMediaPlayer::setPlaybackRate`.
   Tiny, complements the Image-search menu.
 - [x] Rate menu + persist per session; build + `ctest` (+ docs).
 
-## 34. Shrink the codebase (dead-code cleanup, very last) — DONE
+## 34. Shrink the codebase (dead-code cleanup, very last) - DONE
 ##    (`-Wall -Wextra` audit in a scratch build dir: removed unused
 ##    `hiddenbooruIsVideo`, dead `downloadable` local, fixed member
 ##    init-order warnings, default-initialized `BooruSite::engine`
@@ -396,7 +396,7 @@
       justification per removal. C++20 bump where it shrinks code.
 - [x] Build + full `ctest` after each removal batch.
 
-## 35. Smarter auto favicon fetching (parse page HTML for icon links) — DONE (`faviconIconsFromHtml` + tried-URL guard; fixture tests; 30/30)
+## 35. Smarter auto favicon fetching (parse page HTML for icon links) - DONE (`faviconIconsFromHtml` + tried-URL guard; fixture tests; 30/30)
 - `FaviconCache` only tries `<base>/favicon.ico` (+ host root): sites
   without one keep the generic badge even when their HTML advertises an
   icon via `<link rel="icon"|"shortcut icon"|"apple-touch-icon" ...>`.
@@ -407,7 +407,7 @@
 - [x] HTML icon-link parsing + candidate-chain fallback; fixture tests.
 - [x] Build + `ctest` (+ docs).
 
-## 36. Webview auto-pops on captcha/Cloudflare walls (opt-out) — DONE (`wallAutoPopup` default-on + prefs checkbox; auto-solve-first-wall; round-trip tests; 30/30)
+## 36. Webview auto-pops on captcha/Cloudflare walls (opt-out) - DONE (`wallAutoPopup` default-on + prefs checkbox; auto-solve-first-wall; round-trip tests; 30/30)
 - Today a wall means a status-bar line + a menu you must know to look
   for (`showWallMenu` on fresh searches only); the solve browser never
   opens itself. It should pop open on the walled site by default, with
@@ -419,7 +419,7 @@
 - [x] Setting + prefs checkbox; auto-solve-first-wall behaviour; test.
 - [x] Build + `ctest` (+ docs).
 
-## 37. Status-bar solve button next to failed-query info — DONE (permanent right-end `Solve … in browser…` button; menu when several; 30/30)
+## 37. Status-bar solve button next to failed-query info - DONE (permanent right-end `Solve … in browser…` button; menu when several; 30/30)
 - A failed query leaves only a timed status-bar line (click = probe
   dialog with raw request/response). Next to that info there should be
   a one-click button opening the webview to grab cookies / ride PoW /
@@ -431,7 +431,7 @@
   while the message shows. Hides on new search / clean result.
 - [x] Button + visibility wiring; build + `ctest` (+ docs).
 
-## 38. Soybooru 449 walls: detect pow/captcha + guided re-capture — DONE
+## 38. Soybooru 449 walls: detect pow/captcha + guided re-capture - DONE
 ##    (449 branch with kind-specific errors; `lastWallKind` threads into the
 ##    capture dialog with tailored in-page-search guidance; detector tests;
 ##    build OK, 30/30 tests)
@@ -440,23 +440,23 @@
   with no cookies and fires no API calls. PoW = WASM worker
   (`/api/pow/challenge` -> `/api/pow/verify`, auto-solves in-page);
   captcha = hCaptcha (`/api/captcha/*`, human). Both only trigger on
-  bundle-driven pages, so capture-at-homepage mints nothing — the loop
+  bundle-driven pages, so capture-at-homepage mints nothing - the loop
   the user hit. App also never recognized 449 (no wall flag/menu/button,
   cryptic "Unexpected response shape").
 - Direction: treat 449 + either token as a wall (no hidden-browser retry
-  for bare JSON — no JS runs there); thread the wall kind into the
+  for bare JSON - no JS runs there); thread the wall kind into the
   capture dialog with tailored guidance (search in-page so the challenge
   appears, then save); wallDetectors tests + docs.
 - [x] 449 branch + token detection; kind-aware capture guidance.
 - [x] Build + `ctest` (+ docs).
 
-## 39. Solve PoW natively on the API stack (kill the re-capture loop) — DONE
+## 39. Solve PoW natively on the API stack (kill the re-capture loop) - DONE
 ##    (`PowSolver` on the searching QNAM + entry backfill + 5-min popup guard;
 ##    worker-math tests; Tor-trap hint when a local Tor proxy breaks the
 ##    IP-bound clearance; build OK, 31/31 tests)
 - The `pow_token` embeds the client IP (verified live: same-IP works,
   other-IP 449s), so browser-solved tokens die on any egress change
-  (Tor exit rotation especially) — re-capture can never converge.
+  (Tor exit rotation especially) - re-capture can never converge.
 - Direction: `PowSolver` (SHA-256 prefix search, port of the site worker)
   runs challenge→verify on the searching QNAM itself (same proxy, same
   egress, same jar); the token lands in that jar, the search retries
@@ -466,7 +466,7 @@
 - [x] Solver + 449 integration + entry backfill + popup guard; tests.
 - [x] Build + `ctest` (+ docs).
 
-## 40. Solve browser opens where the wall is (failing-URL capture) — DONE
+## 40. Solve browser opens where the wall is (failing-URL capture) - DONE
 ##    (dialog startUrl + search failUrl + download wallTargets; atf-anti-bot
 ##    finding recorded; build OK, 31/31 tests)
 - Homepage capture mints nothing when the wall lives on another endpoint
@@ -477,7 +477,7 @@
 - [x] startUrl plumbing (dialog + solve entry points + summary wall targets).
 - [x] Build + `ctest` (+ docs).
 
-## 41. Viewer comments button + popup; globe open icon; clearer copy label — DONE
+## 41. Viewer comments button + popup; globe open icon; clearer copy label - DONE
 ##    (thread popup reusing `m_metaCache`; Lucide globe asset; `Copy file URL`;
 ##    docs; build OK, 31/31 tests)
 - Comments today only render inline in the viewer tag panel. Wanted: a
@@ -490,7 +490,7 @@
 - [x] Comments button + popup dialog; globe asset + rename.
 - [x] Build + `ctest` (+ docs).
 
-## 42. Hide empty tag groups instead of `Name (0)` headers — DONE
+## 42. Hide empty tag groups instead of `Name (0)` headers - DONE
 ##    (`addTagGroup` returns before the header on empty input; build OK,
 ##    31/31 tests)
 - `ViewerPage::addTagGroup` always adds the header, even with zero tags
@@ -499,7 +499,7 @@
 - [x] Skip empties in `addTagGroup`; verify on a tagless post.
 - [x] Build + `ctest` (+ docs).
 
-## 43. Custom tag categories on the left sidebar (multibooru-aware) — DONE
+## 43. Custom tag categories on the left sidebar (multibooru-aware) - DONE
 ##    (`customBucketMap` setting + prefs editor; dynamic sidebar sections;
 ##    pill colours follow the mapping; round-trip tests; build OK, 31/31 tests)
 - Nuuru/Szuru native taxonomies survive in `Post.customTags` and render on
@@ -514,7 +514,7 @@
 - [x] Custom sections in `rebuildBrowseSidebar` + override support; round-trip tests.
 - [x] Build + `ctest` (+ docs).
 
-## 44. Stateful download button in the post view (like favourites) — DONE
+## 44. Stateful download button in the post view (like favourites) - DONE
 ##    (green toggle + delete confirm; button state pushed from grid marks;
 ##    build OK, 31/31 tests)
 - The viewer `Download` button is fire-and-forget; make it stateful like
@@ -525,7 +525,7 @@
 - [x] Downloaded-state tracking + toggle behaviour on `m_downloadBtn`.
 - [x] Build + `ctest` (+ docs).
 
-## 45. Hide the omnibar and toolbar buttons in post view — DONE
+## 45. Hide the omnibar and toolbar buttons in post view - DONE
 ##    (`m_omniBar` hidden on viewer enter, restored on grid/home/tab;
 ##    build OK, 31/31 tests)
 - Entering the viewer should hide the omnibar row + filter buttons (they
@@ -534,7 +534,7 @@
 - [x] Visibility switch on viewer enter/exit.
 - [x] Build + `ctest` (+ docs).
 
-## 46. Reload-everything icon button (viewer) — DONE
+## 46. Reload-everything icon button (viewer) - DONE
 ##    (icon button; tags + meta evict + media drop + re-show; docs;
 ##    build OK, 31/31 tests)
 - The viewer `Tags` text button refetches tags only; make it an icon-only
@@ -543,7 +543,7 @@
 - [x] Icon button + full refresh path.
 - [x] Build + `ctest` (+ docs).
 
-## 47. Instant download of the already-loaded full-res file — DONE
+## 47. Instant download of the already-loaded full-res file - DONE
 ##    (cache-hit copy shortcut in `DownloadManager::pump` + `ImageCache::drop`
 ##    for reloads; build OK, 31/31 tests)
 - Downloading a post whose full-resolution bytes are already in the
@@ -553,7 +553,7 @@
 - [x] Local-bytes shortcut in the download enqueue path.
 - [x] Build + `ctest` (+ docs).
 
-## 48. Remember the open post per tab — DONE
+## 48. Remember the open post per tab - DONE
 ##    (site#id/file identity per tab, restored on return; falls back to grid;
 ##    build OK, 31/31 tests)
 - Leaving a post view for another tab and coming back drops to grid
@@ -563,7 +563,7 @@
 - [x] Per-tab viewer state save/restore.
 - [x] Build + `ctest` (+ docs).
 
-## 49. Stale-async race: refresh/video/ghost loads the wrong post — DONE
+## 49. Stale-async race: refresh/video/ghost loads the wrong post - DONE
 ##    (refresh reqId generation guard already in tree; ghost-video id
 ##    collision fixed under 64; video pane guards on url/gen verified)
 - Reports: tag refresh sometimes loads a random (danbooru) post instead
@@ -576,7 +576,7 @@
 - [x] Repro + guard the stale completions.
 - [x] Build + `ctest` (+ docs).
 
-## 50. GIF loading thumbnail (not black) — DONE
+## 50. GIF loading thumbnail (not black) - DONE
 ##    (`GifView::setPlaceholder` keeps the grid thumb on screen;
 ##    `setFile` no longer clears it before frame 0; prime + pending
 ##    paths route GIFs to the gif pane; build OK, 31/31 tests)
@@ -586,7 +586,7 @@
 - [x] Prerender path for GIFs mirroring stills.
 - [x] Build + `ctest` (+ docs).
 
-## 51. Grid pills for comments and annotations — DONE
+## 51. Grid pills for comments and annotations - DONE
 ##    (`commentCount`/`hasComments`/`hasNotes` on Post via finishRemote;
 ##    roles +14/+15 + hand-drawn bubble/note pills; viewer meta OR-in;
 ##    commentmarks tests; build OK, 32/32 tests)
@@ -598,7 +598,7 @@
 - [x] Parse counts + delegate pills.
 - [x] Build + `ctest` (+ docs).
 
-## 52. Grid right-click: delete when downloaded, restore mascot entry — DONE
+## 52. Grid right-click: delete when downloaded, restore mascot entry - DONE
 ##    (resolvedFile: absFile else fav-linked copy; Download disabled when
 ##    all on disk, Delete enabled, mascot shown; build OK, 32/32 tests)
 - Right-clicking an already-downloaded post still offers `⭳ Download`
@@ -610,7 +610,7 @@
 - [x] Menu state from resolved local paths.
 - [x] Build + `ctest` (+ docs).
 
-## 53. Per-booru local blacklist filter — DONE
+## 53. Per-booru local blacklist filter - DONE
 ##    (`localBlacklist` on BooruSite + ini/backup round-trips + manager
 ##    checkbox; per-entry server exclusions in siteAndBase, client net
 ##    unchanged; settings/export tests; build OK, 32/32 tests)
@@ -622,7 +622,7 @@
 - [x] Entry flag (persist + backup) + skip server exclusions when set.
 - [x] Build + `ctest` (+ docs).
 
-## 54. HiddenBooru search route is /api/posts/search (not bare /api/posts) — DONE
+## 54. HiddenBooru search route is /api/posts/search (not bare /api/posts) - DONE
 ##    (searchUrl/refreshUrl pointed at the routed path; verified live: routed
 ##    path hits the HBS wall instead of the app 404; build OK, 31/31 tests)
 - The v0.8 router has no bare `/api/posts` (verified in the tarball +
@@ -632,17 +632,17 @@
 - [x] Point searchUrl/refreshUrl at `/api/posts/search`; fix the header comment.
 - [x] Build + `ctest` (+ docs).
 
-## 55. Comments never load: meta-cache key mismatch (label vs key) — DONE
+## 55. Comments never load: meta-cache key mismatch (label vs key) - DONE
 ##    (key-form `metaKey()` + consistent fetch-skip; build OK, 31/31 tests)
 - `PostMetaFetcher` caches under the site KEY (`keyForLabel`), but
-  `ViewerPage::metaKey()` looks up by site LABEL — the keys never match,
+  `ViewerPage::metaKey()` looks up by site LABEL - the keys never match,
   so inline comments and the popup spinner both starve. Fix: key lookups
   (and the fetch-skip check) by the stamped `siteKey`, falling back to
   `keyForLabel(siteName)`.
 - [x] Key-consistent meta cache + fetch-skip.
 - [x] Build + `ctest` (+ docs).
 
-## 56. Rich comment cards (avatar, name, body) — DONE
+## 56. Rich comment cards (avatar, name, body) - DONE
 ##    (initial-circle avatars + reserved avatarUrl; card builder used by popup;
 ##    build OK, 31/31 tests)
 - Comment thread should render as cards: profile picture when the engine
@@ -653,7 +653,7 @@
 - [x] Avatar-aware comment cards in the popup.
 - [x] Build + `ctest` (+ docs).
 
-## 57. Viewer toolbar order: download icon by the heart, globe named Open file — DONE
+## 57. Viewer toolbar order: download icon by the heart, globe named Open file - DONE
 ##    (download icon-only by fav; globe tooltip `Open file`; `Copy file URL` kept;
 ##    build OK, 31/31 tests)
 - Rearrange to notes, ♥, download (icon-only, green when saved), globe
@@ -662,14 +662,14 @@
 - [x] Button order/icons/tooltips.
 - [x] Build + `ctest` (+ docs).
 
-## 58. Server-side sort where supported; disable reordering sorts elsewhere — DONE
+## 58. Server-side sort where supported; disable reordering sorts elsewhere - DONE
 ##    (Nuuru `sort:` mappings + validated passthrough; sort box enables only
 ##    server-supported or order-preserving sorts; tests; build OK, 31/31 tests)
 - The sort box offers orders some engines can't do server-side, so they
   sort client-side and infinite-scroll appends visibly reorder (Nuuru
   `Top rated` was local-only). Nuuru actually has rich native `sort:`
   tags (date[_asc|_desc], score[_asc|_desc], controversial[_desc],
-  id[_asc|_desc], filesize[_asc|_desc], tagcount[_asc|_desc], random —
+  id[_asc|_desc], filesize[_asc|_desc], tagcount[_asc|_desc], random -
   observed in its own search UI): pass them through instead of stripping.
 - Direction: `sortSearchTag` gains Nuuru mappings (`id_desc`, `score_desc`,
   `score_asc`, `random`, `id_asc`); `translateSearchTags` keeps validated
@@ -679,7 +679,7 @@
 - [x] Nuuru mappings + token passthrough + per-tab box enablement; tests.
 - [x] Build + `ctest` (+ docs).
 
-## 59. Display names for extensionless file URLs (keep disk names) — DONE
+## 59. Display names for extensionless file URLs (keep disk names) - DONE
 ##    (`displayFileName` helper + grid wiring + unit tests; downloads untouched;
 ##    build OK, 31/31 tests)
 - Nuuru file URLs end in `/file`, so grid cards all read `file` (the
@@ -690,7 +690,7 @@
 - [x] Helper + grid wiring + tests (synthesized vs passthrough).
 - [x] Build + `ctest` (+ docs).
 
-## 60. Ship Donmai's safebooru as the default (Danbooru engine) — DONE
+## 60. Ship Donmai's safebooru as the default (Danbooru engine) - DONE
 
 ##    (preset baseUrl/engine + badge rule + preset/badge tests + docs;
 ##    existing configs untouched (same key); build OK, 31/31 tests)
@@ -703,7 +703,7 @@
 - [x] Preset baseUrl/engine + badge rule; preset + badge tests; docs.
 - [x] Build + `ctest`.
 
-## 61. C++20 modernization sweep (use it where it's better, not everywhere) — DONE
+## 61. C++20 modernization sweep (use it where it's better, not everywhere) - DONE
 ##    (standard 17→20 + README; `using enum BooruEngine` ×6 switches,
 ##    defaulted `==` for BooruSite/SavedTab, views pipeline for
 ##    cleanTagTokens; build OK, 32/32 tests; no span wins in own code,
@@ -721,7 +721,7 @@
   (`using enum BooruEngine` ×6 switches, defaulted `==` for
   `BooruSite`/`SavedTab`, views pipeline for `cleanTagTokens`)
 
-## 62. Omnibar tag suggestions like LoliSnatcher — DONE
+## 62. Omnibar tag suggestions like LoliSnatcher - DONE
 ##    (150ms-debounce + cancel already present; added: meta-tag completions,
 ##    `N#` pool strip, recent-token history source; tests; build OK, 31/31 tests)
 - Current suggestions underperform; LoliSnatcher's implementation is
@@ -729,13 +729,13 @@
   the behaviour here: ranking, matching, caching, server mapping.
 - [x] Read LoliSnatcher suggestion code + gap analysis vs TagSuggester.
 - [x] Reimplement + tests; build + `ctest` (+ docs).
-## 63. Media-type dropdown via native tags (animated/animated_gif/video/ugoira) — DONE
+## 63. Media-type dropdown via native tags (animated/animated_gif/video/ugoira) - DONE
 ##    (canonical media*Token() helpers shared by dropdown + translator;
 ##    Danbooru expands to `animated`/`animated -video`/`video`/`-animated
 ##    -video`, customs pass through; others strip as before; translate
 ##    tests; build OK, 32/32 tests)
 - Current box writes `filetype:` extension lists. Danbooru-family tags
-  (`animated` 137k, `animated_gif` 27k, `video` 86k, `ugoira` 23k —
+  (`animated` 137k, `animated_gif` 27k, `video` 86k, `ugoira` 23k -
   verified live) and Konachan's `animated` (263) work server-side as plain
   tags + negations. Gelbooru dapi now 401s anonymous (unverifiable);
   yandere lacks `animated`; Nuuru native categories TBD via its tags API.
@@ -745,11 +745,11 @@
   videos); `animated_gif` is real gifs only (webp/ugoira missed), so the
   GIF kind maps to `animated -video`; `sound` (37k, mp4) left as
   `filetype:mp4` (typed-query meaning preserved); Konachan's 263-post
-  `animated` too thin to filter on — client ext net stays.
+  `animated` too thin to filter on - client ext net stays.
 - [x] Live-verify each engine's scheme; wire per-engine tokens + fallback.
 - [x] Build + `ctest` (+ docs).
 
-## 64. One failed video poisons all later videos — DONE
+## 64. One failed video poisons all later videos - DONE
 ##    (web-backend id collision: video hard-coded id 1 vs downloads counting
 ##    from 1; unique high-range ids per start; build OK, 31/31 tests)
 - Clicking a video that fails to load breaks every subsequent video
@@ -768,7 +768,7 @@
 - [x] Union-rank-truncate merge + caller update + tests.
 - [x] Build + `ctest`.
 
-## 66. ATF booru: refresh lands on a random danbooru post, viewer never loads — DONE
+## 66. ATF booru: refresh lands on a random danbooru post, viewer never loads - DONE
 ##    (stamped siteKey wins in refresh identity + reason text; sample
 ##    fallback for walled full files; PoW/captcha capture opens the entry
 ##    root instead of API JSON; regression test; build OK, 32/32 tests)
@@ -790,11 +790,11 @@
   error stands, so login-walled originals with public samples open.)
 - [x] Capture starts where the challenge actually fires.
   (PoW/captcha start URLs pointing at API JSON now open the entry
-  root instead — bare JSON runs no worker and fires no challenge;
+  root instead - bare JSON runs no worker and fires no challenge;
   media/file URLs keep the failing address.)
 - [x] Build + `ctest` (+ docs).
 
-## 67. App blinks when the solve webview opens — DONE
+## 67. App blinks when the solve webview opens - DONE
 ##    (idle Chromium primer + deferred dialog first-load; mitigated,
 ##    needs user eyes to confirm; build OK)
 
@@ -807,9 +807,9 @@
 - [x] Find the hide/show path; keep the main window up.
 - [x] Build + `ctest` (+ docs).
 
-## 68. Gelbooru: every post shows comment/note pills — DONE
+## 68. Gelbooru: every post shows comment/note pills - DONE
 ##    (root cause: grid role +14 collision between the windowing
-##    pixmap flag and the comment pills — every thumbnailed card wore
+##    pixmap flag and the comment pills - every thumbnailed card wore
 ##    a bubble; fixed in 83. Parse also made engine-specific in 74.)
 
 - Every Gelbooru grid card carries the comments badge, but most posts
@@ -821,7 +821,7 @@
 - [x] Capture the live Gelbooru post shape; tighten presence parsing.
 - [x] Build + `ctest` (+ docs).
 
-## 69. Omnibar Enter must commit pills even with the popup open — DONE
+## 69. Omnibar Enter must commit pills even with the popup open - DONE
 ##    (accepting a suggestion now commits like Enter; build OK)
 - With the suggest popup open, Enter fired `onCompleterActivated`
   (fills the token) and never reached `onSearchReturn`, so the tag sat
@@ -829,7 +829,7 @@
 - [x] Accept commits (click or Enter); multi-tag across accepts.
 - [x] Build + `ctest` (+ docs).
 
-## 70. Tag pills right-click to favourite — DONE
+## 70. Tag pills right-click to favourite - DONE
 ##    (★ menu on plain-tag pills; metatags excluded; build OK)
 - Omnibar pills only removed on click; favouriting needed the sidebar
   or viewer. Right-click on a plain-tag pill now offers the same
@@ -838,7 +838,7 @@
 - [x] Context menu on active/default/single-group pills.
 - [x] Build + `ctest` (+ docs).
 
-## 71. Downloaded posts never light the viewer heart — DONE
+## 71. Downloaded posts never light the viewer heart - DONE
 ##    (`updateViewerBadges` never called `setFaved`; grid repaint added;
 ##    build OK)
 - `favAutoFav` favourited the download, but `updateViewerBadges()`
@@ -847,7 +847,7 @@
 - [x] `setFaved` in badge refresh + `repaintFavMarks()` on landed.
 - [x] Build + `ctest` (+ docs).
 
-## 72. Favourite tags menu: coloured rows + scrollbar — DONE
+## 72. Favourite tags menu: coloured rows + scrollbar - DONE
 ##    (QListWidget-in-QMenu popup: bucket colours, real scrollbar past
 ##    ~16 rows; build OK)
 - The ★ menu was a plain scrolling action list: rows now wear the same
@@ -856,7 +856,7 @@
 - [x] Coloured scrollable fav-tags popup.
 - [x] Build + `ctest` (+ docs).
 
-## 73. Typed media tags filter by media on unverified engines — DONE
+## 73. Typed media tags filter by media on unverified engines - DONE
 ##    (bare animated/animated_gif/video drop server-side on
 ##    Gelbooru-family/Moebooru; engine-aware client ext net incl. bare
 ##    tags; Danbooru rows skip the net (server native, keeps ugoira);
@@ -869,7 +869,7 @@
 - [x] Server drop + client net + tests.
 - [x] Build + `ctest` (+ docs).
 
-## 74. Comment/note presence goes engine-specific — DONE
+## 74. Comment/note presence goes engine-specific - DONE
 ##    (per-family key lists in finishRemote; tolerant numeric/flag
 ##    readers incl. string counts; commentmarks +string test; build OK)
 - The shared presence check read every engine's keys at once, so a
@@ -879,7 +879,7 @@
 - [x] Engine-specific presence + tests.
 - [x] Build + `ctest` (+ docs).
 
-## 75. Webview-open app blink — DONE
+## 75. Webview-open app blink - DONE
 ##    (idle Chromium primer + deferred dialog first-load; build OK)
 - Opening the capture webview blinked the whole app (and the prefs
   window behind it). Suspect: first WebEngine use initializes Chromium
@@ -889,7 +889,7 @@
 - [x] Primer + deferred load. Needs user eyes: still blinks?
 - [x] Build + `ctest` (+ docs).
 
-## 76. Remove Clear-favourite-tags; manage them in Settings — DONE
+## 76. Remove Clear-favourite-tags; manage them in Settings - DONE
 ##    (General gets a fav-tags list + Remove; ★ menu Clear replaced by a
 ##    Manage link into Preferences; suggester retunes on Apply; build OK)
 - The one-click Clear in the ★ menu is too dangerous. Favourite tags
@@ -899,7 +899,7 @@
 - [x] ★ menu Clear → Settings link.
 - [x] Build + `ctest` (+ docs).
 
-## 77. Session restore semantics: last session + fresh start — DONE
+## 77. Session restore semantics: last session + fresh start - DONE
 ##    ("Back to last session" restores all tabs + lands saved-current;
 ##    new tab restores-if-empty + default booru; Tabs-menu fresh start;
 ##    build OK, 32/32 tests)
@@ -910,7 +910,7 @@
 - [x] Last-session restore + fresh-start option + default-booru new tab.
 - [x] Build + `ctest` (+ docs).
 
-## 78. Comment badges vs threads disagree (esp. ATF forks) — DONE
+## 78. Comment badges vs threads disagree (esp. ATF forks) - DONE
 ##    (fetch success tracked; failures never cached as empty, error +
 ##    retry in thread UI; reopen refetches; parse ok-flags + tests;
 ##    Nuuru native PoW re-solve in fetcher; failure reasons surfaced;
@@ -918,7 +918,7 @@
 - ATF (danbooru fork, booru.allthefallen.moe): grid cards show comment
   badges but threads load empty, and posts WITH comments fail to load
   them. Forks don't maintain last_commented_at (always null), so parse
-  says nothing and badges come only from the viewer OR-in — while the
+  says nothing and badges come only from the viewer OR-in - while the
   thread fetch itself is clearance-flaky. Fix direction: don't cache
   failed fetches as definitive-empty (retry on reopen), surface fetch
   errors in the thread UI, and reconsider fork presence signals.
@@ -927,7 +927,7 @@
 - [x] Distinguish failed fetch from empty thread + retry; surface errors.
 - [x] Build + `ctest` (+ docs).
 
-## 79. Refresh-tags blanks the viewer image — DONE
+## 79. Refresh-tags blanks the viewer image - DONE
 ##    (displayed frame fed back as pending thumb on refresh re-show;
 ##    stills + GIFs; build OK)
 - Refreshing tags on a post drops the thumbnail and leaves a blank
@@ -937,16 +937,21 @@
 - [x] Preserve displayed media across refresh re-show.
 - [x] Build + `ctest` (+ docs).
 
-## 80. HiddenBooru: captcha clears but searches load 0 posts (low priority)
+## 80. HiddenBooru: captcha clears but searches load 0 posts (FROZEN)
+- **Paused with HiddenBooru support** (2026-10-30): the engine is no longer
+  offered in the UI, so new users cannot hit this. Existing hiddenbooru
+  entries still load, but this bug stays unfixed until the instance is
+  reachable and worth reviving. The README now says support is paused.
 - The HiddenBooru captcha solves and the cookie is stored, but searches
   still come back with 0 posts even logged in. v0.8 API shape verified
   correct (the instance answers [] for the API even in-browser, so it
   is instance-side or needs an HTML scrape fallback). Very unknown
   Tor/I2P booru; investigate only with a live onion in reach.
-- [ ] Diagnose live; decide scrape fallback.
+- [x] Frozen from the UI (code/docs kept for existing entries).
+- [ ] Diagnose live; decide scrape fallback (only after revival).
 - [ ] Build + `ctest` (+ docs).
 
-## 81. Meta fetcher uses the entry's own credentials — DONE
+## 81. Meta fetcher uses the entry's own credentials - DONE
 ##    (per-fetch creds from the resolved entry; renamed/custom keys no
 ##    longer fetch anonymously; build OK)
 - The comments/notes fetcher was fed once from the hardcoded
@@ -956,11 +961,11 @@
 - [x] Per-entry creds on every meta fetch.
 - [x] Build + `ctest` (+ docs).
 
-## 82. Read-only archives gain local additions (0B json over Syncthing) — DONE
+## 82. Read-only archives gain local additions (0B json over Syncthing) - DONE
 ##    (atomic QSaveFile sidecar rewrites; archive roots refresh in memory
 ##    only via temp copy; build OK, 32/32 tests)
 - Receive-only Syncthing folders keep sprouting local additions from
-  box — 0B `.json` files. Suspects: sidecar writes into archive roots
+  box - 0B `.json` files. Suspects: sidecar writes into archive roots
   (refresh/update-sidecars/tag edits), failed/truncated writes, or
   cache/scratch landing beside the media instead of the cache dir.
   Repro: open a library tab read-only, watch for new files.
@@ -969,7 +974,7 @@
 - [x] Find every write path into archive roots; gate read-only ones.
 - [x] Build + `ctest` (+ docs).
 
-## 83. Grid role collision: comment pills on every thumbnailed card — DONE
+## 83. Grid role collision: comment pills on every thumbnailed card - DONE
 ##    (windowing pixmap flag moved +14 → +16; +14/+15 stay pills;
 ##    build OK)
 - The windowed-grid pixmap flag (task 28) already owned model role
@@ -978,7 +983,7 @@
 - [x] Pixmap flag to free role +16; pills keep +14/+15.
 - [x] Build + `ctest` (+ docs).
 
-## 84. Failed viewer media is clickable for diagnostics — DONE
+## 84. Failed viewer media is clickable for diagnostics - DONE
 ##    (mediaFailed signal through video pane + viewer; redacted URL +
 ##    reason in the status probe; build OK)
 - Double-clicking a card that won't play left only a status line.
@@ -987,7 +992,7 @@
 - [x] Failure signal + probe wiring.
 - [x] Build + `ctest` (+ docs).
 
-## 85. Media walls auto-refresh clearance once, then retry — DONE
+## 85. Media walls auto-refresh clearance once, then retry - DONE
 ##    (silent profile re-ride on wall-marked media failures + re-show;
 ##    session-scoped guard; build OK)
 - Rotating clearances (ATF) killed every viewer load until a manual
@@ -997,7 +1002,7 @@
 - [x] Auto clearance refresh + retry on media walls.
 - [x] Build + `ctest` (+ docs).
 
-## 86. Viewer stills/GIFs retry through the browser backend on walls — DONE
+## 86. Viewer stills/GIFs retry through the browser backend on walls - DONE
 ##    (QNAM first, one browser re-fetch on wall errors for quirk hosts;
 ##    temp-file load like cache hits; build OK)
 - ATF originals/samples die on QNAM (dead static cookie) while the
@@ -1007,7 +1012,7 @@
 - [x] Browser retry for walled still/gif loads.
 - [x] Build + `ctest` (+ docs).
 
-## 87. Restore segfault: iterating savedTabs while it rebuilds — DONE
+## 87. Restore segfault: iterating savedTabs while it rebuilds - DONE
 ##    (snapshot copy before the restore loop; stale size ref fixed;
 ##    xvfb-reproduced heap corruption, verified fixed; build OK)
 - First click after an upgrade segfaulted in
@@ -1019,7 +1024,7 @@
 - [x] Iterate a snapshot copy; bound against it.
 - [x] Build + `ctest` (+ xvfb repro verification).
 
-## 88. Clickable meta-failure warning (why did comments/notes fail) — DONE
+## 88. Clickable meta-failure warning (why did comments/notes fail) - DONE
 ##    (probeRequested signal + link labels in both the tag panel note
 ##    and the comments popup; post URL + reason in the dialog; build OK)
 - The `Notes/comments failed to load (…)` note should open the probe
@@ -1027,14 +1032,16 @@
 - [x] Wire the note to the status probe.
 - [x] Build + `ctest` (+ docs).
 
-## 89. HyBooru: tags populate only when stepping posts, not on open
+## 89. HyBooru: tags populate only when stepping posts, not on open - DONE
 - Opening a HyBooru post shows empty tag groups until you click through
   the posts; the lazy detail fetch seems to fire late or not at all on
   first open. Make tags populate as soon as the post opens.
-- [ ] Repro + fix first-open detail fetch timing.
-- [ ] Build + `ctest` (+ docs).
+- [x] Detail requests are marked in-flight (not fetched) and the landed
+  post is applied directly to the viewer snapshot + tag panel, regardless
+  of page-index timing; failures retry on the next open.
+- [x] Build + `ctest` (32/32, + docs).
 
-## 91. Videos keep playing when switching posts — DONE
+## 91. Videos keep playing when switching posts - DONE
 ##    (unconditional player stop on every navigation; async loads halt
 ##    playback too; build OK)
 - Switching to another post (or gif/image) leaves the previous video
@@ -1043,18 +1050,18 @@
 - [x] Stop playback on every post switch.
 - [x] Build + `ctest` (+ docs).
 
-## 92. Nuuru: "no comments" while the site shows comments — DONE
+## 92. Nuuru: "no comments" while the site shows comments - DONE
 ##    (parseComments now reads {"comments": [...]} plural envelope;
 ##    Nuuru's search shape uses {"posts": [...]}, so its comments almost
 ##    certainly mirror it; test added; build OK)
 - Viewer reports no comments for Nuuru posts that clearly have them on
   soybooru.com. Root cause: parseComments only checked "comment"
-  (singular) and "results" (szuru) — Nuuru's plural "comments" envelope
+  (singular) and "results" (szuru) - Nuuru's plural "comments" envelope
   parsed as an empty object, so ok=true but zero comments.
 - [x] Compare fetch/parse against the live comment shape.
 - [x] Build + `ctest` (+ docs).
 
-## 93. Nuuru videos stuck on the first post's video — DONE
+## 93. Nuuru videos stuck on the first post's video - DONE
 ##    (source unloaded before reload in onCacheReady/onWebFinished;
 ##    stop() keeps the old source loaded, so play() resumed it; build OK)
 - Clicking another Nuuru video keeps playing the FIRST video clicked;
@@ -1065,7 +1072,7 @@
 - [x] Repro + fix source swap on navigation.
 - [x] Build + `ctest` (+ docs).
 
-## 94. Filter pills hide in post view like the omnibar — DONE
+## 94. Filter pills hide in post view like the omnibar - DONE
 ##    (pill bar hidden with the omnibar on viewer enter, restored on
 ##    back-to-grid, kept hidden if results land while viewing; build OK)
 - Opening a post hides the omnibar but the pill bar stays visible and
@@ -1073,7 +1080,7 @@
 - [x] Hide/show pill bar on viewer enter/exit.
 - [x] Build + `ctest` (+ docs).
 
-## 95. Tag-category labels: readable casing both panes — DONE
+## 95. Tag-category labels: readable casing both panes - DONE
 ##    (ENTITY TYPE left, underscores→spaces right; empty categories hide;
 ##    tiny categories auto-shrink; build OK)
 - Left sidebar: `Entity_type` → `ENTITY TYPE` (caps, no underscores).
@@ -1084,7 +1091,7 @@
 - [x] Label normalization both panes + empty hide + auto-shrink.
 - [x] Build + `ctest` (+ docs).
 
-## 96. Sidebar option: one big scrollbar instead of per-category — DONE
+## 96. Sidebar option: one big scrollbar instead of per-category - DONE
 ##    (sidebarSingleScroll setting + Appearance checkbox; splitter
 ##    wrapped in scroll area, per-category bars hidden; default off;
 ##    build OK)
@@ -1094,7 +1101,7 @@
 - [x] Setting + sidebar layout change (default off).
 - [x] Build + `ctest` (+ docs).
 
-## 88. Clickable meta-failure warning (why did comments/notes fail) — DONE
+## 88. Clickable meta-failure warning (why did comments/notes fail) - DONE
 ##    (probeRequested signal + link labels in both the tag panel note
 ##    and the comments popup; post URL + reason in the dialog; build OK)
 - The `Notes/comments failed to load (…)` note now links to the probe
@@ -1102,7 +1109,7 @@
 - [x] Wire the note to the status probe.
 - [x] Build + `ctest` (+ docs).
 
-## 94. Filter pills hide in post view like the omnibar — DONE
+## 94. Filter pills hide in post view like the omnibar - DONE
 ##    (pill bar hidden with the omnibar on viewer enter, restored on
 ##    back-to-grid, kept hidden if results land while viewing; build OK)
 - Opening a post hides the omnibar but the pill bar stays visible and
@@ -1110,21 +1117,21 @@
 - [x] Hide/show pill bar on viewer enter/exit.
 - [x] Build + `ctest` (+ docs).
 
-## 97. Disable write features on local read-only archives — DONE
+## 97. Disable write features on local read-only archives - DONE
 ##    (refreshReason returns "Library archives are read-only"; hard
 ##    `refuseArchiveWrite` guard on every write path: delete loop,
 ##    viewer delete, sidecar refresh, stray tag edit + media touch;
 ##    build OK)
 - Tag refresh and other write operations on library archives must be
-  disabled (archives are read-only — no sidecar writes, no edits).
+  disabled (archives are read-only - no sidecar writes, no edits).
   The refresh button should show a reason instead of firing. Hard
   safeguard: `refuseArchiveWrite` refuses any write outside the
-  download dir — called from delete loops, viewer delete, sidecar
+  download dir - called from delete loops, viewer delete, sidecar
   refresh, stray tag edit and media touch.
 - [x] Gate refresh + other write paths on archive vs download dir.
 - [x] Build + `ctest` (+ docs).
 
-## 98. Disable HiddenBooru engine (grey out, don't delete) — DONE
+## 98. Disable HiddenBooru engine (grey out, don't delete) - DONE
 ##    (Hiddenbooru item in the engine combo is disabled via
 ##    QStandardItemModel; code intact; existing entries unaffected;
 ##    build OK)
@@ -1233,3 +1240,53 @@
       downloads-only, and the crossing variants (download favourited rows,
       favourite everything, etc.), with a clear summary before writing.
 - [x] Keep sidecars/URLs for download regeneration; build + `ctest` (+ docs).
+
+## 113. SFW-only cache: blacklist + aggressive rating detection - DONE
+- [x] In SFW-only mode, never cache a post carrying a blacklisted tag.
+- [x] Require provable SFW: classic safe/general rating or explicit
+      `rating:g`/`rating:safe`/`safety:safe` equivalents; unknown does not count.
+- [x] Keep the explicit-download exception, but blacklist still wins.
+- [x] Tests for blacklist, unknown rating, rating-tag equivalents.
+
+## 114. Light theme contrast + themed cards - DONE
+- [x] Raise light-theme contrast (text/dim/borders/selection).
+- [x] Paint gallery cards from the active palette instead of hardcoded
+      dark card colours.
+
+## 115. File-based themes (`themes/` like `translations/`) - DONE
+- [x] Move built-in palettes to `themes/*.ini` embedded via CMake glob.
+- [x] Load user drop-in themes from the config folder; list them in Preferences.
+- [x] Document the tiny INI format and how to add a theme.
+
+## 116. Favicon cache audit - DONE
+- [x] Favicons already persist under the data dir (`favicons/auto`), independent
+      of the media cache mode; keep them out of SFW purge.
+
+## 117. View post variants from the viewer - DONE
+- [x] Add a Variants button when the API exposes parent/children.
+- [x] Leave post view and replace the search with a parent/child/id OR
+      group, so only the family renders.
+- [x] Build + `ctest` (+ docs).
+
+## 118. Furry general default - DONE
+- [x] New booru entries default to `furry:g`, expanded to
+      `furry` + `rating:general` as the portable equivalent.
+- [x] Existing saved entries keep their own default tags.
+
+## 119. User-created custom tag categories - DONE
+- [x] Preferences: create/remove named custom categories, assign tags to
+      them (tag -> category).
+- [x] Render assigned tags in their own sidebar/viewer group instead of
+      the classic bucket, remote and local.
+- [x] Persist/export; tests; build + ctest.
+
+## 120. Booru manager: disable + quick reorder - DONE
+- [x] Per-entry `Enabled` checkbox: disabled boorus stay in config but
+      disappear from add/browse/default-picker menus.
+- [x] Up/Down buttons (or drag reorder) in the booru list.
+- [x] Persist/export; tests; build + ctest.
+
+## 121. Window title updates instantly on tab switch - DONE
+- [x] Set the OS title from the target tab before the deferred scan/search,
+      and keep it in sync whenever the tab title changes.
+- [x] Build + `ctest` (32/32).

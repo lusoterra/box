@@ -319,9 +319,17 @@ void GalleryDelegate::paint(QPainter *painter, const QStyleOptionViewItem &optio
     QRect r = option.rect.adjusted(4, 4, -4, -4);
 
     const bool sel = option.state & QStyle::State_Selected;
+    const QColor accent = option.palette.color(QPalette::Highlight);
+    const QColor cardBg = option.palette.color(QPalette::Base);
+    const QColor cardAlt = option.palette.color(QPalette::AlternateBase);
+    const QColor cardBorder = option.palette.color(QPalette::Mid);
+    const QColor cardText = option.palette.color(QPalette::Text);
+    const QColor cardDim = option.palette.color(QPalette::PlaceholderText);
+    QColor selBg = accent;
+    selBg.setAlpha(55);
     painter->setRenderHint(QPainter::Antialiasing);
-    painter->setPen(sel ? QColor(0x7c, 0x9e, 0xf8) : QColor(0x2a, 0x2f, 0x45));
-    painter->setBrush(sel ? QColor(0x1e, 0x26, 0x3a) : QColor(0x16, 0x19, 0x20));
+    painter->setPen(sel ? accent : cardBorder);
+    painter->setBrush(sel ? selBg : cardBg);
     painter->drawRoundedRect(r, 6, 6);
 
     // Thumbnail (loader already crops to aspect; expand-fill as safety).
@@ -334,7 +342,7 @@ void GalleryDelegate::paint(QPainter *painter, const QStyleOptionViewItem &optio
         painter->drawPixmap(imgR.center().x() - scaled.width() / 2,
                             imgR.center().y() - scaled.height() / 2, scaled);
     } else {
-        painter->fillRect(imgR, QColor(0x1e, 0x21, 0x30));
+        painter->fillRect(imgR, cardAlt);
     }
     painter->setClipping(false);
 
@@ -345,7 +353,7 @@ void GalleryDelegate::paint(QPainter *painter, const QStyleOptionViewItem &optio
         painter->setPen(Qt::NoPen);
         painter->setBrush(QColor(0, 0, 0, 180));
         painter->drawRoundedRect(kb, 4, 4);
-        painter->setPen(QColor(0x7c, 0x9e, 0xf8));
+        painter->setPen(accent);
         painter->drawText(kb, Qt::AlignCenter, kind);
     }
 
@@ -455,8 +463,8 @@ void GalleryDelegate::paint(QPainter *painter, const QStyleOptionViewItem &optio
 
     // Unified info card: [G] +12 #11984812
     const QRect cardR(r.left() + 5, imgR.bottom() + 4, r.width() - 10, 24);
-    painter->setPen(QColor(0x2a, 0x2f, 0x45));
-    painter->setBrush(QColor(0x10, 0x12, 0x18));
+    painter->setPen(cardBorder);
+    painter->setBrush(cardAlt);
     painter->drawRoundedRect(cardR, 4, 4);
     const QString rating = index.data(Qt::UserRole + 1).toString();
     const QRect chip(cardR.left() + 3, cardR.top() + 3, 20, 18);
@@ -473,17 +481,17 @@ void GalleryDelegate::paint(QPainter *painter, const QStyleOptionViewItem &optio
     const QString score = index.data(Qt::UserRole + 3).toString();
     painter->setPen(score.startsWith(u'+')   ? QColor(0x6f, 0xcc, 0x6f)
                      : score.startsWith(u'-') ? QColor(0xe0, 0x55, 0x55)
-                                              : QColor(0xd4, 0xd8, 0xf0));
+                                              : cardText);
     const QRect scoreR(chip.right() + 5, cardR.top(), 70, cardR.height());
     painter->drawText(scoreR, Qt::AlignVCenter | Qt::AlignLeft, score);
-    painter->setPen(QColor(0x78, 0x80, 0xa0));
+    painter->setPen(cardDim);
     const QRect idR(scoreR.right() + 2, cardR.top(), cardR.right() - scoreR.right() - 6,
                     cardR.height());
     painter->drawText(idR, Qt::AlignVCenter | Qt::AlignRight,
                       index.data(Qt::UserRole + 6).toString());
 
     // Filename line.
-    painter->setPen(sel ? Qt::white : QColor(0x4a, 0x50, 0x68));
+    painter->setPen(sel ? cardText : cardDim);
     const QRect labelR(r.left() + 6, cardR.bottom() + 3, r.width() - 12, 16);
     const QString name = index.data(Qt::DisplayRole).toString();
     painter->drawText(labelR, Qt::AlignHCenter | Qt::AlignTop,
@@ -596,6 +604,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
       m_downloads(new DownloadManager(this)) {
     m_settings = loadSettings();
     MediaCache::configure(m_settings.cacheMode, m_settings.boorus);
+    MediaCache::setSfwBlacklist(m_settings.blacklist);
     setActiveExplicitTags(
         QSet<QString>(m_settings.explicitTags.begin(), m_settings.explicitTags.end()));
     // Before the first QWebEngine* object (webDownloads below): route the
@@ -1171,6 +1180,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     m_imgCache->setEnabled(m_settings.fullCache);
     m_viewer->setImageCache(m_imgCache);
     m_viewer->setCategoryMerges(m_settings.tagCategoryMerges);
+    m_viewer->setCustomTagCategories(m_settings.tagCustomCategories);
     m_viewer->setThumbModel(m_model);
     connect(m_viewer, &ViewerPage::currentRowChanged, this, [this](int row) {
         if (row < 0 || row >= m_current.size())
@@ -1187,6 +1197,8 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
         updateViewerBadges();
     });
     m_viewer->setWebBackend(webDownloads);
+    connect(m_viewer, &ViewerPage::variantsRequested, this,
+            &MainWindow::searchVariants);
     connect(m_viewer, &ViewerPage::downloadRequested, this, [this](const Post &p) {
         // Explicit download lifts the veto (see m_unfavVeto).
         const auto [site, pid] = favIdentity(p);
@@ -1241,8 +1253,8 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
                 const QUrl u(url);
                 statusBar()->showMessage(
                     u.host().isEmpty()
-                        ? tr("Media failed — click for details")
-                        : tr("Media failed on %1 — click for details")
+                        ? tr("Media failed - click for details")
+                        : tr("Media failed on %1 - click for details")
                               .arg(u.host()),
                     10000);
                 setStatusProbe(
@@ -1277,7 +1289,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
                     return;
                 m_wallRefreshed.insert(tag);
                 statusBar()->showMessage(
-                    tr("Wall hit — refreshing clearance…"), 6000);
+                    tr("Wall hit - refreshing clearance…"), 6000);
                 CookieGrabDialog::refreshSilent(
                     cfg->baseUrl,
                     effectiveDataDir(m_settings) +
@@ -1304,7 +1316,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
                         RemoteSource::setConfiguredBoorus(m_settings.boorus);
                         applyBooruCreds();
                         statusBar()->showMessage(
-                            tr("Clearance refreshed — retrying media…"),
+                            tr("Clearance refreshed - retrying media…"),
                             6000);
                         if (m_pages->currentIndex() == 1 &&
                             m_viewer->hasCurrent())
@@ -1676,7 +1688,7 @@ bool MainWindow::restoreTabs() {
         if (m_settings.savedTabs.isEmpty())
         return false;
     // Snapshot: every add below saves (stageTabs clears + rebuilds
-    // savedTabs), so iterating the live list is use-after-free — the
+    // savedTabs), so iterating the live list is use-after-free - the
     // once-per-version restore segfault.
     const QList<AppSettings::SavedTab> saved = m_settings.savedTabs;
     bool any = false;
@@ -1797,7 +1809,7 @@ void MainWindow::updateDots() {
     const auto shown = [](QLabel *l) {
         return l && l->isVisible() && !l->text().trimmed().isEmpty();
     };
-    // A dot only separates two shown strings — never dangles at an end
+    // A dot only separates two shown strings - never dangles at an end
     // or next to an empty label.
     if (m_dotPage)
         m_dotPage->setVisible(shown(m_pageLabel) && shown(m_resultLabel));
@@ -1836,6 +1848,13 @@ void MainWindow::updateTabTitle(int tabIdx) {
         m_tabBar->setTabIcon(tabIdx + 1, UiIcons::icon(QStringLiteral("folder-open")));
     }
     m_tabBar->setFullTitle(tabIdx + 1, t->title);
+    // Keep the OS title in lockstep when this is the visible tab.
+    if (tabIdx == m_curTab) {
+        if (t->isFavourites)
+            setWindowTitle(QStringLiteral("box - ♥ Favourites"));
+        else
+            setWindowTitle(QStringLiteral("box - ") + t->title);
+    }
 }
 
 void MainWindow::addLocalTab(const QString &root) {
@@ -1957,6 +1976,16 @@ void MainWindow::activateTab(int tabIdx) {
     backToGrid();
     m_curTab = tabIdx;
     BrowserTab *t = m_tabs[tabIdx];
+    // Window title must switch with the tab bar, not after the deferred
+    // scan/search (that read as a stale title for a second on every switch).
+    updateTabTitle(tabIdx);
+    if (t->isFavourites)
+        setWindowTitle(QStringLiteral("box - ♥ Favourites"));
+    else if (t->isRemote)
+        setWindowTitle(QStringLiteral("box - ") +
+                       (t->title.isEmpty() ? tr("Browse") : t->title));
+    else
+        setWindowTitle(QStringLiteral("box - ") + t->root);
     m_tabBar->blockSignals(true);
     m_tabBar->setCurrentIndex(tabIdx + 1);
     m_tabBar->blockSignals(false);
@@ -2190,6 +2219,8 @@ void MainWindow::updateSortBox() {
 void MainWindow::rebuildSitesMenu() {
     m_sitesMenu->clear();
     for (const BooruSite &s : m_settings.boorus) {
+        if (!s.enabled)
+            continue;
         QAction *a = m_sitesMenu->addAction(s.label);
         a->setCheckable(true);
         a->setData(s.key);
@@ -2364,6 +2395,8 @@ void MainWindow::showPlusMenu() {
     // One click = one tab. Merging stays available per-tab through the
     // "Boorus…" menu, which checks any set of sources into the open tab.
     for (const BooruSite &s : m_settings.boorus) {
+        if (!s.enabled)
+            continue;
         QAction *a = menu.addAction(m_favicons->iconFor(s.key, s.baseUrl),
                                     s.label);
         a->setData(s.key);
@@ -2842,7 +2875,7 @@ void MainWindow::onRemoteFinished() {
         }
     }
     // Fresh search, nothing landed, failures look transient (rate limits,
-    // 5xx, timeouts — never auth/walls): one delayed retry instead of a
+    // 5xx, timeouts - never auth/walls): one delayed retry instead of a
     // dead empty grid. Appends never retry (existing rows stay put) and
     // the flag caps it at one per search; manual F5 still works.
     if (t && t->page <= 1 && merged.isEmpty() && anyTransient &&
@@ -2957,7 +2990,7 @@ void MainWindow::solveWallInBrowser(const QString &siteKey,
         RemoteSource::setConfiguredBoorus(m_settings.boorus);
         applyBooruCreds();
         statusBar()->showMessage(
-            tr("✓ %1: %2 cookie(s) captured — retrying search")
+            tr("✓ %1: %2 cookie(s) captured - retrying search")
                 .arg(entry.label)
                 .arg(entry.cookies.size()),
             6000);
@@ -3207,6 +3240,14 @@ void MainWindow::rebuildBrowseSidebar() {
                          : RemotePosts::keyForLabel(first.siteName);
     }
     auto addBucketed = [&](const QString &target, const QString &tag) {
+        const auto custom =
+            m_settings.tagCustomCategories.constFind(tag.toLower());
+        if (custom != m_settings.tagCustomCategories.constEnd()) {
+            const QString key = TagCategories::normalizeKey(custom.value());
+            customCounts[key][tag]++;
+            customLabels.insert(key, custom.value());
+            return;
+        }
         const QString bucket = TagCategories::classicBucket(target);
         if (!bucket.isEmpty()) {
             counts[bucket][tag]++;
@@ -3295,7 +3336,7 @@ void MainWindow::rebuildBrowseSidebar() {
         return v;
     };
     // Section visibility + fill in one pass: a bucket hidden in every
-    // host, or simply empty on this page, stops rendering entirely —
+    // host, or simply empty on this page, stops rendering entirely -
     // it comes back the moment tags show up. Tiny categories shrink so
     // many sections fit at once.
     auto fillSection = [&](int idx, QListWidget *list, const QString &bucket,
@@ -3821,7 +3862,7 @@ void MainWindow::showGridMenu(const QPoint &pos) {
         connect(edit, &QAction::triggered, this,
                 [this, post = targets.first()] { editStrayTags(post); });
     }
-    // Any on-disk file can become the home mascot — including downloaded
+    // Any on-disk file can become the home mascot - including downloaded
     // remote rows, whose copy the favourites DB links (absFile is empty
     // on those). Download-first still applies: no file, no mascot.
     if (targets.size() == 1) {
@@ -3951,7 +3992,7 @@ void MainWindow::showGridMenu(const QPoint &pos) {
             if (QFile::remove(f)) {
                 gone++;
                 // Our download sidecar shares the stem (<stem>.json):
-                // remove it so no orphan is left behind — unless it is a
+                // remove it so no orphan is left behind - unless it is a
                 // kept re-download manifest (see above). Archive sidecars
                 // are the user's metadata and stay untouched.
                 if (!dlRoot.isEmpty() &&
@@ -4828,6 +4869,8 @@ void MainWindow::refreshPost(const Post &post) {
 void MainWindow::onRefreshFailed(qint64 reqId, const QString &error) {
     if (reqId != m_refreshReq)
         return; // superseded: a newer refresh owns the UI now
+    if (m_viewer)
+        m_viewer->detailFetchFailed(m_refreshPost);
     statusBar()->showMessage(tr("Refresh failed: %1").arg(error), 8000);
 }
 
@@ -4890,6 +4933,10 @@ void MainWindow::onRefreshDone(qint64 reqId,
         Post merged = fresh;
         merged.category = orig.category;
         merged.siteKey = siteKey; // refresh targets resolve exactly, twice
+        // Repaint the open viewer even if the page-index timing made the
+        // block below skip it (the first-open HyBooru tags bug).
+        if (m_viewer)
+            m_viewer->applyRefreshedPost(merged);
         auto replaceIn = [&](QVector<Post> &vec) {
             for (Post &p : vec) {
                 if (p.isRemote && p.siteName == orig.siteName && p.id == orig.id)
@@ -5549,11 +5596,85 @@ void MainWindow::rebuildSidebar() {
          ++it)
         it->box->setVisible(false);
     const Stats s = m_index.stats();
-    rebuildTagTab(m_copyList, s.topCopyrights, QStringLiteral("copyright"));
-    rebuildTagTab(m_charList, s.topCharacters, QStringLiteral("character"));
-    rebuildTagTab(m_artistList, s.topArtists, QStringLiteral("artist"));
-    rebuildTagTab(m_tagList, s.topGeneral, QStringLiteral("general"));
-    rebuildTagTab(m_metaList, s.topMeta, QStringLiteral("meta"));
+    // User-created categories: count tags assigned to them and pull those
+    // tags out of the classic top lists.
+    QHash<QString, QHash<QString, int>> customCounts;
+    QHash<QString, QString> customLabels;
+    if (!m_settings.tagCustomCategories.isEmpty()) {
+        for (const Post &p : m_index.posts()) {
+            for (const QString &t :
+                 p.tags.split(QChar::Space, Qt::SkipEmptyParts)) {
+                const auto it =
+                    m_settings.tagCustomCategories.constFind(t.toLower());
+                if (it == m_settings.tagCustomCategories.constEnd())
+                    continue;
+                const QString key = TagCategories::normalizeKey(it.value());
+                customCounts[key][t]++;
+                customLabels.insert(key, it.value());
+            }
+        }
+    }
+    auto withoutAssigned = [&](QVector<QPair<QString, int>> v) {
+        if (m_settings.tagCustomCategories.isEmpty())
+            return v;
+        v.erase(std::remove_if(v.begin(), v.end(), [&](const auto &e) {
+                    return m_settings.tagCustomCategories.contains(
+                        e.first.toLower());
+                }),
+                v.end());
+        return v;
+    };
+    rebuildTagTab(m_copyList, withoutAssigned(s.topCopyrights),
+                  QStringLiteral("copyright"));
+    rebuildTagTab(m_charList, withoutAssigned(s.topCharacters),
+                  QStringLiteral("character"));
+    rebuildTagTab(m_artistList, withoutAssigned(s.topArtists),
+                  QStringLiteral("artist"));
+    rebuildTagTab(m_tagList, withoutAssigned(s.topGeneral),
+                  QStringLiteral("general"));
+    rebuildTagTab(m_metaList, withoutAssigned(s.topMeta),
+                  QStringLiteral("meta"));
+    for (auto it = customCounts.begin(); it != customCounts.end(); ++it) {
+        auto sec = m_customSections.find(it.key());
+        if (sec == m_customSections.end()) {
+            auto *box = new QWidget(this);
+            auto *secLay = new QVBoxLayout(box);
+            secLay->setContentsMargins(0, 0, 0, 0);
+            secLay->setSpacing(2);
+            auto *h = new QLabel(this);
+            h->setStyleSheet(QStringLiteral(
+                "color:#4a5068;font-size:10px;font-weight:bold;"));
+            secLay->addWidget(h);
+            auto *list = new QListWidget(this);
+            list->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+            list->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+            secLay->addWidget(list, 1);
+            box->setMinimumHeight(52);
+            m_sideSplit->addWidget(box);
+            m_sideSplit->setStretchFactor(m_sideSplit->count() - 1, 1);
+            connect(list, &QListWidget::itemClicked, this,
+                    &MainWindow::onTagClicked);
+            list->setContextMenuPolicy(Qt::CustomContextMenu);
+            connect(list, &QListWidget::customContextMenuRequested, this,
+                    &MainWindow::onTagContextMenu);
+            sec = m_customSections.insert(it.key(), {box, h, list});
+        }
+        QString label = customLabels.value(it.key(), it.key());
+        label.replace(u'_', u' ');
+        sec->title->setText(label.toUpper());
+        QVector<QPair<QString, int>> entries;
+        for (auto c = it.value().begin(); c != it.value().end(); ++c)
+            entries.append({c.key(), c.value()});
+        std::sort(entries.begin(), entries.end(),
+                  [](const auto &a, const auto &b) {
+                      return a.second > b.second;
+                  });
+        if (entries.size() > 30)
+            entries.resize(30);
+        rebuildTagTab(sec->list, entries, QStringLiteral("custom"));
+        sec->box->setVisible(true);
+    }
+    applySidebarScrollMode();
 }
 
 void MainWindow::applySidebarScrollMode() {
@@ -5971,6 +6092,8 @@ void MainWindow::updateResultLabel() {
         return TagCategories::classicBucket(m->target); // "" = custom
     };
     auto pillBucket = [&](const QString &tag) -> QString {
+        if (m_settings.tagCustomCategories.contains(tag.toLower()))
+            return QStringLiteral("custom");
         if (customOf.contains(tag)) {
             const QString cat = customOf.value(tag);
             // User merge wins, then the legacy category → bucket map.
@@ -6162,7 +6285,9 @@ void MainWindow::requestVisibleThumbs() {
          ++row) {
         const Post &p = m_current[row];
         const bool persistThumb = MediaCache::persistForPost(p);
-        const bool nsfwThumb = MediaCache::isNsfwRating(p.rating);
+        const bool nsfwThumb =
+            MediaCache::isNsfwRating(p.rating) ||
+            MediaCache::postHasBlacklistedTag(p);
         const QString siteKey = p.isRemote ? p.siteKey : QString();
         if (p.isRemote) {
             const QString thumb = RemotePosts::thumbUrlFor(p);
@@ -6207,7 +6332,7 @@ void MainWindow::requestVisibleThumbs() {
     // placeholder; scrolling back repaints them from the LRU cache (or
     // re-requests). Model rows themselves stay put, so selection, menus,
     // viewer stepping and the scrollbar never notice the windowing.
-    // (Role +16 is the pixmap-loaded flag — +14/+15 are the comment/note
+    // (Role +16 is the pixmap-loaded flag - +14/+15 are the comment/note
     // pills. They collided once; every thumbnailed card wore a bubble.)
     const int keep = 60;
     for (int row = 0; row < m_model->rowCount(); ++row) {
@@ -6352,7 +6477,7 @@ void MainWindow::onRemoteSuggest(const QString &siteKey, const QString &prefix,
         const QString w = idx.data(Qt::DisplayRole).toString();
         // Prune stale rows: keystrokes outrun fetches, so the model may
         // still hold the previous prefix's answers. The completer
-        // prefix-filters anyway, so these rows could never display — yet
+        // prefix-filters anyway, so these rows could never display - yet
         // they would eat merge cap slots and crowd out fresh matches.
         if (!w.startsWith(bare, Qt::CaseInsensitive))
             continue;
@@ -6504,7 +6629,7 @@ void MainWindow::onCompleterActivated(const QString &text) {
     QString last = (pos >= 0) ? cur.mid(pos + 1) : cur;
     const QString dash = last.startsWith(u'-') ? QStringLiteral("-") : QString();
     m_searchEdit->setText(prefix + dash + text + u' ');
-    // Accepting a suggestion (click or Enter — Enter never reaches
+    // Accepting a suggestion (click or Enter - Enter never reaches
     // returnPressed while the popup is open) commits it like Enter:
     // pills, cleared omnibar, search. Multi-tag queries build across
     // repeated accepts, one search each.
@@ -7005,7 +7130,7 @@ void MainWindow::applyPreferences(const AppSettings &app) {
     saveSettings(m_settings);
     // Data folder moved: reopen the favourites DB there. The cache
     // tracking DB stays in the platform cache dir (it follows the cache,
-    // not the data). Databases start fresh there — existing files stay
+    // not the data). Databases start fresh there - existing files stay
     // where they were unless moved over.
     if (effectiveDataDir(m_settings) != oldDataDir) {
         QDir().mkpath(effectiveDataDir(m_settings));
@@ -7018,6 +7143,7 @@ void MainWindow::applyPreferences(const AppSettings &app) {
     CacheJanitor::configure(
         appCacheDir(), qint64(m_settings.cacheLimitMB) * 1024 * 1024);
     MediaCache::configure(m_settings.cacheMode, m_settings.boorus);
+    MediaCache::setSfwBlacklist(m_settings.blacklist);
     setActiveExplicitTags(
         QSet<QString>(m_settings.explicitTags.begin(), m_settings.explicitTags.end()));
     RemoteSource::setConfiguredBoorus(m_settings.boorus);
@@ -7089,6 +7215,7 @@ void MainWindow::applyPreferences(const AppSettings &app) {
                                   m_settings.volume);
     m_viewer->setMaxSide(m_settings.viewerMaxSide);
     m_viewer->setCategoryMerges(m_settings.tagCategoryMerges);
+    m_viewer->setCustomTagCategories(m_settings.tagCustomCategories);
     m_welcome->setMascot(effectiveMascotPath(m_settings));
     m_welcome->setMascotOpacity(m_settings.mascotOpacity);
     m_welcome->setMascotScale(m_settings.mascotScale);
@@ -7114,7 +7241,9 @@ void MainWindow::applyPreferences(const AppSettings &app) {
     } else {
         applyFilter();
     }
-    if (old.tagCategoryMerges != m_settings.tagCategoryMerges) {
+    if (old.tagCategoryMerges != m_settings.tagCategoryMerges ||
+        old.customTagCategories != m_settings.customTagCategories ||
+        old.tagCustomCategories != m_settings.tagCustomCategories) {
         if (isBrowse())
             rebuildBrowseSidebar();
         updateResultLabel();
@@ -7264,7 +7393,7 @@ void MainWindow::showFavTagsMenu() {
     });
     if (tags.isEmpty()) {
         QAction *none = menu.addAction(
-            tr("No favourite tags yet — right-click a tag to star it"));
+            tr("No favourite tags yet - right-click a tag to star it"));
         none->setEnabled(false);
     }
     // Coloured, scrollable tag list: rows wear the same bucket colours
@@ -7362,6 +7491,38 @@ void MainWindow::updateDownloadButton() {
     m_downloadSelBtn->setEnabled(n > 0);
 }
 
+void MainWindow::searchVariants(const Post &post) {
+    if (!post.isRemote || post.id <= 0)
+        return;
+    qint64 parentId = 0;
+    for (const char *key : {"parent_id", "parent"}) {
+        const QJsonValue v = post.rawJson.value(QLatin1String(key));
+        if (v.isNull() || v.isUndefined())
+            continue;
+        parentId = v.toVariant().toLongLong();
+        if (parentId > 0)
+            break;
+    }
+    QStringList alts = {QStringLiteral("parent:") + QString::number(post.id),
+                        QStringLiteral("child:") + QString::number(post.id),
+                        QStringLiteral("id:") + QString::number(post.id)};
+    if (parentId > 0) {
+        alts << QStringLiteral("parent:") + QString::number(parentId)
+             << QStringLiteral("id:") + QString::number(parentId);
+    }
+    QStringList unique;
+    for (const QString &a : std::as_const(alts))
+        if (!unique.contains(a))
+            unique << a;
+    // Family only: drop old tag cards, keep the tab's rating/blacklist.
+    m_activeTags.clear();
+    m_searchQuery = canonicalQuery({}, {unique});
+    m_searchEdit->clear();
+    backToGrid();
+    commitSearch();
+    statusBar()->showMessage(tr("Showing variants of #%1").arg(post.id), 5000);
+}
+
 void MainWindow::addTagToSearch(const QString &tag) {
     if (!m_activeTags.contains(tag))
         m_activeTags.append(tag);
@@ -7390,7 +7551,7 @@ void MainWindow::showViewerTagMenu(const QString &tag, const QPoint &globalPos) 
     // One entry per configured booru: opens a fresh browse tab limited to
     // that site with the tag already filled in.
     for (const BooruSite &site : m_settings.boorus) {
-        if (site.key.isEmpty())
+        if (!site.enabled || site.key.isEmpty())
             continue;
         const QString label =
             site.label.isEmpty() ? site.key : site.label;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QColor>
+#include <QList>
 #include <QString>
 
 class QApplication;
@@ -23,7 +24,17 @@ struct PaletteColors {
     bool dark = true;
 };
 
-// Palette for a settings.ini theme key ("builtin", "nord", "dracula", …).
+struct ThemeInfo {
+    QString key;    // settings.ini theme/mode value
+    QString label;  // combo text
+    bool dark = true;
+    int order = 1000;
+};
+
+// Built-in `:/themes/*.ini` plus user drop-ins from
+// ~/.config/box/themes/*.ini, sorted for the Preferences combo.
+QList<ThemeInfo> availableThemes();
+// Palette for a settings.ini theme key (file stem, e.g. "nord").
 PaletteColors colorsFor(const QString &mode, const QColor &accent);
 // Apply one of the built-in palettes. Unknown/native keys fall back to the
 // default dark theme ("native" is handled by applyNative()).

@@ -20,7 +20,7 @@ private:
     static bool parseGelbooruNative(const QJsonObject &raw, Post &post);
     static bool parseSzuruNative(const QJsonObject &raw, Post &post);
     // Stray sidecars (hand-tagged _Stray files): the flat "tags" string is
-    // genuinely untyped, so it lands in general AND untyped — the normal
+    // genuinely untyped, so it lands in general AND untyped - the normal
     // classify pipeline (manual overrides + online fetch) categorizes it
     // on the next scan instead of sticking in general forever.
     static bool parseStray(const QJsonObject &raw, Post &post);

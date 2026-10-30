@@ -75,7 +75,7 @@ private slots:
     }
 
     void skipsStrays() {
-        // Hand-tagged strays have no source to refresh from, by design —
+        // Hand-tagged strays have no source to refresh from, by design -
         // even with a valid id and a known folder shape.
         QTemporaryDir tmp;
         QVERIFY(tmp.isValid());

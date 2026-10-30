@@ -1,4 +1,4 @@
-# TESTING — box
+# TESTING - box
 
 ## Build / test
 
@@ -35,7 +35,7 @@
   (`/usr/lib/qt6/moc`) on any `Q_OBJECT` header first; link only the
   needed `src/...` units (mirror the `tests/CMakeLists.txt` source lists).
 - `main.cpp:32-36`: message boxes are suppressed on `offscreen` (stderr
-  only) — safe to run CLI paths headless.
+  only) - safe to run CLI paths headless.
 - Single-instance lock: harnesses that touch `MainWindow`/settings must use
   a temp `XDG_CONFIG_HOME`/`XDG_DATA_HOME`, never the real `~/.config/box`.
 

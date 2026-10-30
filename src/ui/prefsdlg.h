@@ -105,6 +105,7 @@ private:
     QRadioButton *m_booruCacheAll = nullptr;
     QRadioButton *m_booruCacheSfw = nullptr;
     QRadioButton *m_booruCacheNone = nullptr;
+    QCheckBox *m_booruEnabled = nullptr;
     QCheckBox *m_sidebarSingleScroll = nullptr;
     QCheckBox *m_plusLocalFolder = nullptr;
     QLineEdit *m_booruTags = nullptr;
@@ -133,6 +134,11 @@ private:
     QListWidget *m_customBuckets = nullptr; // native category -> bucket
     QLineEdit *m_customBucketEdit = nullptr;
     QComboBox *m_customBucketBucket = nullptr;
+    QListWidget *m_customCategories = nullptr; // user-created groups
+    QLineEdit *m_customCategoryEdit = nullptr;
+    QListWidget *m_tagCustomAssignments = nullptr; // tag -> custom group
+    QLineEdit *m_tagCustomEdit = nullptr;
+    QComboBox *m_tagCustomCategory = nullptr;
     QComboBox *m_tagOverrideBucket = nullptr;
     QListWidget *m_categoryMerges = nullptr;
     QComboBox *m_mergeScope = nullptr;

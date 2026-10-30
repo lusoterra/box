@@ -80,7 +80,7 @@ inline bool isVideoExt(const QString &ext) {
 }
 
 // Media-kind extension sets for the omnibar media filter. Animated
-// pictures (ugoira, animated webp/jxl) count as GIFs — never the reverse
+// pictures (ugoira, animated webp/jxl) count as GIFs - never the reverse
 // (gif conversion is lossy). Mirrors the grid's own video/GIF chips.
 inline const QStringList &gifLikeExts() {
     static const QStringList exts = {QStringLiteral("gif"),
@@ -224,7 +224,7 @@ inline const QStringList &aiContentTags() {
 }
 // Ugoira (animated illustration archives, served as .zip): treated as
 // animated GIFs for classification, converted to animated webp/jxl on
-// download — the zip itself is never rendered.
+// download - the zip itself is never rendered.
 inline bool isUgoiraPost(const Post &post) {
     if (post.ext.compare(QStringLiteral("zip"), Qt::CaseInsensitive) == 0)
         return true;

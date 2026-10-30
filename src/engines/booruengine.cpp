@@ -388,7 +388,7 @@ QStringList translateSearchTags(const QStringList &tags, BooruEngine engine) {
     // rating:safe, Gelbooru only understands rating:general, Szurubooru
     // wants safety:safe (safety:unsafe for explicit). Single-letter
     // shorthands (rating:g/s/q/e, danbooru convention) expand to full
-    // words first so the rules below apply to them too — otherwise a
+    // words first so the rules below apply to them too - otherwise a
     // multibooru rating:g only answers on engines that tolerate it.
     // Anything else passes through untouched.
     QStringList out;
@@ -442,7 +442,7 @@ QStringList translateSearchTags(const QStringList &tags, BooruEngine engine) {
                    engine == BooruEngine::Hiddenbooru) {
             // Neither engine exposes a verified content-rating or sort
             // spelling (HyBooru rating: is a 0-100 star filter): such
-            // tokens would silently mis-filter, so drop them — sorting
+            // tokens would silently mis-filter, so drop them - sorting
             // stays client-side, rating filters client-side.
             const int ci = tok.indexOf(u':');
             const QString head =
@@ -456,7 +456,7 @@ QStringList translateSearchTags(const QStringList &tags, BooruEngine engine) {
         if (engine != BooruEngine::Danbooru && isFiletypeToken(tok)) {
             // Only Danbooru's filetype: support is verified: elsewhere the
             // token would silently mis-filter (literal tag match, usually
-            // empty), so drop it — the client-side net still filters.
+            // empty), so drop it - the client-side net still filters.
             continue;
         }
         if (engine == BooruEngine::Gelbooru ||
@@ -576,8 +576,15 @@ QStringList defaultTagsFor(const QStringList &base, const QString &defaults,
     QStringList tags = base;
     for (const QString &tok :
          defaults.split(QChar::Space, Qt::SkipEmptyParts)) {
-        if (!dropped.contains(tok))
+        if (dropped.contains(tok))
+            continue;
+        if (tok == QStringLiteral("furry:g")) {
+            // "furry:g or equivalent": the portable form is the furry tag
+            // plus the general rating filter every engine understands.
+            tags << QStringLiteral("furry") << QStringLiteral("rating:general");
+        } else {
             tags << tok;
+        }
     }
     return tags;
 }

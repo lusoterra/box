@@ -58,8 +58,10 @@ struct BooruSite {
     // on. Per-host replacement for the engine-family grid in Preferences.
     QSet<QString> disabledBuckets;
     // Extra tags for every search on this booru, added to the global
-    // defaults (space-separated, same syntax as the omnibar).
-    QString defaultTags;
+    // defaults (space-separated, same syntax as the omnibar). New entries
+    // start with "furry:g" (expanded to `furry rating:general`): furry
+    // posts stay allowed, but only general-rated ones by default.
+    QString defaultTags = QStringLiteral("furry:g");
     // Danbooru free accounts cap queries at ~2 tags, so server-side
     // -blacklist exclusions break searches: entries with this set skip
     // the server exclusions and rely on the client-side blacklist net.
@@ -74,4 +76,7 @@ struct BooruSite {
     // Media cache override for this entry: Inherit = global setting,
     // otherwise narrows it (see MediaCache::effectiveMode).
     CacheMode cacheMode = CacheMode::Inherit;
+    // Disabled entries stay configured (tabs/favourites still resolve)
+    // but are hidden from every picker/menu.
+    bool enabled = true;
 };

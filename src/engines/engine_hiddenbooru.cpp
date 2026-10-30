@@ -8,10 +8,10 @@
 //   No comment list endpoint (create/delete only).
 // A post carries id/hash/htype/mtype/fmt/size/width/height/rating
 // (letter u/s/q/e or full name)/tags (space-separated)/file_url +
-// preview_url (RELATIVE — resolve against base)/source_url.
+// preview_url (RELATIVE - resolve against base)/source_url.
 // Single-post refresh reuses the search endpoint with terms=id:<id>.
 // Plain fetches must ride the Tor browser/proxy stack; prefer the onion
-// URL — I2P is extremely slow. Default engine label: "HiddenBooru".
+// URL - I2P is extremely slow. Default engine label: "HiddenBooru".
 #include "booruengine.h"
 #include "explicittags.h"
 

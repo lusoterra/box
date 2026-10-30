@@ -214,7 +214,7 @@ private slots:
 
     void suggestExactFirst() {
         // Exact match wins over higher-count prefix siblings: five posts
-        // carry skyline, one carries sky — typing sky still offers sky.
+        // carry skyline, one carries sky - typing sky still offers sky.
         Index idx;
         QVector<Post> posts;
         for (int i = 0; i < 5; ++i) {

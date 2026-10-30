@@ -309,6 +309,7 @@ private:
     struct SiteCreds credsFor(const QString &key) const;
     void downloadPosts(const QVector<Post> &posts);
     void addTagToSearch(const QString &tag); // viewer tag click/menu
+    void searchVariants(const Post &post); // parent/child family search
     void downloadSelected();
     void showDlDialog();
     void updateDownloadButton();

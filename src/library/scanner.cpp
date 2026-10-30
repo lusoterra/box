@@ -87,7 +87,7 @@ QString fixupMd5Name(const QString &absPath, const QString &siteLabel,
         md5 = sobj.value(QStringLiteral("checksumMD5")).toString();
     bool patched = false;
     // Hex only: a hostile sidecar md5 ("../../x") must never become a
-    // filename — treat it as missing and hash the bytes instead.
+    // filename - treat it as missing and hash the bytes instead.
     bool md5ok = md5.size() == 32;
     for (const QChar &c : md5) {
         const ushort u = c.unicode();

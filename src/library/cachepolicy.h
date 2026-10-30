@@ -102,12 +102,96 @@ inline CacheMode effectiveMode(const QString &siteKey) {
 
 inline bool isSfwRating(const QString &rating) {
     const QString r = rating.trimmed().toLower();
-    return r.isEmpty() || r == QStringLiteral("general") ||
-           r == QStringLiteral("safe");
+    // Aggressive: unknown/empty ratings are NOT provably safe.
+    return r == QStringLiteral("general") || r == QStringLiteral("safe") ||
+           r == QStringLiteral("s") || r == QStringLiteral("g");
 }
 
 inline bool isNsfwRating(const QString &rating) {
     return !isSfwRating(rating);
+}
+
+// SFW-only cache: tags on this list never cache, even when downloaded.
+inline QStringList &sfwBlacklistRef() {
+    static QStringList list;
+    return list;
+}
+
+inline void setSfwBlacklist(const QStringList &tags) {
+    QStringList out;
+    for (const QString &t : tags) {
+        const QString c = t.trimmed().toLower();
+        if (!c.isEmpty() && !out.contains(c))
+            out << c;
+    }
+    sfwBlacklistRef() = out;
+}
+
+inline bool postHasBlacklistedTag(const Post &post) {
+    const QStringList &banned = sfwBlacklistRef();
+    if (banned.isEmpty())
+        return false;
+    auto hit = [&](const QString &blob) {
+        for (const QString &t :
+             blob.split(QChar::Space, Qt::SkipEmptyParts)) {
+            if (banned.contains(t.toLower()))
+                return true;
+        }
+        return false;
+    };
+    if (hit(post.tags) || hit(post.tagsArtist) || hit(post.tagsCharacter) ||
+        hit(post.tagsCopyright) || hit(post.tagsGeneral) ||
+        hit(post.tagsMeta) || hit(post.untyped))
+        return true;
+    for (auto it = post.customTags.begin(); it != post.customTags.end();
+         ++it) {
+        for (const QString &t : it.value()) {
+            if (banned.contains(t.toLower()))
+                return true;
+        }
+    }
+    return false;
+}
+
+// Explicit `rating:g`-style tokens in the tag blobs. Used when the engine
+// leaves Post::rating empty: only a positive safe/general token proves SFW.
+inline bool tagsProveSfw(const Post &post) {
+    bool sawNsfw = false, sawSfw = false;
+    auto scan = [&](const QString &blob) {
+        for (QString t : blob.split(QChar::Space, Qt::SkipEmptyParts)) {
+            t = t.toLower();
+            if (t.startsWith(u'-'))
+                continue;
+            if (t == QStringLiteral("rating:g") ||
+                t == QStringLiteral("rating:general") ||
+                t == QStringLiteral("rating:safe") ||
+                t == QStringLiteral("rating:s") ||
+                t == QStringLiteral("safety:safe") ||
+                t == QStringLiteral("safety:general") ||
+                t == QStringLiteral("safety:s")) {
+                sawSfw = true;
+            } else if (t == QStringLiteral("rating:e") ||
+                       t == QStringLiteral("rating:explicit") ||
+                       t == QStringLiteral("rating:q") ||
+                       t == QStringLiteral("rating:questionable") ||
+                       t == QStringLiteral("safety:explicit") ||
+                       t == QStringLiteral("safety:questionable")) {
+                sawNsfw = true;
+            }
+        }
+    };
+    scan(post.tags);
+    scan(post.tagsGeneral);
+    scan(post.tagsMeta);
+    return sawSfw && !sawNsfw;
+}
+
+inline bool isSfwPost(const Post &post) {
+    if (isSfwRating(post.rating))
+        return true;
+    if (!post.rating.trimmed().isEmpty())
+        return false; // explicit non-safe rating
+    return tagsProveSfw(post);
 }
 
 // Disk persistence for one media item from a given site. `siteKey` may be
@@ -128,8 +212,19 @@ inline bool persistFor(const QString &siteKey, const QString &rating,
 inline bool persistForPost(const Post &post) {
     // Per-booru choices describe booru traffic; local archive thumbnails
     // follow the global mode (the files are already on disk anyway).
-    return persistFor(post.isRemote ? post.siteKey : QString(), post.rating,
-                      post.downloaded);
+    const CacheMode mode = effectiveMode(post.isRemote ? post.siteKey
+                                                      : QString());
+    if (mode == CacheMode::None)
+        return false;
+    if (mode == CacheMode::SfwOnly) {
+        // Blacklist wins over the explicit-download exception.
+        if (postHasBlacklistedTag(post))
+            return false;
+        if (post.downloaded)
+            return true;
+        return isSfwPost(post);
+    }
+    return true;
 }
 
 } // namespace MediaCache

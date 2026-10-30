@@ -80,6 +80,11 @@ struct AppSettings {
     // Per-booru category merge/rename rules (Preferences → Tags): group
     // native categories under one classic bucket or custom label.
     QList<TagCategoryMerge> tagCategoryMerges;
+    // User-created categories and manual tag assignments (lowercase tag ->
+    // category label). Assigned tags move out of their classic bucket in
+    // the sidebar/viewer.
+    QStringList customTagCategories;
+    QMap<QString, QString> tagCustomCategories;
     // Legacy per-engine bucket folding (kept for old configs; the UI now
     // uses tagCategoryMerges instead).
     QSet<QString> disabledBuckets;
@@ -200,7 +205,7 @@ inline QString effectiveDataDir(const AppSettings &s) {
 }
 
 // Tag-category verdicts: ONE database shared by every tab kind and booru
-// engine (tags are the same strings everywhere — fetching once is enough,
+// engine (tags are the same strings everywhere - fetching once is enough,
 // and archived dumps borrow it for free).
 inline QString tagTypesDbPath() {
     return defaultDataDir() + QStringLiteral("/tag_types.db");
@@ -257,6 +262,8 @@ inline bool operator==(const AppSettings &a, const AppSettings &b) {
            a.classifyTags == b.classifyTags && a.manualTagTypes == b.manualTagTypes &&
            a.customBucketMap == b.customBucketMap &&
            a.tagCategoryMerges == b.tagCategoryMerges &&
+           a.customTagCategories == b.customTagCategories &&
+           a.tagCustomCategories == b.tagCustomCategories &&
            a.disabledBuckets == b.disabledBuckets &&
            a.browseMode == b.browseMode && a.browseSites == b.browseSites &&
            a.browseLimit == b.browseLimit && a.dataDir == b.dataDir &&

@@ -39,7 +39,7 @@ public:
                  bool persistToDisk = true, bool nsfw = false,
                  const QString &siteKey = {});
     // Drop everything queued (quit path): in-flight tasks are bounded by
-    // their own network timeouts, but nothing new may start — otherwise
+    // their own network timeouts, but nothing new may start - otherwise
     // the pool destructor's waitForDone holds the close event open.
     void cancel();
 

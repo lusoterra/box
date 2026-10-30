@@ -36,7 +36,7 @@ class QWebEngineDownloadRequest;
 // webdlbackend.h). GUI thread only; injected into DownloadManager and
 // ThumbLoader by the app. Interactive challenges that need a human click
 // ("It is now okay to proceed" / "Verify you are human") fail fast with
-// advice instead of stalling to the timeout — one manual solve in the
+// advice instead of stalling to the timeout - one manual solve in the
 // capture browser unblocks everything until the next expiry.
 class WebApiFetcher : public QObject {
     Q_OBJECT
@@ -77,7 +77,7 @@ private:
 // webdlbackend.h). GUI thread only; injected into DownloadManager and
 // ThumbLoader by the app. Interactive challenges that need a human click
 // ("It is now okay to proceed" / "Verify you are human") fail fast with
-// advice instead of stalling to the timeout — one manual solve in the
+// advice instead of stalling to the timeout - one manual solve in the
 // capture browser unblocks everything until the next expiry.
 class WebEngineDownloadBackend : public WebDownloadBackend {
     Q_OBJECT
@@ -145,8 +145,8 @@ public:
     ~CookieGrabDialog() override;
     QStringList cookies() const { return m_cookies; }
     // Silent clearance renewal: loads the page in a hidden view on the
-    // persistent capture profile — its JS re-runs proof-of-work and
-    // refreshes short-lived cookies with no puzzle to solve — then
+    // persistent capture profile - its JS re-runs proof-of-work and
+    // refreshes short-lived cookies with no puzzle to solve - then
     // harvests the jar. done() gets normalized host cookies (empty when
     // the page is still challenged). GUI thread only.
     static void refreshSilent(const QString &baseUrl,

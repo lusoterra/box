@@ -36,7 +36,7 @@ public:
 
 signals:
     // ok=false: the fetch failed (network, HTTP error, challenge page,
-    // unparseable body) — caches must NOT treat the empties as
+    // unparseable body) - caches must NOT treat the empties as
     // definitive, and the UI should offer a retry instead of silence.
     // error names the reason (no URLs/secrets, safe for status lines).
     void done(const QString &siteKey, qint64 postId, QVector<PostNote> notes,

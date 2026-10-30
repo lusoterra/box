@@ -96,7 +96,8 @@ void ImageCache::request(const QString &url, const QString &referer,
     const bool persist =
         m_enabled && (post ? MediaCache::persistForPost(*post)
                            : MediaCache::persistFor(QString(), QString()));
-    const bool nsfw = post && MediaCache::isNsfwRating(post->rating);
+    const bool nsfw = post && (MediaCache::isNsfwRating(post->rating) ||
+                               MediaCache::postHasBlacklistedTag(*post));
     const QString siteKey = post && post->isRemote ? post->siteKey : QString();
     const QString have = localPath(url, post);
     if (!have.isEmpty()) {
@@ -141,7 +142,7 @@ void ImageCache::request(const QString &url, const QString &referer,
             // Hotlink/wall pages answer HTML (or 302-to-HTML) when the
             // request lacks clearance: never cache the page as if it
             // were the picture. Some servers serve animated GIFs as
-            // video/gif — accept those too. Name a recognized wall
+            // video/gif - accept those too. Name a recognized wall
             // and point at cookie capture instead of quoting markup.
             const QString ct =
                 reply->header(QNetworkRequest::ContentTypeHeader).toString();
