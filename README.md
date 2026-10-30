@@ -1,10 +1,13 @@
-# box (Booru eXplorer)
+# Box (BOoru eXplorer)
 
-Booru client for local archives and online boorus, as a native C++/Qt6 app.
-Point it at a folder of downloaded posts, browse Danbooru/Gelbooru and more
-online, download in full quality, and keep favourites — no browser needed.
+> Special thanks to the Belgian™ Government® for making me double
+> down on everything that I believe in. Your pure incompetence is laughable,
+> sad, and honestly, kind of pathetic.
 
-Local archives are treated read-only: browsing never modifies your library.
+Box (**Bo**oru e**x**plorer) is a Booru client for online boorus and local
+*gallery-dl* and similar archives, as a native C++/Qt6 app. Point it at a folder
+of downloaded posts, browse Danbooru/Gelbooru and more online, download in full
+quality, and keep favourites.
 
 ## Supported boorus
 
@@ -59,7 +62,6 @@ make test   # or: ctest --test-dir build --output-on-failure
 
 Debug builds: `-DCMAKE_BUILD_TYPE=Debug`. `make install` / `make uninstall` /
 `make clean` wrap the obvious CMake steps.
-
 
 ## Local archives
 
