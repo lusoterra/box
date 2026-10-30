@@ -14,27 +14,26 @@
       <stop offset="1" stop-color="#c28d63"/>
     </linearGradient>
   </defs>
-  <!-- taller / narrower isometric carton -->
-  <g stroke="#3a3a3a" stroke-width="22" stroke-linejoin="round" stroke-linecap="round">
-    <path d="M256 52 430 172 256 292 82 172Z" fill="url(#top)"/>
-    <path d="M82 172 256 292 256 492 82 372Z" fill="url(#left)"/>
-    <path d="M430 172 256 292 256 492 430 372Z" fill="url(#right)"/>
-    <!-- lid seam: lighter than the outline, darker than the carton -->
-    <path d="M168 122 344 230" fill="none" stroke="#6f5741"
-          stroke-width="15" opacity=".55"/>
-  </g>
-  <!-- "this way up": two arrows on the left face, no text -->
-  <g fill="none" stroke="#3a3a3a" stroke-width="13" opacity=".72"
-     stroke-linecap="round" stroke-linejoin="round">
-    <path d="M142 392V316"/>
-    <path d="M124 334 142 316 160 334"/>
-    <path d="M198 392V316"/>
-    <path d="M180 334 198 316 216 334"/>
-  </g>
-  <!-- ^^ cat ears on the right face, no text -->
-  <g fill="none" stroke="#3a3a3a" stroke-width="14" opacity=".8"
-     stroke-linecap="round" stroke-linejoin="round">
-    <path d="M302 372 322 346 342 372"/>
-    <path d="M358 372 378 346 398 372"/>
+
+  <!-- keep the carton centered with an even margin on all sides -->
+  <g transform="translate(256 256) scale(0.94) translate(-256 -272)">
+    <!-- taller / narrower isometric carton -->
+    <g>
+      <path d="M256 52 430 172 256 292 82 172Z" fill="url(#top)"/>
+      <path d="M82 172 256 292 256 492 82 372Z" fill="url(#left)"/>
+      <path d="M430 172 256 292 256 492 430 372Z" fill="url(#right)"/>
+    </g>
+
+    <!-- lid seam: edge-to-edge on the top face (parallel to the top-right
+         edge) and painted before the border, which hides both ends -->
+    <path d="M182 104 356 224" fill="none" stroke="#6f5741"
+          stroke-width="14" opacity=".55"/>
+
+    <g fill="none" stroke="#3a3a3a" stroke-width="22"
+       stroke-linejoin="round" stroke-linecap="round">
+      <path d="M256 52 430 172 256 292 82 172Z"/>
+      <path d="M82 172 256 292 256 492 82 372Z"/>
+      <path d="M430 172 256 292 256 492 430 372Z"/>
+    </g>
   </g>
 </svg>
