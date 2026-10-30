@@ -1,8 +1,5 @@
 build/
 build-asan/
-packaging/src/
-packaging/pkg/
-packaging/build-pkg/
 *.pkg.tar.zst
 *.db
 # Source tarball for the HiddenBooru engine task (user-supplied, not ours).
