@@ -72,8 +72,8 @@ copies (and removes a stale `/usr/local/bin/box` that would shadow
 BOX_PREFIX=~/.local ./scripts/install-latest.sh
 ```
 
-Pacman packaging lives in `packaging/` (`box-git` PKGBUILD, see
-`packaging/README.md`).
+Pacman packaging lives in the separate `box-git` repo (PKGBUILD builds
+from `git.lusosterone.net/lev/box`).
 
 ## Local archives
 

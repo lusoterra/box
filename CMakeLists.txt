@@ -103,7 +103,7 @@ include(GNUInstallDirs)
 include(CTest)
 add_subdirectory(tests)
 install(TARGETS box RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-install(FILES packaging/box.desktop
+install(FILES assets/box.desktop
         DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
 install(FILES assets/box.svg
         DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps
