@@ -63,6 +63,18 @@ make test   # or: ctest --test-dir build --output-on-failure
 Debug builds: `-DCMAKE_BUILD_TYPE=Debug`. `make install` / `make uninstall` /
 `make clean` wrap the obvious CMake steps.
 
+For a local system install that always replaces older package/manual
+copies (and removes a stale `/usr/local/bin/box` that would shadow
+`/usr/bin/box`), use the incremental helper:
+
+```sh
+./scripts/install-latest.sh          # /usr
+BOX_PREFIX=~/.local ./scripts/install-latest.sh
+```
+
+Pacman packaging lives in `packaging/` (`box-git` PKGBUILD, see
+`packaging/README.md`).
+
 ## Local archives
 
 Build an archive with gallery-dl so the sidecars come along (verified
@@ -76,4 +88,10 @@ gallery-dl --write-metadata -D ~/pics/safebooru \
 `--write-metadata` writes the per-file sidecar the scanner reads — without
 it you get untagged files. Re-run the same command later for new posts;
 add `--download-archive ~/pics/archive.sqlite3` to skip what you already
-have.
+have. The `--write-info-json` is also useful.
+
+## License
+
+This project is licensed under the **GNU Affero General Public License v3.0** - see the [LICENSE](LICENSE) file for details.
+
+[![AGPL-3.0](https://www.gnu.org/graphics/agplv3-with-text-162x68.png)](https://www.gnu.org/licenses/agpl-3.0.html)
