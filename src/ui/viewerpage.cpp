@@ -1405,6 +1405,11 @@ void ViewerPage::setWebBackend(WebDownloadBackend *backend) {
                 &ViewerPage::onStillWebFinished);
 }
 
+void ViewerPage::setCategoryMerges(
+    const QList<TagCategoryMerge> &merges) {
+    m_categoryMerges = merges;
+}
+
 void ViewerPage::setImageCache(ImageCache *cache) {
     if (m_imgCache)
         disconnect(m_imgCache, nullptr, this, nullptr);
@@ -1705,6 +1710,7 @@ void ViewerPage::showRow(int row) {
     showNote({});
     m_row = row;
     m_commentsExpanded = false; // long threads start collapsed, per post
+    emit currentRowChanged(row);
     maybeFetchHybooruDetail();
     primeThumb(row);
     showCurrent();
@@ -1995,28 +2001,78 @@ void ViewerPage::showCurrent() {
         l->setStyleSheet(QStringLiteral("color:#4a5068;"));
         m_tagLayout->addWidget(l);
     } else {
-        addTagGroup(m_tagLayout, tr("Artist"), p.tagsArtist,
-                    QStringLiteral("#d4955a"));
-        addTagGroup(m_tagLayout, tr("Copyright"), p.tagsCopyright,
-                    QStringLiteral("#b570e0"));
-        addTagGroup(m_tagLayout, tr("Character"), p.tagsCharacter,
-                    QStringLiteral("#60b880"));
-        addTagGroup(m_tagLayout, tr("General"), p.tagsGeneral,
-                    QStringLiteral("#7aaee0"));
-        addTagGroup(m_tagLayout, tr("Meta"), p.tagsMeta,
-                    QStringLiteral("#88aa88"));
-        // Native custom categories (Szurubooru instances define their
-        // own): one group each, accent colored.
+        const QString siteKey =
+            !p.siteKey.isEmpty() ? p.siteKey
+                                 : RemotePosts::keyForLabel(p.siteName);
+        QMap<QString, QStringList> groups; // classic bucket -> tags
+        QMap<QString, QStringList> customGroups;
+        QMap<QString, QString> labels; // bucket/key -> display label
+        auto appendGroup = [&](const QString &target,
+                               const QStringList &tags) {
+            if (tags.isEmpty())
+                return;
+            const QString bucket = TagCategories::classicBucket(target);
+            if (!bucket.isEmpty()) {
+                groups[bucket] << tags;
+                labels.insert(bucket, TagCategories::displayTarget(target));
+                return;
+            }
+            const QString key = TagCategories::targetKey(target);
+            if (key.isEmpty())
+                return;
+            customGroups[key] << tags;
+            labels.insert(key, TagCategories::displayTarget(target));
+        };
+        auto appendBlob = [&](const QString &blob, const QString &bucket) {
+            const TagCategoryMerge *m = TagCategories::mergeFor(
+                m_categoryMerges, siteKey, bucket);
+            appendGroup(m ? m->target : bucket,
+                        blob.split(QChar::Space, Qt::SkipEmptyParts));
+        };
+        appendBlob(p.tagsArtist, QStringLiteral("artist"));
+        appendBlob(p.tagsCharacter, QStringLiteral("character"));
+        appendBlob(p.tagsCopyright, QStringLiteral("copyright"));
+        appendBlob(p.tagsMeta, QStringLiteral("meta"));
+        appendBlob(p.tagsGeneral, QStringLiteral("general"));
         for (auto it = p.customTags.begin(); it != p.customTags.end();
              ++it) {
             if (it.value().isEmpty())
                 continue;
-            QString label = it.key();
-            label.replace(u'_', u' ');
-            if (!label.isEmpty())
-                label[0] = label[0].toUpper();
-            addTagGroup(m_tagLayout, label, it.value().join(QChar::Space),
-                        QStringLiteral("#7c9ef8"));
+            const TagCategoryMerge *m = TagCategories::mergeFor(
+                m_categoryMerges, siteKey, it.key());
+            if (m) {
+                appendGroup(m->target, it.value());
+                continue;
+            }
+            const QString key = TagCategories::normalizeKey(it.key());
+            customGroups[key] << it.value();
+            labels.insert(key, TagCategories::displayTarget(it.key()));
+        }
+        // Fixed order (Artist, Character, Copyright, Meta, General) even
+        // when a merge renames or combines them.
+        const QList<QPair<QString, QString>> order = {
+            {QStringLiteral("artist"), tr("Artist")},
+            {QStringLiteral("character"), tr("Character")},
+            {QStringLiteral("copyright"), tr("Copyright")},
+            {QStringLiteral("meta"), tr("Meta")},
+            {QStringLiteral("general"), tr("General")},
+        };
+        for (const auto &[bucket, fallback] : order) {
+            const QStringList tags = groups.value(bucket);
+            if (tags.isEmpty())
+                continue;
+            addTagGroup(m_tagLayout, labels.value(bucket, fallback),
+                        tags.join(QChar::Space),
+                        UiIcons::tagBucketColor(bucket).name());
+        }
+        for (auto it = customGroups.begin(); it != customGroups.end();
+             ++it) {
+            addTagGroup(m_tagLayout,
+                        labels.value(it.key(),
+                                     TagCategories::displayTarget(it.key())),
+                        it.value().join(QChar::Space),
+                        UiIcons::tagBucketColor(QStringLiteral("custom"))
+                            .name());
         }
     }
     if (p.isRemote)

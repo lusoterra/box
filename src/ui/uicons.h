@@ -11,8 +11,16 @@
 #include <QString>
 
 namespace UiIcons {
+inline QColor &normalRef() {
+    static QColor c(0xd4, 0xd8, 0xf0);
+    return c;
+}
+inline void setNormalColor(const QColor &c) {
+    if (c.isValid())
+        normalRef() = c;
+}
 inline QColor normal() {
-    return QColor(0xd4, 0xd8, 0xf0);
+    return normalRef();
 }
 inline QColor accent() {
     return QColor(0x7c, 0x9e, 0xf8);
@@ -25,12 +33,12 @@ inline QColor favRed() {
 inline QColor tagBucketColor(const QString &bucket) {
     if (bucket == QStringLiteral("artist"))
         return QColor(0xe0, 0x55, 0x61); // red
-    if (bucket == QStringLiteral("copyright"))
-        return QColor(0x43, 0xd1, 0x7c); // green
     if (bucket == QStringLiteral("character"))
-        return QColor(0xe0, 0x9a, 0x3c); // orange
+        return QColor(0x43, 0xd1, 0x7c); // green
+    if (bucket == QStringLiteral("copyright"))
+        return QColor(0xb5, 0x70, 0xe0); // purple (IP/copyright)
     if (bucket == QStringLiteral("meta"))
-        return QColor(0xe5, 0xc5, 0x48); // yellow
+        return QColor(0xe0, 0x9a, 0x3c); // orange
     if (bucket == QStringLiteral("custom"))
         return QColor(0x7c, 0x9e, 0xf8); // native instance categories
     return QColor(0xe8, 0xe8, 0xec); // general: white

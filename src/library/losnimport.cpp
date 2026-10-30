@@ -309,19 +309,42 @@ LosnImportDialog::LosnImportDialog(const QString &dbPath, FavDb *favDb,
     m_target->setWordWrap(true);
     lay->addWidget(m_target);
 
-    auto *opts = new QGroupBox(tr("Snatched entries"), this);
-    auto *optsLay = new QVBoxLayout(opts);
-    m_dlNow = new QRadioButton(tr("Download everything marked snatched now"), this);
-    m_favOnly = new QRadioButton(
-        tr("Import snatched as favourites only (no files)"), this);
-    m_dlNow->setChecked(true);
-    optsLay->addWidget(m_dlNow);
-    optsLay->addWidget(m_favOnly);
-    lay->addWidget(opts);
-
-    m_importFavs = new QCheckBox(tr("Import favourites"), this);
+    auto *favsBox = new QGroupBox(tr("Favourited entries (♥)"), this);
+    auto *favsLay = new QVBoxLayout(favsBox);
+    m_importFavs = new QCheckBox(tr("Import to Favourites"), this);
     m_importFavs->setChecked(true);
-    lay->addWidget(m_importFavs);
+    m_downloadFavs = new QCheckBox(
+        tr("Also download them (and add the files to the download folder)"),
+        this);
+    m_downloadFavs->setChecked(false);
+    favsLay->addWidget(m_importFavs);
+    favsLay->addWidget(m_downloadFavs);
+    lay->addWidget(favsBox);
+
+    auto *opts = new QGroupBox(tr("Downloaded entries (↓)"), this);
+    auto *optsLay = new QVBoxLayout(opts);
+    m_snatchedDownload =
+        new QRadioButton(tr("Download files and keep the ↓ mark"), this);
+    m_snatchedFav = new QRadioButton(
+        tr("Import as favourites only (no files; use after Android deleted "
+           "the originals)"),
+        this);
+    m_snatchedSkip = new QRadioButton(tr("Skip these entries"), this);
+    m_snatchedDownload->setChecked(true);
+    m_favDownloaded = new QCheckBox(
+        tr("Also add the downloaded entries to Favourites"), this);
+    m_favDownloaded->setChecked(false);
+    optsLay->addWidget(m_snatchedDownload);
+    optsLay->addWidget(m_snatchedFav);
+    optsLay->addWidget(m_snatchedSkip);
+    optsLay->addWidget(m_favDownloaded);
+    lay->addWidget(opts);
+    auto syncFavDownloaded = [this] {
+        m_favDownloaded->setEnabled(m_snatchedDownload->isChecked());
+    };
+    connect(m_snatchedDownload, &QRadioButton::toggled, this,
+            [syncFavDownloaded](bool) { syncFavDownloaded(); });
+    syncFavDownloaded();
 
     lay->addWidget(new QLabel(
         tr("Downloads save full quality + gallery-dl-style sidecars."), this));
@@ -401,69 +424,100 @@ void LosnImportDialog::onStart() {
         log(tr("Finish the current downloads first."));
         return;
     }
-    // Phase 1: favourites (always DB-only). One transaction: hundreds
-    // of per-row fsyncs are what used to freeze the dialog on the GUI thread.
+    m_downloadRows.clear();
+    auto rowKey = [](const LosnRow &r) {
+        if (r.postId > 0)
+            return r.siteLabel + u'#' + QString::number(r.postId);
+        return r.fileUrl.isEmpty() ? QStringLiteral("row#") +
+                                         QString::number(r.rowId)
+                                   : r.fileUrl;
+    };
+    // Selection matrix: favourite rows and downloaded rows are separate
+    // LOSN flags, and Android often leaves the ↓ flag behind after the
+    // file was deleted. Each side can be imported, crossed, or skipped.
+    QList<LosnRow> favRows;
     if (m_importFavs->isChecked()) {
+        for (const LosnRow &r : m_rows)
+            if (r.favourite)
+                favRows.append(r);
+    }
+    const bool favSnatched = m_snatchedFav->isChecked();
+    const bool downloadSnatched = m_snatchedDownload->isChecked();
+    // Phase 1: favourites (DB only, one transaction).
+    QList<LosnRow> toFavourite;
+    QSet<QString> favSeen;
+    auto addFavourite = [&](const LosnRow &r) {
+        const QString key = rowKey(r);
+        if (favSeen.contains(key))
+            return;
+        favSeen.insert(key);
+        toFavourite.append(r);
+    };
+    for (const LosnRow &r : favRows)
+        addFavourite(r);
+    if (favSnatched) {
+        for (const LosnRow &r : m_rows)
+            if (r.snatched)
+                addFavourite(r);
+    } else if (downloadSnatched && m_favDownloaded->isChecked()) {
+        for (const LosnRow &r : m_rows)
+            if (r.snatched)
+                addFavourite(r);
+    }
+    if (!toFavourite.isEmpty()) {
         QVector<Post> favs;
-        for (const LosnRow &r : m_rows) {
-            if (!r.favourite)
-                continue;
+        QHash<QPair<QString, qint64>, QString> paths;
+        for (const LosnRow &r : toFavourite) {
             Post p;
             p.isRemote = true;
             p.siteName = r.siteLabel;
             p.id = r.postId;
             p.tags = r.tags.join(u' ');
             p.tagsGeneral = p.tags;
+            p.untyped = p.tags; // backup tags are category-less by nature
             p.fileUrl = r.fileUrl;
             p.sampleUrl = r.sampleUrl;
             p.previewUrl = r.thumbUrl;
             p.postUrl = r.postUrl;
             p.hasMeta = true;
             favs.append(p);
+            // Link only files that actually exist: a target path for a
+            // never-downloaded row would later look like a deleted
+            // download (redownload prompt / stale ↓ flag).
+            const QString target =
+                LosnImport::targetPaths(r, m_downloadDir).filePath;
+            if (QFileInfo::exists(target))
+                paths.insert({r.siteLabel, r.postId}, target);
         }
         const int n = m_favDb->addMany(favs);
-        // Remember download targets (rowToPost only uses them once a file
-        // with that exact name lands on disk - now or on a later run).
-        QHash<QPair<QString, qint64>, QString> paths;
-        for (const LosnRow &r : m_rows) {
-            if (r.favourite)
-                paths.insert({r.siteLabel, r.postId},
-                             LosnImport::targetPaths(r, m_downloadDir).filePath);
-        }
-        m_favDb->setLocalPaths(paths);
-        log(tr("Imported %1 favourites.").arg(n));
-    }
-    // Phase 2: snatched.
-    QList<LosnRow> snatched;
-    for (const LosnRow &r : m_rows) {
-        if (r.snatched && !r.fileUrl.isEmpty())
-            snatched.append(r);
-    }
-    if (snatched.isEmpty() || !m_dlNow->isChecked()) {
-        if (!snatched.isEmpty()) {
-            // Favourite-only mode for snatched entries (one transaction).
-            QVector<Post> favs;
-            for (const LosnRow &r : snatched) {
-                Post p;
-                p.isRemote = true;
-                p.siteName = r.siteLabel;
-                p.id = r.postId;
-                p.tags = r.tags.join(u' ');
-                p.tagsGeneral = p.tags;
-                p.untyped = p.tags; // backup tags are category-less by nature
-                p.fileUrl = r.fileUrl;
-                p.postUrl = r.postUrl;
-                p.hasMeta = true;
-                favs.append(p);
-            }
-            QHash<QPair<QString, qint64>, QString> paths;
-            for (const LosnRow &r : snatched)
-                paths.insert({r.siteLabel, r.postId},
-                             LosnImport::targetPaths(r, m_downloadDir).filePath);
+        if (!paths.isEmpty())
             m_favDb->setLocalPaths(paths);
-            log(tr("Marked %1 snatched as favourites (no files).")
-                    .arg(m_favDb->addMany(favs)));
-        }
+        log(tr("Imported %1 favourite entries.").arg(n));
+    }
+    // Phase 2/3: downloads (snatched rows, optionally favourites too).
+    m_downloadRows.clear();
+    QSet<QString> dlSeen;
+    auto addDownload = [&](const LosnRow &r) {
+        if (r.fileUrl.isEmpty())
+            return;
+        const QString key = rowKey(r);
+        if (dlSeen.contains(key))
+            return;
+        dlSeen.insert(key);
+        m_downloadRows.append(r);
+    };
+    if (downloadSnatched) {
+        for (const LosnRow &r : m_rows)
+            if (r.snatched)
+                addDownload(r);
+    }
+    if (m_downloadFavs->isChecked()) {
+        for (const LosnRow &r : m_rows)
+            if (r.favourite)
+                addDownload(r);
+    }
+    if (m_downloadRows.isEmpty()) {
+        log(tr("Nothing to download."));
         log(tr("Done."));
         return;
     }
@@ -474,7 +528,7 @@ void LosnImportDialog::onStart() {
     m_metaPending.clear();
     m_refreshPending.clear();
     m_refreshUrls.clear();
-    for (const LosnRow &r : snatched) {
+    for (const LosnRow &r : m_downloadRows) {
         if (QFile::exists(LosnImport::targetPaths(r, m_downloadDir).filePath)) {
             m_refreshPending.append(r);
             m_refreshUrls.insert(r.fileUrl);
@@ -663,8 +717,8 @@ void LosnImportDialog::startDownloads() {
     // md5 under a stale label (merge_* orphans).
     const QSet<QString> haveMd5 = LosnImport::md5sOnDisk(dest);
     int skippedMd5 = 0;
-    for (const LosnRow &r : m_rows) {
-        if (!r.snatched || r.fileUrl.isEmpty())
+    for (const LosnRow &r : m_downloadRows) {
+        if (r.fileUrl.isEmpty())
             continue;
         QJsonObject sidecar = m_sidecars.value(r.fileUrl);
         if (sidecar.isEmpty())
@@ -792,8 +846,8 @@ void LosnImportDialog::onDownloadsDone(const DownloadSummary &summary) {
     QHash<QString, QString> byUrl;
     for (const auto &[url, path] : summary.finalPaths)
         byUrl.insert(url, path);
-    for (const LosnRow &r : m_rows) {
-        if (!r.snatched || r.fileUrl.isEmpty())
+    for (const LosnRow &r : m_downloadRows) {
+        if (r.fileUrl.isEmpty())
             continue;
         QString path = byUrl.value(r.fileUrl);
         if (path.isEmpty()) {

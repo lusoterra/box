@@ -75,11 +75,8 @@ private slots:
         QVERIFY(p.tagsGeneral.split(u' ').contains(QStringLiteral("twintails")));
         QVERIFY(p.tagsMeta.split(u' ').contains(QStringLiteral("translated")));
         QVERIFY(p.tagsMeta.split(u' ').contains(QStringLiteral("speech_bubble")));
-        // ...and survive verbatim as native categories.
-        QCOMPARE(p.customTags.value(QStringLiteral("character")),
-                 QStringList({QStringLiteral("hatsune_miku")}));
-        QCOMPARE(p.customTags.value(QStringLiteral("creator")),
-                 QStringList({QStringLiteral("himukai_aoi")}));
+        // Folded namespaces are not duplicated as custom groups.
+        QVERIFY(p.customTags.isEmpty());
         QVERIFY(!p.tags.isEmpty());
     }
 

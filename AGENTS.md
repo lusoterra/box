@@ -12,5 +12,13 @@ use `box` (`build/box`, `~/.config/box`, `~/.local/share/box`,
 
 UI/behavior changes must update `docs/*.md` in the same session.
 
+Reference project: **LoliSnatcher** (`lolisnatcher`/`LoliSnatcher_Droid`, the
+Dart/Flutter booru client this app is inspired by). Use it as the design
+reference for navigation, viewer stepping, session restore, grid scrolling,
+favourites/downloads and browsing flow; check its logic before inventing a
+parallel one. It is a reference only - do not copy unrelated code or assets.
+
 Massive prompts and fast firing small prompts with bugs to fix etc, should be
-added to PENDING_TASKS.md before and done one by one as to not get lost.
+added to `docs/PENDING_TASKS.md` before and done one by one as to not get lost.
+The root `icon.png` is gone: the source icon is `assets/box.svg` (embedded as
+`:/icons/app.svg`); update the SVG, not a raster copy.

@@ -105,6 +105,6 @@ add_subdirectory(tests)
 install(TARGETS box RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(FILES packaging/box.desktop
         DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
-install(FILES icon.png
-        DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/512x512/apps
-        RENAME booru-explorer.png)
+install(FILES assets/box.svg
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps
+        RENAME booru-explorer.svg)

@@ -106,14 +106,12 @@ private:
     QRadioButton *m_booruCacheSfw = nullptr;
     QRadioButton *m_booruCacheNone = nullptr;
     QCheckBox *m_sidebarSingleScroll = nullptr;
+    QCheckBox *m_plusLocalFolder = nullptr;
     QLineEdit *m_booruTags = nullptr;
     QLineEdit *m_booruProxy = nullptr;
     QSlider *m_mascotOpacity = nullptr;
     QLabel *m_mascotOpacityLabel = nullptr;
     QSpinBox *m_mascotMargin = nullptr;
-    // Per-entry taxonomy: bucket -> enabled checkbox. Unchecked buckets
-    // fold into general for this host only (meme instances).
-    QMap<QString, QCheckBox *> m_booruBuckets;
     QWidget *m_booruFormBox = nullptr;    QLabel *m_booruEmpty = nullptr;
     QList<BooruSite> m_booruEdits;
     QLabel *m_accStatus;
@@ -136,13 +134,17 @@ private:
     QLineEdit *m_customBucketEdit = nullptr;
     QComboBox *m_customBucketBucket = nullptr;
     QComboBox *m_tagOverrideBucket = nullptr;
-    QMap<QString, QCheckBox *> m_bucketToggles; // "engine:bucket" -> enabled
+    QListWidget *m_categoryMerges = nullptr;
+    QComboBox *m_mergeScope = nullptr;
+    QLineEdit *m_mergeSources = nullptr;
+    QLineEdit *m_mergeTarget = nullptr;
     QComboBox *m_thumbSize;
     QComboBox *m_themeMode;
     QPushButton *m_accentBtn;
     QColor m_accent;
     QLineEdit *m_stylesheet;
     QLineEdit *m_mascot = nullptr;
+    bool m_mascotHidden = false;
     QComboBox *m_aspect;
     QDoubleSpinBox *m_scrollRows = nullptr;
     int m_customNum = 1;

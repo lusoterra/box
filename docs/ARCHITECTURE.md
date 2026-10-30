@@ -116,6 +116,9 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     per-entry rating/site tracking so "delete NSFW cache" can keep SFW
     files); `cachepolicy` (global + per-booru disk-cache mode, applied to
     thumbnails and full-image cache).
+- `tagcategories.h`: per-booru category merge/rename rules
+  (`TagCategoryMerge`, source aliases + classic/custom target); consumed
+  by the browse sidebar, filter pills and viewer tag groups.
 - `src/ui/` — `mainwindow.h:105` `MainWindow` (all tabs, all searches);
   `BrowserTab` session state (`:47-61`); `PendingSite` OR fan-out (`:342-350`).
   - `viewerpage.h:170` `ViewerPage` (same-window viewer; `ImageView` `:33`,
@@ -213,10 +216,10 @@ Key `settings.ini` groups: `cache/` (index, mode=all|sfw|none, full, limitMB,
 thumbSize), `library/` (root, history), `app/` (restoreSession, language),
 `fav/` (autoDownload, autoFav, unfavDeletesFile, deleteUnfavs),
 `stray/autoFav`, `filter/blacklist`, `classify/enabled`,
-`tagtypes/` (manual, disabledBuckets), `browse/` (mode, sites, limit),
+`tagtypes/` (manual, customBuckets, categoryMerges, legacy disabledBuckets), `browse/` (mode, sites, limit),
 `tabs/saved*` + `last/*` (session restore, cap 25), `downloads/dir`,
 `storage/dataDir`, `startup/defaultTab`, `window/`, `boorus/` (+ per-entry
-`cacheMode`), `explicit/tags`, `theme/`, `home/mascot*`, `grid/`, `viewer/`.
+`cacheMode`), `explicit/tags`, `theme/`, `home/mascot*` (default embedded `マニフェスト.jpg`), `grid/`, `viewer/`.
 Never a group named `General` (QSettings reserves it; see
 `src/settings.cpp:39-43`).
 

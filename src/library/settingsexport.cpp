@@ -185,6 +185,8 @@ QJsonObject exportJson(const AppSettings &s, const QVector<Post> &favs) {
          ++it)
         customBuckets.insert(it.key(), it.value());
     o[QStringLiteral("customBuckets")] = customBuckets;
+    o[QStringLiteral("tagCategoryMerges")] =
+        strList(TagCategories::toLines(s.tagCategoryMerges));
     o[QStringLiteral("explicitTags")] = strList(s.explicitTags);
     QJsonObject theme;
     theme[QStringLiteral("mode")] = s.themeMode;
@@ -299,6 +301,9 @@ bool importJson(const QJsonObject &o, AppSettings *s, QVector<Post> *favs,
         }
         s->customBucketMap = TagTypes::normalizeTagOverrides(raw);
     }
+    if (o.contains(QStringLiteral("tagCategoryMerges")))
+        s->tagCategoryMerges = TagCategories::fromLines(
+            strList(o.value(QStringLiteral("tagCategoryMerges"))));
     if (o.contains(QStringLiteral("explicitTags")))
         s->explicitTags =
             normalizeExplicitTags(strList(o.value(QStringLiteral("explicitTags"))));

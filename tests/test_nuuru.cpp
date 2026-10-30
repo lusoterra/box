@@ -41,9 +41,10 @@ private slots:
         QCOMPARE(still.rating, QStringLiteral("general")); // safe
         QCOMPARE(still.siteKey, QStringLiteral("soy"));   // stamped for refresh
         QVERIFY(still.isRemote && still.hasMeta);
-        // Native taxonomy preserved...
-        QCOMPARE(still.customTags.value(QStringLiteral("variant")),
-                 QStringList({QStringLiteral("femjak")}));
+        // Folded categories do not show up a second time...
+        QVERIFY(!still.customTags.contains(QStringLiteral("variant")));
+        QVERIFY(!still.customTags.contains(QStringLiteral("meta")));
+        // ...while genuinely custom taxonomy survives.
         QCOMPARE(still.customTags.value(QStringLiteral("namefag")),
                  QStringList({QStringLiteral("kazakh_soy")}));
         // ...with the obvious folds applied.
@@ -114,6 +115,29 @@ private slots:
         QCOMPARE(RemotePosts::sortSearchTag(QStringLiteral("added"),
                                             BooruEngine::Nuuru),
                  QStringLiteral(""));
+    }
+
+    void categoryAliases() {
+        using RemotePosts::classicBucketForCategory;
+        QCOMPARE(classicBucketForCategory(QStringLiteral("character")),
+                 QStringLiteral("character"));
+        QCOMPARE(classicBucketForCategory(QStringLiteral("Characters")),
+                 QStringLiteral("character"));
+        QCOMPARE(classicBucketForCategory(QStringLiteral("variant")),
+                 QStringLiteral("character"));
+        QCOMPARE(classicBucketForCategory(QStringLiteral("artists")),
+                 QStringLiteral("artist"));
+        QCOMPARE(classicBucketForCategory(QStringLiteral("creator")),
+                 QStringLiteral("artist"));
+        QCOMPARE(classicBucketForCategory(QStringLiteral("series")),
+                 QStringLiteral("copyright"));
+        QCOMPARE(classicBucketForCategory(QStringLiteral("IP")),
+                 QStringLiteral("copyright"));
+        QCOMPARE(classicBucketForCategory(QStringLiteral("metadata")),
+                 QStringLiteral("meta"));
+        QCOMPARE(classicBucketForCategory(QStringLiteral("uncategorized")),
+                 QStringLiteral("general"));
+        QVERIFY(classicBucketForCategory(QStringLiteral("namefag")).isEmpty());
     }
 
     void tagsParsing() {

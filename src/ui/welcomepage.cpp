@@ -32,7 +32,7 @@ WelcomePage::WelcomePage(QWidget *parent) : QWidget(parent) {
 
     auto *titleRow = new QHBoxLayout();
     auto *icon = new QLabel(this);
-    QPixmap pm(QStringLiteral(":/icons/app.png"));
+    QPixmap pm(QStringLiteral(":/icons/app.svg"));
     if (!pm.isNull())
         icon->setPixmap(pm.scaled(64, 64, Qt::KeepAspectRatio, Qt::SmoothTransformation));
     auto *title = new QLabel(tr("box"), this);

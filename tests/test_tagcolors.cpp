@@ -12,12 +12,12 @@ private slots:
     void bucketsMapToDocumentedHues() {
         QCOMPARE(UiIcons::tagBucketColor(QStringLiteral("artist")),
                  QColor(0xe0, 0x55, 0x61));
-        QCOMPARE(UiIcons::tagBucketColor(QStringLiteral("copyright")),
-                 QColor(0x43, 0xd1, 0x7c));
         QCOMPARE(UiIcons::tagBucketColor(QStringLiteral("character")),
-                 QColor(0xe0, 0x9a, 0x3c));
+                 QColor(0x43, 0xd1, 0x7c));
+        QCOMPARE(UiIcons::tagBucketColor(QStringLiteral("copyright")),
+                 QColor(0xb5, 0x70, 0xe0));
         QCOMPARE(UiIcons::tagBucketColor(QStringLiteral("meta")),
-                 QColor(0xe5, 0xc5, 0x48));
+                 QColor(0xe0, 0x9a, 0x3c));
         QCOMPARE(UiIcons::tagBucketColor(QStringLiteral("custom")),
                  QColor(0x7c, 0x9e, 0xf8));
         // General and unknown buckets fall back to near-white.

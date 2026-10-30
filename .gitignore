@@ -7,3 +7,5 @@ packaging/build-pkg/
 *.db
 # Source tarball for the HiddenBooru engine task (user-supplied, not ours).
 hiddenbooru_v0.8.tar.gz
+
+build-install/

@@ -1,5 +1,5 @@
-<!-- TEMPORARY SCRATCH FILE — delete when all tasks land. Canonical copy;
-     /tmp/opencode/pending_tasks.md is a stale duplicate. -->
+<!-- Task plan. Add large/fast-firing prompts here before working, tick as
+     each lands; keep the canonical copy in docs/. -->
 
 # Pending multi-task plan (written 2026-10-20, before starting)
 # Work through step by step; tick boxes as each lands + tests pass.
@@ -1133,3 +1133,103 @@
   selected for new entries. Existing entries stay functional.
 - [x] Grey out Hiddenbooru in the engine combo.
 - [x] Build + `ctest` (+ docs).
+
+## 99. "Back to last session" warning when nothing is left
+- [x] When the previous session has no restorable tabs/tags, clicking
+      "Back to last session" warns in a popup instead of silently doing
+      nothing or resurrecting a closed tab.
+- [x] Clear the stale last-place marker when the last tab closes; add a
+      `QMessageBox` fallback in `openLastPlace()`.
+- [x] Build + `ctest` (+ docs).
+
+## 100. Soybooru/Nuuru tag categories: dedupe + heuristics
+- [x] Nuuru currently copies every native category into `customTags` even
+      when it already folds into a classic bucket, so Character and Meta
+      render twice and the native `character` label fights `CHARACTERS`.
+- [x] Stop duplicating folded categories; normalise case and singular/
+      plural aliases (`character`/`characters`, `meta`/`metas`, artists,
+      copyright/series/ip) for other engines too.
+- [x] Add unit coverage for the mapping; build + `ctest` (+ docs).
+
+## 101. Replace "Categories per booru type" with "Merge tag categories"
+- [x] Remove the global matrix and per-entry Categories checkboxes from
+      Preferences.
+- [x] Add configurable per-booru merge rows:
+      `source1, source2, source3 -> Target label` (e.g. all Nuuru
+      categories into one group, or `character -> Characters`).
+- [x] Classic-bucket targets merge into that bucket and may rename its
+      label; other targets become one custom sidebar/viewer group.
+- [x] Persist/export the rules; update sidebar, custom sections, filter
+      pills and viewer tag groups.
+- [x] Build + `ctest` (+ docs).
+
+## 102. Hide HiddenBooru from the UI (freeze code + docs)
+- [x] Remove HiddenBooru from the engine picker/default lists, tab source
+      menus and any add/edit affordance; keep engine code, docs and
+      existing entries working.
+- [x] Build + `ctest` (+ docs).
+
+## 103. Optional local-folder browser in the quick "+" menu
+- [x] Setting (default OFF): show the local folder browser entry in the
+      tab-bar "+" menu next to Home/Favourites/Downloads.
+- [x] Wire it to the existing folder picker; build + `ctest` (+ docs).
+
+## 104. Last session remembers tag/post/scroll
+- [x] Persist each tab's latest active tags/query (already partly there)
+      plus the open viewer post and grid scroll position.
+- [x] Restore them on session restore and "Back to last session"; keep
+      the current tab's position when switching tabs.
+- [x] Build + `ctest` (+ docs).
+
+## 105. Viewer arrow keys keep the grid in sync
+- [x] Stepping with Left/Right (or next/prev) scrolls the grid to the
+      post on screen, so Esc/back lands near it (LoliSnatcher behaviour).
+- [x] Avoid visible grid thrash while the viewer covers the grid.
+- [x] Build + `ctest` (+ docs).
+
+## 106. Tag category colours + order
+- [x] Artists red, characters green, copyright/IP purple, meta orange,
+      general white.
+- [x] Same order everywhere (sidebar, viewer groups, pills, palette).
+- [x] Build + `ctest` (+ docs).
+
+## 107. Default mascot `マニフェスト.jpg` + change/remove/reset
+- [x] Ship the user-provided `マニフェスト.jpg` under its original name as
+      the default home mascot.
+- [x] Preferences: Browse (change), Remove (hide even the default),
+      Reset to default; keep opacity/scale/margin controls.
+- [x] Build + `ctest` (+ docs).
+
+## 108. Theme collection
+- [x] Keep the current built-in dark theme.
+- [x] Add Nord, Catppuccin (Latte/Frappé/Macchiato/Mocha), a light theme,
+      Dracula, Atom One Dark, KeePassXC-like light/dark and Tokyo Night,
+      using their published palettes (no invented colours).
+- [x] Theme picker labels + dark/light icon foreground; persist and apply
+      live; build + `ctest` (+ docs).
+
+## 109. New SVG app icon
+- [x] Replace the random-box PNG with an SVG that keeps the current
+      isometric-cardboard-box look; generate the 512px PNG resource and
+      install the SVG/PNG.
+- [x] Verify window icon + welcome page; build + `ctest` (+ docs).
+
+## 110. Add LoliSnatcher reference to AGENTS.md
+- [x] Note that LoliSnatcher is the inspiration/reference project for
+      navigation, session and browsing logic; point future work there.
+
+## 111. box-git packaging + upgrade script
+- [x] Convert `packaging/` into a real `box-git` PKGBUILD sourcing
+      `git+https://git.lusosterone.net/lev/box.git`.
+- [x] Add an install/upgrade helper that rebuilds the package and replaces
+      the installed binary/libraries, removing stale `/usr/local/bin`
+      copies so the GUI always launches the latest build.
+- [x] Document the workflow; build + `ctest` (+ docs).
+
+## 112. LoliSnatcher DB import parity options
+- [x] Current import loses the downloaded/favourited split (Android often
+      leaves stale downloaded flags when files were deleted).
+- [x] Add an import mode dialog: favourites+downloads, favourites-only,
+      downloads-only, and the crossing variants (download favourited rows,
+      favourite everything, etc.), with a clear summary before writing.
+- [x] Keep sidecars/URLs for download regeneration; build + `ctest` (+ docs).

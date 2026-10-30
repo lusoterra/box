@@ -69,6 +69,11 @@ Share-to-Hydrus: WONT-DO (no Hydrus target on desktop; Open post covers it).
 - Coupling toggles both directions: parity (`snatchOnFavourite` =
   auto-download; box fav-auto-download defaults OFF, losn defaults differ
   — keep box defaults).
+- Backup import: favourite (`isFavourite`) and downloaded (`isSnatched`)
+  flags are independent. Box's import dialog supports favs → favs,
+  favs → download, downloads → downloads, downloads → favourites-only
+  (for Android rows whose files were deleted but the ↓ flag stayed) and
+  skipping each side, with optional cross-coupling.
 
 ## Settings / theming
 

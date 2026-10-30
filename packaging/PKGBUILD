@@ -1,39 +1,43 @@
-# TEMP maintainer lines — replace when this moves to its own repo.
 # Maintainer: lev
-# Build from this checkout (no commit needed):
-#   cd packaging && makepkg -sf
-# Install the result globally:
-#   sudo pacman -U box-*.pkg.tar.zst
-# When this gets its own repo, replace the live-tree logic below with e.g.
-#   source=("$pkgname::git+https://github.com/YOU/$pkgname.git#tag=$pkgver")
-# and add the matching sha256sums.
+# box-git — build the public box repository as a pacman package.
+#
+# This file is meant to live in its own AUR-style repo; it no longer
+# builds the surrounding working tree. For local incremental installs use
+# packaging/update-install.sh instead (no full package rebuild).
 
-pkgname=box
-pkgver=0.1.0
+pkgname=box-git
+pkgver=0.1.0.r0.g0000000
 pkgrel=1
-pkgdesc='Booru client for local archives and online boorus (Qt6)'
+pkgdesc='Booru client for local archives and online boorus (Qt6, git)'
 arch=('x86_64')
-url='https://git.lusosterone.net/lev/booru-explorer'
+url='https://git.lusosterone.net/lev/box'
 license=('GPL-3.0-or-later')
-depends=('qt6-base' 'qt6-multimedia' 'qt6-svg' 'qt6-webengine' 'hicolor-icon-theme')
-makedepends=('cmake' 'qt6-tools')
-# Always builds the latest working tree: no source tarball, no git snapshot.
-# `source` stays empty on purpose, and cmake points straight at the live
-# checkout (parent of this directory), so uncommitted edits are included.
-# The separate build-pkg dir keeps this apart from the dev build/ tree.
-source=()
+depends=('qt6-base' 'qt6-multimedia' 'qt6-svg' 'qt6-webengine'
+         'hicolor-icon-theme')
+makedepends=('cmake' 'git' 'qt6-tools')
+provides=('box')
+conflicts=('box')
+source=("$pkgname::git+https://git.lusosterone.net/lev/box.git")
+sha256sums=('SKIP')
+
+pkgver() {
+	cd "$srcdir/$pkgname"
+	if desc=$(git describe --long --tags --abbrev=7 2>/dev/null); then
+		printf '%s' "$desc" |
+			sed 's/^v//; s/\([^-]*-g\)/r\1/; s/-/./g'
+	else
+		printf 'r%s.%s' "$(git rev-list --count HEAD)" \
+			"$(git rev-parse --short=7 HEAD)"
+	fi
+}
 
 build() {
-	# Re-resolve every run; never caches a stale source path.
-	# NOTE: makepkg runs build() with cwd=$srcdir, so both dirs are absolute.
-	local live="$startdir/.."
-	local bld="$startdir/build-pkg"
-	cmake -B "$bld" -S "$live" \
+	cmake -B build -S "$srcdir/$pkgname" \
 		-DCMAKE_BUILD_TYPE=Release \
 		-DCMAKE_INSTALL_PREFIX=/usr
-	cmake --build "$bld" -j"$(nproc)"
+	cmake --build build -j"$(nproc)"
 }
 
 package() {
-	DESTDIR="$pkgdir" cmake --install "$startdir/build-pkg"
+	DESTDIR="$pkgdir" cmake --install build
 }

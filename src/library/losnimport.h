@@ -96,15 +96,19 @@ private:
     int m_favCount = 0;
     int m_snatchCount = 0;
     // options
-    class QRadioButton *m_dlNow = nullptr;
-    class QRadioButton *m_favOnly = nullptr;
+    class QRadioButton *m_snatchedDownload = nullptr;
+    class QRadioButton *m_snatchedFav = nullptr;
+    class QRadioButton *m_snatchedSkip = nullptr;
     class QCheckBox *m_importFavs = nullptr;
+    class QCheckBox *m_favDownloaded = nullptr;
+    class QCheckBox *m_downloadFavs = nullptr;
     class QLabel *m_counts = nullptr;
     class QLabel *m_target = nullptr;
     class QProgressBar *m_bar = nullptr;
     class QListWidget *m_log = nullptr;
     class QPushButton *m_startBtn = nullptr;
     // run state
+    QList<LosnRow> m_downloadRows; // union selected to download this run
     QList<LosnRow> m_metaPending; // rows still needing a metadata fetch
     // On-disk rows: media stays, but the sidecar is re-fetched and
     // rewritten (a fallback sidecar from an earlier run is never kept

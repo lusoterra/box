@@ -14,8 +14,10 @@
   stills `ImageView`, GIFs `GifView`, mp4/webm `VideoView`/`VideoPane`.
 - stray = hand-tagged file in `<downloadDir>/_Stray/` as `_Stray_<md5>.<ext>`
   (`src/library/stray.h:14`); via File -> Download/Add Stray (`straydialog`).
-- mascot = home-page image (`home/mascot*` settings, `src/settings.h:98`);
-  any grid file can be set as mascot; rendered by `WelcomePage`.
+- mascot = home-page image (`home/mascot*`, `src/settings.h`); shipped
+  default is `マニフェスト.jpg` (empty path), Remove hides it, Reset
+  restores the default; any grid file can replace it, rendered by
+  `WelcomePage`.
 - multibooru = one browse tab over several `sites` (`BrowserTab.sites`);
   results merged client-side; `♥ Favourites` + `⭳ Downloads` join as virtual
   sources (`src/ui/mainwindow.cpp:221`).
@@ -31,6 +33,13 @@
   `src/post.h:19`); baked into scan cache via `explicitTagsHash()`.
 - skipAutoClassify = per-entry opt-out of tag categorization
   (`RemotePosts::skipAutoClassify`, `src/remote/remotesource.h:147`).
+- merge tag categories = `TagCategoryMerge` rows (`src/library/tagcategories.h`,
+  Preferences → Tags): `source1, source2 → Target`, scoped to one booru
+  or all; a classic target joins/renames that bucket, anything else is
+  one custom group. `*` matches every category.
+- themes = `Theme::colorsFor/applyTheme` (`src/ui/theme.cpp`): built-in
+  dark, KeePassXC dark/light, Light, Nord, Catppuccin (4 flavours),
+  Dracula, Atom One Dark, Tokyo Night, plus native.
 - media cache / cache nothing = on-disk thumbnails + full-quality browsing
   files controlled by `MediaCache` (`src/library/cachepolicy.h`): global
   `cache/mode` (`all/sfw/none`) narrowed per `BooruSite::cacheMode`.

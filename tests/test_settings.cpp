@@ -65,6 +65,9 @@ private slots:
         s.hideAi = true;
         s.wallAutoPopup = false;
         s.customBucketMap.insert(QStringLiteral("series"), QStringLiteral("copyright"));
+        s.tagCategoryMerges.append(
+            {QStringLiteral("soy"), {QStringLiteral("*")},
+             QStringLiteral("soybooru_specific")});
         s.blacklist = {QStringLiteral("loli"), QStringLiteral("shota")};
         s.browseSites = {QStringLiteral("danbooru")};
         BooruSite custom;
@@ -97,6 +100,7 @@ private slots:
         s.tabsDefault = QStringLiteral("last");
         s.language = QStringLiteral("fr");
         s.mascotPath = QStringLiteral("/pics/mascot.png");
+        s.mascotHidden = true;
         s.mascotOpacity = 0.5;
         s.mascotScale = 0.25;
         s.mascotMargin = 12;
@@ -125,6 +129,7 @@ private slots:
         QVERIFY(back.hideAi);
         QVERIFY(!back.wallAutoPopup);
         QCOMPARE(back.customBucketMap.value(QStringLiteral("series")), QStringLiteral("copyright"));
+        QCOMPARE(back.tagCategoryMerges, s.tagCategoryMerges);
         QCOMPARE(back.blacklist, s.blacklist);
         QCOMPARE(back.browseSites, QStringList({QStringLiteral("danbooru")}));
         QCOMPARE(back.boorus.size(), 1);
@@ -159,6 +164,7 @@ private slots:
         QCOMPARE(back.tabsDefault, QStringLiteral("last"));
         QCOMPARE(back.language, QStringLiteral("fr"));
         QCOMPARE(back.mascotPath, QStringLiteral("/pics/mascot.png"));
+        QVERIFY(back.mascotHidden);
         QCOMPARE(back.mascotOpacity, 0.5);
         QCOMPARE(back.mascotScale, 0.25);
         QCOMPARE(back.mascotMargin, 12);
@@ -250,6 +256,33 @@ private slots:
         MediaCache::configure(CacheMode::All, {});
     }
 
+    void tagCategoryMergeRules() {
+        TagCategoryMerge rename;
+        rename.siteKey = QStringLiteral("soy");
+        rename.sources = {QStringLiteral("character")};
+        rename.target = QStringLiteral("Characters");
+        TagCategoryMerge custom;
+        custom.sources = {QStringLiteral("*")};
+        custom.target = QStringLiteral("soybooru_specific");
+        const QList<TagCategoryMerge> rules = {rename, custom};
+        QCOMPARE(TagCategories::classicBucket(QStringLiteral("Characters")),
+                 QStringLiteral("character"));
+        QVERIFY(TagCategories::mergeFor(rules, QStringLiteral("soy"),
+                                        QStringLiteral("character")) == &rules[0]);
+        QVERIFY(TagCategories::mergeFor(rules, QStringLiteral("gelbooru"),
+                                        QStringLiteral("character")) == &rules[1]);
+        QCOMPARE(TagCategories::labelFor(rules, QStringLiteral("soy"),
+                                         QStringLiteral("character")),
+                 QStringLiteral("Characters"));
+        QCOMPARE(TagCategories::targetKey(custom.target),
+                 QStringLiteral("soybooru specific"));
+        QCOMPARE(TagCategories::displayTarget(custom.target),
+                 QStringLiteral("Soybooru specific"));
+        const QList<TagCategoryMerge> back = TagCategories::fromLines(
+            TagCategories::toLines(rules));
+        QCOMPARE(back, rules);
+    }
+
     void downloadedNsfwBypassesSfwCacheOnly() {
         BooruSite sfw;
         sfw.key = QStringLiteral("sfw");
@@ -306,6 +339,8 @@ private slots:
         browse.tags = {QStringLiteral("sky")};
         browse.query = QStringLiteral("sky");
         browse.rating = QStringLiteral("general");
+        browse.viewerKey = QStringLiteral("danbooru#42");
+        browse.scrollRow = 17;
         AppSettings::SavedTab favs;
         favs.kind = QStringLiteral("favs");
         s.savedTabs = {local, browse, favs};
@@ -321,6 +356,8 @@ private slots:
         QCOMPARE(back.savedTabs.at(1).sites,
                  QStringList({QStringLiteral("danbooru"), QStringLiteral("gelbooru")}));
         QCOMPARE(back.savedTabs.at(1).query, QStringLiteral("sky"));
+        QCOMPARE(back.savedTabs.at(1).viewerKey, QStringLiteral("danbooru#42"));
+        QCOMPARE(back.savedTabs.at(1).scrollRow, 17);
         QCOMPARE(back.savedTabs.at(2).kind, QStringLiteral("favs"));
         QCOMPARE(back.savedTabCurrent, 2);
     }

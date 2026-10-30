@@ -7,19 +7,21 @@ grid → status bar.
 Tab 0, shown when no tab is active. From top: app icon + `box` title,
 tagline + version, four big buttons — `Back to last session` (only when
 a session was saved: restores every tab, lands on the saved current
-one), `New browse tab` (restores the session first when empty, then
+one, and returns to its post/scroll; if every tab was closed it warns
+"Nothing to resume" instead of resurrecting one), `New browse tab` (restores the session first when empty, then
 opens the Default-tab booru or the default boorus), `♥
 Favourites`, `⭳ Downloads` — and the `Always load last session on
 startup` checkbox (mirrors Preferences → General). Tabs → `Start fresh
 session` closes everything and forgets the session. Optional mascot image
-pins bottom-right behind everything (double-click cycles size; setting
-`home/mascot*`). File > Open lists the last folders (plus a full-history
+pins bottom-right behind everything (shipped default `マニフェスト.jpg`;
+double-click cycles size; `home/mascot*`). File > Open lists the last folders (plus a full-history
 picker) for mouse-driven reopening.
 
 ## 02-browse-grid — booru tab (browse mode, `MainWindow`, `src/ui/mainwindow.cpp`)
 One tab per archive/site set. Tab bar button shows favicon + label + ✕.
-Left: sidebar tag sections (COPYRIGHT, CHARACTERS, ARTISTS, TAGS, META)
-with counts, each tinted in its bucket colour like the filter pills, plus
+Left: sidebar tag sections (ARTISTS red, CHARACTERS green, COPYRIGHT
+purple, META orange, TAGS/general white) with counts, each tinted in its
+bucket colour like the filter pills, plus
 extra sections for native custom categories (Nuuru flags, Szuru
 categories) seen on the page — or folded into a classic bucket when
 mapped under Preferences → Tags. Category labels read as words
@@ -79,7 +81,9 @@ disk, `Delete from disk…` enables, and `Set as mascot` shows. Tabs drag to reo
 
 ## 04-file-menu — File
 `Open ▸` (folder picker), `Browse Downloads`, `Import LoliSnatcher
-backup…`, `Download/Add Stray…`, `Update downloaded sidecars…`,
+backup…` (favourite and downloaded flags are independent: import favs,
+download/download-as-favourite/skip downloaded rows, optionally cross
+them), `Download/Add Stray…`, `Update downloaded sidecars…`,
 `Redownload missing files…`, `Quit`.
 
 ## 05-tabs-menu — Tabs
@@ -175,8 +179,8 @@ manager: entry list + `Name`/`short` (grid badge text)/`Badge color`
 (known hosts get house colors: gelbooru blue, rule34 green, aibooru green,
 danbooru/safebooru tan, shimmie gray; editable anytime)/`Base
 URL`/`Type` (engine) editor with cookie capture + favicon override.
-HiddenBooru is greyed out in the engine list (instance returns no
-posts); existing entries keep working, new ones can't select it.
+HiddenBooru is frozen: it is no longer offered for new boorus, while
+existing hiddenbooru entries keep working/editable.
 Per-entry `Tags` (skip auto-categorization), `Blacklist` (filter
 blacklist locally instead of server `-tags`, for tag-capped accounts),
 `Default tags`, `Media cache` (`Global` / `All` / `SFW only` / `Nothing`
@@ -185,15 +189,19 @@ for this booru, narrowed by the global mode), `Proxy`.
 ## 15-prefs-tags — Preferences → Tags
 `Tag type overrides` (manual `tag → bucket`, wins over fetches),
 `Custom category → bucket` (fold a native category into a classic bucket),
-`Categories per booru type` grid (untick buckets a taxonomy lacks —
-folds to general), `Explicit detection` word list (offline
-rating upgrades; edits invalidate the scan cache).
+`Merge tag categories` (per-booru rows `source1, source2 → Target`:
+group native categories under one label or rename a classic bucket, e.g.
+`character, variant → Characters` or `* → soybooru_specific`),
+`Explicit detection` word list (offline rating upgrades; edits
+invalidate the scan cache).
 
 ## 16-prefs-appearance — Preferences → Appearance
-`Theme`, `Accent`, `Custom .qss`, `Sidebar: one scrollbar for all tag
-categories` (default off: each category scrolls on its own), `Home
-mascot` path + `Mascot opacity`
-slider + `Mascot margin` spinbox, `Grid` ratio/scroll, `Video playback`
+`Theme` (Box dark, KeePassXC dark/light, Light, Nord, Catppuccin
+Latte/Frappé/Macchiato/Mocha, Dracula, Atom One Dark, Tokyo Night,
+System native), `Accent`, `Custom .qss`, `Sidebar: one scrollbar for all
+tag categories` (default off), `Show local folder browser in the quick +
+menu` (default off), `Home mascot` Browse/Remove/Reset-to-default +
+opacity slider + margin, `Grid` ratio/scroll, `Video playback`
 (mute/loop/volume), `Viewer` max side.
 
 ## 17-multibooru — merged tab

@@ -15,6 +15,7 @@
 
 #include "explicittags.h"
 #include "remotesource.h" // BooruSite: user-configured booru list
+#include "tagcategories.h" // per-booru category merge/rename rules
 
 struct AppSettings {
     // Library
@@ -76,9 +77,11 @@ struct AppSettings {
     // categories, …): shown folded into that sidebar section and pill
     // colour instead of a standalone custom section. Lowercase names.
     QMap<QString, QString> customBucketMap;
-    // Disabled tag buckets per booru type ("gelbooru:character"): parsed
-    // tags in those buckets fold into general. For meme hosts and other
-    // non-anime taxonomies. "general" itself is always on.
+    // Per-booru category merge/rename rules (Preferences → Tags): group
+    // native categories under one classic bucket or custom label.
+    QList<TagCategoryMerge> tagCategoryMerges;
+    // Legacy per-engine bucket folding (kept for old configs; the UI now
+    // uses tagCategoryMerges instead).
     QSet<QString> disabledBuckets;
     // Tag classifier credentials live on the configured Gelbooru entry
     // (Preferences → Booru manager); anonymous otherwise.
@@ -106,6 +109,8 @@ struct AppSettings {
         QString rating = QStringLiteral("all");
         QString category;
         QString sort = QStringLiteral("id-desc");
+        QString viewerKey; // open post identity; empty = grid
+        int scrollRow = -1; // first visible grid row
         bool operator==(const SavedTab &) const = default;
     };
     QList<SavedTab> savedTabs;
@@ -126,7 +131,10 @@ struct AppSettings {
     QString themeMode = QStringLiteral("builtin"); // "builtin" | "native"
     QString accent = QStringLiteral("#3a7ec2");
     QString stylesheet; // optional custom .qss on top, empty = none
-    QString mascotPath; // optional home-page mascot image, empty = none
+    // Home mascot: empty path = shipped default (マニフェスト.jpg);
+    // mascotHidden hides even the default (Preferences → Remove).
+    QString mascotPath;
+    bool mascotHidden = false;
     double mascotOpacity = 0.9; // mascot translucency (0.1-1.0)
     double mascotScale = 0.45;   // height fraction (0.1-0.65), 1.0 = max
                                  // height, 2.0 = full width
@@ -151,7 +159,21 @@ struct AppSettings {
     // Sidebar scroll mode: false = per-category scrollbars (default),
     // true = one big scrollbar through everything.
     bool sidebarSingleScroll = false;
+    // Quick "+" menu: also list the local folder browser (off by default).
+    bool showLocalFolderInPlusMenu = false;
 };
+
+// Shipped home mascot (kept under its original filename).
+inline QString defaultMascotPath() {
+    return QStringLiteral(":/icons/マニフェスト.jpg");
+}
+
+// What the home page should show: custom pick → default → nothing.
+inline QString effectiveMascotPath(const AppSettings &s) {
+    if (s.mascotHidden)
+        return {};
+    return s.mascotPath.isEmpty() ? defaultMascotPath() : s.mascotPath;
+}
 
 // Single data dir (favourites store.db, tag verdicts, downloads):
 // Default XDG data location; override with AppSettings::dataDir.
@@ -234,6 +256,7 @@ inline bool operator==(const AppSettings &a, const AppSettings &b) {
            a.ugoiraFrameDelayMs == b.ugoiraFrameDelayMs &&
            a.classifyTags == b.classifyTags && a.manualTagTypes == b.manualTagTypes &&
            a.customBucketMap == b.customBucketMap &&
+           a.tagCategoryMerges == b.tagCategoryMerges &&
            a.disabledBuckets == b.disabledBuckets &&
            a.browseMode == b.browseMode && a.browseSites == b.browseSites &&
            a.browseLimit == b.browseLimit && a.dataDir == b.dataDir &&
@@ -241,7 +264,7 @@ inline bool operator==(const AppSettings &a, const AppSettings &b) {
            a.savedTabCurrent == b.savedTabCurrent &&
            a.explicitTags == b.explicitTags && a.themeMode == b.themeMode &&
            a.accent == b.accent && a.stylesheet == b.stylesheet &&
-           a.mascotPath == b.mascotPath &&
+           a.mascotPath == b.mascotPath && a.mascotHidden == b.mascotHidden &&
            qFuzzyCompare(a.mascotOpacity + 1.0, b.mascotOpacity + 1.0) &&
            qFuzzyCompare(a.mascotScale + 1.0, b.mascotScale + 1.0) &&
            a.mascotMargin == b.mascotMargin &&
@@ -251,7 +274,8 @@ inline bool operator==(const AppSettings &a, const AppSettings &b) {
            a.videoLoop == b.videoLoop && a.volume == b.volume &&
            a.viewerMaxSide == b.viewerMaxSide &&
            a.tabsDefault == b.tabsDefault && a.sideSplitter == b.sideSplitter &&
-           a.sidebarSingleScroll == b.sidebarSingleScroll;
+           a.sidebarSingleScroll == b.sidebarSingleScroll &&
+           a.showLocalFolderInPlusMenu == b.showLocalFolderInPlusMenu;
 }
 
 inline bool operator!=(const AppSettings &a, const AppSettings &b) {

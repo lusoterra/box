@@ -39,6 +39,7 @@
 #include <QPointer>
 #include <QPushButton>
 #include <QRadioButton>
+#include <QRegularExpression>
 #include <QTimer>
 #include <QScrollArea>
 #include <QStandardItem>
@@ -536,56 +537,86 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     typesLay->addLayout(customRow);
     tagsPage->addWidget(types);
 
-    // ── Categories per booru type: untick buckets a taxonomy lacks ──
-    auto *cats = new QGroupBox(tr("Categories per booru type"), this);
-    auto *catsLay = new QVBoxLayout(cats);
-    catsLay->addWidget(note(tr(
-        "Unticked buckets fold into general for that booru type (meme hosts "
-        "and other non-anime taxonomies). Safebooru follows the Gelbooru "
-        "row; general itself is always on.")));
-    auto *catGrid = new QGridLayout();
-    const QList<QPair<BooruEngine, QString>> engines = {
-        {BooruEngine::Danbooru, RemotePosts::engineLabel(BooruEngine::Danbooru)},
-        {BooruEngine::Gelbooru, RemotePosts::engineLabel(BooruEngine::Gelbooru)},
-        {BooruEngine::Moebooru, RemotePosts::engineLabel(BooruEngine::Moebooru)},
-        {BooruEngine::Szurubooru, RemotePosts::engineLabel(BooruEngine::Szurubooru)},
-        {BooruEngine::Shimmie, RemotePosts::engineLabel(BooruEngine::Shimmie)},
-        {BooruEngine::Hybooru, RemotePosts::engineLabel(BooruEngine::Hybooru)},
-        {BooruEngine::Nuuru, RemotePosts::engineLabel(BooruEngine::Nuuru)},
-        {BooruEngine::Hiddenbooru,
-         RemotePosts::engineLabel(BooruEngine::Hiddenbooru)},
-    };
-    const QList<QPair<QString, QString>> buckets = {
-        {QStringLiteral("artist"), tr("Artist")},
-        {QStringLiteral("character"), tr("Character")},
-        {QStringLiteral("copyright"), tr("Copyright")},
-        {QStringLiteral("meta"), tr("Meta")},
-    };
-    int c = 1;
-    for (const auto &[bucketKey, bucketLabel] : buckets) {
-        Q_UNUSED(bucketKey);
-        auto *head = new QLabel(bucketLabel, this);
-        head->setAlignment(Qt::AlignCenter);
-        catGrid->addWidget(head, 0, c++);
+    // ── Merge tag categories: one group/rename per booru ──
+    auto *merge = new QGroupBox(tr("Merge tag categories"), this);
+    auto *mergeLay = new QVBoxLayout(merge);
+    mergeLay->addWidget(note(tr(
+        "Group a booru's native categories under one label, or rename a "
+        "classic one. Sources accept commas or spaces; `*` matches every "
+        "category. Examples: `character, variant -> Characters`, "
+        "`* -> soybooru_specific`.")));
+    auto *mergeRow = new QHBoxLayout();
+    m_mergeScope = new QComboBox(this);
+    m_mergeScope->addItem(tr("All boorus"), QString());
+    for (const BooruSite &b : current.boorus) {
+        if (!b.key.isEmpty())
+            m_mergeScope->addItem(b.label.isEmpty() ? b.key : b.label,
+                                  b.key);
     }
-    int r = 1;
-    for (const auto &[engine, engineLabel] : engines) {
-        catGrid->addWidget(new QLabel(engineLabel, this), r, 0);
-        c = 1;
-        for (const auto &[bucketKey, bucketLabel] : buckets) {
-            Q_UNUSED(bucketLabel);
-            auto *cb = new QCheckBox(this);
-            cb->setChecked(!current.disabledBuckets.contains(
-                RemotePosts::engineKey(engine) + u':' + bucketKey));
-            cb->setToolTip(tr("%1 tags on %2").arg(bucketKey, engineLabel));
-            catGrid->addWidget(cb, r, c++);
-            m_bucketToggles.insert(
-                RemotePosts::engineKey(engine) + u':' + bucketKey, cb);
+    m_mergeSources = new QLineEdit(this);
+    m_mergeSources->setPlaceholderText(
+        tr("character, variant, subvariant"));
+    m_mergeTarget = new QLineEdit(this);
+    m_mergeTarget->setPlaceholderText(tr("Characters / custom label"));
+    auto *mergeAdd = new QPushButton(tr("Add"), this);
+    auto *mergeDel = new QPushButton(tr("Remove"), this);
+    mergeRow->addWidget(m_mergeScope);
+    mergeRow->addWidget(m_mergeSources, 2);
+    mergeRow->addWidget(new QLabel(QStringLiteral("→"), this));
+    mergeRow->addWidget(m_mergeTarget, 1);
+    mergeRow->addWidget(mergeAdd);
+    mergeRow->addWidget(mergeDel);
+    mergeLay->addLayout(mergeRow);
+    m_categoryMerges = new QListWidget(this);
+    m_categoryMerges->setMinimumHeight(90);
+    mergeLay->addWidget(m_categoryMerges);
+    auto refreshMergeLabel = [this](QListWidgetItem *it) {
+        if (!it)
+            return;
+        const QString scope = it->data(Qt::UserRole).toString();
+        const QString site = scope.isEmpty()
+                                 ? tr("All boorus")
+                                 : (m_mergeScope->findData(scope) >= 0
+                                        ? m_mergeScope->itemText(
+                                              m_mergeScope->findData(scope))
+                                        : scope);
+        it->setText(tr("%1: %2 → %3")
+                        .arg(site,
+                             it->data(Qt::UserRole + 1).toString(),
+                             it->data(Qt::UserRole + 2).toString()));
+    };
+    for (const TagCategoryMerge &m : current.tagCategoryMerges) {
+        auto *it = new QListWidgetItem(m_categoryMerges);
+        it->setData(Qt::UserRole, m.siteKey);
+        it->setData(Qt::UserRole + 1, m.sources.join(QStringLiteral(", ")));
+        it->setData(Qt::UserRole + 2, m.target);
+        refreshMergeLabel(it);
+    }
+    connect(mergeAdd, &QPushButton::clicked, this, [this, refreshMergeLabel] {
+        QStringList sources;
+        for (const QString &s : m_mergeSources->text().split(
+                 QRegularExpression(QStringLiteral("[,\\s]+")),
+                 Qt::SkipEmptyParts)) {
+            if (!s.trimmed().isEmpty())
+                sources << s.trimmed();
         }
-        ++r;
-    }
-    catsLay->addLayout(catGrid);
-    tagsPage->addWidget(cats);
+        const QString target = m_mergeTarget->text().trimmed();
+        if (sources.isEmpty() || target.isEmpty())
+            return;
+        auto *it = new QListWidgetItem(m_categoryMerges);
+        it->setData(Qt::UserRole, m_mergeScope->currentData().toString());
+        it->setData(Qt::UserRole + 1, sources.join(QStringLiteral(", ")));
+        it->setData(Qt::UserRole + 2, target);
+        refreshMergeLabel(it);
+        m_mergeSources->clear();
+        m_mergeTarget->clear();
+        updateApplyState();
+    });
+    connect(mergeDel, &QPushButton::clicked, this, [this] {
+        delete m_categoryMerges->takeItem(m_categoryMerges->currentRow());
+        updateApplyState();
+    });
+    tagsPage->addWidget(merge);
 
     // ── Browse ──
     auto *browse = new QGroupBox(tr("Browse & downloads"), this);
@@ -775,14 +806,9 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
                            RemotePosts::engineKey(BooruEngine::Hybooru));
     m_booruEngine->addItem(RemotePosts::engineLabel(BooruEngine::Nuuru),
                            RemotePosts::engineKey(BooruEngine::Nuuru));
-    const int hbsIdx = m_booruEngine->count();
-    m_booruEngine->addItem(RemotePosts::engineLabel(BooruEngine::Hiddenbooru),
-                           RemotePosts::engineKey(BooruEngine::Hiddenbooru));
-    // Grey out (instance returns no posts even logged in, 2026-10).
-    // Existing entries keep working; new ones can't pick it.
-    if (auto *mi = qobject_cast<QStandardItemModel *>(m_booruEngine->model()))
-        if (QStandardItem *item = mi->item(hbsIdx))
-            item->setEnabled(false);
+    // HiddenBooru is frozen: its code and existing entries stay, but the
+    // engine is no longer offered for new boorus. loadBooruEditor() adds
+    // it back temporarily when an existing entry needs to show it.
     m_booruUser = new QLineEdit(this);
     m_booruSecret = new QLineEdit(this);
     m_booruSecret->setEchoMode(QLineEdit::Password);
@@ -867,27 +893,6 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
         m_booruCacheInherit->setChecked(true);
     }
     accForm->addRow(tr("Media cache:"), cacheBox);
-    auto *catBox = new QWidget(this);
-    {
-        auto *catRow = new QHBoxLayout(catBox);
-        catRow->setContentsMargins(0, 0, 0, 0);
-        const QList<QPair<QString, QString>> buckets = {
-            {QStringLiteral("artist"), tr("Artist")},
-            {QStringLiteral("character"), tr("Character")},
-            {QStringLiteral("copyright"), tr("Copyright")},
-            {QStringLiteral("meta"), tr("Meta")},
-        };
-        for (const auto &[key, label] : buckets) {
-            auto *cb = new QCheckBox(label, this);
-            cb->setChecked(true);
-            cb->setToolTip(tr("Untick buckets this host's taxonomy lacks; "
-                              "they fold into general."));
-            m_booruBuckets.insert(key, cb);
-            catRow->addWidget(cb);
-        }
-        catRow->addStretch(1);
-    }
-    accForm->addRow(tr("Categories:"), catBox);
     accForm->addRow(tr("Proxy:"), m_booruProxy);
     accForm->addRow(tr("User / login:"), m_booruUser);
     accForm->addRow(tr("API key / password:"), m_booruSecret);
@@ -1087,10 +1092,25 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     auto *app = new QGroupBox(tr("Appearance"), this);
     auto *appLay = new QFormLayout(app);
     m_themeMode = new QComboBox(this);
-    m_themeMode->addItem(tr("Built-in dark (Fusion, recommended)"),
-                         QStringLiteral("builtin"));
-    m_themeMode->addItem(tr("System native"), QStringLiteral("native"));
-    m_themeMode->setCurrentIndex(current.themeMode == QStringLiteral("native") ? 1 : 0);
+    const QList<QPair<QString, QString>> themes = {
+        {tr("Box dark (default)"), QStringLiteral("builtin")},
+        {tr("KeePassXC dark"), QStringLiteral("keepassxc-dark")},
+        {tr("KeePassXC light"), QStringLiteral("keepassxc-light")},
+        {tr("Light"), QStringLiteral("light")},
+        {tr("Nord"), QStringLiteral("nord")},
+        {tr("Catppuccin Latte"), QStringLiteral("catppuccin-latte")},
+        {tr("Catppuccin Frappé"), QStringLiteral("catppuccin-frappe")},
+        {tr("Catppuccin Macchiato"), QStringLiteral("catppuccin-macchiato")},
+        {tr("Catppuccin Mocha"), QStringLiteral("catppuccin-mocha")},
+        {tr("Dracula"), QStringLiteral("dracula")},
+        {tr("Atom One Dark"), QStringLiteral("atom-one-dark")},
+        {tr("Tokyo Night"), QStringLiteral("tokyo-night")},
+        {tr("System native"), QStringLiteral("native")},
+    };
+    for (const auto &[label, key] : themes)
+        m_themeMode->addItem(label, key);
+    m_themeMode->setCurrentIndex(
+        qMax(0, m_themeMode->findData(current.themeMode)));
     appLay->addRow(tr("Theme:"), m_themeMode);
     m_accentBtn = new QPushButton(tr("Pick…"), this);
     setSwatch(m_accent);
@@ -1133,22 +1153,49 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
         tr("Default: each category scrolls on its own. On: the whole "
            "sidebar scrolls together with one scrollbar."));
     appLay->addRow(QString(), m_sidebarSingleScroll);
+    m_plusLocalFolder = new QCheckBox(
+        tr("Show local folder browser in the quick + menu"), this);
+    m_plusLocalFolder->setChecked(current.showLocalFolderInPlusMenu);
+    m_plusLocalFolder->setToolTip(
+        tr("Adds an \"Open folder…\" entry next to Home/Favourites/"
+           "Downloads in the tab-bar + menu."));
+    connect(m_plusLocalFolder, &QCheckBox::toggled, this,
+            [this] { updateApplyState(); });
+    appLay->addRow(QString(), m_plusLocalFolder);
+    m_mascotHidden = current.mascotHidden;
     m_mascot = new QLineEdit(current.mascotPath, this);
-    m_mascot->setPlaceholderText(tr("Optional home-page mascot image"));
+    m_mascot->setPlaceholderText(
+        tr("Default: マニフェスト.jpg (pick a file to override)"));
     auto *mascotBrowse = new QPushButton(tr("Browse…"), this);
     connect(mascotBrowse, &QPushButton::clicked, this, [this] {
         const QString p = QFileDialog::getOpenFileName(
             this, tr("Home mascot"), m_mascot->text(),
             tr("Images (*.png *.jpg *.jpeg *.webp *.gif);;All files (*)"));
-        if (!p.isEmpty())
+        if (!p.isEmpty()) {
             m_mascot->setText(p);
+            m_mascotHidden = false;
+            updateApplyState();
+        }
     });
-    auto *mascotClear = new QPushButton(tr("Clear"), this);
-    connect(mascotClear, &QPushButton::clicked, m_mascot, &QLineEdit::clear);
+    auto *mascotRemove = new QPushButton(tr("Remove"), this);
+    mascotRemove->setToolTip(tr("Hide the mascot, including the default"));
+    connect(mascotRemove, &QPushButton::clicked, this, [this] {
+        m_mascot->clear();
+        m_mascotHidden = true;
+        updateApplyState();
+    });
+    auto *mascotReset = new QPushButton(tr("Reset to default"), this);
+    mascotReset->setToolTip(tr("Use the shipped マニフェスト.jpg again"));
+    connect(mascotReset, &QPushButton::clicked, this, [this] {
+        m_mascot->clear();
+        m_mascotHidden = false;
+        updateApplyState();
+    });
     auto *mascotRow = new QHBoxLayout();
     mascotRow->addWidget(m_mascot, 1);
     mascotRow->addWidget(mascotBrowse);
-    mascotRow->addWidget(mascotClear);
+    mascotRow->addWidget(mascotRemove);
+    mascotRow->addWidget(mascotReset);
     appLay->addRow(tr("Home mascot:"), mascotRow);
     m_mascotOpacity = new QSlider(Qt::Horizontal, this);
     m_mascotOpacity->setRange(10, 100);
@@ -1328,8 +1375,10 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
                 m_tagOverrides->clear(); // defaults carry no overrides
                 m_pendingFavicons.clear(); // staged icons follow the reset
                 updateFaviconPreview();
-                for (QCheckBox *cb : std::as_const(m_bucketToggles))
-                    cb->setChecked(true); // defaults enable every bucket
+                if (m_categoryMerges)
+                    m_categoryMerges->clear();
+                if (m_mergeScope)
+                    m_mergeScope->setCurrentIndex(0);
                 m_booruEdits = RemoteSource::presetBoorus();
                 refreshBooruList();
                 for (int i = 0; i < m_defBoorus->count(); ++i) {
@@ -1355,10 +1404,13 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
                 m_thumbSize->setCurrentIndex(qMax(0, m_thumbSize->findData(d.thumbLongSide)));
                 m_themeMode->setCurrentIndex(0);
                 m_sidebarSingleScroll->setChecked(false);
+                if (m_plusLocalFolder)
+                    m_plusLocalFolder->setChecked(false);
                 m_accent = QColor(d.accent);
                 setSwatch(m_accent);
                 m_stylesheet->clear();
                 m_mascot->clear();
+                m_mascotHidden = false;
                 if (m_mascotOpacity)
                     m_mascotOpacity->setValue(qRound(d.mascotOpacity * 100.0));
                 if (m_mascotMargin)
@@ -1720,13 +1772,6 @@ void PrefsDialog::commitBooruEditor(const QString &key) {
                 .match(b.key)
                 .hasMatch())
             b.badgeColor = RemotePosts::defaultBadgeColor(b.baseUrl, b.engine);
-        // Unchecked buckets fold into general for this host only.
-        b.disabledBuckets.clear();
-        for (auto it = m_booruBuckets.begin(); it != m_booruBuckets.end();
-             ++it) {
-            if (!it.value()->isChecked())
-                b.disabledBuckets.insert(it.key());
-        }
         // Seed per-host default cookies once (quirks table: gelbooru.com
         // wants fringeBenefits=yup for restricted content). They land in
         // the stored list, so they stay visible - and removable - in the
@@ -1885,6 +1930,10 @@ void PrefsDialog::loadBooruEditor(int row) {
     // commit half-loaded widgets back into the entry (see m_loadingBooru).
     m_loadingBooru = true;
     if (!found) {
+        const int frozenIdx = m_booruEngine->findData(
+            RemotePosts::engineKey(BooruEngine::Hiddenbooru));
+        if (frozenIdx >= 0)
+            m_booruEngine->removeItem(frozenIdx);
         m_booruName->clear();
         m_booruBase->clear();
         m_booruUser->clear();
@@ -1893,9 +1942,6 @@ void PrefsDialog::loadBooruEditor(int row) {
         m_booruNoClassify->setChecked(false);
         m_booruLocalBlacklist->setChecked(false);
         m_booruCacheInherit->setChecked(true);
-        for (auto it = m_booruBuckets.begin(); it != m_booruBuckets.end();
-             ++it)
-            it.value()->setChecked(true);
         m_booruTags->clear();
         m_booruProxy->clear();
         m_booruColor = QColor(QStringLiteral("#3a7ec2"));
@@ -1912,8 +1958,29 @@ void PrefsDialog::loadBooruEditor(int row) {
         m_booruColor = QColor(QStringLiteral("#3a7ec2"));
     setBooruSwatch();
     m_booruBase->setText(found->baseUrl);
+    // HiddenBooru is frozen out of the picker; only the existing entry
+    // being edited brings its disabled item back (so saving keeps it sane).
+    const QString hiddenKey =
+        RemotePosts::engineKey(BooruEngine::Hiddenbooru);
+    int hiddenIdx = m_booruEngine->findData(hiddenKey);
+    if (found->engine != BooruEngine::Hiddenbooru && hiddenIdx >= 0)
+        m_booruEngine->removeItem(hiddenIdx);
+    if (found->engine == BooruEngine::Hiddenbooru && hiddenIdx < 0) {
+        m_booruEngine->addItem(
+            tr("%1 (frozen)")
+                .arg(RemotePosts::engineLabel(BooruEngine::Hiddenbooru)),
+            hiddenKey);
+        if (auto *mi =
+                qobject_cast<QStandardItemModel *>(m_booruEngine->model()))
+            if (QStandardItem *item = mi->item(m_booruEngine->count() - 1))
+                item->setEnabled(false);
+        hiddenIdx = m_booruEngine->count() - 1;
+    }
     m_booruEngine->setCurrentIndex(
-        qMax(0, m_booruEngine->findData(RemotePosts::engineKey(found->engine))));
+        qMax(0, hiddenIdx >= 0 && found->engine == BooruEngine::Hiddenbooru
+                    ? hiddenIdx
+                    : m_booruEngine->findData(
+                          RemotePosts::engineKey(found->engine))));
     m_booruUser->setText(found->user);
     m_booruSecret->setText(found->secret);
     m_booruNoClassify->setChecked(found->skipAutoClassify);
@@ -1935,9 +2002,6 @@ void PrefsDialog::loadBooruEditor(int row) {
     }
     m_booruTags->setText(found->defaultTags);
     m_booruProxy->setText(found->proxy);
-    for (auto it = m_booruBuckets.begin(); it != m_booruBuckets.end();
-         ++it)
-        it.value()->setChecked(!found->disabledBuckets.contains(it.key()));
     updateCookieLabel();
     updateFaviconPreview();
     m_loadingBooru = false;
@@ -2099,7 +2163,10 @@ void PrefsDialog::harvestInto(AppSettings &out) {
     out.accent = m_accent.name();
     out.stylesheet = m_stylesheet->text().trimmed();
     out.sidebarSingleScroll = m_sidebarSingleScroll->isChecked();
+    out.showLocalFolderInPlusMenu =
+        m_plusLocalFolder && m_plusLocalFolder->isChecked();
     out.mascotPath = m_mascot ? m_mascot->text().trimmed() : QString();
+    out.mascotHidden = m_mascotHidden;
     out.mascotOpacity = m_mascotOpacity ? m_mascotOpacity->value() / 100.0
                                         : out.mascotOpacity;
     out.mascotMargin = m_mascotMargin ? m_mascotMargin->value() : out.mascotMargin;
@@ -2135,9 +2202,23 @@ void PrefsDialog::harvestInto(AppSettings &out) {
                 out.customBucketMap.insert(cat, bucket);
         }
     }
-    out.disabledBuckets.clear();
-    for (auto it = m_bucketToggles.begin(); it != m_bucketToggles.end(); ++it) {
-        if (!it.value()->isChecked())
-            out.disabledBuckets.insert(it.key());
+    out.tagCategoryMerges.clear();
+    if (m_categoryMerges) {
+        for (int i = 0; i < m_categoryMerges->count(); ++i) {
+            const QListWidgetItem *it = m_categoryMerges->item(i);
+            TagCategoryMerge m;
+            m.siteKey = it->data(Qt::UserRole).toString();
+            for (const QString &src :
+                 it->data(Qt::UserRole + 1)
+                     .toString()
+                     .split(QRegularExpression(QStringLiteral("[,\\s]+")),
+                            Qt::SkipEmptyParts)) {
+                if (!src.trimmed().isEmpty())
+                    m.sources << src.trimmed();
+            }
+            m.target = it->data(Qt::UserRole + 2).toString().trimmed();
+            if (!m.sources.isEmpty() && !m.target.isEmpty())
+                out.tagCategoryMerges.append(m);
+        }
     }
 }

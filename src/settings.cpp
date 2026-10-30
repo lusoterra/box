@@ -111,6 +111,8 @@ AppSettings loadSettings() {
     if (c.contains(QStringLiteral("tagtypes/customBuckets")))
         s.customBucketMap = TagTypes::normalizeTagOverrides(
             c.value(QStringLiteral("tagtypes/customBuckets")).toStringList());
+    s.tagCategoryMerges = TagCategories::fromLines(
+        c.value(QStringLiteral("tagtypes/categoryMerges")).toStringList());
     if (c.contains(QStringLiteral("tagtypes/disabledBuckets"))) {
         s.disabledBuckets.clear();
         for (const QString &e :
@@ -145,6 +147,8 @@ AppSettings loadSettings() {
         t.rating = c.value(QStringLiteral("rating"), QStringLiteral("all")).toString();
         t.category = c.value(QStringLiteral("category")).toString();
         t.sort = c.value(QStringLiteral("sort"), QStringLiteral("id-desc")).toString();
+        t.viewerKey = c.value(QStringLiteral("viewerKey")).toString();
+        t.scrollRow = c.value(QStringLiteral("scrollRow"), -1).toInt();
         c.endGroup();
         if (!t.kind.isEmpty())
             s.savedTabs.append(t);
@@ -168,6 +172,8 @@ AppSettings loadSettings() {
         s.lastPlace.category = c.value(QStringLiteral("last/category")).toString();
         s.lastPlace.sort =
             c.value(QStringLiteral("last/sort"), QStringLiteral("id-desc")).toString();
+        s.lastPlace.viewerKey = c.value(QStringLiteral("last/viewerKey")).toString();
+        s.lastPlace.scrollRow = c.value(QStringLiteral("last/scrollRow"), -1).toInt();
     }
     s.downloadDir = c.value(QStringLiteral("downloads/dir")).toString();
     s.globalProxy = c.value(QStringLiteral("network/proxy")).toString();
@@ -179,6 +185,9 @@ AppSettings loadSettings() {
     s.sideSplitter = c.value(QStringLiteral("window/sideSplitter")).toByteArray();
     s.sidebarSingleScroll =
         c.value(QStringLiteral("window/sidebarSingleScroll"), false).toBool();
+    s.showLocalFolderInPlusMenu =
+        c.value(QStringLiteral("window/showLocalFolderInPlusMenu"), false)
+            .toBool();
     s.boorus = loadBoorus(c);
     if (c.contains(QStringLiteral("explicit/tags")))
         s.explicitTags =
@@ -187,6 +196,8 @@ AppSettings loadSettings() {
     s.accent = c.value(QStringLiteral("theme/accent"), s.accent).toString();
     s.stylesheet = c.value(QStringLiteral("theme/stylesheet")).toString();
     s.mascotPath = c.value(QStringLiteral("home/mascot")).toString();
+    s.mascotHidden =
+        c.value(QStringLiteral("home/mascotHidden"), false).toBool();
     s.mascotOpacity = qBound(
         0.1, c.value(QStringLiteral("home/mascotOpacity"), s.mascotOpacity).toDouble(),
         1.0);
@@ -250,6 +261,8 @@ void writeSettingsTo(QSettings &c, const AppSettings &s) {
                  TagTypes::serializeTagOverrides(s.manualTagTypes));
     c.setValue(QStringLiteral("tagtypes/customBuckets"),
                  TagTypes::serializeTagOverrides(s.customBucketMap));
+    c.setValue(QStringLiteral("tagtypes/categoryMerges"),
+               TagCategories::toLines(s.tagCategoryMerges));
     c.setValue(QStringLiteral("tagtypes/disabledBuckets"),
                QStringList(s.disabledBuckets.begin(), s.disabledBuckets.end()));
     c.setValue(QStringLiteral("browse/mode"), s.browseMode);
@@ -270,6 +283,8 @@ void writeSettingsTo(QSettings &c, const AppSettings &s) {
         c.setValue(QStringLiteral("rating"), t.rating);
         c.setValue(QStringLiteral("category"), t.category);
         c.setValue(QStringLiteral("sort"), t.sort);
+        c.setValue(QStringLiteral("viewerKey"), t.viewerKey);
+        c.setValue(QStringLiteral("scrollRow"), t.scrollRow);
         c.endGroup();
     }
     c.endGroup();
@@ -284,6 +299,8 @@ void writeSettingsTo(QSettings &c, const AppSettings &s) {
         c.setValue(QStringLiteral("last/rating"), s.lastPlace.rating);
         c.setValue(QStringLiteral("last/category"), s.lastPlace.category);
         c.setValue(QStringLiteral("last/sort"), s.lastPlace.sort);
+        c.setValue(QStringLiteral("last/viewerKey"), s.lastPlace.viewerKey);
+        c.setValue(QStringLiteral("last/scrollRow"), s.lastPlace.scrollRow);
     }
     c.setValue(QStringLiteral("downloads/dir"), s.downloadDir);
     c.setValue(QStringLiteral("network/proxy"), s.globalProxy);
@@ -293,12 +310,15 @@ void writeSettingsTo(QSettings &c, const AppSettings &s) {
     c.setValue(QStringLiteral("window/sideSplitter"), s.sideSplitter);
     c.setValue(QStringLiteral("window/sidebarSingleScroll"),
                s.sidebarSingleScroll);
+    c.setValue(QStringLiteral("window/showLocalFolderInPlusMenu"),
+               s.showLocalFolderInPlusMenu);
     saveBoorus(c, s.boorus);
     c.setValue(QStringLiteral("explicit/tags"), s.explicitTags);
     c.setValue(QStringLiteral("theme/mode"), s.themeMode);
     c.setValue(QStringLiteral("theme/accent"), s.accent);
     c.setValue(QStringLiteral("theme/stylesheet"), s.stylesheet);
     c.setValue(QStringLiteral("home/mascot"), s.mascotPath);
+    c.setValue(QStringLiteral("home/mascotHidden"), s.mascotHidden);
     c.setValue(QStringLiteral("home/mascotOpacity"), s.mascotOpacity);
     c.setValue(QStringLiteral("home/mascotScale"), s.mascotScale);
     c.setValue(QStringLiteral("home/mascotMargin"), s.mascotMargin);

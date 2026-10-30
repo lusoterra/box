@@ -2,6 +2,7 @@
 
 #include "post.h"
 #include "postmeta.h"
+#include "tagcategories.h"
 
 #include <QHash>
 #include <QLabel>
@@ -11,6 +12,7 @@
 #include <QSet>
 #include <QVector>
 #include <QWidget>
+
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QElapsedTimer>
@@ -268,6 +270,8 @@ public:
     void maybeFetchHybooruDetail();
     void setMaxSide(int px) { m_maxSide = qMax(512, px); }
     void setImageCache(ImageCache *cache);
+    // Per-booru category merge/rename rules (Preferences → Tags).
+    void setCategoryMerges(const QList<TagCategoryMerge> &merges);
     void setWebBackend(class WebDownloadBackend *backend);
     // Grid model for instant stepping: the target row's thumbnail shows
     // the moment navigation lands, before its full file arrives.
@@ -285,6 +289,9 @@ signals:
     void favouriteRequested(const Post &post);
     void refreshRequested(const Post &post);
     void pastEnd(); // nav stepped past the last loaded post
+    // Post on screen changed (initial open or arrow/wheel step): the grid
+    // follows so Esc/back lands where the viewer left off.
+    void currentRowChanged(int row);
     // Media the viewer cannot play (stills, GIFs, videos): surfaces in
     // the status probe (clickable) with the redacted URL + reason.
     void mediaFailed(const QString &url, const QString &error);
@@ -333,6 +340,7 @@ private:
                      const QString &color);
 
     QVector<Post> m_posts;
+    QList<TagCategoryMerge> m_categoryMerges;
     int m_row = 0;
     QLabel *m_aiBadge = nullptr;
     QLabel *m_favBadge = nullptr;

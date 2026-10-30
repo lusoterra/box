@@ -30,6 +30,7 @@
 #include "viewerpage.h"
 #include "welcomepage.h"
 
+#include <QAbstractItemView>
 #include <QApplication>
 #include <QActionGroup>
 #include <QCheckBox>
@@ -993,13 +994,13 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     m_artistList = new QListWidget(this);
     m_tagList = new QListWidget(this);
     m_metaList = new QListWidget(this);
-    // Real booru order: Copyright, Characters, Artists, general, meta.
+    // Box order: Artists, Characters, Copyright, Meta, General.
     const QList<QPair<QString, QListWidget *>> sections = {
-        {tr("COPYRIGHT"), m_copyList},
-        {tr("CHARACTERS"), m_charList},
         {tr("ARTISTS"), m_artistList},
-        {tr("TAGS"), m_tagList},
+        {tr("CHARACTERS"), m_charList},
+        {tr("COPYRIGHT"), m_copyList},
         {tr("META"), m_metaList},
+        {tr("TAGS"), m_tagList},
     };
     for (const auto &[title, list] : sections) {
         auto *sec = new QWidget(this);
@@ -1009,6 +1010,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
         auto *h = new QLabel(title, this);
         h->setStyleSheet(
             QStringLiteral("color:#4a5068;font-size:10px;font-weight:bold;"));
+        m_sideHeaders.append(h);
         secLay->addWidget(h);
         secLay->addWidget(list, 1);
         list->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
@@ -1168,7 +1170,22 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     m_imgCache->setBaseDir(appCacheDir() + u'/' + QStringLiteral("full"));
     m_imgCache->setEnabled(m_settings.fullCache);
     m_viewer->setImageCache(m_imgCache);
+    m_viewer->setCategoryMerges(m_settings.tagCategoryMerges);
     m_viewer->setThumbModel(m_model);
+    connect(m_viewer, &ViewerPage::currentRowChanged, this, [this](int row) {
+        if (row < 0 || row >= m_current.size())
+            return;
+        if (BrowserTab *t = currentTab())
+            t->viewerKey = viewerKeyFor(m_current.at(row));
+        // Keep the grid on the same post while the viewer covers it:
+        // Esc/back then lands right where arrow-stepping left off.
+        const QModelIndex idx = m_model->index(row, 0);
+        if (idx.isValid())
+            m_grid->scrollTo(idx, QAbstractItemView::PositionAtCenter);
+        // Viewer-side stepping must refresh its marks too (counts and
+        // download/cache flags belong to the row now on screen).
+        updateViewerBadges();
+    });
     m_viewer->setWebBackend(webDownloads);
     connect(m_viewer, &ViewerPage::downloadRequested, this, [this](const Post &p) {
         // Explicit download lifts the veto (see m_unfavVeto).
@@ -1395,7 +1412,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
 
     // Stage: welcome page vs. browser.
     m_welcome = new WelcomePage(this);
-    m_welcome->setMascot(m_settings.mascotPath);
+    m_welcome->setMascot(effectiveMascotPath(m_settings));
     m_welcome->setMascotOpacity(m_settings.mascotOpacity);
     m_welcome->setMascotScale(m_settings.mascotScale);
     m_welcome->setMascotMargin(m_settings.mascotMargin);
@@ -1563,6 +1580,10 @@ void MainWindow::saveCurrentTab() {
     t->rating = m_rating;
     t->category = m_category;
     t->sort = m_sort;
+    int lo = 0, hi = -1;
+    visibleRowRange(lo, hi);
+    if (hi >= 0)
+        t->scrollRow = lo; // keep the old position if the model was empty
     if (!t->isRemote) {
         if (!t->isFavourites)
             t->localPosts = m_index.posts();
@@ -1622,6 +1643,8 @@ void MainWindow::stageTabs() {
         lp.rating = c->rating;
         lp.category = c->category;
         lp.sort = c->sort;
+        lp.viewerKey = c->viewerKey;
+        lp.scrollRow = c->scrollRow;
     }
     m_settings.savedTabs.clear();
     for (BrowserTab *t : m_tabs) {
@@ -1642,6 +1665,8 @@ void MainWindow::stageTabs() {
         st.rating = t->rating;
         st.category = t->category;
         st.sort = t->sort;
+        st.viewerKey = t->viewerKey;
+        st.scrollRow = t->scrollRow;
         m_settings.savedTabs.append(st);
     }
     m_settings.savedTabCurrent = qMax(0, m_curTab);
@@ -1679,6 +1704,8 @@ bool MainWindow::restoreTabs() {
         t->rating = st.rating.isEmpty() ? QStringLiteral("all") : st.rating;
         t->category = st.category;
         t->sort = st.sort.isEmpty() ? QStringLiteral("id-desc") : st.sort;
+        t->viewerKey = st.viewerKey;
+        t->scrollRow = st.scrollRow;
         updateTabTitle(m_tabs.size() - 1);
         if (n == qBound(0, m_settings.savedTabCurrent,
                         saved.size() - 1))
@@ -1865,6 +1892,11 @@ void MainWindow::onTabClosed(int index) {
     m_tabBar->blockSignals(false);
     if (wasCurrent) {
         if (m_tabs.isEmpty()) {
+            // All tabs closed: keep the last-place LABEL around so the
+            // home button stays visible, but mark it non-resumable. The
+            // next save drops the stale last/* keys, and clicking resume
+            // warns instead of resurrecting the closed tab.
+            m_settings.hasLastPlace = false;
             // setCurrentIndex(0) would be a no-op here (Qt already selected
             // home while signals were blocked), leaving the stage stuck on
             // the closed tab: go home explicitly.
@@ -2026,16 +2058,25 @@ void MainWindow::finishActivateTab(int tabIdx) {
     // Restore the open post (X tag looking at Y post): identity match, so
     // refills/reorders don't matter; missing rows stay on the grid. Only
     // when results are already in (async scans/searches keep the grid).
-    if (BrowserTab *tb = (tabIdx >= 0 && tabIdx < m_tabs.size())
-                              ? m_tabs[tabIdx]
-                              : nullptr;
-        tb && !tb->viewerKey.isEmpty() && !m_current.isEmpty()) {
+    BrowserTab *tb = (tabIdx >= 0 && tabIdx < m_tabs.size())
+                         ? m_tabs[tabIdx]
+                         : nullptr;
+    bool viewerRestored = false;
+    if (tb && !tb->viewerKey.isEmpty() && !m_current.isEmpty()) {
         for (int i = 0; i < m_current.size(); ++i) {
             if (viewerKeyFor(m_current.at(i)) == tb->viewerKey) {
                 showViewer(i);
+                viewerRestored = true;
                 break;
             }
         }
+    }
+    // Grid position: the viewer jump already centers its post; a grid-only
+    // tab returns to the first visible row saved on switch/quit.
+    if (!viewerRestored && tb && tb->scrollRow >= 0 &&
+        tb->scrollRow < m_model->rowCount()) {
+        m_grid->scrollTo(m_model->index(tb->scrollRow, 0),
+                         QAbstractItemView::PositionAtTop);
     }
 }
 
@@ -2313,6 +2354,12 @@ void MainWindow::showPlusMenu() {
                                     tr("Downloads"));
     connect(dlAct, &QAction::triggered, this,
             [this] { addLocalTab(effectiveDownloadDir(m_settings)); });
+    if (m_settings.showLocalFolderInPlusMenu) {
+        QAction *openAct = menu.addAction(
+            UiIcons::icon(QStringLiteral("folder-open")),
+            tr("Open local folder…"));
+        connect(openAct, &QAction::triggered, this, &MainWindow::openFolder);
+    }
     menu.addSeparator();
     // One click = one tab. Merging stays available per-tab through the
     // "Boorus…" menu, which checks any set of sources into the open tab.
@@ -3107,9 +3154,9 @@ void MainWindow::rebuildBrowseSidebar() {
         return s.toUpper();
     };
     static const QList<QPair<QString, int>> sections = {
-        {QStringLiteral("copyright"), 0}, {QStringLiteral("character"), 1},
-        {QStringLiteral("artist"), 2},    {QStringLiteral("general"), 3},
-        {QStringLiteral("meta"), 4},
+        {QStringLiteral("artist"), 0},    {QStringLiteral("character"), 1},
+        {QStringLiteral("copyright"), 2}, {QStringLiteral("meta"), 3},
+        {QStringLiteral("general"), 4},
     };
     QSet<QString> hidden;
     if (const BrowserTab *t = currentTab(); t && t->isRemote && !t->sites.isEmpty()) {
@@ -3141,35 +3188,100 @@ void MainWindow::rebuildBrowseSidebar() {
         {QStringLiteral("copyright"), {}}, {QStringLiteral("general"), {}},
         {QStringLiteral("meta"), {}},
     };
-    for (const Post &p : m_current) {
-        for (const QString &t : p.tagsArtist.split(QChar::Space, Qt::SkipEmptyParts))
-            counts[QStringLiteral("artist")][t]++;
-        for (const QString &t : p.tagsCharacter.split(QChar::Space, Qt::SkipEmptyParts))
-            counts[QStringLiteral("character")][t]++;
-        for (const QString &t : p.tagsCopyright.split(QChar::Space, Qt::SkipEmptyParts))
-            counts[QStringLiteral("copyright")][t]++;
-        for (const QString &t : p.tagsGeneral.split(QChar::Space, Qt::SkipEmptyParts))
-            counts[QStringLiteral("general")][t]++;
-        for (const QString &t : p.tagsMeta.split(QChar::Space, Qt::SkipEmptyParts))
-            counts[QStringLiteral("meta")][t]++;
-    }
-    // Native custom categories (Nuuru flags, Szuru categories…): mapped
-    // ones fold into their classic bucket, the rest get their own
-    // sections below (capped: a pathological page must not spam the bar).
     QHash<QString, QHash<QString, int>> customCounts;
+    QHash<QString, QString> customLabels;
+    const QList<TagCategoryMerge> &mergeRules = m_settings.tagCategoryMerges;
+    QString activeSite;
+    if (const BrowserTab *t = currentTab()) {
+        for (const QString &key : t->sites) {
+            if (!isVirtualSource(key)) {
+                activeSite = key;
+                break;
+            }
+        }
+    }
+    if (activeSite.isEmpty() && !m_current.isEmpty()) {
+        const Post &first = m_current.first();
+        activeSite = !first.siteKey.isEmpty()
+                         ? first.siteKey
+                         : RemotePosts::keyForLabel(first.siteName);
+    }
+    auto addBucketed = [&](const QString &target, const QString &tag) {
+        const QString bucket = TagCategories::classicBucket(target);
+        if (!bucket.isEmpty()) {
+            counts[bucket][tag]++;
+            return;
+        }
+        const QString key = TagCategories::targetKey(target);
+        if (key.isEmpty())
+            return;
+        customCounts[key][tag]++;
+        customLabels.insert(key, TagCategories::displayTarget(target));
+    };
     for (const Post &p : m_current) {
+        const QString siteKey =
+            !p.siteKey.isEmpty() ? p.siteKey
+                                 : RemotePosts::keyForLabel(p.siteName);
+        auto addBlob = [&](const QString &blob, const QString &bucket) {
+            const TagCategoryMerge *m =
+                TagCategories::mergeFor(mergeRules, siteKey, bucket);
+            const QString target = m ? m->target : bucket;
+            for (const QString &t :
+                 blob.split(QChar::Space, Qt::SkipEmptyParts))
+                addBucketed(target, t);
+        };
+        addBlob(p.tagsArtist, QStringLiteral("artist"));
+        addBlob(p.tagsCharacter, QStringLiteral("character"));
+        addBlob(p.tagsCopyright, QStringLiteral("copyright"));
+        addBlob(p.tagsMeta, QStringLiteral("meta"));
+        addBlob(p.tagsGeneral, QStringLiteral("general"));
+        // Native custom categories (Nuuru flags, Szuru categories…): user
+        // merges win, then legacy customBucketMap, then their own section.
         for (auto it = p.customTags.begin(); it != p.customTags.end();
              ++it) {
             const QString cat = it.key().toLower();
+            const TagCategoryMerge *m =
+                TagCategories::mergeFor(mergeRules, siteKey, cat);
+            if (m) {
+                for (const QString &t : it.value())
+                    if (!t.trimmed().isEmpty())
+                        addBucketed(m->target, t);
+                continue;
+            }
             const QString mapped = m_settings.customBucketMap.value(cat);
             for (const QString &t : it.value()) {
                 if (t.trimmed().isEmpty())
                     continue;
-                if (!mapped.isEmpty() && counts.contains(mapped))
+                if (!mapped.isEmpty() && counts.contains(mapped)) {
                     counts[mapped][t]++;
-                else
-                    customCounts[cat][t]++;
+                } else {
+                    const QString key = TagCategories::normalizeKey(cat);
+                    customCounts[key][t]++;
+                    customLabels.insert(key,
+                                        TagCategories::displayTarget(cat));
+                }
             }
+        }
+    }
+    // Renamed classic sections ("character" -> "Characters").
+    {
+        static const QList<QPair<int, QString>> defaults = {
+            {0, QStringLiteral("artist")},
+            {1, QStringLiteral("character")},
+            {2, QStringLiteral("copyright")},
+            {3, QStringLiteral("meta")},
+            {4, QStringLiteral("general")},
+        };
+        for (const auto &[idx, bucket] : defaults) {
+            QString label = TagCategories::labelFor(mergeRules, activeSite,
+                                                    bucket);
+            if (label.isEmpty()) {
+                label = bucket == QStringLiteral("general")
+                            ? QStringLiteral("tags")
+                            : bucket;
+            }
+            if (idx < m_sideHeaders.size())
+                m_sideHeaders[idx]->setText(sidebarLabel(label));
         }
     }
     auto top = [](const QHash<QString, int> &m) {
@@ -3196,24 +3308,24 @@ void MainWindow::rebuildBrowseSidebar() {
                                         : QWIDGETSIZE_MAX);
         rebuildTagTab(list, entries, bucket);
     };
-    fillSection(0, m_copyList, QStringLiteral("copyright"),
-                hidden.contains(QStringLiteral("copyright"))
+    fillSection(0, m_artistList, QStringLiteral("artist"),
+                hidden.contains(QStringLiteral("artist"))
                     ? QVector<QPair<QString, int>>()
-                    : top(counts[QStringLiteral("copyright")]));
+                    : top(counts[QStringLiteral("artist")]));
     fillSection(1, m_charList, QStringLiteral("character"),
                 hidden.contains(QStringLiteral("character"))
                     ? QVector<QPair<QString, int>>()
                     : top(counts[QStringLiteral("character")]));
-    fillSection(2, m_artistList, QStringLiteral("artist"),
-                hidden.contains(QStringLiteral("artist"))
+    fillSection(2, m_copyList, QStringLiteral("copyright"),
+                hidden.contains(QStringLiteral("copyright"))
                     ? QVector<QPair<QString, int>>()
-                    : top(counts[QStringLiteral("artist")]));
-    fillSection(3, m_tagList, QStringLiteral("general"),
-                top(counts[QStringLiteral("general")]));
-    fillSection(4, m_metaList, QStringLiteral("meta"),
+                    : top(counts[QStringLiteral("copyright")]));
+    fillSection(3, m_metaList, QStringLiteral("meta"),
                 hidden.contains(QStringLiteral("meta"))
                     ? QVector<QPair<QString, int>>()
                     : top(counts[QStringLiteral("meta")]));
+    fillSection(4, m_tagList, QStringLiteral("general"),
+                top(counts[QStringLiteral("general")]));
     // Unmapped custom categories render as their own sections (same list
     // behaviour as the fixed five: click filters, right-click stars).
     static constexpr int kMaxCustomSections = 8;
@@ -3227,7 +3339,8 @@ void MainWindow::rebuildBrowseSidebar() {
             auto *secLay = new QVBoxLayout(box);
             secLay->setContentsMargins(0, 0, 0, 0);
             secLay->setSpacing(2);
-            auto *h = new QLabel(sidebarLabel(it.key()), this);
+            auto *h = new QLabel(
+                sidebarLabel(customLabels.value(it.key(), it.key())), this);
             h->setStyleSheet(QStringLiteral(
                 "color:#4a5068;font-size:10px;font-weight:bold;"));
             secLay->addWidget(h);
@@ -3245,7 +3358,8 @@ void MainWindow::rebuildBrowseSidebar() {
                     &MainWindow::onTagContextMenu);
             sec = m_customSections.insert(it.key(), {box, h, list});
         }
-        sec->title->setText(sidebarLabel(it.key()));
+        sec->title->setText(
+            sidebarLabel(customLabels.value(it.key(), it.key())));
         rebuildTagTab(sec->list, top(it.value()), QStringLiteral("custom"));
         sec->box->setVisible(true);
         // Tiny custom categories shrink like the fixed five.
@@ -4151,8 +4265,9 @@ void MainWindow::setAsMascot(const Post &post) {
         return;
     }
     m_settings.mascotPath = post.absFile;
+    m_settings.mascotHidden = false;
     saveSettings(m_settings);
-    m_welcome->setMascot(m_settings.mascotPath);
+    m_welcome->setMascot(effectiveMascotPath(m_settings));
     statusBar()->showMessage(tr("Home mascot updated"), 4000);
 }
 
@@ -4486,7 +4601,10 @@ void MainWindow::refreshFavTabs() {
 }
 
 QString MainWindow::describeLastPlace() const {
-    if (!m_settings.hasLastPlace || m_settings.lastPlace.kind.isEmpty())
+    // Deliberately ignores hasLastPlace: after the last tab is closed the
+    // label stays visible so clicking it can explain that there is nothing
+    // left to resume (the persisted last/* keys are already dropped).
+    if (m_settings.lastPlace.kind.isEmpty())
         return {};
     const AppSettings::SavedTab &lp = m_settings.lastPlace;
     if (lp.kind == QStringLiteral("favs"))
@@ -4531,8 +4649,15 @@ void MainWindow::openLastPlace() {
             m_tabBar->setCurrentIndex(idx + 1); // +1: tab 0 is welcome
         return;
     }
-    if (!m_settings.hasLastPlace || m_settings.lastPlace.kind.isEmpty())
+    if (!m_settings.hasLastPlace || m_settings.lastPlace.kind.isEmpty()) {
+        // Everything from the previous session was closed (or the stale
+        // place did not survive): say so instead of silently doing nothing.
+        QMessageBox::information(
+            this, tr("Nothing to resume"),
+            tr("The previous session has no open tabs left to return to."));
+        m_welcome->setLastPlace({});
         return;
+    }
     const AppSettings::SavedTab lp = m_settings.lastPlace;
     // Reuse the tab when it is still open (keeps its live state).
     if (lp.kind == QStringLiteral("favs")) {
@@ -4558,6 +4683,8 @@ void MainWindow::openLastPlace() {
         t->searchQuery = lp.query;
         t->rating = lp.rating;
         t->sort = lp.sort;
+        t->viewerKey = lp.viewerKey;
+        t->scrollRow = lp.scrollRow;
         if (m_tabBar->currentIndex() == favIdx + 1)
             activateTab(favIdx); // already there: refresh in place
         else
@@ -4573,6 +4700,8 @@ void MainWindow::openLastPlace() {
                 t->searchQuery = lp.query;
                 t->rating = lp.rating;
                 t->sort = lp.sort;
+                t->viewerKey = lp.viewerKey;
+                t->scrollRow = lp.scrollRow;
                 if (m_tabBar->currentIndex() == i + 1)
                     activateTab(i); // already there: refresh in place
                 else
@@ -4587,6 +4716,8 @@ void MainWindow::openLastPlace() {
         t->searchQuery = lp.query;
         t->rating = lp.rating;
         t->sort = lp.sort;
+        t->viewerKey = lp.viewerKey;
+        t->scrollRow = lp.scrollRow;
         t->page = 1;
         m_tabs.append(t);
         m_tabBar->addTab(QString());
@@ -4609,6 +4740,8 @@ void MainWindow::openLastPlace() {
                 t->rating = lp.rating;
                 t->category = lp.category;
                 t->sort = lp.sort;
+                t->viewerKey = lp.viewerKey;
+                t->scrollRow = lp.scrollRow;
                 if (m_tabBar->currentIndex() == i + 1)
                     activateTab(i); // already there: refresh in place
                 else
@@ -4624,6 +4757,8 @@ void MainWindow::openLastPlace() {
         t->rating = lp.rating;
         t->category = lp.category;
         t->sort = lp.sort;
+        t->viewerKey = lp.viewerKey;
+        t->scrollRow = lp.scrollRow;
         m_tabs.append(t);
         m_tabBar->addTab(QString());
         updateTabTitle(m_tabs.size() - 1);
@@ -5404,6 +5539,12 @@ void MainWindow::rebuildSidebar() {
     // browse-tab hiding below). Native custom sections are browse-only.
     for (int i = 0; i < m_sideSplit->count(); ++i)
         m_sideSplit->widget(i)->setVisible(true);
+    static const QStringList labels = {
+        tr("ARTISTS"), tr("CHARACTERS"), tr("COPYRIGHT"), tr("META"),
+        tr("TAGS"),
+    };
+    for (int i = 0; i < labels.size() && i < m_sideHeaders.size(); ++i)
+        m_sideHeaders[i]->setText(labels.at(i));
     for (auto it = m_customSections.begin(); it != m_customSections.end();
          ++it)
         it->box->setVisible(false);
@@ -5807,16 +5948,56 @@ void MainWindow::updateResultLabel() {
             }
         }
     }
+    QString pillSite;
+    if (const BrowserTab *t = currentTab()) {
+        for (const QString &key : t->sites) {
+            if (!isVirtualSource(key)) {
+                pillSite = key;
+                break;
+            }
+        }
+    }
+    if (pillSite.isEmpty() && !m_current.isEmpty()) {
+        const Post &first = m_current.first();
+        pillSite = !first.siteKey.isEmpty()
+                       ? first.siteKey
+                       : RemotePosts::keyForLabel(first.siteName);
+    }
+    auto mergedBucket = [&](const QString &category) -> QString {
+        const TagCategoryMerge *m = TagCategories::mergeFor(
+            m_settings.tagCategoryMerges, pillSite, category);
+        if (!m)
+            return {};
+        return TagCategories::classicBucket(m->target); // "" = custom
+    };
     auto pillBucket = [&](const QString &tag) -> QString {
         if (customOf.contains(tag)) {
-            // Mapped native categories wear their classic bucket colour.
-            const QString mapped = m_settings.customBucketMap.value(
-                customOf.value(tag).toLower());
+            const QString cat = customOf.value(tag);
+            // User merge wins, then the legacy category → bucket map.
+            if (const TagCategoryMerge *m = TagCategories::mergeFor(
+                    m_settings.tagCategoryMerges, pillSite, cat)) {
+                const QString b = TagCategories::classicBucket(m->target);
+                return b.isEmpty() ? QStringLiteral("custom") : b;
+            }
+            const QString mapped =
+                m_settings.customBucketMap.value(cat.toLower());
             return mapped.isEmpty() ? QStringLiteral("custom") : mapped;
         }
-        if (!isBrowse())
-            return m_index.bucketOf(tag);
-        return browseBuckets.value(tag, QStringLiteral("general"));
+        const QString base = !isBrowse()
+                                 ? m_index.bucketOf(tag)
+                                 : browseBuckets.value(
+                                       tag, QStringLiteral("general"));
+        if (isBrowse()) {
+            const QString merged = mergedBucket(base);
+            if (!merged.isEmpty())
+                return merged;
+            if (const TagCategoryMerge *m = TagCategories::mergeFor(
+                    m_settings.tagCategoryMerges, pillSite, base)) {
+                if (TagCategories::classicBucket(m->target).isEmpty())
+                    return QStringLiteral("custom");
+            }
+        }
+        return base;
     };
     for (const QString &t : m_activeTags) {
         const QString clean =
@@ -6490,13 +6671,10 @@ void MainWindow::setAspect(int num, int den) {
 }
 
 void MainWindow::applyThemeFromSettings() {
-    if (m_settings.themeMode == QStringLiteral("native")) {
-        Theme::applyNative(*qApp);
-    } else {
-        Theme::applyDefault(*qApp, QColor(m_settings.accent));
-        if (!m_settings.stylesheet.isEmpty())
-            Theme::applyStylesheetFile(*qApp, m_settings.stylesheet);
-    }
+    Theme::applyTheme(*qApp, m_settings.themeMode, QColor(m_settings.accent));
+    if (m_settings.themeMode != QStringLiteral("native") &&
+        !m_settings.stylesheet.isEmpty())
+        Theme::applyStylesheetFile(*qApp, m_settings.stylesheet);
 }
 
 void MainWindow::runClassifyPopup() {
@@ -6910,7 +7088,8 @@ void MainWindow::applyPreferences(const AppSettings &app) {
     m_viewer->setPlaybackDefaults(m_settings.videoMuted, m_settings.videoLoop,
                                   m_settings.volume);
     m_viewer->setMaxSide(m_settings.viewerMaxSide);
-    m_welcome->setMascot(m_settings.mascotPath);
+    m_viewer->setCategoryMerges(m_settings.tagCategoryMerges);
+    m_welcome->setMascot(effectiveMascotPath(m_settings));
     m_welcome->setMascotOpacity(m_settings.mascotOpacity);
     m_welcome->setMascotScale(m_settings.mascotScale);
     m_welcome->setMascotMargin(m_settings.mascotMargin);
@@ -6934,6 +7113,13 @@ void MainWindow::applyPreferences(const AppSettings &app) {
         // else: appearance/download/speed edits leave the grid alone
     } else {
         applyFilter();
+    }
+    if (old.tagCategoryMerges != m_settings.tagCategoryMerges) {
+        if (isBrowse())
+            rebuildBrowseSidebar();
+        updateResultLabel();
+        if (m_viewer && m_viewer->hasCurrent())
+            m_viewer->showRow(m_viewer->currentRow());
     }
 }
 

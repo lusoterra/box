@@ -61,6 +61,7 @@ struct BrowserTab {
     QVector<Post> localPosts;  // local index cache (+ favourites list)
     QVector<Post> browseMerged; // remote fetched (unfiltered)
     QString viewerKey; // open post identity (site#id or file); empty = grid
+    int scrollRow = -1; // first visible grid row (restored on tab/session)
 };
 class ThumbLoader;
 class VideoThumbGrabber;
@@ -382,6 +383,7 @@ private:
         QListWidget *list = nullptr;
     };
     QMap<QString, CustomSidebarSection> m_customSections;
+    QList<QLabel *> m_sideHeaders; // fixed 5, same order as m_sideSplit
     QStackedWidget *m_pages = nullptr;
     QStackedWidget *m_stage = nullptr; // 0 = welcome, 1 = browser
     WelcomePage *m_welcome = nullptr;

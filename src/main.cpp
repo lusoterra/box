@@ -17,11 +17,9 @@
 namespace {
 void applyStartupTheme(QApplication &app, const AppSettings &s,
                        const QString &cliStylesheet, bool cliNative) {
-    if (cliNative || s.themeMode == QStringLiteral("native")) {
-        Theme::applyNative(app);
-    } else {
-        Theme::applyDefault(app, QColor(s.accent));
-    }
+    Theme::applyTheme(app, cliNative ? QStringLiteral("native")
+                                     : s.themeMode,
+                      QColor(s.accent));
     if (!cliStylesheet.isEmpty())
         Theme::applyStylesheetFile(app, cliStylesheet);
     else if (!cliNative && s.themeMode != QStringLiteral("native") &&
@@ -66,7 +64,7 @@ int main(int argc, char *argv[]) {
     // No organization name: with org == app the platform cache dir nests
     // twice (~/.cache/box/box). Nothing depends on
     // the org name (all paths are explicit).
-    app.setWindowIcon(QIcon(QStringLiteral(":/icons/app.png")));
+    app.setWindowIcon(QIcon(QStringLiteral(":/icons/app.svg")));
 
     // i18n: translators add translations/box_<locale>.ts and
     // the matching .qm embeds + loads automatically from :/i18n.

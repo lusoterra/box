@@ -3,6 +3,7 @@
 // shapes live in engine_danbooru.cpp and friends.
 #include "booruengine.h"
 #include "explicittags.h"
+#include "tagcategories.h"
 
 #include <QDateTime>
 #include <QJsonArray>
@@ -95,6 +96,12 @@ QJsonObject BooruEngineOps::firstOfArray(const QJsonArray &arr, bool &ok) {
     }
     return QJsonObject();
 }
+
+namespace RemotePosts {
+QString classicBucketForCategory(const QString &category) {
+    return TagCategories::classicBucket(category);
+}
+} // namespace RemotePosts
 
 void BooruEngineOps::finishRemote(Post &p, const QString &siteLabel,
                                   const QJsonObject &raw, BooruEngine engine,
@@ -228,6 +235,36 @@ void BooruEngineOps::finishRemote(Post &p, const QString &siteLabel,
     p.tagsGeneral = cleanTagTokens(splitTags(p.tagsGeneral)).join(u' ');
     p.tagsMeta = cleanTagTokens(splitTags(p.tagsMeta)).join(u' ');
     p.untyped = cleanTagTokens(splitTags(p.untyped)).join(u' ');
+    // Native category groups that merely repeat a classic bucket (Nuuru's
+    // Character/Meta/Series, HyBooru namespaces, ...) must not render a
+    // second time. Drop only when every tag already survives in the
+    // classic blobs, so no genuinely custom tag is lost.
+    {
+        QSet<QString> classic;
+        for (const QString &blob : {p.tagsArtist, p.tagsCharacter,
+                                    p.tagsCopyright, p.tagsGeneral,
+                                    p.tagsMeta}) {
+            for (const QString &t : splitTags(blob))
+                classic.insert(t);
+        }
+        for (auto it = p.customTags.begin(); it != p.customTags.end();) {
+            if (RemotePosts::classicBucketForCategory(it.key()).isEmpty()) {
+                ++it;
+                continue;
+            }
+            bool allClassic = !it.value().isEmpty();
+            for (const QString &t : it.value()) {
+                if (!classic.contains(t.trimmed())) {
+                    allClassic = false;
+                    break;
+                }
+            }
+            if (allClassic)
+                it = p.customTags.erase(it);
+            else
+                ++it;
+        }
+    }
     // Disabled buckets for this booru fold into general (non-anime
     // taxonomies). Per-host keys win; legacy engine keys still apply.
     // General itself never folds.

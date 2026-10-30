@@ -1,6 +1,7 @@
 <RCC>
     <qresource prefix="/icons">
-        <file alias="app.png">../icon.png</file>
+        <file alias="app.svg">../assets/box.svg</file>
+        <file alias="マニフェスト.jpg">../assets/マニフェスト.jpg</file>
     </qresource>
     <qresource prefix="/icons/ui">
         <file alias="arrow-left.svg">../assets/icons/arrow-left.svg</file>
