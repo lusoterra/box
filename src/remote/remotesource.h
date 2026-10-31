@@ -151,6 +151,10 @@ QString fsTagForPost(const Post &post);
 // host -> key for every configured + preset entry. Lets sidecar refresh
 // resolve host-named folders back to sites.
 QMap<QString, QString> hostKeys();
+// URL handed to other apps when a post is dragged out: direct media URL
+// or its page link, per entry override else the global mode. Empty for
+// local posts (the file itself is dragged).
+QString dragUrlFor(const Post &post, DragLinkMode globalMode);
 // Entry behind any post: remote posts via siteKey/siteName, downloaded
 // (locally linked) posts via their folder host or legacy label. Null
 // for strays and plain library folders. Backs grid origin badges and
@@ -164,6 +168,11 @@ QString postPageUrlFor(const BooruSite &site, qint64 id);
 // wall and point at cookie capture instead of quoting markup.
 bool looksLikeCloudflareWall(const QByteArray &body);
 bool looksLikeChallengePage(const QByteArray &body);
+// Magic-byte sniff for media bodies: some hosts (Shimmie among them) serve
+// JPEG/PNG/WebP/MP4 with an empty or misleading Content-Type. Accepting
+// bytes by signature avoids both wall pages and false "unexpected content
+// type" failures. Pure.
+bool looksLikeMediaBytes(const QByteArray &head);
 QString wallAwareMediaError(const QString &host, const QByteArray &body,
                             const QString &contentType);
 // Referer required by hotlink-protected media hosts (Gelbooru-family

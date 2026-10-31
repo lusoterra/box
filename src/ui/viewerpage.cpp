@@ -13,7 +13,10 @@
 #include <QBoxLayout>
 #include <QClipboard>
 #include <QCryptographicHash>
+#include <QApplication>
 #include <QDesktopServices>
+#include <QDrag>
+#include <QMimeData>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -53,6 +56,20 @@
 #include "flowlayout.h"
 
 namespace {
+void beginUrlDrag(QWidget *source, const QPixmap &preview,
+                  const QString &url) {
+    if (url.isEmpty())
+        return;
+    auto *mime = new QMimeData();
+    mime->setUrls({QUrl(url)});
+    mime->setText(url);
+    auto *drag = new QDrag(source);
+    drag->setMimeData(mime);
+    if (!preview.isNull())
+        drag->setPixmap(preview.scaled(128, 128, Qt::KeepAspectRatio,
+                                       Qt::SmoothTransformation));
+    drag->exec(Qt::CopyAction);
+}
 QString formatBytes(qint64 bytes) {
     if (bytes < 1024)
         return QString::number(bytes) + QStringLiteral(" B");
@@ -148,7 +165,7 @@ void ImageView::applyPendingNotes() {
         auto *dot = new QGraphicsEllipseItem(-3, -3, 6, 6, box);
         dot->setPen(Qt::NoPen);
         dot->setBrush(accent);
-        dot->setToolTip(n.body);
+        // No Qt title-tooltip: a left click opens the readable popup.
         m_noteBoxes.append(box);
     }
 }
@@ -206,11 +223,44 @@ bool ImageView::viewportEvent(QEvent *e) {
 void ImageView::mouseDoubleClickEvent(QMouseEvent *e) {
     if (!m_item)
         return;
-    if (m_fitted)
-        zoom100();
-    else
-        fit();
+    emit fullscreenToggleRequested();
     e->accept();
+}
+
+void ImageView::contextMenuEvent(QContextMenuEvent *e) {
+    emit contextMenuRequested(e->globalPos());
+    e->accept();
+}
+
+void ImageView::mousePressEvent(QMouseEvent *e) {
+    if (e->button() == Qt::LeftButton) {
+        const QPointF scenePos = mapToScene(e->pos());
+        const int idx = m_noteBoxes.indexOf(
+            static_cast<QGraphicsRectItem *>(scene()->itemAt(
+                scenePos, QTransform())));
+        if (idx >= 0 && idx < m_notes.size()) {
+            emit noteActivated(m_notes.at(idx).body, e->globalPosition().toPoint());
+            e->accept();
+            return;
+        }
+    }
+    // At fit there is nothing to pan: a left drag exports the post URL.
+    if (e->button() == Qt::LeftButton && m_fitted && !m_dragUrl.isEmpty()) {
+        m_dragPress = e->pos();
+        m_dragMaybe = true;
+    }
+    QGraphicsView::mousePressEvent(e);
+}
+
+void ImageView::mouseMoveEvent(QMouseEvent *e) {
+    if (m_dragMaybe && (e->buttons() & Qt::LeftButton) &&
+        (e->pos() - m_dragPress).manhattanLength() >=
+            QApplication::startDragDistance()) {
+        m_dragMaybe = false;
+        beginUrlDrag(this, grab(), m_dragUrl);
+        return;
+    }
+    QGraphicsView::mouseMoveEvent(e);
 }
 
 void ImageView::resizeEvent(QResizeEvent *e) {
@@ -376,11 +426,32 @@ bool GifView::viewportEvent(QEvent *e) {
 void GifView::mouseDoubleClickEvent(QMouseEvent *e) {
     if (!m_item)
         return;
-    if (m_fitted)
-        zoom100();
-    else
-        fit();
+    emit fullscreenToggleRequested();
     e->accept();
+}
+
+void GifView::contextMenuEvent(QContextMenuEvent *e) {
+    emit contextMenuRequested(e->globalPos());
+    e->accept();
+}
+
+void GifView::mousePressEvent(QMouseEvent *e) {
+    if (e->button() == Qt::LeftButton && m_fitted && !m_dragUrl.isEmpty()) {
+        m_dragPress = e->pos();
+        m_dragMaybe = true;
+    }
+    QGraphicsView::mousePressEvent(e);
+}
+
+void GifView::mouseMoveEvent(QMouseEvent *e) {
+    if (m_dragMaybe && (e->buttons() & Qt::LeftButton) &&
+        (e->pos() - m_dragPress).manhattanLength() >=
+            QApplication::startDragDistance()) {
+        m_dragMaybe = false;
+        beginUrlDrag(this, grab(), m_dragUrl);
+        return;
+    }
+    QGraphicsView::mouseMoveEvent(e);
 }
 
 void GifView::resizeEvent(QResizeEvent *e) {
@@ -532,11 +603,32 @@ bool VideoView::viewportEvent(QEvent *e) {
 }
 
 void VideoView::mouseDoubleClickEvent(QMouseEvent *e) {
-    if (m_fitted)
-        zoom100();
-    else
-        fit();
+    emit fullscreenToggleRequested();
     e->accept();
+}
+
+void VideoView::contextMenuEvent(QContextMenuEvent *e) {
+    emit contextMenuRequested(e->globalPos());
+    e->accept();
+}
+
+void VideoView::mousePressEvent(QMouseEvent *e) {
+    if (e->button() == Qt::LeftButton && m_fitted && !m_dragUrl.isEmpty()) {
+        m_dragPress = e->pos();
+        m_dragMaybe = true;
+    }
+    QGraphicsView::mousePressEvent(e);
+}
+
+void VideoView::mouseMoveEvent(QMouseEvent *e) {
+    if (m_dragMaybe && (e->buttons() & Qt::LeftButton) &&
+        (e->pos() - m_dragPress).manhattanLength() >=
+            QApplication::startDragDistance()) {
+        m_dragMaybe = false;
+        beginUrlDrag(this, grab(), m_dragUrl);
+        return;
+    }
+    QGraphicsView::mouseMoveEvent(e);
 }
 
 void VideoView::resizeEvent(QResizeEvent *e) {
@@ -602,6 +694,10 @@ VideoPane::VideoPane(QWidget *parent) : QWidget(parent) {
     lay->setContentsMargins(0, 0, 0, 0);
     m_view = new VideoView(this);
     m_view->viewport()->installEventFilter(this); // click toggles pause
+    connect(m_view, &VideoView::fullscreenToggleRequested, this,
+            &VideoPane::fullscreenToggleRequested);
+    connect(m_view, &VideoView::contextMenuRequested, this,
+            &VideoPane::contextMenuRequested);
     lay->addWidget(m_view, 1);
     m_player = new QMediaPlayer(this);
     m_audio = new QAudioOutput(this);
@@ -651,6 +747,9 @@ VideoPane::VideoPane(QWidget *parent) : QWidget(parent) {
     m_buf = new QLabel(this);
     m_buf->setStyleSheet(QStringLiteral("color:#7c9ef8;"));
     m_buf->setVisible(false);
+    m_buf->setCursor(Qt::PointingHandCursor);
+    m_buf->setToolTip(tr("Click for request details"));
+    m_buf->installEventFilter(this);
     ctl->addWidget(m_playBtn);
     ctl->addWidget(m_slider, 1);
     ctl->addWidget(m_time);
@@ -673,8 +772,16 @@ VideoPane::VideoPane(QWidget *parent) : QWidget(parent) {
                 m_buf->setText(tr("loading…"));
         }
         if (s == QMediaPlayer::LoadedMedia) {
-            m_player->setPlaybackRate(m_rate); // stick across videos in-session
-            m_player->play(); // setSource() is async: play once the source is ready
+            // Only the source we asked for, and only while playback is
+            // still wanted: a stale tick from the previous video used to
+            // restart it (audio from 0:00 over a still/another post).
+            if (m_wanted &&
+                (m_expectedSource.isEmpty() ||
+                 m_player->source() == m_expectedSource)) {
+                m_player->setPlaybackRate(
+                    m_rate); // stick across videos in-session
+                m_player->play(); // setSource() is async: play when ready
+            }
         }
         if (s == QMediaPlayer::InvalidMedia)
             onPlayerError(tr("Cannot play this video"));
@@ -762,6 +869,14 @@ void VideoPane::zoom100View() {
 }
 
 bool VideoPane::eventFilter(QObject *watched, QEvent *e) {
+    if (watched == m_buf && e->type() == QEvent::MouseButtonPress &&
+        m_errorShown &&
+        static_cast<QMouseEvent *>(e)->button() == Qt::LeftButton) {
+        emit errorDetailsRequested(
+            m_lastRemoteUrl,
+            m_buf->text().isEmpty() ? tr("Media failed") : m_buf->text());
+        return true;
+    }
     // Left-click on the picture toggles pause; anything else (side
     // buttons included) keeps its normal path to the parent viewer.
     // NOTE: drag-pan starts with a left press too - the click only
@@ -890,11 +1005,15 @@ void VideoPane::setUrl(const QUrl &url, const Post &post) {
         m_webBackend->start(m_webId, url.toString(), m_tmpPath);
         return;
     }
+    m_wanted = true;
+    m_expectedSource = url;
     m_player->setSource(url);
     m_player->play();
 }
 
 void VideoPane::stop() {
+    m_wanted = false;
+    m_expectedSource.clear();
     if (m_webId >= 0 && m_webBackend) {
         m_webBackend->cancel(m_webId);
         m_webId = -1;
@@ -907,10 +1026,11 @@ void VideoPane::stop() {
     m_errorShown = false;
     ++m_errorGen; // cancel any deferred red
     m_player->stop();
+    m_audio->setMuted(true); // no ghost audio if a backend plays on
     // Don't clear the source here: setSource(QUrl()) is async and can emit
     // InvalidMedia *after* setUrl() has already loaded the next video,
     // stranding the player in an error state. setUrl()'s setSource(url)
-    // replaces whatever was playing directly.
+    // replaces whatever was playing directly; m_wanted gates stale play().
     m_buf->setVisible(false); // clear any stale error/buffering text
     if (m_view)
         m_view->fit(); // next video starts fitted, not at the old zoom
@@ -963,8 +1083,10 @@ void VideoPane::onCacheReady(const QString &url, const QString &localPath) {
     // play() against a half-loaded new source resumes the OLD video
     // (the "still playing the first video" bug). The empty source's
     // async InvalidMedia is swallowed by the error-gen bump above.
+    m_wanted = true;
+    m_expectedSource = QUrl::fromLocalFile(localPath);
     m_player->setSource(QUrl());
-    m_player->setSource(QUrl::fromLocalFile(localPath));
+    m_player->setSource(m_expectedSource);
     m_player->play();
 }
 
@@ -1041,8 +1163,10 @@ void VideoPane::onWebFinished(qint64 id, bool ok, const QString &error) {
         // keeps it loaded, so play() against a half-loaded source would
         // resume the OLD video.
         ++m_errorGen;
+        m_wanted = true;
+        m_expectedSource = QUrl::fromLocalFile(m_tmpPath);
         m_player->setSource(QUrl());
-        m_player->setSource(QUrl::fromLocalFile(m_tmpPath));
+        m_player->setSource(m_expectedSource);
         m_player->play();
     } else {
         dropTemp();
@@ -1068,6 +1192,28 @@ ViewerPage::ViewerPage(QWidget *parent) : QWidget(parent) {
     m_video = new VideoPane(this);
     connect(m_video, &VideoPane::mediaFailed, this,
             &ViewerPage::mediaFailed); // straight relay to the shell
+    connect(m_image, &ImageView::fullscreenToggleRequested, this,
+            &ViewerPage::fullscreenToggleRequested);
+    connect(m_gif, &GifView::fullscreenToggleRequested, this,
+            &ViewerPage::fullscreenToggleRequested);
+    connect(m_video, &VideoPane::fullscreenToggleRequested, this,
+            &ViewerPage::fullscreenToggleRequested);
+    auto mediaContext = [this](const QPoint &pos) {
+        if (!m_posts.isEmpty() && m_row >= 0 && m_row < m_posts.size())
+            emit postContextRequested(m_posts.at(m_row), pos);
+    };
+    connect(m_image, &ImageView::contextMenuRequested, this, mediaContext);
+    connect(m_image, &ImageView::noteActivated, this,
+            &ViewerPage::showNotePopup);
+    connect(m_gif, &GifView::contextMenuRequested, this, mediaContext);
+    connect(m_video, &VideoPane::contextMenuRequested, this, mediaContext);
+    connect(m_video, &VideoPane::errorDetailsRequested, this,
+            [this](const QString &url, const QString &error) {
+                emit probeRequested(
+                    tr("Media load failed"),
+                    RemotePosts::probeReportText(
+                        RemotePosts::redactSecrets(url), 0, error.toUtf8()));
+            });
     m_stack->addWidget(m_image);
     m_stack->addWidget(m_gif);
     m_stack->addWidget(m_video);
@@ -1250,7 +1396,9 @@ ViewerPage::ViewerPage(QWidget *parent) : QWidget(parent) {
     bar->addWidget(openBtn);
     bar->addWidget(copyBtn);
     bar->addWidget(m_commentsBtn);
-    lay->addLayout(bar);
+    m_toolbarBox = new QWidget(this);
+    m_toolbarBox->setLayout(bar);
+    lay->addWidget(m_toolbarBox);
 
     auto *body = new QHBoxLayout();
     auto *mediaCol = new QWidget(this);
@@ -1260,6 +1408,17 @@ ViewerPage::ViewerPage(QWidget *parent) : QWidget(parent) {
     m_note = new QLabel(this);
     m_note->setStyleSheet(QStringLiteral("color:#7c9ef8;font-size:11px;"));
     m_note->setVisible(false);
+    m_note->setOpenExternalLinks(false);
+    m_note->setTextInteractionFlags(Qt::TextBrowserInteraction);
+    connect(m_note, &QLabel::linkActivated, this, [this](const QString &) {
+        if (m_noteUrl.isEmpty())
+            return;
+        emit probeRequested(
+            tr("Media load failed"),
+            RemotePosts::probeReportText(
+                RemotePosts::redactSecrets(m_noteUrl), 0,
+                m_noteError.toUtf8()));
+    });
     leftLay->addWidget(m_note);
     body->addWidget(mediaCol, 1);
 
@@ -1331,6 +1490,7 @@ ViewerPage::ViewerPage(QWidget *parent) : QWidget(parent) {
     m_srcLabel->setOpenExternalLinks(true);
     m_srcLabel->setStyleSheet(QStringLiteral("font-size:10px;"));
     pl->addWidget(m_srcLabel);
+    m_sidePanel = panel;
     body->addWidget(panel);
     lay->addLayout(body, 1);
 
@@ -1390,6 +1550,16 @@ void ViewerPage::setPlaybackDefaults(bool muted, bool loop, int volume) {
     m_video->setDefaults(muted, loop, volume);
 }
 
+void ViewerPage::setImmersive(bool on) {
+    if (m_toolbarBox)
+        m_toolbarBox->setVisible(!on);
+    if (m_sidePanel)
+        m_sidePanel->setVisible(!on);
+    if (auto *l = layout())
+        l->setContentsMargins(on ? 0 : 8, on ? 0 : 8, on ? 0 : 8,
+                              on ? 0 : 8);
+}
+
 void ViewerPage::stopPlayback() {
     if (m_video)
         m_video->stop();
@@ -1440,8 +1610,23 @@ void ViewerPage::setImageCache(ImageCache *cache) {
 }
 
 void ViewerPage::showNote(const QString &text) {
+    m_noteUrl.clear();
+    m_noteError.clear();
+    m_note->setTextFormat(Qt::PlainText);
+    m_note->setCursor(Qt::ArrowCursor);
     m_note->setText(text);
     m_note->setVisible(!text.isEmpty());
+}
+
+void ViewerPage::showErrorNote(const QString &url, const QString &text) {
+    m_noteUrl = url;
+    m_noteError = text;
+    m_note->setTextFormat(Qt::RichText);
+    m_note->setCursor(Qt::PointingHandCursor);
+    m_note->setText(QStringLiteral("<a href=\"details\">%1</a>")
+                        .arg(text.toHtmlEscaped()));
+    m_note->setToolTip(tr("Click for request details"));
+    m_note->setVisible(true);
 }
 
 void ViewerPage::onCacheReady(const QString &url, const QString &localPath) {
@@ -1485,7 +1670,7 @@ void ViewerPage::onCacheFailed(const QString &url, const QString &error) {
     m_pendingUrl.clear();
     m_loadBar->setVisible(false);
     m_loadInfo->setVisible(false);
-    showNote(tr("Download failed: %1").arg(error));
+    showErrorNote(url, tr("Download failed: %1").arg(error));
     emit mediaFailed(url, error);
     // Fingerprint-walled stills/GIFs (ATF originals): the browser stack
     // re-runs page JS and mints fresh clearance where QNAM replays a
@@ -1528,16 +1713,20 @@ void ViewerPage::onStillWebFinished(qint64 id, bool ok, const QString &error) {
     m_stillWebId = -1;
     const QString tmp = m_stillTmp;
     m_stillTmp.clear();
+    const QString failedUrl =
+        m_stillRow >= 0 && m_stillRow < m_posts.size()
+            ? m_posts.at(m_stillRow).fileUrl
+            : QString();
     if (m_stillRow < 0 || m_stillRow >= m_posts.size() ||
         m_stillRow != m_row || !QFile::exists(tmp)) {
         QFile::remove(tmp);
         if (!ok)
-            showNote(tr("Download failed: %1").arg(error));
+            showErrorNote(failedUrl, tr("Download failed: %1").arg(error));
         return;
     }
     if (!ok) {
         QFile::remove(tmp);
-        showNote(tr("Download failed: %1").arg(error));
+        showErrorNote(failedUrl, tr("Download failed: %1").arg(error));
         emit mediaFailed(m_posts.at(m_row).fileUrl, error);
         return;
     }
@@ -1598,6 +1787,28 @@ void ViewerPage::onCacheProgress(const QString &url, qint64 received, qint64 tot
         info += QStringLiteral("  ·  ") + formatBytes(qint64(speedBps)) + QStringLiteral("/s");
     m_loadInfo->setText(info);
     m_loadInfo->setVisible(true);
+}
+
+void ViewerPage::showNotePopup(const QString &body, const QPoint &globalPos) {
+    if (body.trimmed().isEmpty())
+        return;
+    auto *dlg = new QDialog(this);
+    dlg->setAttribute(Qt::WA_DeleteOnClose);
+    dlg->setWindowTitle(tr("Annotation note"));
+    auto *lay = new QVBoxLayout(dlg);
+    auto *l = new QLabel(body, dlg);
+    l->setTextFormat(Qt::PlainText); // sidecar/API text, never markup
+    l->setWordWrap(true);
+    l->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    l->setMinimumWidth(360);
+    l->setMaximumWidth(560);
+    lay->addWidget(l);
+    auto *close = new QPushButton(tr("Close"), dlg);
+    connect(close, &QPushButton::clicked, dlg, &QDialog::accept);
+    lay->addWidget(close, 0, Qt::AlignRight);
+    dlg->move(globalPos + QPoint(8, 8));
+    dlg->show();
+    dlg->raise();
 }
 
 void ViewerPage::loadLocalImage(const QString &path, int row) {
@@ -1724,6 +1935,20 @@ void ViewerPage::showRow(int row) {
     m_loadInfo->setVisible(false);
     showNote({});
     m_row = row;
+    {
+        const Post &p = m_posts.at(row);
+        const QString drag =
+            isVideoExt(p.ext)
+                ? QString()
+                : (p.isRemote
+                       ? RemotePosts::dragUrlFor(p, m_dragLinkMode)
+                       : (p.absFile.isEmpty()
+                              ? QString()
+                              : QUrl::fromLocalFile(p.absFile).toString()));
+        m_image->setDragUrl(drag);
+        m_gif->setDragUrl(drag);
+        m_video->setDragUrl(drag);
+    }
     m_commentsExpanded = false; // long threads start collapsed, per post
     emit currentRowChanged(row);
     maybeFetchHybooruDetail();
@@ -1809,22 +2034,31 @@ void ViewerPage::primeThumb(int row) {
 }
 
 void ViewerPage::preloadNeighbours() {
-    // Full files for the adjacent posts go into the image cache now, so
-    // stepping shows them instantly. Stills only: videos stream and full
-    // GIFs can be enormous.
+    // Warm the two neighbours on each side with the URL the viewer will
+    // actually open (sample first: smaller, and exactly what showCurrent
+    // requests, so stepping is a cache hit instead of a second fetch).
+    // GIFs count too (their samples are small); videos are skipped - a
+    // full stream would be huge and a byte range cannot be handed to the
+    // player. Their grid thumbnails are already decoded.
     if (!m_imgCache || m_row < 0 || m_row >= m_posts.size())
         return;
-    for (int d : {-1, 1}) {
+    for (int d : {-2, -1, 1, 2}) {
         const int nr = m_row + d;
         if (nr < 0 || nr >= m_posts.size())
             continue;
         const Post &np = m_posts.at(nr);
-        if (!np.isRemote || isVideoExt(np.ext) ||
-            np.ext == QStringLiteral("gif"))
+        if (!np.isRemote)
             continue;
-        const QString u = !np.fileUrl.isEmpty()
-                              ? np.fileUrl
-                              : RemotePosts::viewerUrlFor(np);
+        if (isVideoExt(np.ext)) {
+            // Videos cannot be handed to the player from a partial file,
+            // but warming the first few MB makes the next open start
+            // immediately (DNS/TLS/range cache on the CDN).
+            if (!np.fileUrl.isEmpty())
+                m_imgCache->prefetchRange(np.fileUrl,
+                                          RemotePosts::mediaRefererFor(np));
+            continue;
+        }
+        const QString u = RemotePosts::viewerUrlFor(np);
         if (!u.isEmpty())
             m_imgCache->request(u, RemotePosts::mediaRefererFor(np), &np);
     }
@@ -1863,7 +2097,9 @@ void ViewerPage::showCurrent() {
         const auto itc = p.isRemote
                              ? m_metaCache.constFind(metaKey())
                              : m_metaCache.constEnd();
-        const int n = itc != m_metaCache.constEnd() ? itc->second.size() : 0;
+        const int n = itc != m_metaCache.constEnd()
+                          ? itc->comments.size()
+                          : 0;
         m_commentsBtn->setEnabled(p.isRemote);
         m_commentsBtn->setText(n > 0 ? tr("Comments (%1)").arg(n)
                                     : tr("Comments"));
@@ -2134,14 +2370,15 @@ void ViewerPage::renderTags() {
             customGroups[key] << it.value();
             labels.insert(key, TagCategories::displayTarget(it.key()));
         }
-        // Fixed order (Artist, Character, Copyright, Meta, General) even
-        // when a merge renames or combines them.
+        // Fixed order (Artist, Character, Copyright, General, Meta) even
+        // when a merge renames or combines them; native custom categories
+        // (weird boorus) follow after.
         const QList<QPair<QString, QString>> order = {
             {QStringLiteral("artist"), tr("Artist")},
             {QStringLiteral("character"), tr("Character")},
             {QStringLiteral("copyright"), tr("Copyright")},
-            {QStringLiteral("meta"), tr("Meta")},
             {QStringLiteral("general"), tr("General")},
+            {QStringLiteral("meta"), tr("Meta")},
         };
         for (const auto &[bucket, fallback] : order) {
             const QStringList tags = groups.value(bucket);
@@ -2233,7 +2470,9 @@ void ViewerPage::renderMetaSections() {
         }
         return; // still fetching (or failed, noted above)
     }
-    const auto &[notes, comments] = *it;
+    const QVector<PostNote> &notes = it->notes;
+    const QVector<PostComment> &comments = it->comments;
+    const QVector<PostComment> &commentary = it->commentary;
     if (!notes.isEmpty()) {
         auto *hl = new QLabel(tr("NOTES (%1)").arg(notes.size()), this);
         hl->setStyleSheet(QStringLiteral("color:#4a5068;font-size:10px;"));
@@ -2249,6 +2488,19 @@ void ViewerPage::renderMetaSections() {
                 this);
             l->setWordWrap(true);
             l->setStyleSheet(QStringLiteral("color:#9aa0b8;font-size:11px;"));
+            l->setTextInteractionFlags(Qt::TextSelectableByMouse);
+            m_tagLayout->addWidget(l);
+        }
+    }
+    if (!commentary.isEmpty()) {
+        auto *hl = new QLabel(tr("ARTIST COMMENTARY"), this);
+        hl->setStyleSheet(QStringLiteral("color:#4a5068;font-size:10px;"));
+        m_tagLayout->addWidget(hl);
+        for (const PostComment &c : commentary) {
+            auto *l = new QLabel(c.body.toHtmlEscaped(), this);
+            l->setWordWrap(true);
+            l->setTextFormat(Qt::RichText);
+            l->setStyleSheet(QStringLiteral("font-size:11px;"));
             l->setTextInteractionFlags(Qt::TextSelectableByMouse);
             m_tagLayout->addWidget(l);
         }
@@ -2326,7 +2578,9 @@ void ViewerPage::refetchMeta(const Post &p) {
 }
 
 void ViewerPage::onMetaDone(const QString &site, qint64 postId,
-                             QVector<PostNote> notes, QVector<PostComment> comments, bool ok,
+                             QVector<PostNote> notes,
+                             QVector<PostComment> comments,
+                             QVector<PostComment> commentary, bool ok,
                              const QString &error) {
     const QString key = site + u'#' + QString::number(postId);
     if (!ok) {
@@ -2345,7 +2599,7 @@ void ViewerPage::onMetaDone(const QString &site, qint64 postId,
     }
     m_metaFailed.remove(key);
     m_metaFailureReason.remove(key);
-    m_metaCache.insert(key, {notes, comments});
+    m_metaCache.insert(key, {notes, comments, commentary});
     // Grid pills learn from the fetched tail too (OR-in downstream):
     // a post whose search row carried no stamp still earns its marks.
     emit metaMarksChanged(site, postId, !comments.isEmpty(), !notes.isEmpty());
@@ -2355,7 +2609,9 @@ void ViewerPage::onMetaDone(const QString &site, qint64 postId,
         return;
     if (m_commentsBtn) {
         const auto it = m_metaCache.constFind(metaKey());
-        const int n = it != m_metaCache.constEnd() ? it->second.size() : 0;
+        const int n = it != m_metaCache.constEnd()
+                          ? it->comments.size()
+                          : 0;
         m_commentsBtn->setText(n > 0 ? tr("Comments (%1)").arg(n)
                                     : tr("Comments"));
     }
@@ -2500,14 +2756,28 @@ void ViewerPage::showCommentsPopup() {
                 l->setWordWrap(true);
                 l->setStyleSheet(QStringLiteral("color:#4a5068;"));
                 vl->addWidget(l);
-            } else if (it->second.isEmpty()) {
+            } else if (it->comments.isEmpty() && it->commentary.isEmpty()) {
                 auto *l = new QLabel(tr("No comments yet."), host);
                 l->setWordWrap(true);
                 l->setStyleSheet(QStringLiteral("color:#4a5068;"));
                 vl->addWidget(l);
             } else {
+                if (!it->commentary.isEmpty()) {
+                    auto *hl = new QLabel(tr("ARTIST COMMENTARY"), host);
+                    hl->setStyleSheet(
+                        QStringLiteral("color:#4a5068;font-size:10px;"));
+                    vl->addWidget(hl);
+                    for (const PostComment &c : it->commentary) {
+                        auto *l = new QLabel(c.body.toHtmlEscaped(), host);
+                        l->setWordWrap(true);
+                        l->setTextFormat(Qt::RichText);
+                        l->setTextInteractionFlags(
+                            Qt::TextSelectableByMouse);
+                        vl->addWidget(l);
+                    }
+                }
                 int shown = 0;
-                for (const PostComment &c : it->second) {
+                for (const PostComment &c : it->comments) {
                     if (++shown > 200)
                         break; // threads beyond this stay panel-only
                     vl->addWidget(commentCard(c, host));
@@ -2532,6 +2802,7 @@ void ViewerPage::showCommentsPopup() {
     connect(m_meta, &PostMetaFetcher::done, dlg,
             [this, dlg, key, fill](const QString &site, qint64 postId,
                                    const QVector<PostNote> &,
+                                   const QVector<PostComment> &,
                                    const QVector<PostComment> &, bool,
                                    const QString &) {
                 if (key.isEmpty() ||
@@ -2539,8 +2810,9 @@ void ViewerPage::showCommentsPopup() {
                     return;
                 if (m_commentsBtn && metaKey() == key) {
                     const auto it = m_metaCache.constFind(key);
-                    const int n =
-                        it != m_metaCache.constEnd() ? it->second.size() : 0;
+                    const int n = it != m_metaCache.constEnd()
+                                      ? it->comments.size()
+                                      : 0;
                     m_commentsBtn->setText(n > 0 ? tr("Comments (%1)").arg(n)
                                                 : tr("Comments"));
                 }
@@ -2566,7 +2838,7 @@ void ViewerPage::stageNotes() {
     if (it == m_metaCache.end())
         m_image->setNotes({}, {});
     else
-        m_image->setNotes(it->first, QSize(p.width, p.height));
+        m_image->setNotes(it->notes, QSize(p.width, p.height));
 }
 
 void ViewerPage::addTagGroup(QBoxLayout *lay, const QString &name, const QString &tags,

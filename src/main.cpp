@@ -31,7 +31,7 @@ void applyStartupTheme(QApplication &app, const AppSettings &s,
 int cliError(const QString &msg) {
     fputs(qPrintable(msg + u'\n'), stderr);
     if (QGuiApplication::platformName() != QStringLiteral("offscreen"))
-        QMessageBox::warning(nullptr, QStringLiteral("box"), msg);
+        QMessageBox::warning(nullptr, QStringLiteral("Box"), msg);
     return 1;
 }
 } // namespace
@@ -60,7 +60,8 @@ int main(int argc, char *argv[]) {
     if (!qEnvironmentVariableIsSet("QT_FFMPEG_DECODING_HW_DEVICE_TYPES"))
         qputenv("QT_FFMPEG_DECODING_HW_DEVICE_TYPES", ",");
     QApplication app(argc, argv);
-    app.setApplicationName(QStringLiteral("box"));
+    app.setApplicationName(QStringLiteral("box")); // filesystem paths stay lowercase
+    app.setApplicationDisplayName(QStringLiteral("Box"));
     // No organization name: with org == app the platform cache dir nests
     // twice (~/.cache/box/box). Nothing depends on
     // the org name (all paths are explicit).
@@ -121,7 +122,7 @@ int main(int argc, char *argv[]) {
     static QLockFile appLock(appDataDir() + QStringLiteral("/session.lock"));
     if (!appLock.tryLock()) {
         return cliError(QCoreApplication::translate(
-            "CommandLine", "box is already running."));
+            "CommandLine", "Box is already running."));
     }
     // Theme before the window exists so first paint is already correct.
     const AppSettings settings = loadSettings();

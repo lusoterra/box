@@ -30,6 +30,12 @@ struct AppSettings {
     // downloads would fill the disk with images you never asked to keep.
     // It is also subject to cacheMode (and any per-booru override).
     bool fullCache = false;
+    // Remember executed searches in store.db (off by default: opt-in
+    // browsing history). Reusable from the omnibar history menu.
+    bool searchHistory = false;
+    // What dragging a remote post hands to other apps. Per-booru entries
+    // can override this (BooruSite::dragLinkMode).
+    DragLinkMode dragLinkMode = DragLinkMode::PostPage;
     // Total cache cap in MB (thumbs + full images). 0 = unlimited.
     int cacheLimitMB = 10240;
     int thumbLongSide = 360; // 256/360/512/768
@@ -148,6 +154,12 @@ struct AppSettings {
     int aspectNum = 1;
     int aspectDen = 1;
     int gridBoxW = 184; // grid post width px (size slider, 96-384)
+    // Snap the grid width so a whole number of cards fills the viewport
+    // with no leftover right gap (manual resizing keeps gaps when off).
+    bool gridSnap = true;
+    // Brick/staggered grid rows (odd columns shifted down half a card).
+    // Off by default.
+    bool gridStaggered = false;
     // Grid rows per wheel notch (scroll-speed setting, 0.5-3.0).
     // Fractional ticks accumulate, so high-res wheels stay smooth.
     double gridScrollRows = 0.5;
@@ -254,6 +266,7 @@ inline bool operator==(const AppSettings &a, const AppSettings &b) {
            a.favAutoDownload == b.favAutoDownload && a.favAutoFav == b.favAutoFav &&
            a.unfavDeletesFile == b.unfavDeletesFile &&
            a.deleteUnfavs == b.deleteUnfavs && a.strayAutoFav == b.strayAutoFav &&
+           a.dragLinkMode == b.dragLinkMode && a.searchHistory == b.searchHistory &&
            a.blacklist == b.blacklist &&
            a.hideAi == b.hideAi && a.wallAutoPopup == b.wallAutoPopup &&
            a.favTags == b.favTags &&
@@ -276,7 +289,9 @@ inline bool operator==(const AppSettings &a, const AppSettings &b) {
            qFuzzyCompare(a.mascotScale + 1.0, b.mascotScale + 1.0) &&
            a.mascotMargin == b.mascotMargin &&
            a.aspectNum == b.aspectNum && a.aspectDen == b.aspectDen &&
-           a.gridBoxW == b.gridBoxW && a.gridScrollRows == b.gridScrollRows &&
+           a.gridBoxW == b.gridBoxW && a.gridSnap == b.gridSnap &&
+           a.gridStaggered == b.gridStaggered &&
+           a.gridScrollRows == b.gridScrollRows &&
            a.videoMuted == b.videoMuted &&
            a.videoLoop == b.videoLoop && a.volume == b.volume &&
            a.viewerMaxSide == b.viewerMaxSide &&

@@ -50,6 +50,36 @@ private slots:
         QVERIFY(PostMeta::commentsUrl(BooruEngine::Hybooru, kDan, 1).isEmpty());
     }
 
+    void commentaryUrlPerEngine() {
+        const QUrl dan = PostMeta::commentaryUrl(
+            BooruEngine::Danbooru,
+            QStringLiteral("https://danbooru.donmai.us"), 42);
+        QVERIFY(!dan.isEmpty());
+        QCOMPARE(QUrlQuery(dan).queryItemValue(
+                     QStringLiteral("search[post_id]")),
+                 QStringLiteral("42"));
+        QVERIFY(PostMeta::commentaryUrl(
+                     BooruEngine::Gelbooru,
+                     QStringLiteral("https://gelbooru.com"), 42)
+                     .isEmpty());
+    }
+
+    void parseCommentaryShapes() {
+        const auto c = PostMeta::parseCommentary(
+            QByteArray(R"({"artist_commentary":[{)"
+                       R"("original_title":"JP title",)"
+                       R"("original_description":"JP body",)"
+                       R"("translated_title":"EN title",)"
+                       R"("translated_description":"EN body"}]})"));
+        QCOMPARE(c.size(), 1);
+        QVERIFY(c.at(0).body.contains(QStringLiteral("EN title")));
+        QVERIFY(c.at(0).body.contains(QStringLiteral("EN body")));
+        QVERIFY(!c.at(0).body.contains(QStringLiteral("JP")));
+        bool ok = false;
+        QVERIFY(PostMeta::parseCommentary(QByteArray("nope"), &ok).isEmpty());
+        QVERIFY(!ok);
+    }
+
     void parseNotesShapes() {
         // Danbooru array shape.
         const auto dan = PostMeta::parseNotes(
@@ -112,6 +142,18 @@ private slots:
         QCOMPARE(nuu.size(), 1);
         QCOMPARE(nuu.at(0).author, QStringLiteral("dave"));
         QCOMPARE(nuu.at(0).body, QStringLiteral("cool"));
+        // Real Nuuru/soybooru shape: {"items": [...]} with contentRaw and
+        // a nested author.userName. This is the live shape (2026-10-31).
+        const auto nuuLive = PostMeta::parseComments(
+            QByteArray(R"({"items":[{"id":1,"contentRaw":"Keep Leaking",)"
+                       R"("createdAt":"2026-10-31T09:56:10.547341Z",)"
+                       R"("author":{"userName":"Penisoider"}}],)"
+                       R"("totalCount":1})"));
+        QCOMPARE(nuuLive.size(), 1);
+        QCOMPARE(nuuLive.at(0).author, QStringLiteral("Penisoider"));
+        QCOMPARE(nuuLive.at(0).body, QStringLiteral("Keep Leaking"));
+        QCOMPARE(nuuLive.at(0).date,
+                 QStringLiteral("2026-10-31T09:56:10.547341Z"));
         QVERIFY(PostMeta::parseComments(QByteArray("nope")).isEmpty());
         bool ok = false;
         QVERIFY(PostMeta::parseComments(QByteArray("[]"), &ok).isEmpty());

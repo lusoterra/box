@@ -321,6 +321,36 @@ bool looksLikeChallengePage(const QByteArray &body) {
             text.contains(QStringLiteral("cloudflare"), Qt::CaseInsensitive));
 }
 
+bool looksLikeMediaBytes(const QByteArray &head) {
+    if (head.size() < 4)
+        return false;
+    const auto at = [&](int i, int v) {
+        return i < head.size() &&
+               static_cast<unsigned char>(head.at(i)) ==
+                   static_cast<unsigned char>(v);
+    };
+    if (at(0, 0xFF) && at(1, 0xD8) && at(2, 0xFF))
+        return true; // JPEG
+    if (at(0, 0x89) && at(1, 'P') && at(2, 'N') && at(3, 'G'))
+        return true; // PNG
+    if (head.startsWith("GIF87a") || head.startsWith("GIF89a"))
+        return true;
+    if (head.size() >= 12 && head.startsWith("RIFF") &&
+        head.mid(8, 4) == "WEBP")
+        return true;
+    if (at(0, 'B') && at(1, 'M'))
+        return true; // BMP
+    if (head.size() >= 12 && head.mid(4, 4) == "ftyp")
+        return true; // AVIF/HEIF/MP4/MOV
+    if (at(0, 0x1A) && at(1, 0x45) && at(2, 0xDF) && at(3, 0xA3))
+        return true; // WebM/MKV (EBML)
+    if (at(0, 0xFF) && at(1, 0x0A))
+        return true; // raw JXL codestream
+    if (head.size() >= 12 && head.mid(4, 8) == "JXL     ")
+        return true; // JXL container
+    return false;
+}
+
 // One-line, actionable media error for an HTML body where bytes
 // were expected: names a recognized wall and points at cookie
 // capture, else falls back to the bare content type.
@@ -986,6 +1016,29 @@ bool needsWebDownload(const Post &post) {
             return q->powWall;
     }
     return false;
+}
+
+QString dragUrlFor(const Post &post, DragLinkMode globalMode) {
+    if (!post.isRemote)
+        return {};
+    DragLinkMode mode = globalMode;
+    if (const BooruSite *site = entryForPost(post);
+        site && site->dragLinkMode != DragLinkMode::Inherit)
+        mode = site->dragLinkMode;
+    const bool postOk = !post.postUrl.isEmpty() && isHttpUrl(post.postUrl);
+    const bool fileOk = !post.fileUrl.isEmpty() && isHttpUrl(post.fileUrl);
+    if (mode == DragLinkMode::DirectMedia) {
+        if (fileOk)
+            return post.fileUrl;
+        if (postOk)
+            return post.postUrl;
+    } else {
+        if (postOk)
+            return post.postUrl;
+        if (fileOk)
+            return post.fileUrl;
+    }
+    return {};
 }
 
 QString fsTagForPost(const Post &post) {

@@ -27,6 +27,12 @@
 - sidecar = `<media>.json` next to a file: gallery-dl native/flat object or
   LOSN `<stem>.json`; parsed by `MetaParser`. Download sidecars =
   pretty-printed raw API objects written by `completeJob`.
+- drag mode = `DragLinkMode` (`src/engines/boorutypes.h`): direct media
+  URL vs post page for post drags; global `dragLinkMode`, per-booru
+  `BooruSite.dragLinkMode` (Inherit follows global).
+- search history = opt-in `search_history` table in `store.db`
+  (`FavDb::addSearch/searches`), replayed from the clock button by the
+  omnibar; `search/history` setting defaults off.
 - sort orders = `id-desc/id-asc/score/rating/added/...` (`BrowserTab.sort`,
   `src/ui/mainwindow.h:57`); `added` has no server spellings (client-side).
 - OR-groups = `~(...)` query syntax (`src/library/queryor.h:1-9`); one search

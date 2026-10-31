@@ -77,6 +77,9 @@ public:
     void setAspect(int num, int den);
     void setBoxW(int w) { m_boxW = qBound(96, w, 384); }
     int boxW() const { return m_boxW; }
+    // Brick-staggered rows: odd columns paint half a card lower.
+    void setStaggered(bool on) { m_staggered = on; }
+    bool staggered() const { return m_staggered; }
     void paint(QPainter *painter, const QStyleOptionViewItem &option,
                const QModelIndex &index) const override;
     QSize sizeHint(const QStyleOptionViewItem &option,
@@ -86,6 +89,7 @@ private:
     int m_num = 1;
     int m_den = 1;
     int m_boxW = 184; // default grid width (kBoxW in mainwindow.cpp)
+    bool m_staggered = false;
 };
 
 // Grid with drag-out: drag thumbnails to other applications as file URLs.
@@ -97,9 +101,13 @@ public:
     void setScrollRows(double r) { m_scrollRows = qBound(0.1, r, 3.0); }
     int rowPitch() const; // visual row height in px (item + spacing)
 
+signals:
+    void viewportResized();
+
 protected:
     void startDrag(Qt::DropActions supportedActions) override;
     void wheelEvent(QWheelEvent *e) override;
+    void resizeEvent(QResizeEvent *e) override;
 
 private:
     double m_scrollRows = 0.5; // grid rows per wheel notch (0.1-3.0)
@@ -242,7 +250,12 @@ private slots:
     QSet<QString> favTagSet() const;
     bool isFavTag(const QString &tag) const;
     void toggleFavTag(const QString &tag);
-    void showFavTagsMenu(); // omnibar ★: starred tags, click adds to search
+    void showFavTagsMenu();
+    void showSearchHistoryMenu();
+    // HyBooru summaries carry no tags: hydrate the loaded page in the
+    // background so the sidebar fills like every other engine.
+    void scheduleHybooruHydration();
+    void pumpHybooruHydration(); // omnibar ★: starred tags, click adds to search
     void onGridActivated(const QModelIndex &index);
     void onThumbnailReady(const QString &key, const QImage &image);
     void onScanFinished();
@@ -253,6 +266,12 @@ private slots:
     // margins/ragged edges). Drives thumb requests + pixmap windowing.
     void visibleRowRange(int &lo, int &hi) const;
     void backToGrid();
+    // Fullscreen post view: shell chrome + viewer toolbar hide, media fills.
+    void toggleViewerFullscreen();
+    void setViewerFullscreen(bool on);
+    bool viewerFullscreen() const { return m_viewerFullscreen; }
+    // Right-click menu for one post (grid card or media surface).
+    void showViewerContextMenu(const Post &post, const QPoint &globalPos);
 
 private:
     void startScan(const QString &root);
@@ -331,6 +350,8 @@ private:
     // server-side (else infinite scroll re-sorts on every append).
     void updateSortBox();
     void showViewer(int row);
+    bool m_viewerFullscreen = false;
+    Qt::WindowStates m_preFullscreenState = Qt::WindowNoState;
 
     QString m_root;
     Index m_index;
@@ -342,6 +363,8 @@ private:
     QString m_rating = QStringLiteral("all");
     QString m_category;
     QString m_sort = QStringLiteral("id-desc");
+    int m_requestedBoxW = 184; // user-requested size (pre-snap)
+    void applyGridSnap();      // fill the viewport when gridSnap is on
     int m_aspectNum = 1;
     int m_aspectDen = 1;
 
@@ -368,6 +391,7 @@ private:
     QLabel *m_dotPage = nullptr;  // separators in the right status cluster
     QLabel *m_dotCount = nullptr;
     QWidget *m_pillBar = nullptr;
+    QWidget *m_sideBar = nullptr; // sidebar column (hidden in fullscreen)
     FlowLayout *m_pills = nullptr;
     QProgressBar *m_scanBar = nullptr;
     QListWidget *m_copyList = nullptr;
@@ -423,6 +447,12 @@ private:
     QTimer *m_saveTimer = nullptr;
     ImageCache *m_imgCache = nullptr;
     PostRefresher *m_refresher = nullptr;
+    PostRefresher *m_hybooruFetch = nullptr;
+    QVector<Post> m_hybooruQueue;
+    QSet<QString> m_hybooruTried;
+    bool m_hybooruBusy = false;
+    RefreshTarget m_hybooruTarget;
+    Post m_hybooruCurrent;
     DownloadManager *m_downloads = nullptr;
     class DownloadsDialog *m_dlDialog = nullptr;
     // Download destinations written since their tab last scanned

@@ -186,6 +186,12 @@ bool FavDb::open(const QString &dirIn) {
         close();
         return false;
     }
+    if (!q.exec(QStringLiteral(
+            "CREATE TABLE IF NOT EXISTS search_history ("
+            "query TEXT PRIMARY KEY, used INTEGER, count INTEGER)"))) {
+        close();
+        return false;
+    }
     QSqlQuery alter(db);
     alter.exec(QStringLiteral(
         "ALTER TABLE favourites ADD COLUMN local_path TEXT"));
@@ -439,6 +445,50 @@ bool FavDb::remove(const QString &site, qint64 postId) {
     // ("local", file-hash) otherwise believe they removed its ("Site",
     // id) row when nothing happened.
     return q.exec() && q.numRowsAffected() > 0;
+}
+
+bool FavDb::addSearch(const QString &query) {
+    if (!m_open || query.trimmed().isEmpty())
+        return false;
+    QSqlQuery q(QSqlDatabase::database(m_conn));
+    q.prepare(QStringLiteral(
+        "INSERT INTO search_history (query, used, count) VALUES (?, ?, 1) "
+        "ON CONFLICT(query) DO UPDATE SET "
+        "used=excluded.used, count=count+1"));
+    q.addBindValue(query.trimmed().left(500));
+    q.addBindValue(QDateTime::currentMSecsSinceEpoch());
+    if (!q.exec())
+        return false;
+    // Bounded store: keep the most recently used 500 rows.
+    QSqlQuery prune(QSqlDatabase::database(m_conn));
+    prune.exec(QStringLiteral(
+        "DELETE FROM search_history WHERE query NOT IN "
+        "(SELECT query FROM search_history ORDER BY used DESC LIMIT 500)"));
+    return true;
+}
+
+QVector<FavDb::SearchEntry> FavDb::searches(int limit) {
+    QVector<SearchEntry> out;
+    if (!m_open)
+        return out;
+    QSqlQuery q(QSqlDatabase::database(m_conn));
+    q.prepare(QStringLiteral(
+        "SELECT query, used, count FROM search_history "
+        "ORDER BY used DESC LIMIT ?"));
+    q.addBindValue(qBound(1, limit, 500));
+    if (!q.exec())
+        return out;
+    while (q.next())
+        out.append({q.value(0).toString(), q.value(1).toLongLong(),
+                    q.value(2).toInt()});
+    return out;
+}
+
+void FavDb::clearSearches() {
+    if (!m_open)
+        return;
+    QSqlQuery(QSqlDatabase::database(m_conn))
+        .exec(QStringLiteral("DELETE FROM search_history"));
 }
 
 int FavDb::count() {

@@ -39,6 +39,26 @@ namespace {
 QSettings openSettings() {
     return QSettings(settingsFilePath(), QSettings::IniFormat);
 }
+QString dragModeKey(DragLinkMode m) {
+    switch (m) {
+    case DragLinkMode::DirectMedia:
+        return QStringLiteral("direct");
+    case DragLinkMode::PostPage:
+        return QStringLiteral("post");
+    case DragLinkMode::Inherit:
+        break;
+    }
+    return QStringLiteral("inherit");
+}
+DragLinkMode dragModeFromKey(const QString &key, DragLinkMode def) {
+    if (key == QStringLiteral("direct"))
+        return DragLinkMode::DirectMedia;
+    if (key == QStringLiteral("post"))
+        return DragLinkMode::PostPage;
+    if (key == QStringLiteral("inherit"))
+        return DragLinkMode::Inherit;
+    return def;
+}
 } // namespace
 
 AppSettings loadSettings() {
@@ -56,6 +76,12 @@ AppSettings loadSettings() {
     if (s.cacheMode == CacheMode::Inherit)
         s.cacheMode = CacheMode::All;
     s.fullCache = c.value(QStringLiteral("cache/full"), s.fullCache).toBool();
+    s.searchHistory =
+        c.value(QStringLiteral("search/history"), s.searchHistory).toBool();
+    s.dragLinkMode = dragModeFromKey(
+        c.value(QStringLiteral("drag/linkMode")).toString(), s.dragLinkMode);
+    if (s.dragLinkMode == DragLinkMode::Inherit)
+        s.dragLinkMode = DragLinkMode::PostPage;
     s.cacheLimitMB =
         qBound(0, c.value(QStringLiteral("cache/limitMB"), s.cacheLimitMB).toInt(),
                1048576);
@@ -230,6 +256,10 @@ AppSettings loadSettings() {
     s.aspectDen = c.value(QStringLiteral("grid/aspectDen"), s.aspectDen).toInt();
     s.gridBoxW =
         qBound(96, c.value(QStringLiteral("grid/boxW"), s.gridBoxW).toInt(), 384);
+    s.gridSnap =
+        c.value(QStringLiteral("grid/snap"), s.gridSnap).toBool();
+    s.gridStaggered =
+        c.value(QStringLiteral("grid/staggered"), s.gridStaggered).toBool();
     s.gridScrollRows = qBound(
         0.1, c.value(QStringLiteral("grid/scrollRows"), s.gridScrollRows).toDouble(),
         3.0);
@@ -256,6 +286,8 @@ void writeSettingsTo(QSettings &c, const AppSettings &s) {
     c.setValue(QStringLiteral("cache/thumbs"),
                s.cacheMode != CacheMode::None);
     c.setValue(QStringLiteral("cache/full"), s.fullCache);
+    c.setValue(QStringLiteral("drag/linkMode"), dragModeKey(s.dragLinkMode));
+    c.setValue(QStringLiteral("search/history"), s.searchHistory);
     c.setValue(QStringLiteral("cache/limitMB"), s.cacheLimitMB);
     c.setValue(QStringLiteral("cache/thumbSize"), s.thumbLongSide);
     c.setValue(QStringLiteral("library/root"), s.lastRoot);
@@ -351,6 +383,8 @@ void writeSettingsTo(QSettings &c, const AppSettings &s) {
     c.setValue(QStringLiteral("grid/aspectNum"), s.aspectNum);
     c.setValue(QStringLiteral("grid/aspectDen"), s.aspectDen);
     c.setValue(QStringLiteral("grid/boxW"), s.gridBoxW);
+    c.setValue(QStringLiteral("grid/snap"), s.gridSnap);
+    c.setValue(QStringLiteral("grid/staggered"), s.gridStaggered);
     c.setValue(QStringLiteral("grid/scrollRows"), s.gridScrollRows);
     c.setValue(QStringLiteral("viewer/muted"), s.videoMuted);
     c.setValue(QStringLiteral("viewer/loop"), s.videoLoop);
@@ -448,6 +482,9 @@ QList<BooruSite> loadBoorus(QSettings &c) {
             c.value(QStringLiteral("localBlacklist"), false).toBool();
         b.cacheMode = MediaCache::modeFromKey(
             c.value(QStringLiteral("cacheMode")).toString(), CacheMode::Inherit);
+        b.dragLinkMode = dragModeFromKey(
+            c.value(QStringLiteral("dragMode")).toString(),
+            DragLinkMode::Inherit);
         c.endGroup();
         out.append(b);
     }
@@ -528,6 +565,7 @@ void saveBoorus(QSettings &c, const QList<BooruSite> &boorus) {
         c.setValue(QStringLiteral("localBlacklist"), b.localBlacklist);
         c.setValue(QStringLiteral("cacheMode"),
                    MediaCache::modeKey(b.cacheMode));
+        c.setValue(QStringLiteral("dragMode"), dragModeKey(b.dragLinkMode));
         c.endGroup();
     }
     c.setValue(QStringLiteral("boorus/order"), order);

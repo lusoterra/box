@@ -142,6 +142,10 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
         auto *scroll = new QScrollArea(this);
         scroll->setWidgetResizable(true);
         scroll->setFrameShape(QFrame::NoFrame);
+        // A settings page must never grow a horizontal scrollbar: fields
+        // shrink/wrap instead (long booru rows were widening the dialog).
+        scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        scroll->setSizeAdjustPolicy(QAbstractScrollArea::AdjustIgnored);
         // One flat surface: viewport + page share the window background
         // so no inner box edge shows through around the content.
         scroll->setBackgroundRole(QPalette::Window);
@@ -149,9 +153,12 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
         scroll->viewport()->setAutoFillBackground(false);
         auto *page = new QWidget(this);
         page->setBackgroundRole(QPalette::Window);
+        page->setMinimumWidth(0);
+        page->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
         auto *l = new QVBoxLayout(page);
         l->setContentsMargins(0, 0, 8, 8);
         l->setSpacing(8);
+        l->setSizeConstraint(QLayout::SetNoConstraint);
         scroll->setWidget(page);
         tabs->addTab(scroll, title);
         return l;
@@ -160,7 +167,7 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     QVBoxLayout *lay = makePage(tr("General"));
     QVBoxLayout *libraryPage = makePage(tr("Library"));
     QVBoxLayout *browsePage = makePage(tr("Browse"));
-    QVBoxLayout *tagsPage = makePage(tr("Tags"));
+    QVBoxLayout *tagsPage = makePage(tr("Taxonomies"));
     QVBoxLayout *lookPage = makePage(tr("Appearance"));
 
     auto note = [this](const QString &text) {
@@ -756,14 +763,46 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     tagsPage->addWidget(merge);
 
     // ── Browse ──
-    auto *browse = new QGroupBox(tr("Browse & downloads"), this);
+    auto *browse = new QGroupBox(tr("Browse && downloads"), this);
     auto *browseLay = new QFormLayout(browse);
+    browseLay->setRowWrapPolicy(QFormLayout::WrapLongRows);
+    browseLay->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
     m_browseLimit = new QComboBox(this);
     for (int n : {20, 40, 60, 100})
         m_browseLimit->addItem(tr("%1 per page").arg(n), n);
     m_browseLimit->setCurrentIndex(
         qMax(0, m_browseLimit->findData(current.browseLimit)));
     browseLay->addRow(tr("Page size:"), m_browseLimit);
+    m_dragMode = new QComboBox(this);
+    m_dragMode->addItem(tr("Post page link"),
+                        int(DragLinkMode::PostPage));
+    m_dragMode->addItem(tr("Direct media link"),
+                        int(DragLinkMode::DirectMedia));
+    m_dragMode->setCurrentIndex(qMax(
+        0, m_dragMode->findData(int(current.dragLinkMode))));
+    m_dragMode->setToolTip(
+        tr("What dragging a remote post into Discord (or any other app) "
+           "sends. Post links open the booru page and always hotlink "
+           "correctly; direct links skip the page. Per-booru overrides "
+           "live in the Booru manager below."));
+    connect(m_dragMode, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &PrefsDialog::updateApplyState);
+    browseLay->addRow(tr("Drag posts as:"), m_dragMode);
+    m_searchHistory = new QCheckBox(
+        tr("Remember search history (stored in the favourites database)"),
+        this);
+    m_searchHistory->setChecked(current.searchHistory);
+    m_searchHistory->setToolTip(
+        tr("Off by default. When on, executed searches are kept locally "
+           "and can be replayed from the history button next to the "
+           "omnibar."));
+    connect(m_searchHistory, &QCheckBox::toggled, this,
+            &PrefsDialog::updateApplyState);
+    browseLay->addRow(QString(), m_searchHistory);
+    auto *clearHistory = new QPushButton(tr("Clear search history"), this);
+    connect(clearHistory, &QPushButton::clicked, this,
+            &PrefsDialog::clearSearchHistoryRequested);
+    browseLay->addRow(QString(), clearHistory);
     m_defBoorus = new QListWidget(this);
     m_defBoorus->setMinimumHeight(110);
     for (const BooruSite &s : tabBoorus) {
@@ -898,6 +937,29 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     });
     auto *booruDefaults = new QPushButton(tr("Restore presets"), this);
     connect(booruDefaults, &QPushButton::clicked, this, [this] {
+        // Destructive-ish (list order and hidden presets change), so the
+        // user must confirm three times with increasingly explicit text.
+        const QString key = tr("Restore presets");
+        if (QMessageBox::question(
+                this, key,
+                tr("Re-add the shipped preset boorus?"),
+                QMessageBox::Yes | QMessageBox::No,
+                QMessageBox::No) != QMessageBox::Yes)
+            return;
+        if (QMessageBox::warning(
+                this, key,
+                tr("This changes your booru list. Custom entries are kept, "
+                   "but preset entries you removed will come back.\n\n"
+                   "Continue?"),
+                QMessageBox::Yes | QMessageBox::No,
+                QMessageBox::No) != QMessageBox::Yes)
+            return;
+        if (QMessageBox::warning(
+                this, key,
+                tr("Last check: really restore the presets now?"),
+                QMessageBox::Yes | QMessageBox::No,
+                QMessageBox::No) != QMessageBox::Yes)
+            return;
         // Keep user entries; re-add any missing presets (with their
         // credentials preserved when still present).
         QSet<QString> have;
@@ -946,7 +1008,12 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     m_booruEmpty->setVisible(false);
     accLay->addWidget(m_booruEmpty);
     auto *accFormBox = new QWidget(this);
+    accFormBox->setMinimumWidth(0);
     auto *accForm = new QFormLayout(accFormBox);
+    // Long rows (cookie buttons, notes) wrap under their label instead of
+    // pushing the whole page wider than the dialog.
+    accForm->setRowWrapPolicy(QFormLayout::WrapLongRows);
+    accForm->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
     m_booruName = new QLineEdit(this);
     m_booruBase = new QLineEdit(this);
     m_booruBase->setPlaceholderText(QStringLiteral("https://…"));
@@ -1033,6 +1100,20 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     accForm->addRow(tr("Tags:"), m_booruNoClassify);
     accForm->addRow(tr("Blacklist:"), m_booruLocalBlacklist);
     accForm->addRow(tr("Default tags:"), m_booruTags);
+    m_booruDragMode = new QComboBox(this);
+    m_booruDragMode->addItem(tr("Use global"),
+                             int(DragLinkMode::Inherit));
+    m_booruDragMode->addItem(tr("Direct media link"),
+                             int(DragLinkMode::DirectMedia));
+    m_booruDragMode->addItem(tr("Post page link"),
+                             int(DragLinkMode::PostPage));
+    m_booruDragMode->setToolTip(
+        tr("Overrides the global drag setting for this booru. Leave on "
+           "Use global unless this host's media rejects hotlinks."));
+    connect(m_booruDragMode,
+            QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+            [this] { updateApplyState(); });
+    accForm->addRow(tr("Drag posts as:"), m_booruDragMode);
     auto *cacheBox = new QWidget(this);
     {
         auto *cacheRow = new QHBoxLayout(cacheBox);
@@ -1306,6 +1387,25 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     ssRow->addWidget(ssBrowse);
     ssRow->addWidget(ssClear);
     appLay->addRow(tr("Custom .qss:"), ssRow);
+    m_gridSnap = new QCheckBox(
+        tr("Snap grid post size to fill the window (no right gap)"), this);
+    m_gridSnap->setChecked(current.gridSnap);
+    m_gridSnap->setToolTip(
+        tr("When on, the grid card width stretches so a whole number of "
+           "columns fills the viewport. Turn off to keep the exact size "
+           "from the zoom slider (leaving the leftover strip)."));
+    connect(m_gridSnap, &QCheckBox::toggled, this,
+            &PrefsDialog::updateApplyState);
+    appLay->addRow(QString(), m_gridSnap);
+    m_gridStaggered = new QCheckBox(
+        tr("Staggered grid rows (brick layout)"), this);
+    m_gridStaggered->setChecked(current.gridStaggered);
+    m_gridStaggered->setToolTip(
+        tr("Shifts every other column down by half a card. Off by "
+           "default."));
+    connect(m_gridStaggered, &QCheckBox::toggled, this,
+            &PrefsDialog::updateApplyState);
+    appLay->addRow(QString(), m_gridStaggered);
     m_sidebarSingleScroll = new QCheckBox(
         tr("Sidebar: one scrollbar for all tag categories"), this);
     m_sidebarSingleScroll->setChecked(current.sidebarSingleScroll);
@@ -1512,6 +1612,10 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
                 if (m_language)
                     m_language->setCurrentIndex(0);
                 m_classify->setChecked(d.classifyTags);
+                if (m_gridSnap)
+                    m_gridSnap->setChecked(d.gridSnap);
+                if (m_gridStaggered)
+                    m_gridStaggered->setChecked(d.gridStaggered);
                 m_favAutoDownload->setChecked(d.favAutoDownload);
                 m_favFav->setChecked(d.favAutoFav);
                 m_unfavDeletes->setChecked(d.unfavDeletesFile);
@@ -1526,6 +1630,11 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
                 m_cacheLimit->setValue(d.cacheLimitMB);
                 m_browseLimit->setCurrentIndex(
                     qMax(0, m_browseLimit->findData(d.browseLimit)));
+                if (m_searchHistory)
+                    m_searchHistory->setChecked(d.searchHistory);
+                if (m_dragMode)
+                    m_dragMode->setCurrentIndex(qMax(
+                        0, m_dragMode->findData(int(d.dragLinkMode))));
                 m_dataDir->setText(effectiveDataDir(d));
                 m_downloadDir->setText(effectiveDownloadDir(d));
                 m_ugoiraFormat->setCurrentIndex(
@@ -1929,6 +2038,15 @@ void PrefsDialog::commitBooruEditor(const QString &key) {
         else
             b.cacheMode = CacheMode::All;
         b.defaultTags = m_booruTags->text().trimmed();
+        if (m_booruDragMode) {
+            const int dm = m_booruDragMode->currentData().toInt();
+            b.dragLinkMode =
+                dm == int(DragLinkMode::DirectMedia)
+                    ? DragLinkMode::DirectMedia
+                    : (dm == int(DragLinkMode::PostPage)
+                           ? DragLinkMode::PostPage
+                           : DragLinkMode::Inherit);
+        }
         b.proxy = m_booruProxy->text().trimmed();
         // Fresh entries still wearing the generic blue inherit the new
         // host's house color (explicit picks and existing entries are
@@ -2111,6 +2229,8 @@ void PrefsDialog::loadBooruEditor(int row) {
         m_booruEnabled->setChecked(true);
         m_booruCacheInherit->setChecked(true);
         m_booruTags->clear();
+        if (m_booruDragMode)
+            m_booruDragMode->setCurrentIndex(0);
         m_booruProxy->clear();
         m_booruColor = QColor(QStringLiteral("#3a7ec2"));
         setBooruSwatch();
@@ -2170,6 +2290,9 @@ void PrefsDialog::loadBooruEditor(int row) {
         break;
     }
     m_booruTags->setText(found->defaultTags);
+    if (m_booruDragMode)
+        m_booruDragMode->setCurrentIndex(qMax(
+            0, m_booruDragMode->findData(int(found->dragLinkMode))));
     m_booruProxy->setText(found->proxy);
     updateCookieLabel();
     updateFaviconPreview();
@@ -2326,11 +2449,23 @@ void PrefsDialog::harvestInto(AppSettings &out) {
         out.downloadDir.clear(); // default stays implicit
     out.globalProxy = m_globalProxy ? m_globalProxy->text().trimmed()
                                     : QString();
+    if (m_searchHistory)
+        out.searchHistory = m_searchHistory->isChecked();
+    if (m_dragMode) {
+        const int dm = m_dragMode->currentData().toInt();
+        out.dragLinkMode = dm == int(DragLinkMode::DirectMedia)
+                               ? DragLinkMode::DirectMedia
+                               : DragLinkMode::PostPage;
+    }
     out.wallAutoPopup =
         m_wallAutoPopup ? m_wallAutoPopup->isChecked() : out.wallAutoPopup;
     saveBooruEditor();
     out.boorus = m_booruEdits;
     out.fullCache = m_fullCache->isChecked();
+    if (m_gridSnap)
+        out.gridSnap = m_gridSnap->isChecked();
+    if (m_gridStaggered)
+        out.gridStaggered = m_gridStaggered->isChecked();
     out.cacheLimitMB = m_cacheLimit->value();
     out.indexCache = m_indexCache->isChecked();
     if (m_cacheNone->isChecked())

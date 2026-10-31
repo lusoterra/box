@@ -53,6 +53,16 @@ public:
     int count();
     // Newest first, for the favourites tab.
     QVector<Post> list(int limit = 5000);
+    // Search history (opt-in; same store.db). One row per query string,
+    // re-searched rows bump `used` and `count`.
+    struct SearchEntry {
+        QString query;
+        qint64 used = 0; // epoch ms of the last use
+        int count = 0;
+    };
+    bool addSearch(const QString &query);
+    QVector<SearchEntry> searches(int limit = 40);
+    void clearSearches();
     // Favourites with no recorded download location (imports predate the
     // local_path column, or files arrived by other means).
     struct Unlinked {

@@ -15,6 +15,7 @@
 #include <QJsonDocument>
 #include <QLabel>
 #include <QListWidget>
+#include <QMessageBox>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
@@ -397,27 +398,30 @@ void DownloadManager::onFileReply() {
                                .toString()
                                .trimmed()
                                .toLower();
-        // Accept image/video/octet-stream content types. Some servers emit
-        // whitespace or odd casing around the MIME type; trimmed() + case
-        // handling below keeps wall pages out while letting real media
-        // (e.g. video/webm) through.
-        const bool isMedia = ct.startsWith(QStringLiteral("image/"), Qt::CaseInsensitive) ||
-                             ct.startsWith(QStringLiteral("video/"), Qt::CaseInsensitive) ||
-                             ct.startsWith(QStringLiteral("application/octet-stream"), Qt::CaseInsensitive) ||
-                             ct.startsWith(QStringLiteral("binary/octet-stream"), Qt::CaseInsensitive);
-        if (!ct.isEmpty() && !isMedia) {
-            // Wall/login page instead of bytes: never keep it as media.
-            // Sniff the head off disk (the body already streamed into
-            // the file) so the error names a captcha/wall and points
-            // at cookie capture instead of quoting a content type.
-            ok = false;
-            flight->file->write(reply->readAll());
-            flight->file->close();
-            flight->file = nullptr; // closed+kept: cleanup below only deletes
-            QByteArray head;
+        // Accept image/video/octet-stream content types, but also trust
+        // magic bytes: Shimmie2 (and a few CDNs) serve real media with an
+        // empty or text/plain Content-Type. A genuine wall/login page
+        // still fails the sniff and is named below.
+        const bool headerMedia =
+            ct.startsWith(QStringLiteral("image/")) ||
+            ct.startsWith(QStringLiteral("video/")) ||
+            ct.startsWith(QStringLiteral("application/octet-stream")) ||
+            ct.startsWith(QStringLiteral("binary/octet-stream"));
+        flight->file->write(reply->readAll()); // trailing bytes
+        flight->file->close();
+        QByteArray head;
+        {
             QFile probe(job.filePath);
             if (probe.open(QIODevice::ReadOnly))
-                head = probe.read(65536);
+                head = probe.read(512);
+        }
+        const bool sniffMedia = RemotePosts::looksLikeMediaBytes(head);
+        if (!headerMedia && !sniffMedia) {
+            // Wall/login page instead of bytes: never keep it as media.
+            // The head names a captcha/wall and points at cookie capture
+            // instead of quoting a misleading content type.
+            ok = false;
+            flight->file = nullptr; // closed+kept: cleanup below only deletes
             const bool isWall =
                 RemotePosts::looksLikeChallengePage(head) ||
                 RemotePosts::looksLikeCloudflareWall(head);
@@ -432,8 +436,6 @@ void DownloadManager::onFileReply() {
                 return;
             }
         } else {
-            flight->file->write(reply->readAll()); // trailing bytes
-            flight->file->close();
             bool walled = false;
             if (!completeJob(job, &error, &walled))
                 ok = false;
@@ -718,6 +720,11 @@ void DownloadsDialog::onFileFinished(const QString &fileName, bool ok,
     } else {
         const QString why = error.isEmpty() ? fileName : error;
         addRow(fileName, tr("✗ %1 - %2").arg(fileName, why));
+        if (QListWidgetItem *item = m_rows.value(fileName, nullptr)) {
+            item->setData(Qt::UserRole, why);
+            item->setToolTip(why);
+            item->setForeground(QColor(0xe0, 0x55, 0x55));
+        }
         m_current->setText(tr("Failed %1").arg(fileName));
     }
 }

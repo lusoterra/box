@@ -30,6 +30,12 @@ struct SearchResult {
 // Engine taxonomy (mirrors LoliSnatcher's BooruType for these families).
 enum class BooruEngine { Danbooru, Gelbooru, Moebooru, Safebooru, Szurubooru, Shimmie, Hybooru, Nuuru, Hiddenbooru };
 
+// What a post drag hands to other apps (Discord, file managers, ...).
+// Inherit is only valid on a booru entry: it follows the global mode.
+// Gelbooru-family CDNs reject hotlinked media without a Referer, so the
+// post page is the safe default there.
+enum class DragLinkMode { Inherit = -1, DirectMedia = 0, PostPage = 1 };
+
 // On-disk media cache policy. Inherit is only valid on a configured booru
 // entry (meaning "use the global setting"); the app-wide mode is never
 // Inherit. Lower values are more permissive: the effective policy is the
@@ -76,6 +82,8 @@ struct BooruSite {
     // Media cache override for this entry: Inherit = global setting,
     // otherwise narrows it (see MediaCache::effectiveMode).
     CacheMode cacheMode = CacheMode::Inherit;
+    // Drag payload override; Inherit follows the global setting.
+    DragLinkMode dragLinkMode = DragLinkMode::Inherit;
     // Disabled entries stay configured (tabs/favourites still resolve)
     // but are hidden from every picker/menu.
     bool enabled = true;

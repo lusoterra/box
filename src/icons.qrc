@@ -17,6 +17,7 @@
         <file alias="folder-open.svg">../assets/icons/folder-open.svg</file>
         <file alias="globe.svg">../assets/icons/globe.svg</file>
         <file alias="heart.svg">../assets/icons/heart.svg</file>
+        <file alias="history.svg">../assets/icons/history.svg</file>
         <file alias="house.svg">../assets/icons/house.svg</file>
         <file alias="image.svg">../assets/icons/image.svg</file>
         <file alias="pause.svg">../assets/icons/pause.svg</file>

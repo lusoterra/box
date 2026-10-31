@@ -37,6 +37,7 @@ signals:
     void classifyNowRequested();
     // "Refresh favicons" (Browse): drop cached site icons and refetch.
     void faviconsRefreshRequested();
+    void clearSearchHistoryRequested();
     // Apply button: harvest + let the owner apply live without closing.
     void applyRequested();
 
@@ -84,6 +85,8 @@ private:
     QComboBox *m_ugoiraFormat = nullptr;
     QSpinBox *m_ugoiraDelay = nullptr;
     QLineEdit *m_globalProxy = nullptr;
+    QComboBox *m_dragMode = nullptr;
+    QCheckBox *m_searchHistory = nullptr;
     QCheckBox *m_wallAutoPopup = nullptr;
     QListWidget *m_booruList = nullptr;
     QLineEdit *m_booruName = nullptr;
@@ -100,6 +103,7 @@ private:
     QPushButton *m_booruColorBtn = nullptr;
     QColor m_booruColor;
     QCheckBox *m_booruNoClassify = nullptr;
+    QComboBox *m_booruDragMode = nullptr;
     QCheckBox *m_booruLocalBlacklist = nullptr;
     QRadioButton *m_booruCacheInherit = nullptr;
     QRadioButton *m_booruCacheAll = nullptr;
@@ -107,6 +111,8 @@ private:
     QRadioButton *m_booruCacheNone = nullptr;
     QCheckBox *m_booruEnabled = nullptr;
     QCheckBox *m_sidebarSingleScroll = nullptr;
+    QCheckBox *m_gridSnap = nullptr;
+    QCheckBox *m_gridStaggered = nullptr;
     QCheckBox *m_plusLocalFolder = nullptr;
     QLineEdit *m_booruTags = nullptr;
     QLineEdit *m_booruProxy = nullptr;

@@ -97,9 +97,19 @@ have. The `--write-info-json` is also useful.
 
 ## License
 
-This project is licensed under the **GNU Affero General Public License v3.0** - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the **GNU Affero General Public License v3.0 or later** (AGPL-3.0-or-later) - see the [LICENSE](LICENSE) file for details.
 
 [![AGPL-3.0](https://www.gnu.org/graphics/agplv3-with-text-162x68.png)](https://www.gnu.org/licenses/agpl-3.0.html)
+
+## Third-party components
+
+- **Qt 6** (Widgets, Network, Sql, Multimedia, WebEngine) - LGPLv3/GPLv3,
+  see <https://www.qt.io/licensing/>
+- **miniz** (`src/library/miniz/`) - MIT, see `src/library/miniz/LICENSE`
+- **Lucide icons** (`assets/icons/`) - ISC, see `assets/icons/LICENSE.lucide`
+- **FFmpeg** through Qt Multimedia for video decoding/encoding
+  (LGPL/GPL depending on the distribution's build)
+- **libjxl / cjxl** (optional, only for animated JXL conversion) - BSD-3-Clause
 
 ## Themes
 

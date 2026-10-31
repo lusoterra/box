@@ -27,7 +27,9 @@ categories) seen on the page - or folded into a classic bucket when
 mapped under Preferences → Tags. Category labels read as words
 (`ENTITY TYPE`, not `entity_type`); empty categories hide entirely until
 tags show up, and tiny ones (≤3 tags) shrink so many fit at once;
-click toggles filter pills, right-click stars/un-stars favourite tags. A captcha/PoW wall failure pops the solve browser open (opt out in Preferences → Browse, back to a small menu: solve the challenge in the capture browser, or drop the booru (deselect in multibooru, close a solo tab)). Center: post grid. Bottom-left: `40 results · page 1` and infinite scroll (more loads at the bottom); a failed query leaves its one-liner there (click = full server response) plus a `Solve … in browser…` button while walls are reported. The browser
+click toggles filter pills, right-click stars/un-stars favourite tags. The
+omnibar also has a history button (clock icon): executed searches are
+replayed from there when `Remember search history` is enabled. A captcha/PoW wall failure pops the solve browser open (opt out in Preferences → Browse, back to a small menu: solve the challenge in the capture browser, or drop the booru (deselect in multibooru, close a solo tab)). Center: post grid. Bottom-left: `40 results · page 1` and infinite scroll (more loads at the bottom); a failed query leaves its one-liner there (click = full server response) plus a `Solve … in browser…` button while walls are reported. The browser
 opens AT the failing URL (failed search request, failed file URL) instead of
 the homepage, since file/media hosts challenge while `/` lets you through.
 API-gated sites (soybooru) answer HTTP 449 `pow_required`/`captcha_required`
@@ -77,7 +79,11 @@ keep the badge; below, info card with rating chip (`G`), score
 link stay on the booru post page after a download (strays keep the
 local file). Right-click menu resolves the on-disk file behind downloaded
 remote rows too: `⭳ Download` disables once everything selected is on
-disk, `Delete from disk…` enables, and `Set as mascot` shows. Tabs drag to reorder (welcome stays first).
+disk, `Delete from disk…` enables, `Set as mascot` shows, and `Copy post
+link` / `Copy media link` / `Copy file path` put the selected rows on the
+clipboard (stills, GIFs and videos alike). Dragging cards exports linked
+posts as a URL (post page or direct media, per Preferences → Browse)
+and local/downloaded rows as the file itself. Tabs drag to reorder (welcome stays first).
 
 ## 04-file-menu - File
 `Open ▸` (folder picker), `Browse Downloads`, `Import LoliSnatcher
@@ -103,6 +109,9 @@ Stylesheet…` (`.qss` overlay).
 Single item `About box`; the dialog shows version, tagline, repo URL,
 copyright, license, Qt version.
 
+Grid cards follow the default category order Artists, Character,
+Copyright, General, Meta, then native categories from unusual boorus.
+
 ## 09-plus-menu - ＋ new-tab picker (`showPlusMenu`)
 `Home`, `Favourites`, `Downloads`, then one entry per configured booru
 (favicon + label). One click = one tab; merging stays per-tab via
@@ -122,7 +131,14 @@ delete once the file is on disk, like the ♥ button), reload-everything (icon:
 tags, comments, media), `Notes`
 (translation overlays on the image, on by default),
 globe (`Open file`), `Copy file URL`, `Comments` (thread popup with cards,
-reuses the fetched notes/comments cache). The omnibar and filter pills
+reuses the cached comments/notes). The tag panel below the groups shows
+three threads when the engine provides them: NOTES, ARTIST COMMENTARY
+(Danbooru `artist_commentary`, translated text preferred) and COMMENTS. A post can be dragged out from the media as well (image/GIF/video, at
+fit zoom) to the same URL/file payload. Double-click the media for
+fullscreen post view; right-click offers `Fullscreen`, link clippings,
+download/delete and favourite. Esc leaves fullscreen first, then the
+viewer; F11 toggles it; arrow keys keep stepping posts while fullscreen.
+The omnibar and filter pills
 hide in post view (grid tools would
 misclick); they return with the grid. A failed comments/notes fetch shows
 a clickable warning (`click for details`) opening the same diagnostics
@@ -170,7 +186,10 @@ and an empty/unknown rating is treated as NSFW unless a positive
 `rating:g`/`rating:safe`-style tag proves otherwise.
 
 ## 14-prefs-browse - Preferences → Browse
-`Page size`, `Default boorus` checklist (new tabs + fallbacks), `Data
+`Page size`, `Drag posts as` (what a post drag sends to Discord/other
+apps: post page or direct media; per-booru overrides live in the manager),
+`Remember search history` (off by default; stored in `store.db`) +
+`Clear search history`, `Default boorus` checklist (new tabs + fallbacks), `Data
 folder` / `Download folder` (empty = XDG defaults under `box/`),
 `Ugoira downloads` (animated webp / animated jxl / keep zip; needs
 ffmpeg in PATH, +cjxl for jxl) + `Ugoira frame delay` (fallback when the
@@ -186,13 +205,16 @@ danbooru/safebooru tan, shimmie gray; editable anytime)/`Base
 URL`/`Type` (engine) editor with cookie capture + favicon override.
 HiddenBooru is frozen: it is no longer offered for new boorus, while
 existing hiddenbooru entries keep working/editable.
-Per-entry `Tags` (skip auto-categorization), `Blacklist` (filter
+Per-entry `Tags` (skip auto-categorization), `Drag posts as` (direct
+media vs post page; `Use global` follows Preferences → Browse), `Blacklist` (filter
 blacklist locally instead of server `-tags`, for tag-capped accounts),
 `Default tags`, `Media cache` (`Global` / `All` / `SFW only` / `Nothing`
 for this booru, narrowed by the global mode), `Proxy`.
 
-## 15-prefs-tags - Preferences → Tags
+## 15-prefs-tags - Preferences → Taxonomies
 `Tag type overrides` (manual `tag → bucket`, wins over fetches),
+`Restore presets` asks three times before re-adding shipped boorus (the
+list is easy to lose),
 `Custom category → bucket` (fold a native category into a classic bucket),
 `Custom tag categories` (create named groups and assign `tag → group`;
 assigned tags leave Artist/Character/Copyright/Meta/Tags),
@@ -208,7 +230,9 @@ Catppuccin Latte/Frappé/Macchiato/Mocha, Dracula, Atom One Dark, Tokyo
 Night, System native), `Accent`, `Custom .qss`, `Sidebar: one scrollbar for all
 tag categories` (default off), `Show local folder browser in the quick +
 menu` (default off), `Home mascot` Browse/Remove/Reset-to-default +
-opacity slider + margin, `Grid` ratio/scroll, `Video playback`
+opacity slider + margin, `Grid` ratio/scroll, `Snap grid post size to fill the window` (on by
+default; off keeps the exact zoom-slider width and its right gap),
+`Staggered grid rows (brick layout)` (off by default), `Video playback`
 (mute/loop/volume), `Viewer` max side.
 
 ## 17-multibooru - merged tab

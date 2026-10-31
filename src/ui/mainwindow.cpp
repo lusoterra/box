@@ -35,6 +35,7 @@
 #include <QApplication>
 #include <QActionGroup>
 #include <QCheckBox>
+#include <QClipboard>
 #include <QCloseEvent>
 #include <QComboBox>
 #include <QCompleter>
@@ -311,7 +312,10 @@ void GalleryDelegate::setAspect(int num, int den) {
 
 QSize GalleryDelegate::sizeHint(const QStyleOptionViewItem &, const QModelIndex &) const {
     const int boxH = qMax(60, (m_boxW * m_den) / m_num);
-    return {m_boxW + 12, boxH + 62};
+    // Staggered rows reserve the half-card offset in every cell so odd
+    // columns can paint lower without clipping or overlapping the row.
+    const int extra = m_staggered ? (boxH + 62) / 2 : 0;
+    return {m_boxW + 12, boxH + 62 + extra};
 }
 
 void GalleryDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option,
@@ -319,6 +323,14 @@ void GalleryDelegate::paint(QPainter *painter, const QStyleOptionViewItem &optio
     painter->save();
     const int boxH = qMax(60, (m_boxW * m_den) / m_num);
     QRect r = option.rect.adjusted(4, 4, -4, -4);
+    if (m_staggered) {
+        const int pitch = m_boxW + 12 + 8; // delegate width + view spacing
+        if ((option.rect.x() / qMax(1, pitch)) % 2 != 0)
+            r.translate(0, (boxH + 62) / 2);
+        // Keep the card itself at its normal height: only the cell grew
+        // to make room for the offset.
+        r.setHeight(boxH + 54);
+    }
 
     const bool sel = option.state & QStyle::State_Selected;
     const QColor accent = option.palette.color(QPalette::Highlight);
@@ -571,18 +583,29 @@ void GridView::wheelEvent(QWheelEvent *e) {
     e->accept();
 }
 
+void GridView::resizeEvent(QResizeEvent *e) {
+    QListView::resizeEvent(e);
+    emit viewportResized();
+}
+
 void GridView::startDrag(Qt::DropActions) {
     const QModelIndexList sel = selectedIndexes();
     QList<QUrl> urls;
     for (const QModelIndex &i : sel) {
-        const QString f = model()->data(i, Qt::UserRole + 5).toString();
-        if (!f.isEmpty())
-            urls << QUrl::fromLocalFile(f);
+        // Remote posts: the configured media/post link. Downloaded/local
+        // rows: the file itself (Discord uploads it like any file).
+        const QString link = model()->data(i, Qt::UserRole + 20).toString();
+        if (!link.isEmpty())
+            urls << QUrl(link);
     }
     if (urls.isEmpty())
         return;
     auto *mime = new QMimeData();
     mime->setUrls(urls);
+    QStringList plain;
+    for (const QUrl &u : urls)
+        plain << u.toString();
+    mime->setText(plain.join(u'\n')); // paste targets that ignore urls
     auto *drag = new QDrag(this);
     drag->setMimeData(mime);
     const QPixmap pm =
@@ -593,6 +616,10 @@ void GridView::startDrag(Qt::DropActions) {
 }
 
 // ── MainWindow ───────────────────────────────────────────────────
+
+namespace {
+Post remapFresh(const QJsonObject &raw, const RefreshTarget &t);
+}
 
 class MainWindow::ScanWatcher : public QFutureWatcher<QVector<Post>> {};
 
@@ -646,7 +673,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     if (!rootExplicit && !m_settings.lastRoot.isEmpty() &&
         QDir(m_settings.lastRoot).exists())
         m_root = m_settings.lastRoot;
-    setWindowTitle(QStringLiteral("box"));
+    setWindowTitle(QStringLiteral("Box"));
     resize(1280, 800);
     if (!m_settings.geometry.isEmpty())
         restoreGeometry(m_settings.geometry);
@@ -775,7 +802,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
                         &MainWindow::loadStylesheet);
 
     auto *helpMenu = menuBar()->addMenu(tr("&Help"));
-    helpMenu->addAction(tr("&About box"), this, &MainWindow::showAbout);
+    helpMenu->addAction(tr("&About Box"), this, &MainWindow::showAbout);
     // Keyboard: arrows navigate the grid natively, Enter opens.
     // "/" focuses search, Esc clears filters (or leaves the viewer).
     auto *focusSearch = new QShortcut(QKeySequence(QStringLiteral("/")), this);
@@ -786,10 +813,16 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
             m_searchEdit->selectAll();
         }
     });
+    auto *fullKey = new QShortcut(QKeySequence(Qt::Key_F11), this);
+    fullKey->setContext(Qt::ApplicationShortcut);
+    connect(fullKey, &QShortcut::activated, this,
+            &MainWindow::toggleViewerFullscreen);
     auto *esc = new QShortcut(QKeySequence(Qt::Key_Escape), this);
     esc->setContext(Qt::ApplicationShortcut);
     connect(esc, &QShortcut::activated, this, [this] {
-        if (m_pages->currentIndex() == 1) {
+        if (m_viewerFullscreen) {
+            setViewerFullscreen(false); // first Esc leaves fullscreen
+        } else if (m_pages->currentIndex() == 1) {
             backToGrid();
         } else {
             m_searchEdit->clear();
@@ -890,7 +923,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     connect(m_sizeSlider, &QSlider::valueChanged, this,
             [this](int w) { setBoxW(w); });
     connect(m_sizeSlider, &QSlider::sliderReleased, this, [this] {
-        m_settings.gridBoxW = m_delegate->boxW();
+        m_settings.gridBoxW = m_requestedBoxW;
         saveSettings(m_settings);
     });
 
@@ -956,8 +989,17 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     favBtn->setCursor(Qt::PointingHandCursor);
     connect(favBtn, &QPushButton::clicked, this,
             &MainWindow::showFavTagsMenu);
+    auto *histBtn = new QPushButton(this);
+    histBtn->setIcon(UiIcons::icon(QStringLiteral("history")));
+    histBtn->setIconSize(QSize(15, 15));
+    histBtn->setFixedWidth(32);
+    histBtn->setToolTip(tr("Search history"));
+    histBtn->setCursor(Qt::PointingHandCursor);
+    connect(histBtn, &QPushButton::clicked, this,
+            &MainWindow::showSearchHistoryMenu);
 
     omniLay->addWidget(favBtn);
+    omniLay->addWidget(histBtn);
     omniLay->addWidget(m_searchEdit, 1);
     omniLay->addWidget(m_ratingBox);
     omniLay->addWidget(m_categoryBox);
@@ -997,6 +1039,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
 
     // ── Sidebar: the one tag menu, booru order, mouse-resizable sections ──
     auto *side = new QWidget(this);
+    m_sideBar = side;
     auto *sideLay = new QVBoxLayout(side);
     sideLay->setContentsMargins(4, 4, 4, 4);
     m_sideSplit = new QSplitter(Qt::Vertical, this);
@@ -1005,13 +1048,14 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     m_artistList = new QListWidget(this);
     m_tagList = new QListWidget(this);
     m_metaList = new QListWidget(this);
-    // Box order: Artists, Characters, Copyright, Meta, General.
+    // Box order: Artists, Character, Copyright, General, Meta; native
+    // custom categories (weird boorus) are appended after these.
     const QList<QPair<QString, QListWidget *>> sections = {
         {tr("ARTISTS"), m_artistList},
         {tr("CHARACTERS"), m_charList},
         {tr("COPYRIGHT"), m_copyList},
-        {tr("META"), m_metaList},
         {tr("TAGS"), m_tagList},
+        {tr("META"), m_metaList},
     };
     for (const auto &[title, list] : sections) {
         auto *sec = new QWidget(this);
@@ -1074,6 +1118,12 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
                     showViewer(i.row());
             });
     connect(m_grid, &QListView::activated, this, &MainWindow::onGridActivated);
+    connect(m_grid, &GridView::viewportResized, this, [this] {
+        // Deferred: the viewport geometry settles after the view's own
+        // resize handling, and snapping against the old width leaves a
+        // clipped last column.
+        QTimer::singleShot(0, this, &MainWindow::applyGridSnap);
+    });
     connect(m_grid->selectionModel(), &QItemSelectionModel::selectionChanged,
             this, [this] { updateDownloadButton(); });
     m_grid->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -1174,6 +1224,10 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     seedTagTypesOnce(effectiveTagTypesDbPath(m_settings));
     m_viewer = new ViewerPage(this);
     connect(m_viewer, &ViewerPage::back, this, &MainWindow::backToGrid);
+    connect(m_viewer, &ViewerPage::fullscreenToggleRequested, this,
+            &MainWindow::toggleViewerFullscreen);
+    connect(m_viewer, &ViewerPage::postContextRequested, this,
+            &MainWindow::showViewerContextMenu);
     m_viewer->setPlaybackDefaults(m_settings.videoMuted, m_settings.videoLoop,
                                   m_settings.volume);
     m_viewer->setMaxSide(m_settings.viewerMaxSide);
@@ -1183,6 +1237,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     m_viewer->setImageCache(m_imgCache);
     m_viewer->setCategoryMerges(m_settings.tagCategoryMerges);
     m_viewer->setCustomTagCategories(m_settings.tagCustomCategories);
+    m_viewer->setDragLinkMode(m_settings.dragLinkMode);
     m_viewer->setThumbModel(m_model);
     connect(m_viewer, &ViewerPage::currentRowChanged, this, [this](int row) {
         if (row < 0 || row >= m_current.size())
@@ -1329,6 +1384,41 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
             &MainWindow::onRefreshDone);
     connect(m_refresher, &PostRefresher::failed, this,
             &MainWindow::onRefreshFailed);
+    // Background HyBooru detail hydration (summaries carry no tags).
+    m_hybooruFetch = new PostRefresher(this);
+    connect(m_hybooruFetch, &PostRefresher::refreshed, this,
+            [this](qint64, const QJsonObject &raw) {
+                m_hybooruBusy = false;
+                const Post fresh = remapFresh(raw, m_hybooruTarget);
+                if (!fresh.tags.trimmed().isEmpty()) {
+                    auto mergeInto = [&](QVector<Post> &vec) {
+                        for (Post &p : vec) {
+                            if (!p.isRemote || p.id != m_hybooruCurrent.id ||
+                                p.siteKey != m_hybooruCurrent.siteKey)
+                                continue;
+                            Post merged = fresh;
+                            merged.category = p.category;
+                            merged.siteKey = p.siteKey;
+                            p = merged;
+                        }
+                    };
+                    mergeInto(m_browseMerged);
+                    mergeInto(m_current);
+                    if (BrowserTab *t = currentTab())
+                        mergeInto(t->browseMerged);
+                    if (m_viewer)
+                        m_viewer->applyRefreshedPost(fresh);
+                    rebuildBrowseSidebar();
+                }
+                QTimer::singleShot(40, this,
+                                   &MainWindow::pumpHybooruHydration);
+            });
+    connect(m_hybooruFetch, &PostRefresher::failed, this,
+            [this](qint64, const QString &) {
+                m_hybooruBusy = false;
+                QTimer::singleShot(40, this,
+                                   &MainWindow::pumpHybooruHydration);
+            });
     connect(m_viewer, &ViewerPage::favouriteRequested, this,
             &MainWindow::toggleFavourite);
     connect(m_viewer, &ViewerPage::tagActivated, this,
@@ -1557,6 +1647,8 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     m_sizeSlider->setValue(m_settings.gridBoxW);
     m_sizeSlider->blockSignals(false);
     setBoxW(m_settings.gridBoxW);
+    m_delegate->setStaggered(m_settings.gridStaggered);
+    m_grid->refreshLayout();
     m_grid->setScrollRows(m_settings.gridScrollRows);
 
     // Startup routing: explicit CLI root opens as a tab; otherwise the
@@ -1853,9 +1945,9 @@ void MainWindow::updateTabTitle(int tabIdx) {
     // Keep the OS title in lockstep when this is the visible tab.
     if (tabIdx == m_curTab) {
         if (t->isFavourites)
-            setWindowTitle(QStringLiteral("box - ♥ Favourites"));
+            setWindowTitle(QStringLiteral("Box - ♥ Favourites"));
         else
-            setWindowTitle(QStringLiteral("box - ") + t->title);
+            setWindowTitle(QStringLiteral("Box - ") + t->title);
     }
 }
 
@@ -1982,12 +2074,12 @@ void MainWindow::activateTab(int tabIdx) {
     // scan/search (that read as a stale title for a second on every switch).
     updateTabTitle(tabIdx);
     if (t->isFavourites)
-        setWindowTitle(QStringLiteral("box - ♥ Favourites"));
+        setWindowTitle(QStringLiteral("Box - ♥ Favourites"));
     else if (t->isRemote)
-        setWindowTitle(QStringLiteral("box - ") +
+        setWindowTitle(QStringLiteral("Box - ") +
                        (t->title.isEmpty() ? tr("Browse") : t->title));
     else
-        setWindowTitle(QStringLiteral("box - ") + t->root);
+        setWindowTitle(QStringLiteral("Box - ") + t->root);
     m_tabBar->blockSignals(true);
     m_tabBar->setCurrentIndex(tabIdx + 1);
     m_tabBar->blockSignals(false);
@@ -2035,7 +2127,7 @@ void MainWindow::finishActivateTab(int tabIdx) {
     if (t->isFavourites) {
         relinkFavourites(); // point rows at files already on disk (once)
         t->localPosts = m_favDb.list();
-        setWindowTitle(QStringLiteral("box - ♥ Favourites"));
+        setWindowTitle(QStringLiteral("Box - ♥ Favourites"));
         m_rating = t->rating;
         m_category = t->category;
         m_sort = t->sort;
@@ -2058,7 +2150,7 @@ void MainWindow::finishActivateTab(int tabIdx) {
         }
     } else {
         m_root = t->root;
-        setWindowTitle(QStringLiteral("box - %1").arg(m_root));
+        setWindowTitle(QStringLiteral("Box - %1").arg(m_root));
         const QString canon = QDir(m_root).canonicalPath();
         const QString flat =
             canon.isEmpty() ? QDir(m_root).absolutePath() : canon;
@@ -2473,6 +2565,8 @@ void MainWindow::doBrowseSearch(bool append) {
     if (!t || !t->isRemote)
         return;
     clearStatusProbe(); // a new search invalidates the old error details
+    if (!append)
+        m_hybooruTried.clear(); // fresh page: hydrate its rows again
     m_wallSites.clear();
     m_wallKinds.clear();
     m_wallFailUrls.clear();
@@ -3085,6 +3179,45 @@ void MainWindow::dropWallSites(const QStringList &siteKeys) {
     doBrowseSearch(false);
 }
 
+void MainWindow::scheduleHybooruHydration() {
+    if (m_hybooruBusy || !m_hybooruFetch)
+        return;
+    m_hybooruQueue.clear();
+    for (const Post &p : m_browseMerged) {
+        if (!p.isRemote || !p.tags.trimmed().isEmpty())
+            continue;
+        const BooruSite *entry = RemotePosts::entryForPost(p);
+        if (!entry || entry->engine != BooruEngine::Hybooru)
+            continue;
+        const QString key = entry->key + u'#' + QString::number(p.id);
+        if (m_hybooruTried.contains(key))
+            continue;
+        m_hybooruTried.insert(key);
+        m_hybooruQueue.append(p);
+    }
+    if (!m_hybooruQueue.isEmpty())
+        pumpHybooruHydration();
+}
+
+void MainWindow::pumpHybooruHydration() {
+    if (!m_hybooruFetch)
+        return;
+    while (!m_hybooruQueue.isEmpty()) {
+        const Post p = m_hybooruQueue.takeFirst();
+        if (!p.tags.trimmed().isEmpty())
+            continue;
+        const RefreshTarget target = resolveRefreshTarget(p);
+        if (!target.valid())
+            continue;
+        m_hybooruCurrent = p;
+        m_hybooruTarget = target;
+        m_hybooruBusy = true;
+        m_hybooruFetch->refresh(target, 1);
+        return;
+    }
+    m_hybooruBusy = false;
+}
+
 void MainWindow::applyBrowseFilter() {
     BrowserTab *t = currentTab();
     QVector<Post> posts = m_browseMerged;
@@ -3158,6 +3291,7 @@ void MainWindow::applyBrowseFilter() {
     rebuildBrowseSidebar();
     updateResultLabel();
     updateTabTitle(m_curTab);
+    scheduleHybooruHydration();
 }
 
 void MainWindow::sortPosts(QVector<Post> &posts, const QString &sort) {
@@ -3828,6 +3962,47 @@ void MainWindow::showGridMenu(const QPoint &pos) {
         }
         downloadPosts(remote);
     });
+    // Clipboard actions: post page and media URL/path, for stills, GIFs
+    // and videos alike (multi-selection joins with newlines).
+    if (!targets.isEmpty()) {
+        QStringList postLinks, mediaLinks, localPaths;
+        for (const Post &p : targets) {
+            if (!p.postUrl.isEmpty() && RemotePosts::isHttpUrl(p.postUrl))
+                postLinks << p.postUrl;
+            if (!p.fileUrl.isEmpty() && RemotePosts::isHttpUrl(p.fileUrl))
+                mediaLinks << p.fileUrl;
+            else if (!p.absFile.isEmpty())
+                mediaLinks << p.absFile;
+            const QString res = resolvedFile(p);
+            if (!res.isEmpty())
+                localPaths << res;
+        }
+        if (!postLinks.isEmpty()) {
+            QAction *a = menu.addAction(
+                targets.size() == 1 ? tr("Copy post link")
+                                    : tr("Copy post links"));
+            connect(a, &QAction::triggered, this, [postLinks] {
+                QApplication::clipboard()->setText(
+                    postLinks.join(u'\n'));
+            });
+        }
+        if (!mediaLinks.isEmpty()) {
+            QAction *a = menu.addAction(
+                targets.size() == 1 ? tr("Copy media link")
+                                    : tr("Copy media links"));
+            connect(a, &QAction::triggered, this, [mediaLinks] {
+                QApplication::clipboard()->setText(
+                    mediaLinks.join(u'\n'));
+            });
+        }
+        if (!localPaths.isEmpty()) {
+            QAction *a = menu.addAction(tr("Copy file path"));
+            connect(a, &QAction::triggered, this, [localPaths] {
+                QApplication::clipboard()->setText(
+                    localPaths.join(u'\n'));
+            });
+        }
+    }
     // Reverse image search (engines need a fetchable remote file; local
     // cards have none, so the submenu stays disabled without one).
     QMenu *revMenu = menu.addMenu(tr("Reverse image search"));
@@ -5171,7 +5346,7 @@ void MainWindow::showWelcome() {
     m_tabBar->setCurrentIndex(0);
     m_tabBar->blockSignals(false);
     m_stage->setCurrentIndex(0);
-    setWindowTitle(QStringLiteral("box"));
+    setWindowTitle(QStringLiteral("Box"));
 }
 
 void MainWindow::openFolder() {
@@ -5230,7 +5405,7 @@ void MainWindow::startScan(const QString &root) {
     cancelScan(); // never stack giant scans (quit also relies on this)
     m_root = root;
     m_stage->setCurrentIndex(1);
-    setWindowTitle(QStringLiteral("box - %1").arg(root));
+    setWindowTitle(QStringLiteral("Box - %1").arg(root));
     statusBar()->showMessage(tr("Scanning %1 …").arg(root));
     auto *scanner = new Scanner;
     auto *watcher = new ScanWatcher;
@@ -5656,8 +5831,8 @@ void MainWindow::rebuildSidebar() {
     for (int i = 0; i < m_sideSplit->count(); ++i)
         m_sideSplit->widget(i)->setVisible(true);
     static const QStringList labels = {
-        tr("ARTISTS"), tr("CHARACTERS"), tr("COPYRIGHT"), tr("META"),
-        tr("TAGS"),
+        tr("ARTISTS"), tr("CHARACTERS"), tr("COPYRIGHT"), tr("TAGS"),
+        tr("META"),
     };
     for (int i = 0; i < labels.size() && i < m_sideHeaders.size(); ++i)
         m_sideHeaders[i]->setText(labels.at(i));
@@ -5747,36 +5922,61 @@ void MainWindow::rebuildSidebar() {
 }
 
 void MainWindow::applySidebarScrollMode() {
-    // Single-scroll: per-category scrollbars disappear and each section
-    // shrinks to its content so one outer scrollbar scrolls through
-    // everything. Per-category (default): each list scrolls itself.
+    // Single-scroll: per-category scrollbars disappear, every section is
+    // expanded to its full content height, and one outer scrollbar walks
+    // through all of them. Per-category (default): each list scrolls
+    // itself.
     const bool single = m_settings.sidebarSingleScroll;
+    int totalHeight = 0;
     for (int i = 0; i < m_sideSplit->count(); ++i) {
         QWidget *box = m_sideSplit->widget(i);
         if (!box)
             continue;
+        if (box->isHidden()) {
+            box->setMinimumHeight(0);
+            continue; // splitter skips hidden sections: don't pad them
+        }
         auto *list = box->findChild<QListWidget *>();
         if (!list)
             continue;
-        list->setVerticalScrollBarPolicy(single ? Qt::ScrollBarAlwaysOff
-                                                : Qt::ScrollBarAsNeeded);
+        const int rowH = qMax(18, list->sizeHintForRow(0));
         if (single) {
-            // Header (~16px) + rows (~22px each) + margins.
-            box->setMaximumHeight(22 + list->count() * 22 + 8);
-        } else if (list->count() > 0 && list->count() <= 3) {
-            // Tiny categories shrink so many fit at once (per-category
-            // mode only; single-scroll stacks them all anyway).
-            box->setMaximumHeight(18 + list->count() * 22 + 6);
+            list->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+            // Header + all rows + the section's own margins. Fixed, so
+            // the splitter cannot collapse sections to fit the viewport;
+            // the outer scroll area owns the overflow.
+            const int h = 22 + list->count() * rowH + 10;
+            box->setMinimumHeight(h);
+            box->setMaximumHeight(h);
+            totalHeight += h;
         } else {
-            box->setMaximumHeight(QWIDGETSIZE_MAX);
+            list->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+            box->setMinimumHeight(52);
+            if (list->count() > 0 && list->count() <= 3) {
+                // Tiny categories shrink so many fit at once.
+                box->setMaximumHeight(22 + list->count() * rowH + 8);
+            } else {
+                box->setMaximumHeight(QWIDGETSIZE_MAX);
+            }
         }
     }
     if (m_sideScroll) {
-        // The scroll area only matters in single mode; per-category mode
-        // lets the splitter fill the space without an outer scrollbar.
-        m_sideScroll->setVerticalScrollBarPolicy(
-            single ? Qt::ScrollBarAsNeeded : Qt::ScrollBarAlwaysOff);
+        if (single) {
+            // The splitter's minimum must cover every expanded section,
+            // otherwise widgetResizable squeezes it to the viewport and
+            // the outer scrollbar never appears.
+            totalHeight +=
+                m_sideSplit->handleWidth() * (m_sideSplit->count() - 1);
+            m_sideSplit->setMinimumHeight(totalHeight);
+            m_sideScroll->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+        } else {
+            m_sideSplit->setMinimumHeight(0);
+            m_sideScroll->setVerticalScrollBarPolicy(
+                Qt::ScrollBarAlwaysOff);
+        }
     }
+    if (m_sideSplit)
+        m_sideSplit->updateGeometry();
 }
 
 void MainWindow::rebuildTagTab(QListWidget *list,
@@ -5977,6 +6177,18 @@ void MainWindow::fillModel() {
                       Qt::UserRole + 3);
         item->setData(key, Qt::UserRole + 4);
         item->setData(p.isRemote ? QString() : p.absFile, Qt::UserRole + 5);
+        // Drag payload: remote stills/GIFs carry the configured
+        // direct/post URL (per-booru override included); local stills/GIFs
+        // drag their own file. Videos are excluded on purpose.
+        QString dragUrl;
+        if (!isVideoExt(p.ext)) {
+            dragUrl = p.isRemote
+                          ? RemotePosts::dragUrlFor(p, m_settings.dragLinkMode)
+                          : (p.absFile.isEmpty()
+                                 ? QString()
+                                 : QUrl::fromLocalFile(p.absFile).toString());
+        }
+        item->setData(dragUrl, Qt::UserRole + 20);
         // Local posts carry a hash id, not a booru number: show a dash.
         item->setData(p.isRemote && p.id ? QStringLiteral("#%1").arg(p.id)
                                          : QStringLiteral("-"),
@@ -6610,6 +6822,11 @@ void MainWindow::onSearchReturn() {
     m_suggester->setHistoryTags(m_settings.historyTokens);
     saveSettings(m_settings);
     m_searchQuery = canonicalQuery({}, pq.groups);
+    if (m_settings.searchHistory && m_favDb.isOpen()) {
+        const QString recorded = canonicalQuery(m_activeTags, pq.groups);
+        if (!recorded.trimmed().isEmpty())
+            m_favDb.addSearch(recorded);
+    }
     m_searchEdit->clear();
     commitSearch();
 }
@@ -6821,6 +7038,33 @@ void MainWindow::onAspectChanged() {
 void MainWindow::setBoxW(int w) {
     if (!m_delegate || !m_grid)
         return;
+    m_requestedBoxW = qBound(96, w, 384);
+    applyGridSnap();
+}
+
+void MainWindow::applyGridSnap() {
+    if (!m_delegate || !m_grid)
+        return;
+    int w = m_requestedBoxW;
+    if (m_settings.gridSnap) {
+        const int vw = m_grid->viewport()->width();
+        const int spacing = qMax(0, m_grid->spacing());
+        if (vw > 0) {
+            // Delegate card = box + 12px padding; the icon layout adds
+            // one spacing slot on each side of every card.
+            const int pitch = w + 12 + 2 * spacing;
+            int cols = qMax(1, vw / qMax(1, pitch));
+            int cell = (vw - cols * 2 * spacing) / cols;
+            int box = qBound(96, cell - 12, 384);
+            // Capped at the largest card: recompute the column count so
+            // the leftover strip is as small as possible.
+            if (box == 384 && cell - 12 > 384) {
+                cols = qMax(1, vw / (384 + 12 + 2 * spacing));
+                box = 384;
+            }
+            w = box;
+        }
+    }
     m_delegate->setBoxW(w);
     m_placeholder = QPixmap(m_delegate->boxW(),
                             (m_delegate->boxW() * m_aspectDen) / m_aspectNum);
@@ -7108,7 +7352,7 @@ void MainWindow::applyManualBuckets(BrowserTab *t,
         if (current && gridShowing) {
             // In-memory refresh only: a DB re-list here would drop the
             // just-applied buckets (they are stored now for next time).
-            setWindowTitle(QStringLiteral("box - ♥ Favourites"));
+            setWindowTitle(QStringLiteral("Box - ♥ Favourites"));
             commitFilter();
         }
     } else {
@@ -7145,13 +7389,14 @@ void MainWindow::applyManualBuckets(BrowserTab *t,
 
 void MainWindow::showAbout() {
     QMessageBox::about(
-        this, tr("About box"),
-        QStringLiteral("<h3>box %1</h3>"
+        this, tr("About Box"),
+        QStringLiteral("<h3>Box %1</h3>"
                        "<p>%2</p>"
                        "<p><a href=\"%3\">%3</a><br>"
                        "Copyright (C) 2026 Lev<br>"
-                       "GPLv3 or later</p>"
-                       "<p>Built with Qt %4</p>")
+                       "AGPLv3 or later</p>"
+                       "<p>Built with Qt %4, miniz, Lucide icons and FFmpeg "
+                       "(via Qt Multimedia)</p>")
             .arg(appVersion(), appTagline(), appRepoUrl(),
                  QString::fromLatin1(qVersion())));
 }
@@ -7162,6 +7407,10 @@ void MainWindow::openPreferences() {
             &MainWindow::runClassifyPopup);
     connect(&dlg, &PrefsDialog::faviconsRefreshRequested, this,
             &MainWindow::refreshFavicons);
+    connect(&dlg, &PrefsDialog::clearSearchHistoryRequested, this, [this] {
+        if (m_favDb.isOpen())
+            m_favDb.clearSearches();
+    });
     connect(&dlg, &PrefsDialog::applyRequested, this, [this, &dlg] {
         const QString before = m_settings.language;
         applyPreferences(dlg.settings());
@@ -7197,6 +7446,15 @@ void MainWindow::applyPreferences(const AppSettings &app) {
     const AppSettings old = m_settings;
     m_settings = app;
     saveSettings(m_settings);
+    if (m_model && m_grid) {
+        for (int i = 0; i < m_current.size() && i < m_model->rowCount(); ++i) {
+            if (QStandardItem *item = m_model->item(i))
+                item->setData(
+                    RemotePosts::dragUrlFor(m_current.at(i),
+                                            m_settings.dragLinkMode),
+                    Qt::UserRole + 20);
+        }
+    }
     // Data folder moved: reopen the favourites DB there. The cache
     // tracking DB stays in the platform cache dir (it follows the cache,
     // not the data). Databases start fresh there - existing files stay
@@ -7273,6 +7531,11 @@ void MainWindow::applyPreferences(const AppSettings &app) {
     applyThemeFromSettings();
     applySidebarScrollMode();
     setAspect(m_settings.aspectNum, m_settings.aspectDen);
+    if (m_sizeSlider)
+        m_sizeSlider->setValue(m_settings.gridBoxW);
+    setBoxW(m_settings.gridBoxW);
+    m_delegate->setStaggered(m_settings.gridStaggered);
+    m_grid->refreshLayout();
     m_grid->setScrollRows(m_settings.gridScrollRows);
     const bool diskCachePrefs = m_settings.cacheMode != CacheMode::None;
     const QString thumbDirPrefs = appCacheDir() + u'/' + QStringLiteral("thumbs");
@@ -7284,6 +7547,7 @@ void MainWindow::applyPreferences(const AppSettings &app) {
                                   m_settings.volume);
     m_viewer->setMaxSide(m_settings.viewerMaxSide);
     m_viewer->setCategoryMerges(m_settings.tagCategoryMerges);
+    m_viewer->setDragLinkMode(m_settings.dragLinkMode);
     m_viewer->setCustomTagCategories(m_settings.tagCustomCategories);
     m_welcome->setMascot(effectiveMascotPath(m_settings));
     m_welcome->setMascotOpacity(m_settings.mascotOpacity);
@@ -7452,6 +7716,40 @@ void MainWindow::onTagContextMenu(const QPoint &pos) {
     connect(favAct, &QAction::triggered, this,
             [this, tag] { toggleFavTag(tag); });
     menu.exec(list->mapToGlobal(pos));
+}
+
+void MainWindow::showSearchHistoryMenu() {
+    QMenu menu(this);
+    const QVector<FavDb::SearchEntry> entries =
+        m_favDb.isOpen() ? m_favDb.searches(30)
+                         : QVector<FavDb::SearchEntry>();
+    if (entries.isEmpty()) {
+        QAction *none = menu.addAction(
+            m_settings.searchHistory
+                ? tr("No searches yet")
+                : tr("Search history is off (Preferences → Browse)"));
+        none->setEnabled(false);
+    }
+    for (const FavDb::SearchEntry &e : entries) {
+        QAction *a = menu.addAction(e.query);
+        a->setToolTip(tr("%1 time(s)").arg(e.count));
+        connect(a, &QAction::triggered, this, [this, q = e.query] {
+            // Replay replaces the current query instead of stacking.
+            m_activeTags.clear();
+            m_searchQuery.clear();
+            m_searchEdit->setText(q);
+            onSearchReturn();
+        });
+    }
+    if (!entries.isEmpty()) {
+        menu.addSeparator();
+        QAction *clear = menu.addAction(tr("Clear search history"));
+        connect(clear, &QAction::triggered, this, [this] {
+            m_favDb.clearSearches();
+            statusBar()->showMessage(tr("Search history cleared"), 4000);
+        });
+    }
+    menu.exec(QCursor::pos());
 }
 
 void MainWindow::showFavTagsMenu() {
@@ -7659,9 +7957,149 @@ void MainWindow::showViewer(int row) {
     m_pages->setCurrentIndex(1);
 }
 
+void MainWindow::toggleViewerFullscreen() {
+    if (m_pages->currentIndex() != 1) {
+        // From the grid: open the selected/current post first, then go
+        // fullscreen once the viewer page is live.
+        if (m_current.isEmpty())
+            return;
+        int row = m_grid->currentIndex().row();
+        if (row < 0 || row >= m_current.size())
+            row = 0;
+        showViewer(row);
+    }
+    setViewerFullscreen(!m_viewerFullscreen);
+}
+
+void MainWindow::setViewerFullscreen(bool on) {
+    if (m_viewerFullscreen == on)
+        return;
+    m_viewerFullscreen = on;
+    if (m_viewer)
+        m_viewer->setImmersive(on);
+    menuBar()->setVisible(!on);
+    if (m_tabBar)
+        m_tabBar->setVisible(!on);
+    if (m_plusBtn)
+        m_plusBtn->setVisible(!on);
+    if (m_omniBar)
+        m_omniBar->setVisible(!on);
+    if (m_sideBar)
+        m_sideBar->setVisible(!on);
+    if (m_pillBar)
+        m_pillBar->setVisible(!on && m_pills && m_pills->count() > 0);
+    statusBar()->setVisible(!on);
+    if (on) {
+        m_preFullscreenState = windowState();
+        showFullScreen();
+    } else {
+        if (m_preFullscreenState & Qt::WindowMaximized)
+            showMaximized();
+        else
+            showNormal();
+        if (m_pages)
+            m_pages->setCurrentIndex(1); // stay on the viewer
+        if (m_viewer)
+            m_viewer->setFocus();
+    }
+}
+
+void MainWindow::showViewerContextMenu(const Post &post,
+                                       const QPoint &globalPos) {
+    QMenu menu(this);
+    QAction *full = menu.addAction(
+        m_viewerFullscreen ? tr("Exit fullscreen") : tr("Fullscreen"));
+    full->setShortcut(QKeySequence(Qt::Key_F11));
+    connect(full, &QAction::triggered, this,
+            &MainWindow::toggleViewerFullscreen);
+    menu.addSeparator();
+    const bool hasPostLink =
+        !post.postUrl.isEmpty() && RemotePosts::isHttpUrl(post.postUrl);
+    const bool hasFileLink =
+        !post.fileUrl.isEmpty() && RemotePosts::isHttpUrl(post.fileUrl);
+    if (hasPostLink) {
+        QAction *a = menu.addAction(tr("Open post page"));
+        connect(a, &QAction::triggered, this, [url = post.postUrl] {
+            QDesktopServices::openUrl(QUrl(url));
+        });
+        QAction *copyPost = menu.addAction(tr("Copy post link"));
+        connect(copyPost, &QAction::triggered, this,
+                [url = post.postUrl] {
+                    QApplication::clipboard()->setText(url);
+                });
+    }
+    if (hasFileLink) {
+        QAction *copyFile = menu.addAction(tr("Copy media link"));
+        connect(copyFile, &QAction::triggered, this,
+                [url = post.fileUrl] {
+                    QApplication::clipboard()->setText(url);
+                });
+    }
+    const QString local =
+        !post.absFile.isEmpty() ? post.absFile
+                                : m_favDb.localPaths().value(favIdentity(post));
+    if (!local.isEmpty() && QFileInfo::exists(local)) {
+        QAction *copyPath = menu.addAction(tr("Copy file path"));
+        connect(copyPath, &QAction::triggered, this, [local] {
+            QApplication::clipboard()->setText(local);
+        });
+        QAction *open = menu.addAction(tr("Open file"));
+        connect(open, &QAction::triggered, this, [local] {
+            QDesktopServices::openUrl(QUrl::fromLocalFile(local));
+        });
+    }
+    if (post.isRemote && hasFileLink) {
+        const bool downloaded =
+            !m_favDb.localPaths().value(favIdentity(post)).isEmpty();
+        QAction *dl = menu.addAction(downloaded ? tr("Delete from disk…")
+                                                : tr("⭳ Download"));
+        connect(dl, &QAction::triggered, this, [this, post, downloaded] {
+            if (!downloaded) {
+                const auto [site, pid] = favIdentity(post);
+                m_unfavVeto.remove(favVetoKey(site, pid));
+                downloadPosts({post});
+            } else {
+                const QString path = m_favDb.localPaths().value(
+                    favIdentity(post));
+                if (path.isEmpty() || !QFileInfo::exists(path))
+                    return;
+                const QFileInfo fi(path);
+                QFile::remove(path);
+                QFile::remove(fi.absolutePath() + u'/' +
+                              fi.completeBaseName() + QStringLiteral(".json"));
+                QFile::remove(path + QStringLiteral(".json"));
+                updateViewerBadges();
+                repaintFavMarks();
+                statusBar()->showMessage(tr("Deleted %1").arg(fi.fileName()),
+                                        4000);
+            }
+        });
+    }
+    menu.addSeparator();
+    const auto [site, pid] = favIdentity(post);
+    const bool fav = m_favDb.isFavourite(site, pid);
+    QAction *favAction = menu.addAction(fav ? tr("♡ Unfavourite")
+                                            : tr("♥ Favourite"));
+    connect(favAction, &QAction::triggered, this, [this, post, fav] {
+        if (fav) {
+            const auto [s, id] = favIdentity(post);
+            m_favDb.remove(s, id);
+            m_unfavVeto.insert(favVetoKey(s, id));
+            refreshFavTabs();
+            repaintFavMarks();
+            updateViewerBadges();
+        } else {
+            toggleFavourite(post);
+        }
+    });
+    menu.exec(globalPos);
+}
+
 void MainWindow::backToGrid() {
     // Leaving the viewer must halt playback now: audio kept going over
     // the grid (the player lives on after its page hides).
+    if (m_viewerFullscreen)
+        setViewerFullscreen(false);
     if (m_viewer)
         m_viewer->stopPlayback();
     m_pages->setCurrentIndex(0);

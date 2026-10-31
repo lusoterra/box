@@ -45,6 +45,12 @@ QJsonObject booruToJson(const BooruSite &b) {
     o[QStringLiteral("proxy")] = b.proxy;
     o[QStringLiteral("localBlacklist")] = b.localBlacklist;
     o[QStringLiteral("cacheMode")] = MediaCache::modeKey(b.cacheMode);
+    o[QStringLiteral("dragMode")] =
+        b.dragLinkMode == DragLinkMode::DirectMedia
+            ? QStringLiteral("direct")
+            : (b.dragLinkMode == DragLinkMode::PostPage
+                   ? QStringLiteral("post")
+                   : QStringLiteral("inherit"));
     return o;
 }
 BooruSite booruFromJson(const QJsonObject &o) {
@@ -75,6 +81,12 @@ BooruSite booruFromJson(const QJsonObject &o) {
     b.localBlacklist = o.value(QStringLiteral("localBlacklist")).toBool();
     b.cacheMode = MediaCache::modeFromKey(
         o.value(QStringLiteral("cacheMode")).toString(), CacheMode::Inherit);
+    const QString drag = o.value(QStringLiteral("dragMode")).toString();
+    b.dragLinkMode = drag == QStringLiteral("direct")
+                         ? DragLinkMode::DirectMedia
+                         : (drag == QStringLiteral("post")
+                                ? DragLinkMode::PostPage
+                                : DragLinkMode::Inherit);
     return b;
 }
 } // namespace

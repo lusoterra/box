@@ -1302,3 +1302,107 @@
 - [x] Download/Add Stray dialog: separate `Download` and `Favourite only`
       buttons so a link can be kept without pulling the media.
 - [x] Tests for URL recognition + HTML page parsing; build + `ctest`.
+
+## 123. Drag-and-drop posts (image/gif) + link-mode preference - DONE
+##    (`DragLinkMode` global + per-booru; grid role + QDrag in viewer)
+- [x] Dragging a grid card/viewer post starts a drag with a proper MIME
+      payload; images and GIFs only (videos excluded).
+- [x] Setting `drag/content`: direct media URL vs post page URL; global
+      default + per-booru override (Gelbooru needs the post page as referer).
+
+## 124. Right-click post actions: copy links etc. - DONE
+##    (`showViewerContextMenu`, grid menu copy post/media/path)
+- [x] Grid + viewer menu gains copy media URL / copy post URL (image, GIF,
+      video alike), disabled when the URL is missing.
+
+## 125. "One scrollbar for all tag categories" mode is broken - DONE
+##    (fixed heights + splitter minimum; verified under Xvfb)
+- [x] Sidebar mode renders all sections expanded with a real outer
+      scrollbar; no clipped/collapsed sections.
+
+## 126. Clickable video errors (blue label) - DONE
+##    (video label + viewer error note open the probe dialog)
+- [x] The blue/red media error label in the viewer opens the same
+      diagnostics popup as status-bar media failures (request + reason).
+
+## 127. Videos keep playing / ghost audio when leaving the viewer - DONE
+##    (`m_wanted` gate + mute on stop kills stale LoadedMedia replays)
+- [x] Returning to the grid stops playback (not just hides it).
+- [x] Stepping to another post must not replay the previous video's audio
+      from 0:00; unload the old source cleanly.
+
+## 128. Preferences > Browse too wide (horizontal scrollbars) - DONE
+##    (pages never scroll horizontally; long forms wrap)
+- [x] Constrain the tab contents; long booru rows wrap/ellide instead of
+      forcing a horizontal scrollbar.
+
+## 129. Triple-confirm "Restore presets" - DONE
+- [x] Ask three times (different wording) before re-adding shipped presets.
+
+## 130. Default tag category order - DONE
+##    (Artists, Character, Copyright, General, Meta, native custom last)
+- [x] Artists, Character, Copyright, General, Meta, everything else
+      (weird-booru native categories last).
+
+## 131. Rename Preferences "Tags" tab to "Taxonomies" - DONE
+- [x] Update tab text + docs/UI-TOUR references.
+
+## 132. Capitalise the app name ("Box") - DONE
+- [x] Window titles, About, welcome page, docs, log strings.
+
+## 133. Search history (default off) + omnibar access - DONE
+##    (`store.db` table, clock menu, preferences toggle/clear)
+- [x] Persist executed searches in `store.db` with timestamps (setting
+      `search/history`, default false); prune cap.
+- [x] Star-like button/menu next to the omnibar to reuse/delete entries.
+
+## 134. Fullscreen post viewer - DONE
+##    (double-click/right-click/F11/Esc; arrows keep stepping)
+- [x] Right-click menu entry, double-click on post, Esc/F11 to exit;
+      arrow keys keep navigating while fullscreen.
+
+## 135. Preload adjacent media - DONE
+##    (2 neighbours each way, sample-first; videos get a 2 MB warm Range GET)
+- [x] Preload neighbours' samples/stills (and GIF/video previews where
+      practical) for smoother stepping; respect cache/SFW policy.
+
+## 136. Staggered grid layout (default off) - DONE
+##    (brick stagger: odd columns half a card lower)
+- [x] Masonry/staggered card layout toggle in Preferences > Appearance.
+
+## 137. Grid size snap-to-fit (toggle, default on) - DONE
+- [x] Snap thumbnail size so a whole number of columns fits the viewport
+      without a right gap; manual resize keeps gaps when disabled.
+
+## 138. HyBooru sidebar tags only after opening posts one by one - DONE
+##    (background detail hydration queue for the loaded page)
+- [x] Detail objects fetched for the visible page (not only the opened
+      post) so the left tag list populates like other boorus.
+
+## 139. Shimmie2 downloads fail "unexpected content type"; error not clickable - DONE
+##    (magic-byte sniff for empty/misleading types; failed rows clickable)
+- [x] Accept Shimmie media response types / sniff bytes instead of trusting
+      the header; make the blue download error open diagnostics.
+
+## 140. Danbooru notes: click popup, larger translated text - DONE
+- [x] Left-click a note marker opens a styled popup with the note body;
+      no plain Qt tooltip.
+
+## 141. Artist commentary alongside notes/comments - DONE
+- [x] Third thread "Artist commentary" for engines that expose it
+      (Danbooru `artist_commentary`), fetched/cached/shown like notes.
+
+## 142. Comments fail to load, especially soybooru/Nuuru - DONE
+##    (live Nuuru shape {"items":[...]} contentRaw + author.userName)
+- [x] Fix Nuuru comment endpoint/parsing and general comment retries; show
+      the real failure instead of silence.
+
+## 143. Repo URL, AGPLv3-or-later, third-party credits - DONE
+- [x] Update `appRepoUrl()` and README/package references to the new git
+      URL; state AGPL-3.0-or-later (LICENSE already AGPL text), list
+      bundled libraries (Qt, miniz, FFmpeg via Qt Multimedia, ...).
+
+## 144. "Cache nothing" still uses bounded in-memory cache - DONE
+##    (512 MB session RAM cache, session-only staging dir removed on unload)
+- [x] Session RAM cache (destroyed on unload/exit) so big images are not
+      re-fetched on every look; never written to disk.

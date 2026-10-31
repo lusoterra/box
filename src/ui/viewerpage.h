@@ -36,7 +36,7 @@ class PostMetaFetcher;
 class PostMetaFetcher;
 
 // Zoomable/pannable still-image view: wheel zooms at cursor, drag pans,
-// double-click toggles fit <-> 100%.
+// double-click asks the viewer for fullscreen.
 class ImageView : public QGraphicsView {
     Q_OBJECT
 public:
@@ -50,16 +50,28 @@ public:
     // (YouTube-2012-style overlays, on by default).
     void setNotes(const QVector<PostNote> &notes, const QSize &refSize);
     void setNotesVisible(bool visible);
+    void setDragUrl(const QString &url) { m_dragUrl = url; }
     QPixmap currentPixmap() const; // displayed frame (placeholder across reloads)
+
+signals:
+    void fullscreenToggleRequested();
+    void contextMenuRequested(const QPoint &globalPos);
+    void noteActivated(const QString &body, const QPoint &globalPos);
 
 protected:
     void wheelEvent(QWheelEvent *e) override;
     bool viewportEvent(QEvent *e) override; // wheel zooms only, never scrolls
     void mouseDoubleClickEvent(QMouseEvent *e) override;
+    void contextMenuEvent(QContextMenuEvent *e) override;
+    void mousePressEvent(QMouseEvent *e) override;
+    void mouseMoveEvent(QMouseEvent *e) override;
     void resizeEvent(QResizeEvent *e) override;
 
 private:
     void applyZoom(double f, const QPoint &at);
+    QString m_dragUrl;
+    QPoint m_dragPress;
+    bool m_dragMaybe = false;
     void applyPendingNotes();
     QGraphicsScene *m_scene;
     QGraphicsPixmapItem *m_item = nullptr;
@@ -82,17 +94,28 @@ public:
     void setPlaceholder(const QPixmap &pm); // grid thumb until 1st frame lands
     QPixmap currentPixmap() const; // displayed frame (placeholder across reloads)
     void clear();
+    void setDragUrl(const QString &url) { m_dragUrl = url; }
     void fit();
     void zoom100();
+
+signals:
+    void fullscreenToggleRequested();
+    void contextMenuRequested(const QPoint &globalPos);
 
 protected:
     void wheelEvent(QWheelEvent *e) override;
     bool viewportEvent(QEvent *e) override; // wheel zooms only, never scrolls
     void mouseDoubleClickEvent(QMouseEvent *e) override;
+    void contextMenuEvent(QContextMenuEvent *e) override;
+    void mousePressEvent(QMouseEvent *e) override;
+    void mouseMoveEvent(QMouseEvent *e) override;
     void resizeEvent(QResizeEvent *e) override;
 
 private:
     void applyZoom(double f);
+    QString m_dragUrl;
+    QPoint m_dragPress;
+    bool m_dragMaybe = false;
     QGraphicsScene *m_scene;
     QGraphicsPixmapItem *m_item = nullptr;
     QMovie *m_movie = nullptr;
@@ -135,17 +158,28 @@ public:
     // rect + zoom so the next frames fit cleanly instead of inheriting
     // the previous video's geometry (small/corner/big flashes).
     void resetSize();
+    void setDragUrl(const QString &url) { m_dragUrl = url; }
     void fit();
     void zoom100();
+
+signals:
+    void fullscreenToggleRequested();
+    void contextMenuRequested(const QPoint &globalPos);
 
 protected:
     void wheelEvent(QWheelEvent *e) override;
     bool viewportEvent(QEvent *e) override; // wheel zooms only, never scrolls
     void mouseDoubleClickEvent(QMouseEvent *e) override;
+    void contextMenuEvent(QContextMenuEvent *e) override;
+    void mousePressEvent(QMouseEvent *e) override;
+    void mouseMoveEvent(QMouseEvent *e) override;
     void resizeEvent(QResizeEvent *e) override;
 
 private:
     void applyZoom(double f);
+    QString m_dragUrl;
+    QPoint m_dragPress;
+    bool m_dragMaybe = false;
     QGraphicsScene *m_scene;
     VideoFrameItem *m_item = nullptr;
     QVideoSink *m_sink = nullptr;
@@ -163,6 +197,10 @@ public:
     void setDefaults(bool muted, bool loop, int volume);
     // Playback rate for the session (sticks across videos until changed).
     void setRate(double rate);
+    void setDragUrl(const QString &url) {
+        if (m_view)
+            m_view->setDragUrl(url);
+    }
     // Zoom controls for the toolbar (route to the live video view).
     void fitView();
     void zoom100View();
@@ -178,6 +216,10 @@ signals:
     // A fetch the player cannot recover from: surfaces in the status
     // probe (clickable) with the redacted URL + reason.
     void mediaFailed(const QString &url, const QString &error);
+    // The red in-pane error label was clicked: show request diagnostics.
+    void errorDetailsRequested(const QString &url, const QString &error);
+    void fullscreenToggleRequested();
+    void contextMenuRequested(const QPoint &globalPos);
 
 protected:
     bool eventFilter(QObject *watched, QEvent *e) override; // click video = pause/resume
@@ -197,7 +239,14 @@ private:
     QPushButton *m_muteBtn;
     // Click-vs-pan disambiguation for pause-on-click (see eventFilter).
     QPoint m_pressPos;
-    bool m_pressed = false;    QSlider *m_slider;
+    bool m_pressed = false;
+    // True only while this pane is the visible media and playback was
+    // requested. Stale LoadedMedia ticks from a previous/stopped source
+    // must never call play() (that replayed the old video's audio from
+    // 0:00 when switching posts or returning to the grid).
+    bool m_wanted = false;
+    QUrl m_expectedSource;
+    QSlider *m_slider;
     class ImageCache *m_imgCache = nullptr;
     QString m_cacheUrl;   // remote fetch currently being buffered
     Post m_cachePost;     // post behind that fetch (referer)
@@ -237,6 +286,12 @@ private:
 // Same-window post viewer: replaces the old popup dialog. Toolbar with
 // back/prev/next + open-post/open-file actions, media area, metadata panel
 // with clickable tags.
+struct ViewerMeta {
+    QVector<PostNote> notes;
+    QVector<PostComment> comments;
+    QVector<PostComment> commentary;
+};
+
 class ViewerPage : public QWidget {
     Q_OBJECT
 public:
@@ -268,6 +323,11 @@ public:
     void onStillWebFinished(qint64 id, bool ok, const QString &error);
     void dropStillWeb(); // cancel a browser-backed still/gif fetch
     void setPlaybackDefaults(bool muted, bool loop, int volume);
+    // Hide toolbar/sidebar so the media fills the window (fullscreen).
+    void setImmersive(bool on);
+    // Drag payload policy for remote posts (per-booru overrides applied
+    // inside dragUrlFor).
+    void setDragLinkMode(DragLinkMode mode) { m_dragLinkMode = mode; }
     // Quit path: halt video playback (and its buffered fetch) now so the
     // player teardown never holds the close event open.
     void stopPlayback();
@@ -311,6 +371,10 @@ signals:
     // (parse-time stamps miss posts whose meta only the viewer fetched).
     void metaMarksChanged(const QString &siteKey, qint64 postId,
                           bool hasComments, bool hasNotes);
+    // Double-click / menu / F11: the shell owns the window state.
+    void fullscreenToggleRequested();
+    // Right-click on the media: shell shows the post action menu.
+    void postContextRequested(const Post &post, const QPoint &globalPos);
 
 protected:
     void keyPressEvent(QKeyEvent *e) override;
@@ -325,7 +389,8 @@ private slots:
     QWidget *commentCard(const PostComment &c, QWidget *parent);
     void reloadCurrent(); // tags + comments/notes + media bytes, fresh
     void onMetaDone(const QString &site, qint64 postId, QVector<PostNote> notes,
-                    QVector<PostComment> comments, bool ok,
+                    QVector<PostComment> comments,
+                    QVector<PostComment> commentary, bool ok,
                     const QString &error);
     // Re-run the meta fetch for a post whose cache entry is missing or
     // failed (popup Retry, reopen). No-op when nothing remote applies.
@@ -345,6 +410,8 @@ private:
     void renderMetaSections();
     void renderTags(); // rebuild just the tag groups from m_posts[m_row]
     void showNote(const QString &text);
+    void showErrorNote(const QString &url, const QString &text);
+    void showNotePopup(const QString &body, const QPoint &globalPos);
     void loadLocalImage(const QString &path, int row);
     void addTagGroup(QBoxLayout *lay, const QString &name, const QString &tags,
                      const QString &color);
@@ -372,6 +439,10 @@ private:
     QPushButton *m_variantsBtn = nullptr; // parent/child family search
     QPushButton *m_commentsBtn = nullptr; // popup with the post's thread
     QLabel *m_note = nullptr;
+    QString m_noteUrl;   // backing the clickable error note (empty = plain)
+    QString m_noteError;
+    QWidget *m_toolbarBox = nullptr; // hidden while immersive
+    QWidget *m_sidePanel = nullptr;  // hidden while immersive
     QProgressBar *m_loadBar;
     QLabel *m_loadInfo; // "X.YMB / 12MB  ·  3.4MB/s" next to the bar
     QElapsedTimer m_loadTimer; // download speed sampling
@@ -381,6 +452,7 @@ private:
     QWidget *m_tagHost = nullptr;
     QBoxLayout *m_tagLayout = nullptr;
     int m_maxSide = 2560;
+    DragLinkMode m_dragLinkMode = DragLinkMode::PostPage;
     ImageCache *m_imgCache = nullptr;
     // Browser-backed fetch for fingerprint-walled stills/GIFs (same
     // backend the videos use): QNAM first, one browser retry on walls.
@@ -391,7 +463,7 @@ private:
     bool m_webRetried = false; // one browser retry per post max
     PostMetaFetcher *m_meta = nullptr;
     // (site#id) -> notes+comments, so back/forth never refetches.
-    QHash<QString, QPair<QVector<PostNote>, QVector<PostComment>>> m_metaCache;
+    QHash<QString, ViewerMeta> m_metaCache;
     // Meta fetches that failed (never cached as definitive-empty):
     // reopening refetches, and the thread UI offers a retry.
     QSet<QString> m_metaFailed;

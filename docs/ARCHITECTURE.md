@@ -100,7 +100,8 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     (`:40`), `suggestBare()` (`:45`).
   - `favdb.h:12` `FavDb` (`store.db`): identity `pidFor`/`siteFor` (`:24`),
     `open/add/addMany/remove/list` (`:33-52`), `unlinked()` (`:61`),
-    `setTagSplits()` (`:68`); `migrateHashIds()` (`:74`).
+    `setTagSplits()` (`:68`); `migrateHashIds()` (`:74`). Also owns the
+    opt-in `search_history` table (`addSearch/searches/clearSearches`).
   - `settingsexport.h` (`src/library/`): JSON backup/restore of
     portable settings + favourites (`exportJson`/`importJson`;
     boorus merge by key, favourites addMany skips duplicates).
@@ -168,6 +169,21 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     `li.tag-type-*`). Posts are stamped `_Stray` with id 0 (URL-hash
     identity) and carry the API object + `tags_*` buckets in the sidecar;
     `Favourite only` writes the same row to `FavDb` without a media job.
+- Post drag/copy (`MainWindow::showGridMenu`, `showViewerContextMenu`,
+  `RemotePosts::dragUrlFor`): grid cards carry their drag URL in a model
+  role; viewer media starts a `QDrag` at fit zoom. Copy actions cover
+  post page, media URL and resolved local path for stills/GIFs/videos.
+- Fullscreen viewer (`MainWindow::setViewerFullscreen`): hides shell
+  chrome and the viewer toolbar/sidebar; F11/Esc/double-click/right-click
+  toggle it while arrow navigation keeps working.
+- HyBooru hydration (`MainWindow::scheduleHybooruHydration`): summaries
+  carry no tags, so every loaded row is refreshed through a dedicated
+  `PostRefresher` queue and merged into the grid/sidebar/viewer.
+- Media cache (`src/remote/imagecache.*`): persistent mode writes under
+  `baseDir`; "cache nothing" (and browsing without full cache) keeps a
+  bounded 512 MB session RAM cache, staged only in `box-ram-<pid>/` and
+  destroyed on unload. `prefetchRange` warms adjacent videos with a 2 MB
+  Range GET without caching the stream.
 - Favourites (`src/library/favdb.h`):
   - Identity = site+id (`pidFor`, `:24`); id-less strays key by URL hash,
     pure-local rows by path hash; `migrateHashIds()` heals unstable rows
