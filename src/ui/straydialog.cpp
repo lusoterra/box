@@ -10,10 +10,15 @@
 
 StrayDialog::StrayDialog(bool autoFav, QWidget *parent) : QDialog(parent) {
     setWindowTitle(tr("Download/Add Stray"));
-    resize(480, 320);
+    resize(520, 360);
     auto *lay = new QVBoxLayout(this);
-    lay->addWidget(new QLabel(
-        tr("Image URLs, one per line (archive pages without tags):"), this));
+    auto *hint = new QLabel(
+        tr("Post or media URLs, one per line. Booru post links are read "
+           "through their public API (the site is not added to your booru "
+           "list); direct image/video links are fetched as-is."),
+        this);
+    hint->setWordWrap(true);
+    lay->addWidget(hint);
     m_urls = new QPlainTextEdit(this);
     m_urls->setPlaceholderText(QStringLiteral("https://…"));
     lay->addWidget(m_urls, 1);
@@ -21,16 +26,15 @@ StrayDialog::StrayDialog(bool autoFav, QWidget *parent) : QDialog(parent) {
     m_status->setStyleSheet(QStringLiteral("color:#4a5068;"));
     m_status->setWordWrap(true);
     lay->addWidget(m_status);
-    m_autoFav = new QCheckBox(tr("Auto-favourite strays I add"), this);
-    m_autoFav->setToolTip(tr("Favourites get the imported/downloaded files"));
+    m_autoFav =
+        new QCheckBox(tr("Auto-favourite downloaded/imported strays"), this);
+    m_autoFav->setToolTip(tr("They also land in ♥ Favourites"));
     m_autoFav->setChecked(autoFav);
     connect(m_autoFav, &QCheckBox::toggled, this,
             &StrayDialog::autoFavChanged);
     lay->addWidget(m_autoFav);
     auto *row = new QHBoxLayout();
-    auto *dlBtn = new QPushButton(tr("Download"), this);
-    dlBtn->setToolTip(tr("Fetch the links into _Stray with content-hash names"));
-    connect(dlBtn, &QPushButton::clicked, this, [this] {
+    auto collect = [this] {
         QStringList urls;
         for (const QString &line :
              m_urls->toPlainText().split(u'\n', Qt::SkipEmptyParts)) {
@@ -38,12 +42,31 @@ StrayDialog::StrayDialog(bool autoFav, QWidget *parent) : QDialog(parent) {
             if (!u.isEmpty())
                 urls << u;
         }
-        if (urls.isEmpty()) {
+        if (urls.isEmpty())
             m_status->setText(tr("Paste at least one link first."));
+        return urls;
+    };
+    auto *dlBtn = new QPushButton(tr("Download"), this);
+    dlBtn->setToolTip(
+        tr("Fetch the links into _Stray (booru links also get their JSON "
+           "sidecar)"));
+    connect(dlBtn, &QPushButton::clicked, this, [this, collect] {
+        const QStringList urls = collect();
+        if (urls.isEmpty())
             return;
-        }
         m_status->setText(tr("Queued %1 link(s).").arg(urls.size()));
         emit downloadRequested(urls);
+    });
+    auto *favBtn = new QPushButton(tr("Favourite only"), this);
+    favBtn->setToolTip(
+        tr("Add the links to ♥ Favourites without downloading the media"));
+    connect(favBtn, &QPushButton::clicked, this, [this, collect] {
+        const QStringList urls = collect();
+        if (urls.isEmpty())
+            return;
+        m_status->setText(
+            tr("Favouriting %1 link(s), no media download.").arg(urls.size()));
+        emit favouriteRequested(urls);
     });
     auto *impBtn = new QPushButton(tr("Import files…"), this);
     impBtn->setToolTip(tr("Copy local files into _Stray"));
@@ -59,6 +82,7 @@ StrayDialog::StrayDialog(bool autoFav, QWidget *parent) : QDialog(parent) {
     auto *closeBtn = new QPushButton(tr("Close"), this);
     connect(closeBtn, &QPushButton::clicked, this, &QDialog::accept);
     row->addWidget(dlBtn);
+    row->addWidget(favBtn);
     row->addWidget(impBtn);
     row->addStretch(1);
     row->addWidget(closeBtn);

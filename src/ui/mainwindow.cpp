@@ -17,6 +17,7 @@
 #include "settingsexport.h"
 #include "stray.h"
 #include "straydialog.h"
+#include "strayresolve.h"
 #include "tabbar.h"
 #include "faviconcache.h"
 #include "sidecarrefresh.h"
@@ -79,6 +80,7 @@
 #include <QWheelEvent>
 #include <QtConcurrent>
 #include <climits>
+#include <functional>
 #include <utility>
 #include <algorithm>
 
@@ -4319,25 +4321,86 @@ void MainWindow::openStrayDialog() {
         m_settings.strayAutoFav = on;
         saveSettings(m_settings);
     });
+    // Shared link resolution: booru post pages become tagged posts through
+    // their public API (no entry is added to the booru list), direct media
+    // URLs pass through unchanged. Failures are reported once, after the
+    // whole batch ran.
+    auto resolveLinks =
+        [this](const QStringList &urls,
+               const std::function<void(const QVector<Post> &)> &deliver) {
+            auto *resolver = new StrayResolver(this);
+            connect(resolver, &StrayResolver::progress, this,
+                    [this](int done, int total, const QString &) {
+                        statusBar()->showMessage(
+                            tr("Reading link %1 of %2…")
+                                .arg(done + 1)
+                                .arg(total),
+                            4000);
+                    });
+            connect(resolver, &StrayResolver::finished, this,
+                    [this, resolver,
+                     deliver](const QVector<StrayResolver::Result> &results) {
+                        resolver->deleteLater();
+                        QVector<Post> posts;
+                        QStringList errors;
+                        for (const auto &r : results) {
+                            if (r.ok)
+                                posts.append(r.post);
+                            else
+                                errors << tr("%1: %2").arg(r.sourceUrl, r.error);
+                        }
+                        if (!errors.isEmpty()) {
+                            statusBar()->showMessage(
+                                tr("Skipped %1 link(s): %2")
+                                    .arg(errors.size())
+                                    .arg(errors.first()),
+                                12000);
+                            if (posts.isEmpty())
+                                QMessageBox::warning(this, tr("Stray links"),
+                                                     errors.join(u'\n'));
+                        }
+                        deliver(posts);
+                    });
+            resolver->resolve(urls);
+        };
     connect(dlg, &StrayDialog::downloadRequested, this,
-            [this](const QStringList &urls) {
-                QVector<Post> posts;
-                for (const QString &u : urls) {
-                    const QString t = u.trimmed();
-                    if (t.isEmpty() || !RemotePosts::isHttpUrl(t))
-                        continue;
-                    Post p;
-                    p.isRemote = true;
-                    p.siteName = Stray::dirName();
-                    p.fileUrl = t;
-                    QJsonObject raw;
-                    raw[QStringLiteral("stray")] = true;
-                    raw[QStringLiteral("tags")] = QString();
-                    p.rawJson = raw;
-                    posts.append(p);
-                }
-                if (!posts.isEmpty())
-                    downloadPosts(posts);
+            [this, resolveLinks](const QStringList &urls) {
+                resolveLinks(urls, [this](const QVector<Post> &posts) {
+                    if (!posts.isEmpty())
+                        downloadPosts(posts);
+                });
+            });
+    connect(dlg, &StrayDialog::favouriteRequested, this,
+            [this, resolveLinks](const QStringList &urls) {
+                resolveLinks(urls, [this](const QVector<Post> &posts) {
+                    if (posts.isEmpty())
+                        return;
+                    if (!m_favDb.isOpen()) {
+                        statusBar()->showMessage(
+                            tr("Favourites are unavailable"), 6000);
+                        return;
+                    }
+                    QVector<Post> favs;
+                    for (const Post &p : posts) {
+                        const auto [site, pid] = favIdentity(p);
+                        if (m_unfavVeto.contains(favVetoKey(site, pid)))
+                            continue;
+                        favs.append(p);
+                    }
+                    const int added = m_favDb.addMany(favs);
+                    if (added > 0) {
+                        refreshFavTabs();
+                        repaintFavMarks();
+                        updateViewerBadges();
+                        statusBar()->showMessage(
+                            tr("Favourited %1 link(s) without downloading")
+                                .arg(added),
+                            6000);
+                    } else {
+                        statusBar()->showMessage(
+                            tr("Nothing new to favourite"), 6000);
+                    }
+                });
             });
     connect(dlg, &StrayDialog::importRequested, this,
             &MainWindow::importStrayFiles);
@@ -4484,6 +4547,12 @@ void MainWindow::editStrayTags(const Post &post) {
     }
     obj[QStringLiteral("tags")] = kept.join(u' ');
     obj[QStringLiteral("stray")] = true;
+    // The hand edit is the new truth: stale API buckets must not keep
+    // removed tags alive. Without them, parseStray treats the flat blob as
+    // untyped and the normal classifier re-buckets it after the save.
+    for (const char *k : {"tags_artist", "tags_character", "tags_copyright",
+                          "tags_general", "tags_meta", "stray_tags"})
+        obj.remove(QString::fromLatin1(k));
     // Hard safeguard: library archive roots are never written to.
     if (refuseArchiveWrite(sidecar, effectiveDownloadDir(m_settings))) {
         statusBar()->showMessage(

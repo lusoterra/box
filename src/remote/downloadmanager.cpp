@@ -178,6 +178,11 @@ QList<DownloadJob> DownloadManager::plan(const QVector<Post> &posts,
                 raw[QStringLiteral("file_url")] = p.fileUrl;
         }
         enrichSidecarRaw(raw, p);
+        // Strays keep their marker even when re-pulled from a favourites
+        // row (the row carries no rawJson): rescan then parses the flat
+        // tags/stray record instead of a generic gallery-dl sidecar.
+        if (p.siteName == QStringLiteral("_Stray"))
+            raw[QStringLiteral("stray")] = true;
         const QString tag = RemotePosts::fsTagForPost(p);
         const QString dir = destDir + u'/' + safeSiteDir(tag);
         QString name = RemotePosts::downloadFileName(tag, raw);

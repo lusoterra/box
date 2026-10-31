@@ -1290,3 +1290,15 @@
 - [x] Set the OS title from the target tab before the deferred scan/search,
       and keep it in sync whenever the tab title changes.
 - [x] Build + `ctest` (32/32).
+
+## 122. Stray download: booru detection + favourites-only
+- [x] Recognise booru post-page URLs (Danbooru/HyBooru `/posts/<id>` and
+      `/post/show|view/<id>`, Gelbooru/Safebooru `index.php?page=post&s=view`,
+      Szurubooru, Shimmie, Nuuru, HiddenBooru) and resolve them through the
+      public API without adding the booru to the configured list.
+- [x] Fall back to the post page HTML (og:image + tag list) when the API is
+      closed to anonymous requests (Gelbooru 401), and keep the full raw API
+      object as the download sidecar (tags/buckets preserved on rescan).
+- [x] Download/Add Stray dialog: separate `Download` and `Favourite only`
+      buttons so a link can be kept without pulling the media.
+- [x] Tests for URL recognition + HTML page parsing; build + `ctest`.

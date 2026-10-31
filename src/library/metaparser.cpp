@@ -293,12 +293,44 @@ bool MetaParser::parseSzuruNative(const QJsonObject &raw, Post &post) {
 }
 
 bool MetaParser::parseStray(const QJsonObject &raw, Post &post) {
-    const QStringList tags = cleanTagTokens(splitTags(raw.value(QStringLiteral("tags")).toString()));
-    applyRatingAndTags(post, QString(), {}, {}, {}, tags, {});
-    post.untyped = tags.join(u' ');
+    // Resolved booru strays carry the API's buckets under tags_* keys;
+    // hand-tagged strays have only the flat "tags" blob. The flat blob
+    // stays untyped for hand edits (classifier work), while a bucketed
+    // record is already categorized and keeps its buckets as-is.
+    const QStringList artist = splitTags(raw.value(QStringLiteral("tags_artist")).toString());
+    const QStringList character = splitTags(raw.value(QStringLiteral("tags_character")).toString());
+    const QStringList copyright = splitTags(raw.value(QStringLiteral("tags_copyright")).toString());
+    const QStringList general = splitTags(raw.value(QStringLiteral("tags_general")).toString());
+    const QStringList meta = splitTags(raw.value(QStringLiteral("tags_meta")).toString());
+    QStringList flat = splitTags(raw.value(QStringLiteral("tags")).toString());
+    if (flat.isEmpty())
+        flat = splitTags(raw.value(QStringLiteral("stray_tags")).toString());
+    const bool bucketed = !artist.isEmpty() || !character.isEmpty() ||
+                          !copyright.isEmpty() || !general.isEmpty() ||
+                          !meta.isEmpty();
+    if (bucketed) {
+        // Anything only in the flat blob stays in general (never dropped).
+        const QStringList bucketedTags =
+            artist + character + copyright + general + meta;
+        const QSet<QString> known(bucketedTags.begin(), bucketedTags.end());
+        QStringList allGeneral = general;
+        for (const QString &t : flat) {
+            if (!known.contains(t))
+                allGeneral << t;
+        }
+        applyRatingAndTags(post, raw.value(QStringLiteral("rating")).toString(),
+                           artist, character, copyright, allGeneral, meta);
+        flat.clear();
+    } else {
+        applyRatingAndTags(post, QString(), {}, {}, {}, flat, {});
+    }
+    post.untyped = flat.join(u' ');
     post.width = static_cast<int>(toInt(raw.value(QStringLiteral("width"))));
     post.height = static_cast<int>(toInt(raw.value(QStringLiteral("height"))));
     post.source = raw.value(QStringLiteral("source")).toString();
+    const QString postUrl = raw.value(QStringLiteral("post_url")).toString();
+    if (!postUrl.isEmpty())
+        post.postUrl = postUrl;
     post.hasMeta = true;
     return true;
 }

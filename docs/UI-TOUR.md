@@ -83,7 +83,8 @@ disk, `Delete from disk…` enables, and `Set as mascot` shows. Tabs drag to reo
 `Open ▸` (folder picker), `Browse Downloads`, `Import LoliSnatcher
 backup…` (favourite and downloaded flags are independent: import favs,
 download/download-as-favourite/skip downloaded rows, optionally cross
-them), `Download/Add Stray…`, `Update downloaded sidecars…`,
+them), `Download/Add Stray…` (paste direct media or booru post links;
+see 20-stray-dialog), `Update downloaded sidecars…`,
 `Redownload missing files…`, `Quit`.
 
 ## 05-tabs-menu - Tabs
@@ -235,10 +236,26 @@ deleted behind the app's back.
 Booru manager) + short name on the entry's badge color; `G` rating chip,
 score, `#id`, file name below (synthesized `id - host - tags.ext` when the file URL has no name, e.g. Nuuru `/file`; downloads keep `site_md5` names).
 
+## 20-stray-dialog - Download/Add Stray (`StrayDialog`)
+Big link box (one URL per line) plus `Auto-favourite downloaded/imported
+strays`, and four buttons: `Download` (fetches media into `_Stray/` and,
+for recognised booru post pages, also resolves the post so its JSON
+sidecar carries the real tags - no booru entry is added), `Favourite
+only` (same resolution, but only a favourites row: no media download;
+the file URL is kept so the card/viewer can stream and a later download
+can link it), `Import files…` (local copy-in, hashed names), `Close`.
+Direct image/video links pass straight to the downloader. Recognised
+post-page URLs (Danbooru/HyBooru `/posts/<id>`, Moebooru
+`/post/show/<id>`, Shimmie/Nuuru `/post/view/<id>`, Szurubooru
+`/post/<id>`, HiddenBooru `/post/<id>/view`, Gelbooru/Safebooru
+`index.php?page=post&s=view&id=`) probe their public API first; when the
+API refuses anonymous calls (Gelbooru 401) the page itself is read
+(`og:image` + typed tag list). Unreadable links are reported once,
+without queues of wall pages.
+
 ## Not yet documented (keep unchecked until done)
 - [ ] Downloads tab (non-empty: sidecar-backed offline rows)
 - [ ] Downloads progress dialog (batch with per-file rows)
-- [ ] Download/Add Stray dialog
 - [ ] Cookie capture browser dialog
 - [ ] Update-sidecars scope dialog (multi-site)
 - [ ] Search-errors inspector (status-bar probe popup)

@@ -51,6 +51,10 @@ add_unit_test(test_losnimport test_losnimport.cpp ../src/library/losnimport.cpp
               ../src/library/favdb.cpp ../src/settings.cpp ../src/library/metaparser.cpp
               ../src/ui/progressbar.cpp)
 add_unit_test(test_remotesource test_remotesource.cpp ${REMOTE_SOURCES})
+add_unit_test(test_strayresolve test_strayresolve.cpp ../src/remote/strayresolve.cpp
+              ../src/library/metaparser.cpp ${REMOTE_SOURCES})
+set_tests_properties(test_strayresolve PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_unit_test(test_downloadplan test_downloadplan.cpp ../src/remote/downloadmanager.cpp
               ../src/remote/webdlbackend.h ${REMOTE_SOURCES} ${UGOIRA_SOURCES} ../src/ui/progressbar.cpp
               ../src/remote/imagecache.cpp ../src/library/cachejanitor.cpp ../src/settings.cpp)
@@ -103,6 +107,7 @@ add_unit_test(test_gridwindow test_gridwindow.cpp
               ../src/ui/straydialog.cpp ../src/ui/progressbar.cpp
               ../src/remote/imagecache.cpp ../src/remote/postmeta.cpp
               ../src/remote/downloadmanager.cpp ../src/library/losnimport.cpp
+              ../src/remote/strayresolve.cpp
               ../src/library/favdb.cpp ../src/library/metaparser.cpp
               ../src/library/queryor.cpp ../src/library/tagtypes.cpp
               ../src/library/scanner.cpp ../src/library/cache.cpp

@@ -13,7 +13,10 @@
 - viewer = `ViewerPage`, same-window post view (`src/ui/viewerpage.h:170`);
   stills `ImageView`, GIFs `GifView`, mp4/webm `VideoView`/`VideoPane`.
 - stray = hand-tagged file in `<downloadDir>/_Stray/` as `_Stray_<md5>.<ext>`
-  (`src/library/stray.h:14`); via File -> Download/Add Stray (`straydialog`).
+  (`src/library/stray.h:14`); via File -> Download/Add Stray
+  (`straydialog`). Pasted booru post links are resolved through the public
+  API/HTML (`src/remote/strayresolve.h`) so the sidecar keeps the real tags,
+  and `Favourite only` stores the link without downloading the media.
 - mascot = home-page image (`home/mascot*`, `src/settings.h`); shipped
   default is `マニフェスト.jpg` (empty path), Remove hides it, Reset
   restores the default; any grid file can replace it, rendered by

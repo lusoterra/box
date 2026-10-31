@@ -13,8 +13,8 @@ class QLabel;
 class QLineEdit;
 class QCheckBox;
 
-// "File → Download/Add Stray": paste image URLs (one per line) to fetch,
-// or pick local files to copy in. Emits jobs for MainWindow to run.
+// "File → Download/Add Stray": paste post/media URLs (one per line) to
+// fetch, or pick local files to copy in. Emits jobs for MainWindow to run.
 class StrayDialog : public QDialog {
     Q_OBJECT
 public:
@@ -23,6 +23,8 @@ public:
 signals:
     // Raw URL strings (trimmed, non-empty lines).
     void downloadRequested(const QStringList &urls);
+    // Same links, but only recorded in favourites (no media download).
+    void favouriteRequested(const QStringList &urls);
     // Local file paths to copy in.
     void importRequested(const QStringList &paths);
     // Auto-favourite toggle flipped (persisted by the owner).

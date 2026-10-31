@@ -111,7 +111,10 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     (`:110`), `inferExplicit()` (`:122`).
   - `sidecarrefresh.h`: `SidecarRefresh::collect()` (`:24`), `SidecarBatch`
     bulk re-fetch (`:29`).
-  - `stray.h:14` `Stray`: `_Stray` folder convention; `losnimport`
+  - `stray.h:14` `Stray`: `_Stray` folder convention; `strayresolve.h`
+    `StrayResolver` + pure `parseBooruPostUrl`/`parseBooruPageHtml`/
+    `postFromRaw` (Download/Add Stray link resolution: public API first,
+    post-page HTML fallback, generic e621-style shapes); `losnimport`
     (LOSN `store.db` import); `cachejanitor` (10 GB cap enforcement +
     per-entry rating/site tracking so "delete NSFW cache" can keep SFW
     files); `cachepolicy` (global + per-booru disk-cache mode, applied to
@@ -159,6 +162,12 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     pretty-printed raw-API sidecar write (backfilled from the parsed post
     to a full gallery-dl-style record: urls, buckets, dims, ids);
     summary carries `downloaded` for auto-favourite (`downloadmanager.h:35`).
+  - Download/Add Stray (`strayresolve.h`): direct media passes through;
+    recognised post pages probe their API (`parseBooruPostUrl` ->
+    `engineOps()->refreshUrl`), then fall back to page HTML (`og:image` +
+    `li.tag-type-*`). Posts are stamped `_Stray` with id 0 (URL-hash
+    identity) and carry the API object + `tags_*` buckets in the sidecar;
+    `Favourite only` writes the same row to `FavDb` without a media job.
 - Favourites (`src/library/favdb.h`):
   - Identity = site+id (`pidFor`, `:24`); id-less strays key by URL hash,
     pure-local rows by path hash; `migrateHashIds()` heals unstable rows

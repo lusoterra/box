@@ -167,6 +167,27 @@ private slots:
         QCOMPARE(jobs.size(), 1);
         QCOMPARE(jobs.first().filePath,
                  QStringLiteral("/d/_Stray/_Stray_77.png"));
+        QVERIFY(jobs.first().post.rawJson
+                    .value(QStringLiteral("stray"))
+                    .toBool());
+    }
+
+    void strayFavouriteKeepsMarker() {
+        // Re-pulled from a favourites row (no rawJson): the sidecar must
+        // still be a stray record so rescan keeps flat tags + buckets.
+        const Post p =
+            favPost(QStringLiteral("_Stray"), 0,
+                    QStringLiteral("https://x/stray.mp4"));
+        const QList<DownloadJob> jobs =
+            DownloadManager::plan({p}, QStringLiteral("/d"));
+        QCOMPARE(jobs.size(), 1);
+        QVERIFY(jobs.first().post.rawJson
+                    .value(QStringLiteral("stray"))
+                    .toBool());
+        QCOMPARE(jobs.first().post.rawJson
+                     .value(QStringLiteral("tags"))
+                     .toString(),
+                 QString());
     }
 
     void batchCollisionsDisambiguated() {        // Two id-less rows with plain URLs: previously both planned as
