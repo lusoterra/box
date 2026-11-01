@@ -12,6 +12,22 @@
   painted by `GalleryDelegate` (`src/ui/mainwindow.h:67`).
 - viewer = `ViewerPage`, same-window post view (`src/ui/viewerpage.h:170`);
   stills `ImageView`, GIFs `GifView`, mp4/webm `VideoView`/`VideoPane`.
+  Double-click / right-click / F11 toggles fullscreen (`MainWindow::
+  setViewerFullscreen` + `ViewerPage::setImmersive`); Esc leaves fullscreen
+  first, arrows keep stepping.
+- annotation note popup = left-click a note marker opens `Annotation note`
+  (`ViewerPage::showNotePopup`, `src/ui/viewerpage.cpp`), a larger
+  selectable-text dialog replacing the hover tooltip.
+- artist commentary = Danbooru `artist_commentary` thread
+  (`PostMeta::commentaryUrl/parseCommentary`, `src/remote/postmeta.cpp`),
+  translation preferred, rendered as ARTIST COMMENTARY beside NOTES/COMMENTS.
+- clickable media errors = red video label, viewer error note and failed
+  Downloads rows all open the redacted-URL probe dialog
+  (`VideoPane::errorDetailsRequested`, `ViewerPage::showErrorNote`,
+  `DownloadsDialog`).
+- grid snap/stagger = `grid/snap` fills the viewport with whole columns
+  (`MainWindow::applyGridSnap`); `grid/staggered` offsets odd columns half
+  a card (`GalleryDelegate::m_staggered`). Videos never drag out.
 - stray = hand-tagged file in `<downloadDir>/_Stray/` as `_Stray_<md5>.<ext>`
   (`src/library/stray.h:14`); via File -> Download/Add Stray
   (`straydialog`). Pasted booru post links are resolved through the public

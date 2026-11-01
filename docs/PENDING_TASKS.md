@@ -1406,3 +1406,66 @@
 ##    (512 MB session RAM cache, session-only staging dir removed on unload)
 - [x] Session RAM cache (destroyed on unload/exit) so big images are not
       re-fetched on every look; never written to disk.
+
+## 145. New engines: booru-on-rails + Philomena (deerpibooru, twibooru) - TODO
+##    (correction: booru-on-rails and Philomena are the two BACKENDS; the
+##    deerpibooru/twibooru frontends look about the same)
+- [ ] VERIFY which host runs which backend: deerpibooru.org vs twibooru
+      look alike in the browser but are believed to differ underneath
+      (booru-on-rails vs Philomena). Probe both live APIs and confirm
+      before writing engines; do not assume.
+- [ ] Probe endpoints per backend: search JSON shape, post object fields
+      (file URL, preview, tags with categories, score/rating, id),
+      pagination, tag suggestions, notes/comments if exposed.
+- [ ] Add one engine per backend if the APIs really differ (e.g.
+      `BooruEngine` + `engine_*.cpp` for booru-on-rails and for
+      Philomena), wired like the others (search URL, parse,
+      refresh/single-post, auth/quirks, `sitequirks` entries per host).
+      If one parser covers both, prove it with fixtures from each host.
+- [ ] Sidebar taxonomy mapping (their tag categories) + tag suggest.
+- [ ] Downloads/sidecar layout + drag URL + favicon + wall detection as
+      applicable; per-host quirks where the two hosts diverge.
+- [ ] Tests: parser fixtures for both hosts' live shapes in
+      `tests/` (no network), `ctest` green; docs (`ARCHITECTURE.md`
+      engines list, `UI-TOUR.md` if visible, `GLOSSARY.md` if a new term).
+
+## 146. Full-app feature inventory -> exhaustive test hardening - TODO
+##    (interrupted earlier: baseline verified green 33/33, coverage map
+##    taken, then limits blew - no new tests written yet)
+- [ ] Inventory every feature of the whole app (engines, library, remote,
+      UI, settings) against existing `tests/`; list the untested gaps.
+- [ ] Add unit tests for everything realistically testable headless
+      (Qt Test, temp dirs, no network): pure helpers, parsers, DB,
+      settings round-trips, cache policy, drag/fullscreen/history/grid
+      options; skip only what genuinely needs a live network or eyes,
+      and say why in the entry.
+- [ ] Goal: no regressions and no "minor annoying bugs" creeping back;
+      `ctest` green after every batch (start point: 33/33).
+
+## 147. QA pass over the whole app - TODO
+- [ ] Manual/headless run (Xvfb per `docs/TESTING.md`): walk every menu,
+      dialog, tab type, viewer path, download/favourite flow; log found
+      bugs as tasks (or fix inline + tests), never in silence.
+
+## 148. Dead-code elimination + optimization round - TODO
+##    (the old task 34 audit is DONE and stale; this is a fresh pass
+##    after the feature batch: 123-145)
+- [ ] Dead code: `-Wall -Wextra` scratch build, unused helpers/locals/
+      members, retired features' leftovers; remove only what is provably
+      unreferenced (grep + build), `ctest` after.
+- [ ] Optimization: obvious wins only (hot paths, redundant copies,
+      needless repaints/fetches); measure before/after where possible.
+
+## 149. Declutter the code: split oversized files - TODO
+##    (src/ui/mainwindow.cpp alone is 8112 lines; viewerpage 2878,
+##    prefsdlg 2558)
+- [ ] Split `mainwindow.cpp` into focused translation units along the
+      existing seams (grid/delegate, viewer glue, fullscreen, tabs/
+      session, menus/actions, sidebar/pills, drag/copy, status probe...)
+      with matching headers; MainWindow can keep owning the state - this
+      is about file size, not a rewrite.
+- [ ] Consider `viewerpage.cpp` / `prefsdlg.cpp` next if still unwieldy
+      after mainwindow.
+- [ ] No behavior change: build + `ctest` green, docs (`ARCHITECTURE.md`
+      module map, `GLOSSARY.md` if types move) updated in the same
+      session.

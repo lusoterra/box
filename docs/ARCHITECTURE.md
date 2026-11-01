@@ -79,11 +79,14 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     `RefreshTarget` (`:176`) + `resolveRefreshTarget` + `PostRefresher`
     (`:193`, single-post tag refresh).
   - `downloadmanager.h:45` `DownloadManager`: `plan()` (`:51`),
-    `completeJob()` (`:95`), `DownloadsDialog` (`:113`).
+    `completeJob()` (`:95`), `DownloadsDialog` (`:113`). Media accepted by
+    header OR magic bytes (`looksLikeMediaBytes`, `src/remote/remotesource.
+    cpp`), so empty/misleading types (Shimmie2) download fine while wall
+    pages still fail named; failed rows are clickable to their reason.
   - Also: `imagecache` (full-image fetch for viewer), `thumbloader`
     (grid thumbs), `tagsuggest` (per-engine autocomplete), `faviconcache`
     (site icons), `cookiegrab` (WebEngine cookie capture for walled hosts),
-    `postmeta` (notes + comments fetch for viewer).
+    `postmeta` (notes + comments + Danbooru artist commentary for viewer).
 - `src/library/` - local data + classification.
   - `scanner.h:19` `Scanner`: recursive scan, both sidecar layouts, emits
     `progress`/`cacheStats`; impl `src/library/scanner.cpp:156`.
@@ -130,6 +133,9 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     `main.cpp` (`QT_FFMPEG_DECODING_HW_DEVICE_TYPES=,`, user-overridable;
     the VAAPI/hardware path segfaulted on broken surfaces) and
     `VideoFrameItem::setFrame` never maps non-readable frames;
+    fullscreen via `MainWindow::setViewerFullscreen` + `setImmersive`;
+    video ghost-audio killed by a wanted-source gate (`VideoPane::
+    m_wanted`) + mute-on-stop; note click opens `showNotePopup`;
     `welcomepage` (home + mascot);
     `prefsdlg` (tabbed preferences); `straydialog` (Download/Add Stray);
     `flowlayout` (filter pills), `tabbar` (marquee tabs, drag-reorder

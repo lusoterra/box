@@ -4,7 +4,7 @@ Window layout, top to bottom: menubar → tab bar → omnibar → sidebar +
 grid → status bar.
 
 ## 01-welcome - home tab (`WelcomePage`, `src/ui/welcomepage.cpp`)
-Tab 0, shown when no tab is active. From top: app icon + `box` title,
+Tab 0, shown when no tab is active. From top: app icon + `Box` title,
 tagline + version, four big buttons - `Back to last session` (only when
 a session was saved: restores every tab, lands on the saved current
 one, and returns to its post/scroll; if every tab was closed it warns
@@ -19,6 +19,9 @@ picker) for mouse-driven reopening.
 
 ## 02-browse-grid - booru tab (browse mode, `MainWindow`, `src/ui/mainwindow.cpp`)
 One tab per archive/site set. Tab bar button shows favicon + label + ✕.
+HyBooru tabs hydrate in the background: summaries arrive tagless, so each
+loaded row is detail-fetched through a dedicated queue and the sidebar
+fills without opening posts one by one.
 Left: sidebar tag sections (ARTISTS red, CHARACTERS green, COPYRIGHT
 purple, META orange, TAGS/general white) with counts, each tinted in its
 bucket colour like the filter pills, plus
@@ -82,8 +85,10 @@ remote rows too: `⭳ Download` disables once everything selected is on
 disk, `Delete from disk…` enables, `Set as mascot` shows, and `Copy post
 link` / `Copy media link` / `Copy file path` put the selected rows on the
 clipboard (stills, GIFs and videos alike). Dragging cards exports linked
-posts as a URL (post page or direct media, per Preferences → Browse)
-and local/downloaded rows as the file itself. Tabs drag to reorder (welcome stays first).
+stills/GIFs as a URL (post page or direct media, per Preferences → Browse)
+and local/downloaded stills/GIFs as the file itself; videos are excluded
+from drag-out on purpose (too heavy for a drop target).
+Tabs drag to reorder (welcome stays first).
 
 ## 04-file-menu - File
 `Open ▸` (folder picker), `Browse Downloads`, `Import LoliSnatcher
@@ -91,7 +96,9 @@ backup…` (favourite and downloaded flags are independent: import favs,
 download/download-as-favourite/skip downloaded rows, optionally cross
 them), `Download/Add Stray…` (paste direct media or booru post links;
 see 20-stray-dialog), `Update downloaded sidecars…`,
-`Redownload missing files…`, `Quit`.
+`Redownload missing files…`, `Quit`. Media downloads tolerate
+empty/misleading `Content-Type` headers (Shimmie2 serves real JPEGs with
+none): magic bytes decide, wall pages still fail with a named error.
 
 ## 05-tabs-menu - Tabs
 `Close Folder`, `Start fresh session` (closes every tab, forgets the
@@ -106,8 +113,9 @@ download dir (Syncthing-safe).
 Stylesheet…` (`.qss` overlay).
 
 ## 07-help-menu / 08-about - Help
-Single item `About box`; the dialog shows version, tagline, repo URL,
-copyright, license, Qt version.
+Single item `About Box`; the dialog shows version, tagline, repo URL,
+copyright, license (AGPLv3 or later), Qt version plus third-party credits
+(miniz, Lucide icons, FFmpeg via Qt Multimedia).
 
 Grid cards follow the default category order Artists, Character,
 Copyright, General, Meta, then native categories from unusual boorus.
@@ -129,13 +137,17 @@ Toolbar: `Back`, `‹ 8 / 40 ›` stepping, `Fit`, `100%`, `Variants`
 Lens, IQDB, trace.moe - needs a remote file URL), download icon (toggles to
 delete once the file is on disk, like the ♥ button), reload-everything (icon:
 tags, comments, media), `Notes`
-(translation overlays on the image, on by default),
+(translation overlays on the image, on by default; left-click a note marker
+opens a larger `Annotation note` popup with selectable text instead of a
+hover tooltip),
 globe (`Open file`), `Copy file URL`, `Comments` (thread popup with cards,
 reuses the cached comments/notes). The tag panel below the groups shows
 three threads when the engine provides them: NOTES, ARTIST COMMENTARY
-(Danbooru `artist_commentary`, translated text preferred) and COMMENTS. A post can be dragged out from the media as well (image/GIF/video, at
-fit zoom) to the same URL/file payload. Double-click the media for
-fullscreen post view; right-click offers `Fullscreen`, link clippings,
+(Danbooru `artist_commentary`, translated text preferred) and COMMENTS. A post can be dragged out from the media as well (stills/GIFs at
+fit zoom, same URL/file payload as grid drag; videos excluded). Double-click the media for
+fullscreen post view (`MainWindow::setViewerFullscreen`: menubar, tab bar,
+omnibar, sidebar, pills and status bar hide while the viewer goes immersive;
+`ViewerPage::setImmersive`); right-click offers `Fullscreen`, link clippings,
 download/delete and favourite. Esc leaves fullscreen first, then the
 viewer; F11 toggles it; arrow keys keep stepping posts while fullscreen.
 The omnibar and filter pills
@@ -148,10 +160,13 @@ the viewer never leaves it; the grid refreshes behind and the viewer
 follows it (removed rows resolve to the nearest surviving post,
 twin copies collapse so stepping never sticks). Media area: wheel-zoom/drag-pan stills, GIFs,
 looping video with seek/volume/rate (playback halts on every post
-switch - no background audio; a set global proxy, or a failed direct
+switch - no background audio, guarded by a wanted-source gate so stale
+`LoadedMedia` ticks never restart the previous video from 0:00; a set global proxy, or a failed direct
 stream, buffers through the download stack instead - same referer +
 cookies + proxy as stills; the red error label only appears for terminal
-failures, never while still loading/buffering; any failure also arms the
+failures, never while still loading/buffering; clicking the red label (or
+the viewer error note, or a failed row in the Downloads dialog) opens the
+redacted URL + reason like a search error does; any failure also arms the
 status-bar probe, so clicking the `Media failed…` line opens the
 redacted URL + reason like a search error does; a wall-marked failure
 also triggers one silent clearance refresh from the capture profile,
@@ -232,8 +247,11 @@ tag categories` (default off), `Show local folder browser in the quick +
 menu` (default off), `Home mascot` Browse/Remove/Reset-to-default +
 opacity slider + margin, `Grid` ratio/scroll, `Snap grid post size to fill the window` (on by
 default; off keeps the exact zoom-slider width and its right gap),
-`Staggered grid rows (brick layout)` (off by default), `Video playback`
-(mute/loop/volume), `Viewer` max side.
+`Staggered grid rows (brick layout)` (off by default; odd columns sit half
+a card lower), `Video playback`
+(mute/loop/volume), `Viewer` max side. Neighbour preload is always on:
+the two posts on each side warm their viewer URL (sample-first; videos
+get a 2 MB Range warm-up, never a cached stream).
 
 ## 17-multibooru - merged tab
 Tab title joins sources (`Safebooru + Danbooru + Favourites`); grid mixes
