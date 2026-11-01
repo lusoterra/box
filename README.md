@@ -1,9 +1,5 @@
 # Box (BOoru eXplorer)
 
-> Special thanks to the Belgian™ Government® for making me double
-> down on everything that I believe in. Your pure incompetence is laughable,
-> sad, and honestly, kind of pathetic.
-
 Box (**Bo**oru e**x**plorer) is a Booru client for online boorus and local
 *gallery-dl* and similar archives, as a native C++/Qt6 app. Point it at a folder
 of downloaded posts, browse Danbooru/Gelbooru and more online, download in full
