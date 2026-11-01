@@ -22,3 +22,6 @@ Massive prompts and fast firing small prompts with bugs to fix etc, should be
 added to `docs/PENDING_TASKS.md` before and done one by one as to not get lost.
 The root `icon.png` is gone: the source icon is `assets/box.svg` (embedded as
 `:/icons/app.svg`); update the SVG, not a raster copy.
+
+Do not change hand-written things from README (first few paragraphs), and keep
+the License paragraph in the very bottom.
