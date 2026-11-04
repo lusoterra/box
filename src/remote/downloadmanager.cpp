@@ -646,22 +646,21 @@ DownloadsDialog::DownloadsDialog(DownloadManager *manager, const QString &destDi
     auto *openBtn = new QPushButton(tr("Open folder"), this);
     connect(openBtn, &QPushButton::clicked, this,
             [this] { QDesktopServices::openUrl(QUrl::fromLocalFile(m_destDir)); });
-    m_closeBtn = new QPushButton(tr("Cancel"), this);
-    connect(m_closeBtn, &QPushButton::clicked, this, [this] {
-        if (m_manager->isActive()) {
-            m_manager->cancel();
-            m_cancelled = true;
-            // In-flight rows never get their finished event: mark them.
-            for (auto it = m_rows.begin(); it != m_rows.end(); ++it) {
-                if (it.value() && it.value()->text().startsWith(QStringLiteral("↓")))
-                    it.value()->setText(tr("○ %1 (cancelled)").arg(it.key()));
-            }
-            m_current->setText(tr("Cancelled."));
-            m_closeBtn->setText(tr("Close"));
-        } else {
-            accept();
+    m_cancelBtn = new QPushButton(tr("Cancel"), this);
+    connect(m_cancelBtn, &QPushButton::clicked, this, [this] {
+        if (!m_manager->isActive())
+            return;
+        m_manager->cancel();
+        m_cancelled = true;
+        for (auto it = m_rows.begin(); it != m_rows.end(); ++it) {
+            if (it.value() && it.value()->text().startsWith(QStringLiteral("↓")))
+                it.value()->setText(tr("○ %1 (cancelled)").arg(it.key()));
         }
+        m_current->setText(tr("Cancelled."));
+        m_cancelBtn->setEnabled(false);
     });
+    m_closeBtn = new QPushButton(tr("Close"), this);
+    connect(m_closeBtn, &QPushButton::clicked, this, [this] { accept(); });
     row->addWidget(openBtn);
     auto *browseBtn = new QPushButton(tr("Browse in app"), this);
     browseBtn->setToolTip(tr("Open the download folder as a library tab"));
@@ -669,6 +668,7 @@ DownloadsDialog::DownloadsDialog(DownloadManager *manager, const QString &destDi
             [this] { emit browseRequested(m_destDir); });
     row->addWidget(browseBtn);
     row->addStretch(1);
+    row->addWidget(m_cancelBtn);
     row->addWidget(m_closeBtn);
     lay->addLayout(row);
 }
@@ -684,7 +684,8 @@ void DownloadsDialog::onProgress(int done, int total, const QString &current) {
         m_log->clear();
         m_rows.clear();
         m_cancelled = false;
-        m_closeBtn->setText(tr("Cancel"));
+        m_cancelBtn->setEnabled(true);
+        m_cancelBtn->setText(tr("Cancel"));
     }
     m_bar->setRange(0, qMax(1, total));
     m_bar->setValue(done);
@@ -756,5 +757,5 @@ void DownloadsDialog::onFinished(const DownloadSummary &summary) {
     if (summary.failed == 0 && !m_cancelled)
         m_log->addItem(tr("All files downloaded."));
     m_log->scrollToBottom();
-    m_closeBtn->setText(tr("Close"));
+    m_cancelBtn->setEnabled(false);
 }

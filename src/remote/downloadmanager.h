@@ -155,6 +155,7 @@ private:
     class QProgressBar *m_bar;
     class QLabel *m_current;
     class QListWidget *m_log;
+    class QPushButton *m_cancelBtn;
     class QPushButton *m_closeBtn;
     bool m_cancelled = false;
     // In-flight rows by file name, updated in place as each file lands.
