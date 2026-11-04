@@ -1505,11 +1505,13 @@
 - [ ] Sync mode in the import dialog; delete stale local rows/files.
 - [ ] Build + `ctest` (+ docs).
 
-## 155. Downloads manager: add a Close button
-- The manager only has Cancel, which reads as close; add an explicit
-  Close button so users stop hitting Cancel by mistake.
-- [ ] Add Close button (distinct from Cancel) to the downloads dialog.
-- [ ] Build + `ctest` (+ docs).
+## 155. Downloads manager: add a Close button - DONE
+##    (separate Cancel + Close buttons; Cancel disables on finish;
+##    build OK, 33/33 tests)
+- The manager had a single Cancel/Close toggle button, which read as
+  close; users hit it thinking it closed.
+- [x] Add a dedicated Close button alongside Cancel.
+- [x] Build + `ctest`.
 
 ## 156. False ugoira detection: mp4/gif files downloaded as .zip
 - Some downloads fail saying "tried to download a zip" on files whose
