@@ -1469,3 +1469,51 @@
 - [ ] No behavior change: build + `ctest` green, docs (`ARCHITECTURE.md`
       module map, `GLOSSARY.md` if types move) updated in the same
       session.
+
+## 150. Deleting downloads leaves JSON sidecars behind - TODO
+- Deleting a downloaded file leaves its `.json` sidecar on disk
+  (download path).
+- [ ] Find the delete-from-disk path in download manager / grid menu;
+      delete the matching sidecar alongside the media.
+- [ ] Build + `ctest`.
+
+## 151. cdn.donmai.us returns 403 on LoliSnatcher DB import (captcha on subdomain)
+- Importing a losn DB hits the file CDN directly and gets 403; the
+  subdomain runs its own Cloudflare wall, so the existing solve webview
+  (opt-in auto-popup) should also trigger for that host.
+- [ ] Route import file fetches through the wall-aware path and auto-open
+      the solve webview when enabled.
+- [ ] Build + `ctest`.
+
+## 152. Configurable cache folder location
+- Cache lives at `~/.cache/box` by default; allow moving it (prefs +
+  settings.ini round-trip + backup).
+- [ ] Add setting + prefs editor for cache dir; honor on startup.
+- [ ] Build + `ctest` (+ docs).
+
+## 153. Option to cache favourites (media) in addition to downloads
+- Ask whether favourited media should be cached too (downloads already
+  are). Preference toggle + cache path reuse.
+- [ ] Add setting + prefs checkbox; include favs in cache logic.
+- [ ] Build + `ctest` (+ docs).
+
+## 154. Re-importing LoliSnatcher DB: sync downloads/favourites to 1:1
+- On re-import, offer to sync (remove/delete posts so local matches the
+  imported DB 1:1) for downloads and favourites, not just skip-existing.
+- [ ] Sync mode in the import dialog; delete stale local rows/files.
+- [ ] Build + `ctest` (+ docs).
+
+## 155. Downloads manager: add a Close button
+- The manager only has Cancel, which reads as close; add an explicit
+  Close button so users stop hitting Cancel by mistake.
+- [ ] Add Close button (distinct from Cancel) to the downloads dialog.
+- [ ] Build + `ctest` (+ docs).
+
+## 156. False ugoira detection: mp4/gif files downloaded as .zip
+- Some downloads fail saying "tried to download a zip" on files whose
+  name is .mp4/.gif/etc. Likely misclassified as ugoira (Booru
+  converted them). Gelbooru has no ugoira; Danbooru may serve a real
+  zip. Don't treat non-zip extensions as ugoira.
+- [ ] Gate ugoira handling on actual zip/archive content/extension, not
+      filename guess.
+- [ ] Build + `ctest` (+ docs).
