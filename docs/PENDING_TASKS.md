@@ -1470,12 +1470,14 @@
       module map, `GLOSSARY.md` if types move) updated in the same
       session.
 
-## 150. Deleting downloads leaves JSON sidecars behind - TODO
-- Deleting a downloaded file leaves its `.json` sidecar on disk
-  (download path).
-- [ ] Find the delete-from-disk path in download manager / grid menu;
-      delete the matching sidecar alongside the media.
-- [ ] Build + `ctest`.
+## 150. Deleting downloads leaves JSON sidecars behind - DONE
+##    (multi-delete path now removes both stem and flat sidecar forms;
+##    build OK, 33/33 tests)
+- Deleting a downloaded file left its `.json` sidecar on disk when the
+  flat `<file>.json` form was used (only the `<stem>.json` form was
+  removed in the multi-select delete path).
+- [x] Remove both sidecar forms in the multi-delete path.
+- [x] Build + `ctest`.
 
 ## 151. cdn.donmai.us returns 403 on LoliSnatcher DB import (captcha on subdomain)
 - Importing a losn DB hits the file CDN directly and gets 403; the

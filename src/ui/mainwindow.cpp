@@ -4176,11 +4176,14 @@ void MainWindow::showGridMenu(const QPoint &pos) {
                     (f == dlRoot || f.startsWith(dlRoot + u'/')) &&
                     !keepSidecar.contains(f)) {
                     const QFileInfo fi(f);
-                    const QString sidecar = fi.absolutePath() + u'/' +
-                                            fi.completeBaseName() +
-                                            QStringLiteral(".json");
-                    if (sidecar != f)
-                        QFile::remove(sidecar);
+                    const QString stemSidecar = fi.absolutePath() + u'/' +
+                                                fi.completeBaseName() +
+                                                QStringLiteral(".json");
+                    const QString flatSidecar = f + QStringLiteral(".json");
+                    if (stemSidecar != f)
+                        QFile::remove(stemSidecar);
+                    if (flatSidecar != f)
+                        QFile::remove(flatSidecar);
                 }
             }
         }

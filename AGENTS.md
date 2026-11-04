@@ -25,3 +25,12 @@ The root `icon.png` is gone: the source icon is `assets/box.svg` (embedded as
 
 Do not change hand-written things from README (first few paragraphs), and keep
 the License paragraph in the very bottom.
+
+## Testing hygiene (cache/booru)
+
+- When testing the software, prefer SFW boorus. For boorus that allow
+  NSFW content, only cache SFW stuff - do not litter the machine with
+  NSFW media.
+- Cache test artifacts under `/tmp/opencode` (erased on reboot); if space
+  is tight there, avoid large downloads or trim the cache rather than
+  spilling elsewhere.
