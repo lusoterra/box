@@ -130,7 +130,7 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     video ghost-audio killed by a wanted-source gate (`VideoPane::
     m_wanted`) + mute-on-stop; note click opens `showNotePopup`;
     `welcomepage` (home + mascot);
-    `prefsdlg` (tabbed preferences); `straydialog` (Download/Add Stray);
+    `prefsdlg` (tabbed preferences; booru editor/detect/probe members split to `src/ui/prefsdlg_booru.cpp`); `straydialog` (Download/Add Stray);
     `flowlayout` (filter pills), `tabbar` (marquee tabs, drag-reorder
     with welcome pinned first), `theme`, `uicons`,
     `progressbar`.
