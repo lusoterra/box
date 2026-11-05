@@ -9,6 +9,7 @@
 #include "faviconcache.h"
 #include "tagsuggest.h"
 
+#include <QFutureWatcher>
 #include <QHash>
 #include <QImage>
 #include <QListView>
@@ -544,7 +545,7 @@ private:
     QHash<QString, QPixmap> m_thumbCache; // request key -> pixmap
     QList<QString> m_cacheOrder;
     QPixmap m_placeholder;
-    class ScanWatcher;
+    class ScanWatcher : public QFutureWatcher<QVector<Post>> {};
     class Scanner *m_scanner = nullptr; // current archive scan (cancellable)
     ScanWatcher *m_scanWatcher = nullptr;
 };
