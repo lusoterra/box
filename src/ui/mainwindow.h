@@ -54,6 +54,7 @@ bool blacklisted(const Post &p, const QSet<QString> &banned);
 void splitIncExc(const QStringList &tokens, QStringList &inc, QStringList &exc);
 bool matchesTokens(const Post &p, const QStringList &inc, const QStringList &exc);
 bool isRatingToken(const QString &tok);
+constexpr int kBoxW = 184;
 bool groupsMatch(const Post &p, const QList<QStringList> &groups);
 QString dedupeKeyFor(const Post &post);
 
