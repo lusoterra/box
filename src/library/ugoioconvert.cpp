@@ -2,13 +2,9 @@
 
 #include "miniz/miniz.h"
 
-#include <QCoreApplication>
-#include <QElapsedTimer>
 #include <QEventLoop>
 #include <QFileInfo>
-#include <QImageReader>
 #include <QJsonArray>
-#include <QJsonDocument>
 #include <QProcess>
 #include <QStandardPaths>
 #include <QTemporaryDir>

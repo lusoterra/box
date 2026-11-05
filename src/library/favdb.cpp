@@ -13,7 +13,6 @@
 #include <QSqlDatabase>
 #include <QSqlError>
 #include <QSqlQuery>
-#include <QStandardPaths>
 
 #include <cstring>
 
