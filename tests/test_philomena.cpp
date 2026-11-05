@@ -142,6 +142,7 @@ private slots:
         QCOMPARE(RemotePosts::postPageUrl(QStringLiteral("twibooru"),
                                           QStringLiteral("https://twibooru.org"), 8),
                  QStringLiteral("https://twibooru.org/posts/8"));
+
     }
 
     void ratingMapping() {
@@ -177,7 +178,9 @@ private slots:
 
     void translateMetatags() {
         // Philomena engines strip unverified rating/sort/order metatags
-        // client-side (src/engines/booruengine.cpp translateSearchTags).
+        // client-side (src/engines/booruengine.cpp:445-465). Negated
+        // metatags keep their '-' prefix in `head`, so they are not
+        // stripped by the current Philomena/Hybooru branch (behavior as-is).
         const QStringList in{QStringLiteral("rating:safe"),
                              QStringLiteral("sort:score"),
                              QStringLiteral("order:score"),
@@ -187,6 +190,12 @@ private slots:
                                QStringLiteral("-artist:foo")};
         QCOMPARE(RemotePosts::translateSearchTags(in, BooruEngine::Derpibooru), want);
         QCOMPARE(RemotePosts::translateSearchTags(in, BooruEngine::Twibooru), want);
+        // Document current behavior for negated metatags.
+        QCOMPARE(RemotePosts::translateSearchTags(
+                     {QStringLiteral("-rating:safe"), QStringLiteral("pony")},
+                     BooruEngine::Derpibooru),
+                 QStringList({QStringLiteral("-rating:safe"),
+                              QStringLiteral("pony")}));
     }
 
     void malformedAndMinimal() {
