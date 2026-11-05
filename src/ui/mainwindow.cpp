@@ -2181,69 +2181,6 @@ void MainWindow::setAsMascot(const Post &post) {
     statusBar()->showMessage(tr("Home mascot updated"), 4000);
 }
 
-void MainWindow::importLosnBackup() {
-    const QString path = QFileDialog::getOpenFileName(
-        this, tr("LoliSnatcher backup"), QDir::homePath(),
-        tr("SQLite database (*.db);;All files (*)"));
-    if (path.isEmpty())
-        return;
-    auto *dlg = new LosnImportDialog(path, &m_favDb, m_downloads, m_settings,
-                                     effectiveDownloadDir(m_settings),
-                                     this);
-    dlg->setAttribute(Qt::WA_DeleteOnClose);
-    dlg->show();
-    dlg->raise();
-}
-
-void MainWindow::exportSettingsBackup() {
-    const QString path = QFileDialog::getSaveFileName(
-        this, tr("Back up settings"), QDir::homePath() + QStringLiteral("/box-backup.json"),
-        tr("JSON backups (*.json);;All files (*)"));
-    if (path.isEmpty())
-        return;
-    const QJsonDocument doc(SettingsBackup::exportJson(
-        m_settings, m_favDb.isOpen() ? m_favDb.list() : QVector<Post>()));
-    QFile f(path);
-    if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-        statusBar()->showMessage(tr("Cannot write %1").arg(path), 6000);
-        return;
-    }
-    f.write(doc.toJson(QJsonDocument::Indented));
-    statusBar()->showMessage(tr("Settings backed up to %1").arg(path), 6000);
-}
-
-void MainWindow::importSettingsBackup() {
-    const QString path = QFileDialog::getOpenFileName(
-        this, tr("Restore settings"), QDir::homePath(),
-        tr("JSON backups (*.json);;All files (*)"));
-    if (path.isEmpty())
-        return;
-    QFile f(path);
-    QJsonParseError err;
-    const QJsonDocument doc = QJsonDocument::fromJson(
-        f.open(QIODevice::ReadOnly) ? f.readAll() : QByteArray(), &err);
-    if (err.error != QJsonParseError::NoError || !doc.isObject()) {
-        statusBar()->showMessage(tr("Not a settings backup: %1").arg(path),
-                                  6000);
-        return;
-    }
-    AppSettings app = m_settings;
-    QVector<Post> favs;
-    QString why;
-    if (!SettingsBackup::importJson(doc.object(), &app, &favs, &why)) {
-        statusBar()->showMessage(why.isEmpty() ? tr("Bad backup file") : why,
-                                  8000);
-        return;
-    }
-    const int added = m_favDb.isOpen() ? m_favDb.addMany(favs) : 0;
-    m_settings = app;
-    applyPreferences(m_settings);
-    saveSettings(m_settings);
-    refreshFavTabs();
-    statusBar()->showMessage(
-        tr("Settings restored (%1 favourites added).").arg(added), 8000);
-}
-
 void MainWindow::refreshFavTabs() {
     if (!m_favDb.isOpen())
         return;

@@ -69,6 +69,7 @@ add_executable(box
     src/ui/mainwindow_search.cpp
     src/ui/mainwindow_filter.cpp
     src/ui/mainwindow_stray.cpp
+    src/ui/mainwindow_backup.cpp
     src/icons.qrc
     src/seed.qrc
 )
