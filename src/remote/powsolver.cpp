@@ -4,9 +4,7 @@
 #include "sitequirks.h"
 
 #include <QCryptographicHash>
-#include <QEventLoop>
 #include <QFutureWatcher>
-#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QNetworkCookieJar>
