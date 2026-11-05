@@ -227,6 +227,37 @@ private slots:
         QVERIFY(LosnImport::md5sOnDisk(tmp.filePath(QStringLiteral("nope"))).isEmpty());
     }
 
+    void pathsForRowSecurityAndMd5Url() {
+        // src/library/losnimport.cpp:108-130 (pathsForRow), :84-92 (md5FromFileUrl)
+        LosnRow row;
+        row.rowId = 7;
+        row.siteLabel = QStringLiteral("Gelbooru");
+        row.fileUrl = QStringLiteral("https://example.com/f.png");
+        // Rogue/traversal or non-hex md5 in sidecar must fall back to losn name.
+        QJsonObject bad;
+        bad[QStringLiteral("md5")] = QStringLiteral("../../etc/passwd");
+        QCOMPARE(LosnImport::pathsForRow(row, bad, QStringLiteral("/d")).fileName,
+                 QStringLiteral("Gelbooru_losn7.png"));
+        bad[QStringLiteral("md5")] = QStringLiteral("not-a-hash");
+        QCOMPARE(LosnImport::pathsForRow(row, bad, QStringLiteral("/d")).fileName,
+                 QStringLiteral("Gelbooru_losn7.png"));
+        // pathsForRow normalizes smd (trim+lower) before hex check.
+        QJsonObject upper;
+        upper[QStringLiteral("md5")] = QStringLiteral("  D41D8CD98F00B204E9800998ECF8427E  ");
+        QCOMPARE(LosnImport::pathsForRow(row, upper, QStringLiteral("/d")).fileName,
+                 QStringLiteral("Gelbooru_d41d8cd98f00b204e9800998ecf8427e.png"));
+
+        // md5FromFileUrl: hex32 regex is lowercase-only, no normalization.
+        QCOMPARE(LosnImport::md5FromFileUrl(
+                     QStringLiteral("https://x/y/d41d8cd98f00b204e9800998ecf8427e.jpg")),
+                 QStringLiteral("d41d8cd98f00b204e9800998ecf8427e"));
+        QVERIFY(LosnImport::md5FromFileUrl(
+                    QStringLiteral("https://x/y/D41D8CD98F00B204E9800998ECF8427E.jpg"))
+                    .isEmpty()); // current behavior: uppercase not matched
+        QVERIFY(LosnImport::md5FromFileUrl(QStringLiteral("https://x/y/nope.jpg"))
+                    .isEmpty());
+    }
+
     void readSyntheticBackup() {
         QTemporaryDir tmp;
         QVERIFY(tmp.isValid());
