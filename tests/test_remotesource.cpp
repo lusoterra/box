@@ -148,6 +148,36 @@ private slots:
         RemoteSource::setConfiguredBoorus(RemoteSource::presetBoorus());
     }
 
+    void mediaRefererGaps() {
+        // src/remote/remotesource.cpp:1073 (mediaReferer), :1083 (mediaRefererFor)
+        BooruSite gel;
+        gel.key = QStringLiteral("g");
+        gel.label = QStringLiteral("G");
+        gel.baseUrl = QStringLiteral("https://gelbooru.com"); // no trailing slash
+        gel.engine = BooruEngine::Gelbooru;
+        BooruSite dan;
+        dan.key = QStringLiteral("d");
+        dan.label = QStringLiteral("D");
+        dan.baseUrl = QStringLiteral("https://danbooru.donmai.us");
+        dan.engine = BooruEngine::Danbooru;
+        RemoteSource::setConfiguredBoorus({gel, dan});
+        QCOMPARE(RemotePosts::mediaReferer(QStringLiteral("g")),
+                 QStringLiteral("https://gelbooru.com/"));
+        QVERIFY(RemotePosts::mediaReferer(QStringLiteral("d")).isEmpty()); // non-Gelbooru
+        QVERIFY(RemotePosts::mediaReferer(QStringLiteral("nope")).isEmpty());
+        BooruSite emptyBase = gel;
+        emptyBase.key = QStringLiteral("e");
+        emptyBase.baseUrl.clear();
+        RemoteSource::setConfiguredBoorus({gel, dan, emptyBase});
+        QVERIFY(RemotePosts::mediaReferer(QStringLiteral("e")).isEmpty());
+
+        // mediaRefererFor: scheme-less postUrl defaults to https
+        Post p;
+        p.postUrl = QStringLiteral("//rule34.xxx/index.php?page=post&s=view&id=1");
+        QCOMPARE(RemotePosts::mediaRefererFor(p), QStringLiteral("https://rule34.xxx/"));
+        RemoteSource::setConfiguredBoorus(RemoteSource::presetBoorus());
+    }
+
     void refreshTargetPrefersStampedKey() {
         // Custom same-family instances (ATF vs gelbooru.com): the label
         // resolves to the wrong entry, so the stamped key must win -
