@@ -43,6 +43,9 @@ struct SiteCreds;
 class DownloadManager;
 class ImageCache;
 
+std::pair<QString, qint64> favIdentity(const Post &p);
+QString favVetoKey(const QString &site, qint64 pid);
+
 // One tab = one session: a local archive or a remote multi-booru search.
 // UI widgets are shared; switching tabs saves/restores this state.
 struct BrowserTab {

@@ -61,6 +61,7 @@ add_executable(box
     src/ui/prefsdlg.cpp
     src/ui/straydialog.cpp
     src/ui/mainwindow.cpp
+    src/ui/mainwindow_gridmenu.cpp
     src/icons.qrc
     src/seed.qrc
 )
