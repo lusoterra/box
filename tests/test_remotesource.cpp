@@ -2,6 +2,7 @@
 // filename/URL helpers, single-post parsing, refresh-target resolution.
 // Pure functions only (remotesource.cpp); no network.
 #include "remotesource.h"
+#include "post.h"
 
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -1563,6 +1564,56 @@ private slots:
                                                 QStringLiteral("general")));
         QVERIFY(!RemotePosts::bucketDisabledFor(QString(), QStringLiteral("artist")));
         RemotePosts::setDisabledBuckets({});
+    }
+
+    void postFiletypeAndMediaHelpers() {
+        // src/post.h
+        QCOMPARE(danbooruMediaTags(mediaAnimatedToken()),
+                 QStringList({QStringLiteral("animated")}));
+        QCOMPARE(danbooruMediaTags(mediaGifToken()),
+                 QStringList({QStringLiteral("animated"), QStringLiteral("-video")}));
+        QCOMPARE(danbooruMediaTags(mediaVideoToken()),
+                 QStringList({QStringLiteral("video")}));
+        QCOMPARE(danbooruMediaTags(mediaStillsToken()),
+                 QStringList({QStringLiteral("-animated"), QStringLiteral("-video")}));
+        QVERIFY(danbooruMediaTags(QStringLiteral("filetype:png")).isEmpty());
+        QVERIFY(danbooruMediaTags(QStringLiteral("-filetype:gif,webp,jxl")).isEmpty());
+
+        QVERIFY(isFiletypeToken(QStringLiteral("filetype:png,jpg")));
+        QVERIFY(isFiletypeToken(QStringLiteral("-filetype:gif")));
+        QVERIFY(!isFiletypeToken(QStringLiteral("rating:safe")));
+        QCOMPARE(filetypeExtSet(QStringLiteral("-filetype: GIF, WebP ")),
+                 (QSet<QString>{QStringLiteral("gif"), QStringLiteral("webp")}));
+
+        QVERIFY(filetypeExtOk(QStringLiteral("PNG"),
+                              {filetypeExtSet(QStringLiteral("filetype:png,jpg"))}, {}));
+        QVERIFY(!filetypeExtOk(QStringLiteral("gif"),
+                               {filetypeExtSet(QStringLiteral("filetype:png,jpg"))}, {}));
+        QVERIFY(!filetypeExtOk(QStringLiteral("gif"), {},
+                               {filetypeExtSet(QStringLiteral("filetype:gif,webp"))}));
+        QVERIFY(filetypeExtOk(QStringLiteral("png"), {}, {}));
+
+        const QStringList ai = aiContentTags();
+        QVERIFY(!ai.isEmpty());
+        QVERIFY(ai.contains(QStringLiteral("ai_generated")));
+        QVERIFY(ai.contains(QStringLiteral("ai_assisted"))); // underscore (src/post.h)
+
+        SzuruSplit s;
+        szuruPlace(s, QStringLiteral("a1"), QStringLiteral("artist"));
+        szuruPlace(s, QStringLiteral("c1"), QStringLiteral("character"));
+        szuruPlace(s, QStringLiteral("cr1"), QStringLiteral("series"));
+        szuruPlace(s, QStringLiteral("cr2"), QStringLiteral("studio"));
+        szuruPlace(s, QStringLiteral("m1"), QStringLiteral("meta"));
+        szuruPlace(s, QStringLiteral("g1"), QStringLiteral("general"));
+        szuruPlace(s, QStringLiteral("g2"), QStringLiteral("default"));
+        szuruPlace(s, QStringLiteral("g3"), QString());
+        szuruPlace(s, QStringLiteral("o1"), QStringLiteral("oc"));
+        QCOMPARE(s.artist, QStringList({QStringLiteral("a1")}));
+        QCOMPARE(s.character, QStringList({QStringLiteral("c1")}));
+        QCOMPARE(s.copyright, QStringList({QStringLiteral("cr1"), QStringLiteral("cr2")}));
+        QCOMPARE(s.meta, QStringList({QStringLiteral("m1")}));
+        QCOMPARE(s.general, QStringList({QStringLiteral("g1"), QStringLiteral("g2"), QStringLiteral("g3")}));
+        QCOMPARE(s.custom.value(QStringLiteral("oc")), QStringList({QStringLiteral("o1")}));
     }
 };
 
