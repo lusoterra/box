@@ -64,6 +64,7 @@ add_executable(box
     src/ui/viewerpage_load.cpp
     src/ui/viewerpage_setters.cpp
     src/ui/viewerpage_detail.cpp
+    src/ui/viewerpage_nav.cpp
     src/ui/welcomepage.cpp
     src/ui/prefsdlg.cpp
     src/ui/prefsdlg_booru.cpp
