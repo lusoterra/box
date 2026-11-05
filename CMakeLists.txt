@@ -80,6 +80,7 @@ add_executable(box
     src/ui/mainwindow_suggest.cpp
     src/ui/mainwindow_heal.cpp
     src/ui/mainwindow_state.cpp
+    src/ui/mainwindow_filter2.cpp
     src/ui/mainwindow_sidebar2.cpp
     src/icons.qrc
     src/seed.qrc
