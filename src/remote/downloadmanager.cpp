@@ -7,7 +7,6 @@
 #include "webdlbackend.h"
 
 #include <QDesktopServices>
-#include <QDialogButtonBox>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -15,11 +14,9 @@
 #include <QJsonDocument>
 #include <QLabel>
 #include <QListWidget>
-#include <QMessageBox>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
-#include <QProgressBar>
 #include <QPushButton>
 #include <QRegularExpression>
 #include <QSet>
