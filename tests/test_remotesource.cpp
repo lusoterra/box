@@ -1541,6 +1541,29 @@ private slots:
         QVERIFY(!RemotePosts::isNativeNuuruSort(QStringLiteral("bogus")));
         QVERIFY(!RemotePosts::isNativeNuuruSort(QString()));
     }
+
+    void bucketDisabledGaps() {
+        // src/engines/booruengine.cpp:770,774,780
+        RemotePosts::setDisabledBuckets({});
+        QVERIFY(!RemotePosts::bucketDisabled(BooruEngine::Danbooru,
+                                             QStringLiteral("artist")));
+        QVERIFY(!RemotePosts::bucketDisabled(BooruEngine::Danbooru,
+                                             QStringLiteral("general"))); // never disabled
+        RemotePosts::setDisabledBuckets({QStringLiteral("danbooru:artist"),
+                                         QStringLiteral("example.com:copyright")});
+        QVERIFY(RemotePosts::bucketDisabled(BooruEngine::Danbooru,
+                                            QStringLiteral("artist")));
+        QVERIFY(!RemotePosts::bucketDisabled(BooruEngine::Gelbooru,
+                                             QStringLiteral("artist")));
+        QVERIFY(!RemotePosts::bucketDisabled(BooruEngine::Danbooru,
+                                             QStringLiteral("general")));
+        QVERIFY(RemotePosts::bucketDisabledFor(QStringLiteral("Example.COM"),
+                                               QStringLiteral("copyright")));
+        QVERIFY(!RemotePosts::bucketDisabledFor(QStringLiteral("example.com"),
+                                                QStringLiteral("general")));
+        QVERIFY(!RemotePosts::bucketDisabledFor(QString(), QStringLiteral("artist")));
+        RemotePosts::setDisabledBuckets({});
+    }
 };
 
 int main(int argc, char *argv[]) {
