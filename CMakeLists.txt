@@ -64,6 +64,7 @@ add_executable(box
     src/ui/mainwindow_gridmenu.cpp
     src/ui/mainwindow_tabs.cpp
     src/ui/mainwindow_downloads.cpp
+    src/ui/mainwindow_sidebar.cpp
     src/icons.qrc
     src/seed.qrc
 )
