@@ -85,6 +85,7 @@ add_executable(box
     src/ui/mainwindow_tagmenu.cpp
     src/ui/mainwindow_misc.cpp
     src/ui/mainwindow_relink.cpp
+    src/ui/mainwindow_viewer.cpp
     src/ui/mainwindow_sidebar2.cpp
     src/icons.qrc
     src/seed.qrc
