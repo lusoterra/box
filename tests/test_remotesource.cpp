@@ -971,6 +971,16 @@ private slots:
         QCOMPARE(RemotePosts::shortFor(QStringLiteral("Danbooru")), QStringLiteral("DAN"));
         QCOMPARE(RemotePosts::shortFor(QStringLiteral("Szurubooru")), QStringLiteral("SZU"));
         QCOMPARE(RemotePosts::shortFor(QStringLiteral("Rule34")), QStringLiteral("RUL"));
+        // src/engines/booruengine.cpp:597
+        QCOMPARE(RemotePosts::shortFor(QStringLiteral("Gelbooru")), QStringLiteral("GEL"));
+        QCOMPARE(RemotePosts::shortFor(QStringLiteral("Safebooru")), QStringLiteral("SFW"));
+        QCOMPARE(RemotePosts::shortFor(QStringLiteral("Yandere")), QStringLiteral("YAN"));
+        QCOMPARE(RemotePosts::shortFor(QStringLiteral("Konachan")), QStringLiteral("KON"));
+        QCOMPARE(RemotePosts::shortFor(QStringLiteral("Shimmie")), QStringLiteral("SHI"));
+        QCOMPARE(RemotePosts::shortFor(QStringLiteral("Hybooru")), QStringLiteral("HYB"));
+        QCOMPARE(RemotePosts::shortFor(QStringLiteral("Nuuru")), QStringLiteral("NUU"));
+        QCOMPARE(RemotePosts::shortFor(QStringLiteral("ab")), QStringLiteral("AB"));
+        QCOMPARE(RemotePosts::shortFor(QString()), QString());
         QCOMPARE(RemotePosts::keyForLabel(QStringLiteral("Konachan")),
                  QStringLiteral("konachan"));
         QCOMPARE(RemotePosts::keyForLabel(QStringLiteral("Shimmie")),
@@ -990,9 +1000,19 @@ private slots:
         p.sampleUrl.clear();
         QCOMPARE(RemotePosts::thumbUrlFor(p), QStringLiteral("https://x/full.jpg"));
         QCOMPARE(RemotePosts::viewerUrlFor(p), QStringLiteral("https://x/full.jpg"));
+        p.fileUrl.clear();
+        QVERIFY(RemotePosts::thumbUrlFor(p).isEmpty());
+        QVERIFY(RemotePosts::viewerUrlFor(p).isEmpty());
+        // src/engines/booruengine.cpp:658
         QVERIFY(RemotePosts::isImageUrl(QStringLiteral("https://x/a.png")));
         QVERIFY(RemotePosts::isImageUrl(QStringLiteral("https://x/a.webp")));
+        QVERIFY(RemotePosts::isImageUrl(QStringLiteral("https://x/a.gif")));
+        QVERIFY(RemotePosts::isImageUrl(QStringLiteral("https://x/a.jpeg")));
+        QVERIFY(RemotePosts::isImageUrl(QStringLiteral("https://x/a.jpg")));
+        QVERIFY(RemotePosts::isImageUrl(QStringLiteral("https://x/a.avif")));
+        QVERIFY(RemotePosts::isImageUrl(QStringLiteral("https://x/a.bmp")));
         QVERIFY(!RemotePosts::isImageUrl(QStringLiteral("https://x/a.mp4")));
+        QVERIFY(!RemotePosts::isImageUrl(QStringLiteral("https://x/a.webm")));
         QVERIFY(!RemotePosts::isImageUrl(QString()));
     }
 
