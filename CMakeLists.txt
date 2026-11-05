@@ -66,6 +66,7 @@ add_executable(box
     src/ui/mainwindow_downloads.cpp
     src/ui/mainwindow_sidebar.cpp
     src/ui/mainwindow_wall.cpp
+    src/ui/mainwindow_search.cpp
     src/icons.qrc
     src/seed.qrc
 )

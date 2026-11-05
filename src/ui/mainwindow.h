@@ -49,6 +49,10 @@ extern const QString kSrcDownloads;
 extern const QString kSrcFavourites;
 QString viewerKeyFor(const Post &post);
 bool isVirtualSource(const QString &key);
+void splitIncExc(const QStringList &tokens, QStringList &inc, QStringList &exc);
+bool matchesTokens(const Post &p, const QStringList &inc, const QStringList &exc);
+bool groupsMatch(const Post &p, const QList<QStringList> &groups);
+QString dedupeKeyFor(const Post &post);
 
 // One tab = one session: a local archive or a remote multi-booru search.
 // UI widgets are shared; switching tabs saves/restores this state.
