@@ -1709,18 +1709,3 @@ SiteCreds MainWindow::credsFor(const QString &key) const {
     return c;
 }
 
-void MainWindow::backToGrid() {
-    // Leaving the viewer must halt playback now: audio kept going over
-    // the grid (the player lives on after its page hides).
-    if (m_viewerFullscreen)
-        setViewerFullscreen(false);
-    if (m_viewer)
-        m_viewer->stopPlayback();
-    m_pages->setCurrentIndex(0);
-    if (m_omniBar)
-        m_omniBar->setVisible(true);
-    if (m_pillBar)
-        m_pillBar->setVisible(m_pills->count() > 0);
-    m_grid->setFocus();
-    requestVisibleThumbs();
-}
