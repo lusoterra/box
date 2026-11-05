@@ -77,6 +77,7 @@ add_executable(box
     src/ui/mainwindow_scan.cpp
     src/ui/mainwindow_fill.cpp
     src/ui/mainwindow_thumb.cpp
+    src/ui/mainwindow_suggest.cpp
     src/ui/mainwindow_sidebar2.cpp
     src/icons.qrc
     src/seed.qrc
