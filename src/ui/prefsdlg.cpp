@@ -359,6 +359,19 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     m_cacheLimit->setSuffix(tr(" MB (0 = unlimited)"));
     m_cacheLimit->setValue(current.cacheLimitMB);
     limitRow->addWidget(m_cacheLimit, 1);
+    // Cache folder override (empty = default ~/.cache/box).
+    m_cacheDir = new QLineEdit(current.cacheDir, this);
+    auto *cacheBrowse = new QPushButton(tr("Browse…"), this);
+    connect(cacheBrowse, &QPushButton::clicked, this, [this] {
+        const QString d = QFileDialog::getExistingDirectory(
+            this, tr("Cache folder"), m_cacheDir->text());
+        if (!d.isEmpty())
+            m_cacheDir->setText(d);
+    });
+    auto *cacheRow = new QHBoxLayout();
+    cacheRow->addWidget(m_cacheDir, 1);
+    cacheRow->addWidget(cacheBrowse);
+    // (added to libLay below alongside limitRow)
     auto *sizeRow = new QHBoxLayout();
     sizeRow->addWidget(new QLabel(tr("Thumbnail size:"), this));
     m_thumbSize = new QComboBox(this);
@@ -423,6 +436,10 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     libLay->addWidget(m_classify);
     libLay->addLayout(classifyRow);
     libLay->addLayout(limitRow);
+    auto *cacheLabelRow = new QHBoxLayout();
+    cacheLabelRow->addWidget(new QLabel(tr("Cache folder:"), this));
+    cacheLabelRow->addLayout(cacheRow);
+    libLay->addLayout(cacheLabelRow);
     libLay->addWidget(note(tr("Untyped tags (tagType \"none\", Gelbooru blobs) get their category "
         "from public tag APIs. Results cache forever; misses stay general.")));
     libLay->addLayout(sizeRow);
@@ -1636,6 +1653,8 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
                     m_dragMode->setCurrentIndex(qMax(
                         0, m_dragMode->findData(int(d.dragLinkMode))));
                 m_dataDir->setText(effectiveDataDir(d));
+                if (m_cacheDir)
+                    m_cacheDir->setText(d.cacheDir);
                 m_downloadDir->setText(effectiveDownloadDir(d));
                 m_ugoiraFormat->setCurrentIndex(
                     qMax(0, m_ugoiraFormat->findData(d.ugoiraFormat)));
@@ -2467,6 +2486,8 @@ void PrefsDialog::harvestInto(AppSettings &out) {
     if (m_gridStaggered)
         out.gridStaggered = m_gridStaggered->isChecked();
     out.cacheLimitMB = m_cacheLimit->value();
+    if (m_cacheDir)
+        out.cacheDir = m_cacheDir->text().trimmed();
     out.indexCache = m_indexCache->isChecked();
     if (m_cacheNone->isChecked())
         out.cacheMode = CacheMode::None;

@@ -81,6 +81,7 @@ private:
     QComboBox *m_browseLimit;
     QListWidget *m_defBoorus = nullptr;
     QLineEdit *m_dataDir = nullptr;
+    QLineEdit *m_cacheDir = nullptr;
     QLineEdit *m_downloadDir;
     QComboBox *m_ugoiraFormat = nullptr;
     QSpinBox *m_ugoiraDelay = nullptr;
