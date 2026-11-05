@@ -75,6 +75,7 @@ add_executable(box
     src/ui/mainwindow_refresh.cpp
     src/ui/mainwindow_classify.cpp
     src/ui/mainwindow_scan.cpp
+    src/ui/mainwindow_fill.cpp
     src/icons.qrc
     src/seed.qrc
 )
