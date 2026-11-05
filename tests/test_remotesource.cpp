@@ -552,6 +552,26 @@ private slots:
                  QStringList({QStringLiteral("sky")}));
     }
 
+    void translateGelbooruMediaTags() {
+        // Gelbooru/Safebooru/Moebooru drop bare animated/animated_gif/video
+        // server-side (client filters); ugoira stays literal.
+        // src/engines/booruengine.cpp:470-490
+        using enum BooruEngine;
+        QCOMPARE(RemotePosts::translateSearchTags(
+                     {QStringLiteral("sky"), QStringLiteral("animated"),
+                      QStringLiteral("video"), QStringLiteral("ugoira")},
+                     BooruEngine::Gelbooru),
+                 QStringList({QStringLiteral("sky"), QStringLiteral("ugoira")}));
+        QCOMPARE(RemotePosts::translateSearchTags(
+                     {QStringLiteral("-animated_gif"), QStringLiteral("cat")},
+                     BooruEngine::Safebooru),
+                 QStringList({QStringLiteral("cat")}));
+        QCOMPARE(RemotePosts::translateSearchTags(
+                     {QStringLiteral("animated"), QStringLiteral("solo")},
+                     BooruEngine::Moebooru),
+                 QStringList({QStringLiteral("solo")}));
+    }
+
     void mediaKindsTranslateToNativeOnDanbooru() {
         // Live-verified 2026-10-22: `animated` spans gif/webp/ugoira/
         // video, `video` is mp4/webm. Canonical dropdown tokens expand;
