@@ -31,7 +31,11 @@ void restoreSettingsBackupIfNeeded() {
     QFile::copy(settingsBackupFilePath(), path);
 }
 
+static QString s_cacheDirOverride;
+void setAppCacheDirOverride(const QString &dir) { s_cacheDirOverride = dir; }
 QString appCacheDir() {
+    if (!s_cacheDirOverride.isEmpty())
+        return s_cacheDirOverride;
     return QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
 }
 

@@ -142,6 +142,7 @@ void MainWindow::applyPreferences(const AppSettings &app) {
     const QString oldDataDir = effectiveDataDir(m_settings);
     const AppSettings old = m_settings;
     m_settings = app;
+    setAppCacheDirOverride(m_settings.cacheDir);
     saveSettings(m_settings);
     if (m_model && m_grid) {
         for (int i = 0; i < m_current.size() && i < m_model->rowCount(); ++i) {

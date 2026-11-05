@@ -624,6 +624,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
       m_refresher(new PostRefresher(this)),
       m_downloads(new DownloadManager(this)) {
     m_settings = loadSettings();
+    setAppCacheDirOverride(m_settings.cacheDir);
     MediaCache::configure(m_settings.cacheMode, m_settings.boorus);
     MediaCache::setSfwBlacklist(m_settings.blacklist);
     setActiveExplicitTags(

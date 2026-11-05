@@ -38,6 +38,9 @@ struct AppSettings {
     DragLinkMode dragLinkMode = DragLinkMode::PostPage;
     // Total cache cap in MB (thumbs + full images). 0 = unlimited.
     int cacheLimitMB = 10240;
+    // Optional override for the on-disk cache root; empty = default
+    // (~/.cache/box via QStandardPaths::CacheLocation).
+    QString cacheDir;
     int thumbLongSide = 360; // 256/360/512/768
     QString lastRoot;
     QStringList history; // most-recent-first archive roots, cap 10
@@ -259,6 +262,7 @@ inline bool operator==(const AppSettings &a, const AppSettings &b) {
         return false;
     return a.indexCache == b.indexCache && a.cacheMode == b.cacheMode &&
            a.fullCache == b.fullCache && a.cacheLimitMB == b.cacheLimitMB &&
+           a.cacheDir == b.cacheDir &&
            a.thumbLongSide == b.thumbLongSide && a.lastRoot == b.lastRoot &&
            a.history == b.history && a.historyTokens == b.historyTokens &&
            a.restoreSession == b.restoreSession &&
@@ -315,6 +319,7 @@ QString settingsBackupFilePath();
 // empty (crash mid-rotate). Called at the top of loadSettings().
 void restoreSettingsBackupIfNeeded();
 QString appCacheDir(); // QStandardPaths::CacheLocation (includes org/app names)
+void setAppCacheDirOverride(const QString &dir);
 AppSettings loadSettings();
 void saveSettings(const AppSettings &s);
 
