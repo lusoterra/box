@@ -5,11 +5,9 @@
 #include "explicittags.h"
 #include "tagcategories.h"
 
-#include <QDateTime>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QRegularExpression>
-#include <QTimeZone>
 #include <QUrlQuery>
 #include <climits>
 #include <cmath>

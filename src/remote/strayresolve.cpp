@@ -3,7 +3,6 @@
 #include "explicittags.h"
 #include "remotesource.h"
 
-#include <QJsonArray>
 #include <QJsonObject>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
