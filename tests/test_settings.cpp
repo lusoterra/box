@@ -288,6 +288,39 @@ private slots:
         const QList<TagCategoryMerge> back = TagCategories::fromLines(
             TagCategories::toLines(rules));
         QCOMPARE(back, rules);
+
+        // Gap coverage (src/library/tagcategories.h)
+        QCOMPARE(TagCategories::classicBucket(QStringLiteral(" ip ")),
+                 QStringLiteral("copyright"));
+        QCOMPARE(TagCategories::classicBucket(QStringLiteral("metadata")),
+                 QStringLiteral("meta"));
+        QCOMPARE(TagCategories::classicBucket(QStringLiteral("Uncategorized")),
+                 QStringLiteral("general"));
+        QCOMPARE(TagCategories::classicBucket(QStringLiteral("mystery")),
+                 QString());
+        TagCategoryMerge m;
+        m.siteKey = QStringLiteral("Soy");
+        m.sources = {QStringLiteral("*")};
+        m.target = QStringLiteral("  my_group  ");
+        QVERIFY(TagCategories::scopeMatches(m, QStringLiteral("soy")));
+        QVERIFY(!TagCategories::scopeMatches(m, QStringLiteral("dan")));
+        m.siteKey.clear();
+        QVERIFY(TagCategories::scopeMatches(m, QStringLiteral("any")));
+        QCOMPARE(TagCategories::targetKey(QStringLiteral("Characters")),
+                 QStringLiteral("character"));
+        TagCategoryMerge empty;
+        empty.sources = {QStringLiteral("x")};
+        QVERIFY(TagCategories::toLines({empty}).isEmpty());
+        const QList<TagCategoryMerge> parsed = TagCategories::fromLines(
+            {QStringLiteral("soy|character,variant|Characters"),
+             QStringLiteral("badline"),
+             QStringLiteral("||"),
+             QStringLiteral("all||Target")});
+        QCOMPARE(parsed.size(), 1);
+        QCOMPARE(parsed[0].siteKey, QStringLiteral("soy"));
+        QCOMPARE(parsed[0].sources,
+                 QStringList({QStringLiteral("character"),
+                              QStringLiteral("variant")}));
     }
 
     void downloadedNsfwBypassesSfwCacheOnly() {
