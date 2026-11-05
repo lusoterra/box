@@ -159,6 +159,37 @@ private slots:
                      TagTypes::serializeTagOverrides(m)),
                  m);
     }
+
+    void overrideAndBucketGaps() {
+        // src/library/tagtypes.h inline helpers
+        // isValidBucket:45
+        for (const char *b : {"artist", "copyright", "character", "meta", "general"})
+            QVERIFY(TagTypes::isValidBucket(QString::fromLatin1(b)));
+        QVERIFY(!TagTypes::isValidBucket(QString()));
+        QVERIFY(!TagTypes::isValidBucket(QStringLiteral("Artist"))); // exact/lowercase expected
+        QVERIFY(!TagTypes::isValidBucket(QStringLiteral("species")));
+
+        // normalizeTagOverrides:52 lowercases key+bucket, drops invalid/empty/malformed
+        const QMap<QString, QString> n = TagTypes::normalizeTagOverrides(
+            {QStringLiteral("TAG=ARTIST"),
+             QStringLiteral("ok=character"),
+             QStringLiteral("bad="),
+             QStringLiteral(" =general"),
+             QStringLiteral("x=unknown"),
+             QStringLiteral("dup=artist"),
+             QStringLiteral("dup=copyright")});
+        QCOMPARE(n.size(), 3);
+        QCOMPARE(n.value(QStringLiteral("tag")), QStringLiteral("artist"));
+        QCOMPARE(n.value(QStringLiteral("ok")), QStringLiteral("character"));
+        QCOMPARE(n.value(QStringLiteral("dup")), QStringLiteral("copyright")); // later wins
+
+        // serializeTagOverrides:69 QMap sorted by key
+        const QStringList lines = TagTypes::serializeTagOverrides(n);
+        QCOMPARE(lines, (QStringList{QStringLiteral("dup=copyright"),
+                                     QStringLiteral("ok=character"),
+                                     QStringLiteral("tag=artist")}));
+        QCOMPARE(TagTypes::normalizeTagOverrides(lines), n);
+    }
 };
 
 int main(int argc, char *argv[]) {
