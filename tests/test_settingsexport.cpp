@@ -145,6 +145,90 @@ private slots:
         }
         QVERIFY(favs.isEmpty());
     }
+
+    void postJsonAndBooruJsonGaps() {
+        // src/library/settingsexport.cpp: postToJson/postFromJson, booruFromJson
+        QJsonObject o;
+        o[QStringLiteral("site")] = QStringLiteral("Danbooru");
+        o[QStringLiteral("postId")] = QStringLiteral("123");
+        // empty/missing rating defaults to general
+        Post p = SettingsBackup::postFromJson(o);
+        QVERIFY(p.isRemote);
+        QVERIFY(p.hasMeta);
+        QCOMPARE(p.id, 123LL);
+        QCOMPARE(p.rating, QStringLiteral("general"));
+        o[QStringLiteral("rating")] = QStringLiteral("safe");
+        QJsonObject custom;
+        custom[QStringLiteral("x")] = QJsonArray{QStringLiteral("a"), 1, QStringLiteral("b")};
+        o[QStringLiteral("customTags")] = custom;
+        p = SettingsBackup::postFromJson(o);
+        QCOMPARE(p.rating, QStringLiteral("safe"));
+        QCOMPARE(p.customTags.value(QStringLiteral("x")),
+                 QStringList({QStringLiteral("a"), QStringLiteral("b")}));
+
+        QJsonObject bj;
+        bj[QStringLiteral("key")] = QStringLiteral("k");
+        bj[QStringLiteral("dragMode")] = QStringLiteral("direct");
+        bj[QStringLiteral("cacheMode")] = QStringLiteral("none");
+        bj[QStringLiteral("cookies")] = QJsonArray{QStringLiteral("a=b")};
+        bj[QStringLiteral("disabledBuckets")] = QJsonArray{QStringLiteral("artist"), QString()};
+        // booruFromJson is internal; exercise via import.
+        QJsonObject doc;
+        doc[QStringLiteral("app")] = QStringLiteral("box");
+        doc[QStringLiteral("format")] = 1;
+        doc[QStringLiteral("boorus")] = QJsonArray{bj};
+        AppSettings s;
+        QVector<Post> favs;
+        QVERIFY(SettingsBackup::importJson(doc, &s, &favs, nullptr));
+        QCOMPARE(s.boorus.size(), 1);
+        QCOMPARE(s.boorus[0].dragLinkMode, DragLinkMode::DirectMedia);
+        QCOMPARE(s.boorus[0].cacheMode, CacheMode::None);
+        QCOMPARE(s.boorus[0].cookies, QStringList({QStringLiteral("a=b")}));
+        QVERIFY(s.boorus[0].disabledBuckets.contains(QStringLiteral("artist")));
+    }
+
+    void importBoundsAndSections() {
+        // src/library/settingsexport.cpp importJson bounds/clamp/clear+import favs
+        QJsonObject doc;
+        doc[QStringLiteral("app")] = QStringLiteral("box");
+        doc[QStringLiteral("format")] = 1;
+        QJsonObject browse;
+        browse[QStringLiteral("limit")] = 9999;
+        doc[QStringLiteral("browse")] = browse;
+        QJsonObject grid;
+        grid[QStringLiteral("boxW")] = 1;
+        grid[QStringLiteral("scrollRows")] = 99.0;
+        doc[QStringLiteral("grid")] = grid;
+        QJsonObject video;
+        video[QStringLiteral("volume")] = 999;
+        doc[QStringLiteral("video")] = video;
+        QJsonObject ugoira;
+        ugoira[QStringLiteral("format")] = QStringLiteral("bogus");
+        ugoira[QStringLiteral("frameDelayMs")] = 1;
+        doc[QStringLiteral("ugoira")] = ugoira;
+        doc[QStringLiteral("viewerMaxSide")] = 1;
+        QJsonArray favArr;
+        QJsonObject fp;
+        fp[QStringLiteral("site")] = QStringLiteral("Danbooru");
+        fp[QStringLiteral("postId")] = QStringLiteral("9");
+        favArr.append(fp);
+        favArr.append(QJsonObject{}); // ignored: no site/id
+        doc[QStringLiteral("favourites")] = favArr;
+        AppSettings s;
+        s.ugoiraFormat = QStringLiteral("jxl");
+        QVector<Post> favs;
+        favs.append(Post{});
+        QVERIFY(SettingsBackup::importJson(doc, &s, &favs, nullptr));
+        QCOMPARE(s.browseLimit, 200);
+        QCOMPARE(s.gridBoxW, 96);
+        QCOMPARE(s.gridScrollRows, 3.0);
+        QCOMPARE(s.volume, 100);
+        QCOMPARE(s.ugoiraFormat, QStringLiteral("jxl")); // bogus not applied
+        QCOMPARE(s.ugoiraFrameDelayMs, 20);
+        QCOMPARE(s.viewerMaxSide, 512);
+        QCOMPARE(favs.size(), 1); // cleared then imported valid entries
+        QCOMPARE(favs[0].id, 9LL);
+    }
 };
 
 int main(int argc, char *argv[]) {
