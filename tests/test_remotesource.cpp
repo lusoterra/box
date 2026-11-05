@@ -883,6 +883,22 @@ private slots:
         QCOMPARE(RemotePosts::postPageUrl(QStringLiteral("gelbooru"),
                                           QStringLiteral("https://g"), 6),
                  QStringLiteral("https://g/index.php?page=post&s=view&id=6"));
+        // src/engines/booruengine.cpp:660-680
+        QCOMPARE(RemotePosts::postPageUrl(QStringLiteral("hybooru"),
+                                          QStringLiteral("https://hy"), 7),
+                 QStringLiteral("https://hy/posts/7"));
+        QCOMPARE(RemotePosts::postPageUrl(QStringLiteral("nuuru"),
+                                          QStringLiteral("https://nu"), 8),
+                 QStringLiteral("https://nu/post/view/8"));
+        QCOMPARE(RemotePosts::postPageUrl(QStringLiteral("derpibooru"),
+                                          QStringLiteral("https://derp"), 9),
+                 QStringLiteral("https://derp/images/9"));
+        QCOMPARE(RemotePosts::postPageUrl(QStringLiteral("twibooru"),
+                                          QStringLiteral("https://twi"), 10),
+                 QStringLiteral("https://twi/posts/10"));
+        QCOMPARE(RemotePosts::postPageUrl(QStringLiteral("unknown"),
+                                          QStringLiteral("https://u"), 11),
+                 QStringLiteral("https://u/index.php?page=post&s=view&id=11"));
     }
 
     void downloadFileNames() {
