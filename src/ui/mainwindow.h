@@ -49,6 +49,7 @@ extern const QString kSrcDownloads;
 extern const QString kSrcFavourites;
 QString viewerKeyFor(const Post &post);
 bool isVirtualSource(const QString &key);
+bool blacklisted(const Post &p, const QSet<QString> &banned);
 void splitIncExc(const QStringList &tokens, QStringList &inc, QStringList &exc);
 bool matchesTokens(const Post &p, const QStringList &inc, const QStringList &exc);
 bool groupsMatch(const Post &p, const QList<QStringList> &groups);
