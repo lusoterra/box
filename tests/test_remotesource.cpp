@@ -428,6 +428,19 @@ private slots:
         QCOMPARE(RemotePosts::translateSearchTags(
                      {QStringLiteral("rating:gg")}, BooruEngine::Szurubooru),
                  QStringList({QStringLiteral("rating:gg")}));
+        // Negated full rating tokens: shorthand/engine rewrites key off
+        // `rating:` head (no '-' strip in that path), so they pass through
+        // on rewrite engines (src/engines/booruengine.cpp:390-430). Current behavior.
+        QCOMPARE(RemotePosts::translateSearchTags(
+                     {QStringLiteral("-rating:safe")}, BooruEngine::Gelbooru),
+                 QStringList({QStringLiteral("-rating:safe")}));
+        QCOMPARE(RemotePosts::translateSearchTags(
+                     {QStringLiteral("-rating:explicit")}, BooruEngine::Szurubooru),
+                 QStringList({QStringLiteral("-rating:explicit")}));
+        // No Szurubooru rewrite for questionable/sensitive (passes through).
+        QCOMPARE(RemotePosts::translateSearchTags(
+                     {QStringLiteral("rating:questionable")}, BooruEngine::Szurubooru),
+                 QStringList({QStringLiteral("rating:questionable")}));
     }
 
     void sortTagsTranslate() {
