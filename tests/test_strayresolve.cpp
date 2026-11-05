@@ -224,6 +224,45 @@ private slots:
         QCOMPARE(p.tagsGeneral, QStringLiteral("hand tagged"));
         QCOMPARE(p.untyped, QStringLiteral("hand tagged"));
     }
+
+    void philomenaPostFromRaw() {
+        // Stray resolve uses postFromRaw() for API results
+        // (src/remote/strayresolve.cpp:480,513-517).
+        QJsonObject derpi;
+        derpi[QStringLiteral("id")] = 3926792;
+        derpi[QStringLiteral("width")] = 100;
+        derpi[QStringLiteral("height")] = 200;
+        derpi[QStringLiteral("format")] = QStringLiteral("png");
+        derpi[QStringLiteral("tags")] =
+            QJsonArray{QStringLiteral("safe"), QStringLiteral("artist:test")};
+        QJsonObject reps;
+        reps[QStringLiteral("full")] =
+            QStringLiteral("https://derpicdn.net/img/view/1.png");
+        reps[QStringLiteral("thumb")] =
+            QStringLiteral("https://derpicdn.net/img/thumb/1.png");
+        derpi[QStringLiteral("representations")] = reps;
+        const Post dp = RemotePosts::postFromRaw(
+            BooruEngine::Derpibooru, derpi, QStringLiteral("https://derpibooru.org"));
+        QVERIFY(dp.isRemote);
+        QCOMPARE(dp.id, qint64(3926792));
+        QCOMPARE(dp.postUrl, QStringLiteral("https://derpibooru.org/images/3926792"));
+
+        QJsonObject twi;
+        twi[QStringLiteral("id")] = 55;
+        twi[QStringLiteral("width")] = 10;
+        twi[QStringLiteral("height")] = 20;
+        twi[QStringLiteral("format")] = QStringLiteral("jpg");
+        twi[QStringLiteral("view_url")] = QStringLiteral("https://cdn.twibooru.org/x.jpg");
+        twi[QStringLiteral("tags")] = QJsonArray{QStringLiteral("safe")};
+        QJsonObject treps;
+        treps[QStringLiteral("full")] = QStringLiteral("https://cdn.twibooru.org/x.jpg");
+        treps[QStringLiteral("thumb")] = QStringLiteral("https://cdn.twibooru.org/t.jpg");
+        twi[QStringLiteral("representations")] = treps;
+        const Post tp = RemotePosts::postFromRaw(
+            BooruEngine::Twibooru, twi, QStringLiteral("https://twibooru.org"));
+        QVERIFY(tp.isRemote);
+        QCOMPARE(tp.postUrl, QStringLiteral("https://twibooru.org/posts/55"));
+    }
 };
 
 QTEST_MAIN(TestStrayResolve)
