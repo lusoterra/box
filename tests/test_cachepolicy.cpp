@@ -68,6 +68,37 @@ private slots:
         QVERIFY(!MediaCache::postHasBlacklistedTag(clean));
         MediaCache::setSfwBlacklist({});
     }
+
+    void tagsProveSfwAndPost() {
+        // src/library/cachepolicy.h:155-197
+        Post p;
+        p.tags = QStringLiteral("rating:safe sky");
+        QVERIFY(MediaCache::tagsProveSfw(p));
+        p.tags = QStringLiteral("rating:safe rating:explicit");
+        QVERIFY(!MediaCache::tagsProveSfw(p));
+        p.tags = QStringLiteral("-rating:safe sky");
+        QVERIFY(!MediaCache::tagsProveSfw(p)); // negated token ignored
+        p.rating = QStringLiteral("explicit");
+        p.tags = QStringLiteral("rating:safe");
+        QVERIFY(!MediaCache::isSfwPost(p)); // explicit rating wins
+        p.rating.clear();
+        p.tags = QStringLiteral("safety:general");
+        QVERIFY(MediaCache::isSfwPost(p));
+    }
+
+    void persistForExplicitDownload() {
+        // src/library/cachepolicy.h:199-214
+        BooruSite b;
+        b.key = QStringLiteral("s");
+        b.cacheMode = CacheMode::Inherit;
+        MediaCache::configure(CacheMode::SfwOnly, {b});
+        QVERIFY(!MediaCache::persistFor(QStringLiteral("s"), QStringLiteral("explicit")));
+        QVERIFY(MediaCache::persistFor(QStringLiteral("s"), QStringLiteral("explicit"), true));
+        MediaCache::configure(CacheMode::None, {b});
+        QVERIFY(!MediaCache::persistFor(QStringLiteral("s"), QStringLiteral("safe"), true));
+        QVERIFY(!MediaCache::persistFor(QStringLiteral("s"), QStringLiteral("explicit"), true));
+        MediaCache::configure(CacheMode::All, {});
+    }
 };
 
 QTEST_MAIN(TestCachePolicy)
