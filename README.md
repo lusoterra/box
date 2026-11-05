@@ -21,7 +21,8 @@ quality, and keep favourites.
 | Shimmie | any Shimmie instance | |
 | HyBooru | any HyBooru instance | |
 | Nuuru | soybooru.com | proof-of-work clearance solves itself in-app |
-| HiddenBooru | Tor onion service (+ slow I2P mirror) | **Paused** - support is frozen and no longer offered in the UI; code/docs stay for existing entries. Tor proxy (`socks5h://127.0.0.1:9050`) or i2pd (`socks5h://127.0.0.1:4447`). |
+| Derpibooru | derpibooru.org (Philomena v1) | |
+| Twibooru | twibooru.org (Philomena v3) | |
 
 Any instance of a supported engine can be added in Preferences → Booru
 manager (base URL + engine type); only Safebooru ships preconfigured so

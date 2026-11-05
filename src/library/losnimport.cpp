@@ -319,6 +319,11 @@ LosnImportDialog::LosnImportDialog(const QString &dbPath, FavDb *favDb,
     m_downloadFavs->setChecked(false);
     favsLay->addWidget(m_importFavs);
     favsLay->addWidget(m_downloadFavs);
+    m_sync = new QCheckBox(
+        tr("Sync: remove local favourites/downloads not in this backup"),
+        this);
+    m_sync->setChecked(false);
+    favsLay->addWidget(m_sync);
     lay->addWidget(favsBox);
 
     auto *opts = new QGroupBox(tr("Downloaded entries (↓)"), this);
@@ -493,6 +498,21 @@ void LosnImportDialog::onStart() {
         if (!paths.isEmpty())
             m_favDb->setLocalPaths(paths);
         log(tr("Imported %1 favourite entries.").arg(n));
+    }
+    if (m_sync && m_sync->isChecked()) {
+        QSet<QString> imported;
+        for (const LosnRow &r : toFavourite)
+            imported.insert(r.siteLabel + u'#' + QString::number(r.postId));
+        int removed = 0;
+        for (const Post &p : m_favDb->list()) {
+            const QString key = p.siteName + u'#' + QString::number(p.id);
+            if (imported.contains(key))
+                continue;
+            if (m_favDb->remove(p.siteName, p.id))
+                removed++;
+        }
+        if (removed > 0)
+            log(tr("Sync removed %1 stale favourite entries.").arg(removed));
     }
     // Phase 2/3: downloads (snatched rows, optionally favourites too).
     m_downloadRows.clear();
@@ -865,4 +885,8 @@ void LosnImportDialog::onDownloadsDone(const DownloadSummary &summary) {
     m_fileRows.clear();
     m_filePct.clear();
     log(tr("Downloads finished - rescan the download folder to browse them."));
+    if (m_settings.wallAutoPopup && !summary.wallTargets.isEmpty()) {
+        const auto &wt = summary.wallTargets.first();
+        emit wallSolveRequested(wt.first, QUrl(wt.second));
+    }
 }

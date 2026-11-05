@@ -18,6 +18,7 @@
 #include <QSet>
 #include <QString>
 #include <QStringList>
+#include <QUrl>
 #include <QVector>
 
 #include "settings.h" // AppSettings member by value
@@ -68,6 +69,8 @@ struct AppSettings;
 
 class LosnImportDialog : public QDialog {
     Q_OBJECT
+signals:
+    void wallSolveRequested(const QString &siteKey, const QUrl &startUrl);
 public:
     LosnImportDialog(const QString &dbPath, FavDb *favDb, DownloadManager *dl,
                      const AppSettings &settings, const QString &downloadDir,
@@ -102,6 +105,7 @@ private:
     class QCheckBox *m_importFavs = nullptr;
     class QCheckBox *m_favDownloaded = nullptr;
     class QCheckBox *m_downloadFavs = nullptr;
+    class QCheckBox *m_sync = nullptr;
     class QLabel *m_counts = nullptr;
     class QLabel *m_target = nullptr;
     class QProgressBar *m_bar = nullptr;

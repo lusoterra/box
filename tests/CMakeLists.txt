@@ -27,7 +27,8 @@ set(REMOTE_SOURCES
     ../src/engines/engine_shimmie.cpp
     ../src/engines/engine_hybooru.cpp
     ../src/engines/engine_nuuru.cpp
-    ../src/engines/engine_hiddenbooru.cpp
+    ../src/engines/engine_derpibooru.cpp
+    ../src/engines/engine_twibooru.cpp
     ../src/remote/remotesource.cpp
     ../src/remote/powsolver.cpp)
 
@@ -63,6 +64,9 @@ add_unit_test(test_settings test_settings.cpp ../src/settings.cpp
 add_unit_test(test_favdb test_favdb.cpp ../src/library/favdb.cpp)
 add_unit_test(test_cachejanitor test_cachejanitor.cpp ../src/library/cachejanitor.cpp
               ../src/settings.cpp ${REMOTE_SOURCES})
+add_unit_test(test_cache test_cache.cpp ../src/library/cache.cpp
+              ../src/settings.cpp ${REMOTE_SOURCES})
+set_tests_properties(test_cache PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_unit_test(test_tagtypes test_tagtypes.cpp ../src/library/tagtypes.cpp
               ${REMOTE_SOURCES})
 add_unit_test(test_tagsuggest test_tagsuggest.cpp ../src/remote/tagsuggest.cpp
@@ -77,7 +81,7 @@ add_unit_test(test_thumbloader test_thumbloader.cpp ../src/remote/thumbloader.cp
               ../src/library/cachejanitor.cpp ${REMOTE_SOURCES} ../src/settings.cpp)
 target_compile_definitions(test_thumbloader PRIVATE
     TESTFILES_DIR="${CMAKE_SOURCE_DIR}/tests/files")
-add_unit_test(test_gifview test_gifview.cpp ../src/ui/viewerpage.cpp
+add_unit_test(test_gifview test_gifview.cpp ../src/ui/viewerpage.cpp ../src/ui/viewerpage_meta.cpp ../src/ui/viewerpage_tags.cpp ../src/ui/viewerpage_load.cpp ../src/ui/viewerpage_setters.cpp
               ../src/remote/imagecache.cpp ../src/remote/postmeta.cpp
               ../src/remote/webdlbackend.h ../src/library/cachejanitor.cpp
               ../src/ui/progressbar.cpp ../src/ui/flowlayout.cpp
@@ -86,7 +90,7 @@ target_compile_definitions(test_gifview PRIVATE
     TESTFILES_DIR="${CMAKE_SOURCE_DIR}/tests/files")
 set_tests_properties(test_gifview PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-add_unit_test(test_videopane test_videopane.cpp ../src/ui/viewerpage.cpp
+add_unit_test(test_videopane test_videopane.cpp ../src/ui/viewerpage.cpp ../src/ui/viewerpage_meta.cpp ../src/ui/viewerpage_tags.cpp ../src/ui/viewerpage_load.cpp ../src/ui/viewerpage_setters.cpp
               ../src/remote/imagecache.cpp ../src/remote/postmeta.cpp
               ../src/remote/webdlbackend.h ../src/library/cachejanitor.cpp
               ../src/ui/progressbar.cpp ../src/ui/flowlayout.cpp
@@ -100,10 +104,10 @@ add_unit_test(test_queryor test_queryor.cpp ../src/library/queryor.cpp)
 add_unit_test(test_tagcolors test_tagcolors.cpp)
 add_unit_test(test_gridwindow test_gridwindow.cpp
               ../src/remote/webdlbackend.h
-              ../src/ui/mainwindow.cpp ../src/ui/mainwindow_gridmenu.cpp ../src/ui/mainwindow_tabs.cpp ../src/ui/mainwindow_downloads.cpp ../src/ui/mainwindow_sidebar.cpp ../src/ui/mainwindow_wall.cpp ../src/ui/mainwindow_search.cpp ../src/ui/mainwindow_filter.cpp ../src/ui/mainwindow_stray.cpp ../src/ui/mainwindow_backup.cpp ../src/ui/mainwindow_favtab.cpp ../src/ui/mainwindow_sites.cpp ../src/ui/mainwindow_refresh.cpp ../src/ui/mainwindow_classify.cpp ../src/ui/mainwindow_scan.cpp ../src/ui/mainwindow_fill.cpp ../src/ui/mainwindow_sidebar2.cpp ../src/ui/mainwindow_thumb.cpp ../src/ui/mainwindow_suggest.cpp ../src/ui/mainwindow_heal.cpp ../src/ui/mainwindow_state.cpp ../src/ui/mainwindow_filter2.cpp ../src/ui/mainwindow_result.cpp ../src/ui/mainwindow_tagmenu.cpp ../src/ui/mainwindow_misc.cpp ../src/ui/mainwindow_relink.cpp ../src/ui/mainwindow_viewer.cpp ../src/ui/mainwindow_prefs.cpp ../src/ui/mainwindow_close.cpp ../src/ui/mainwindow_misc2.cpp ../src/ui/mainwindow_back.cpp ../src/ui/viewerpage.cpp
+              ../src/ui/mainwindow.cpp ../src/ui/mainwindow_gridmenu.cpp ../src/ui/mainwindow_tabs.cpp ../src/ui/mainwindow_downloads.cpp ../src/ui/mainwindow_sidebar.cpp ../src/ui/mainwindow_wall.cpp ../src/ui/mainwindow_search.cpp ../src/ui/mainwindow_filter.cpp ../src/ui/mainwindow_stray.cpp ../src/ui/mainwindow_backup.cpp ../src/ui/mainwindow_favtab.cpp ../src/ui/mainwindow_sites.cpp ../src/ui/mainwindow_refresh.cpp ../src/ui/mainwindow_classify.cpp ../src/ui/mainwindow_scan.cpp ../src/ui/mainwindow_fill.cpp ../src/ui/mainwindow_sidebar2.cpp ../src/ui/mainwindow_thumb.cpp ../src/ui/mainwindow_suggest.cpp ../src/ui/mainwindow_heal.cpp ../src/ui/mainwindow_state.cpp ../src/ui/mainwindow_filter2.cpp ../src/ui/mainwindow_result.cpp ../src/ui/mainwindow_tagmenu.cpp ../src/ui/mainwindow_misc.cpp ../src/ui/mainwindow_relink.cpp ../src/ui/mainwindow_viewer.cpp ../src/ui/mainwindow_prefs.cpp ../src/ui/mainwindow_close.cpp ../src/ui/mainwindow_misc2.cpp ../src/ui/mainwindow_back.cpp ../src/ui/viewerpage.cpp ../src/ui/viewerpage_meta.cpp ../src/ui/viewerpage_tags.cpp ../src/ui/viewerpage_load.cpp ../src/ui/viewerpage_setters.cpp
               ../src/ui/welcomepage.cpp ../src/ui/tabbar.cpp
               ../src/ui/theme.cpp ../src/ui/flowlayout.cpp
-              ../src/ui/prefsdlg.cpp ../src/remote/cookiegrab.cpp
+              ../src/ui/prefsdlg.cpp ../src/ui/prefsdlg_booru.cpp ../src/remote/cookiegrab.cpp
               ../src/ui/straydialog.cpp ../src/ui/progressbar.cpp
               ../src/remote/imagecache.cpp ../src/remote/postmeta.cpp
               ../src/remote/downloadmanager.cpp ../src/library/losnimport.cpp
@@ -119,14 +123,16 @@ add_unit_test(test_gridwindow test_gridwindow.cpp
 target_link_libraries(test_gridwindow PRIVATE Qt6::WebEngineWidgets Qt6::WebEngineCore)
 set_tests_properties(test_gridwindow PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-add_unit_test(test_hiddenbooru test_hiddenbooru.cpp ${REMOTE_SOURCES}
-              ../src/remote/tagsuggest.cpp ../src/library/tagtypes.cpp
-              ../src/library/index.cpp ../src/library/metaparser.cpp
-              ../src/library/cache.cpp ../src/settings.cpp)
 add_unit_test(test_nuuru test_nuuru.cpp ${REMOTE_SOURCES}
               ../src/remote/tagsuggest.cpp ../src/library/tagtypes.cpp
               ../src/library/index.cpp ../src/library/metaparser.cpp
               ../src/library/cache.cpp ../src/settings.cpp)
+add_unit_test(test_philomena test_philomena.cpp ${REMOTE_SOURCES}
+              ../src/remote/tagsuggest.cpp ../src/library/tagtypes.cpp
+              ../src/library/index.cpp ../src/library/metaparser.cpp
+              ../src/library/cache.cpp ../src/settings.cpp)
+set_tests_properties(test_philomena PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_unit_test(test_commentmarks test_commentmarks.cpp ${REMOTE_SOURCES}
               ../src/remote/tagsuggest.cpp ../src/library/tagtypes.cpp
               ../src/library/index.cpp ../src/library/metaparser.cpp

@@ -82,6 +82,7 @@ private:
     QListWidget *m_defBoorus = nullptr;
     QLineEdit *m_dataDir = nullptr;
     QLineEdit *m_cacheDir = nullptr;
+    QCheckBox *m_cacheFavs = nullptr;
     QLineEdit *m_downloadDir;
     QComboBox *m_ugoiraFormat = nullptr;
     QSpinBox *m_ugoiraDelay = nullptr;

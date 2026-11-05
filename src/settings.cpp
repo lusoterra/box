@@ -89,6 +89,8 @@ AppSettings loadSettings() {
     s.cacheLimitMB =
         qBound(0, c.value(QStringLiteral("cache/limitMB"), s.cacheLimitMB).toInt(),
                1048576);
+    s.cacheDir = c.value(QStringLiteral("cache/dir"), s.cacheDir).toString();
+    s.cacheFavs = c.value(QStringLiteral("cache/favs"), s.cacheFavs).toBool();
     s.thumbLongSide = qBound(
         128, c.value(QStringLiteral("cache/thumbSize"), s.thumbLongSide).toInt(),
         1024);
@@ -293,6 +295,8 @@ void writeSettingsTo(QSettings &c, const AppSettings &s) {
     c.setValue(QStringLiteral("drag/linkMode"), dragModeKey(s.dragLinkMode));
     c.setValue(QStringLiteral("search/history"), s.searchHistory);
     c.setValue(QStringLiteral("cache/limitMB"), s.cacheLimitMB);
+    c.setValue(QStringLiteral("cache/dir"), s.cacheDir);
+    c.setValue(QStringLiteral("cache/favs"), s.cacheFavs);
     c.setValue(QStringLiteral("cache/thumbSize"), s.thumbLongSide);
     c.setValue(QStringLiteral("library/root"), s.lastRoot);
     c.setValue(QStringLiteral("library/history"), s.history);

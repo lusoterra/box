@@ -215,7 +215,7 @@ void BooruEngineOps::finishRemote(Post &p, const QString &siteLabel,
         break;
     }
     default: {
-        // Unverified schemes (Shimmie, HyBooru, Nuuru, Hiddenbooru):
+        // Unverified schemes (Shimmie, HyBooru, Nuuru):
         // numeric counts and explicit flags only, no stamp guessing.
         const double c = countOf({"comment_count", "commentCount"});
         if (c > 0) {
@@ -316,7 +316,8 @@ QString engineKey(BooruEngine engine) {
     case Shimmie: return QStringLiteral("shimmie");
     case Hybooru: return QStringLiteral("hybooru");
     case Nuuru: return QStringLiteral("nuuru");
-    case Hiddenbooru: return QStringLiteral("hiddenbooru");
+    case Derpibooru: return QStringLiteral("derpibooru");
+    case Twibooru: return QStringLiteral("twibooru");
     case Safebooru: return QStringLiteral("gelbooru"); // dapi family
     }
     return QStringLiteral("danbooru");
@@ -335,8 +336,10 @@ BooruEngine engineForKey(const QString &key) {
         return BooruEngine::Hybooru;
     if (key == QStringLiteral("nuuru"))
         return BooruEngine::Nuuru;
-    if (key == QStringLiteral("hiddenbooru"))
-        return BooruEngine::Hiddenbooru;
+    if (key == QStringLiteral("derpibooru") || key == QStringLiteral("philomena"))
+        return BooruEngine::Derpibooru;
+    if (key == QStringLiteral("twibooru"))
+        return BooruEngine::Twibooru;
     return BooruEngine::Danbooru;
 }
 
@@ -350,7 +353,8 @@ QString engineLabel(BooruEngine engine) {
     case Shimmie: return QStringLiteral("Shimmie");
     case Hybooru: return QStringLiteral("HyBooru");
     case Nuuru: return QStringLiteral("Nuuru (Soybooru)");
-    case Hiddenbooru: return QStringLiteral("HiddenBooru");
+    case Derpibooru: return QStringLiteral("Derpibooru");
+    case Twibooru: return QStringLiteral("Twibooru");
     case Safebooru: return QStringLiteral("Safebooru");
     }
     return QStringLiteral("Danbooru");
@@ -439,7 +443,8 @@ QStringList translateSearchTags(const QStringList &tags, BooruEngine engine) {
                 !isNativeNuuruSort(tok.mid(ci + 1)))
                 continue;
         } else if (engine == BooruEngine::Hybooru ||
-                   engine == BooruEngine::Hiddenbooru) {
+                   engine == BooruEngine::Derpibooru ||
+                   engine == BooruEngine::Twibooru) {
             // Neither engine exposes a verified content-rating or sort
             // spelling (HyBooru rating: is a 0-100 star filter): such
             // tokens would silently mis-filter, so drop them - sorting
@@ -659,14 +664,18 @@ bool isImageUrl(const QString &url) {
 }
 
 QString postPageUrl(const QString &siteKey, const QString &baseUrl, qint64 id) {
-    if (siteKey == QStringLiteral("danbooru"))
+    if (siteKey == QStringLiteral("danbooru") || siteKey == QStringLiteral("hybooru"))
+        return baseUrl + QStringLiteral("/posts/") + QString::number(id);
+    if (siteKey == QStringLiteral("twibooru"))
         return baseUrl + QStringLiteral("/posts/") + QString::number(id);
     if (siteKey == QStringLiteral("yandere") || siteKey == QStringLiteral("konachan"))
         return baseUrl + QStringLiteral("/post/show/") + QString::number(id);
     if (siteKey == QStringLiteral("szurubooru"))
         return baseUrl + QStringLiteral("/post/") + QString::number(id);
-    if (siteKey == QStringLiteral("shimmie"))
+    if (siteKey == QStringLiteral("shimmie") || siteKey == QStringLiteral("nuuru"))
         return baseUrl + QStringLiteral("/post/view/") + QString::number(id);
+    if (siteKey == QStringLiteral("derpibooru"))
+        return baseUrl + QStringLiteral("/images/") + QString::number(id);
     return baseUrl + QStringLiteral("/index.php?page=post&s=view&id=") +
            QString::number(id);
 }
@@ -787,7 +796,8 @@ const BooruEngineOps *szurubooruOps();
 const BooruEngineOps *shimmieOps();
 const BooruEngineOps *hybooruOps();
 const BooruEngineOps *nuuruOps();
-const BooruEngineOps *hiddenbooruOps();
+const BooruEngineOps *derpibooruOps();
+const BooruEngineOps *twibooruOps();
 } // namespace EngineInternal
 
 const BooruEngineOps *engineOps(BooruEngine engine) {
@@ -806,8 +816,10 @@ const BooruEngineOps *engineOps(BooruEngine engine) {
         return EngineInternal::hybooruOps();
     case Nuuru:
         return EngineInternal::nuuruOps();
-    case Hiddenbooru:
-        return EngineInternal::hiddenbooruOps();
+    case Derpibooru:
+        return EngineInternal::derpibooruOps();
+    case Twibooru:
+        return EngineInternal::twibooruOps();
     case Danbooru:
         return EngineInternal::danbooruOps();
     }

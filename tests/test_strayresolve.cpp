@@ -22,7 +22,7 @@ private slots:
         const int szu = int(BooruEngine::Szurubooru);
         const int shi = int(BooruEngine::Shimmie);
         const int nuu = int(BooruEngine::Nuuru);
-        const int hid = int(BooruEngine::Hiddenbooru);
+        const int der = int(BooruEngine::Derpibooru);
 
         QTest::newRow("danbooru")
             << "https://danbooru.donmai.us/posts/123?q=foo" << true
@@ -48,9 +48,9 @@ private slots:
         QTest::newRow("post-view")
             << "https://booru.example/post/view/21" << true << qint64(21)
             << "https://booru.example" << nuu;
-        QTest::newRow("hiddenbooru")
-            << "https://hidden.example/post/9/view" << true << qint64(9)
-            << "https://hidden.example" << hid;
+        QTest::newRow("derpibooru")
+            << "https://derpibooru.org/images/3926792" << true << qint64(3926792)
+            << "https://derpibooru.org" << der;
         QTest::newRow("port")
             << "https://booru.example:8443/posts/5" << true << qint64(5)
             << "https://booru.example:8443" << dan;
@@ -85,6 +85,13 @@ private slots:
         QCOMPARE(int(m.engines.size()), 2);
         QCOMPARE(int(m.engines[0]), int(BooruEngine::Nuuru));
         QCOMPARE(int(m.engines[1]), int(BooruEngine::Shimmie));
+    }
+
+    void postsPatternIncludesTwibooru() {
+        const auto m = RemotePosts::parseBooruPostUrl(
+            "https://twibooru.org/posts/3889209");
+        QVERIFY(m.valid());
+        QVERIFY(m.engines.contains(BooruEngine::Twibooru));
     }
 
     void htmlPage() {

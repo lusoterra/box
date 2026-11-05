@@ -253,7 +253,7 @@ QUrl notesUrl(BooruEngine engine, const QString &baseUrl, qint64 postId,
     const QString id = QString::number(postId);
     if (engine == BooruEngine::Szurubooru || engine == BooruEngine::Shimmie ||
         engine == BooruEngine::Hybooru || engine == BooruEngine::Nuuru ||
-        engine == BooruEngine::Hiddenbooru)
+        engine == BooruEngine::Derpibooru || engine == BooruEngine::Twibooru)
         return {}; // no notes endpoint on these engines
     if (engine == BooruEngine::Danbooru) {
         QUrl url(baseUrl + QStringLiteral("/notes.json"));
@@ -294,7 +294,7 @@ QUrl commentsUrl(BooruEngine engine, const QString &baseUrl, qint64 postId,
         return url;
     }
     if (engine == BooruEngine::Shimmie || engine == BooruEngine::Hybooru ||
-        engine == BooruEngine::Hiddenbooru)
+        engine == BooruEngine::Derpibooru || engine == BooruEngine::Twibooru)
         return {}; // no comment API on these engines (v1 / unknown shape)
     if (engine == BooruEngine::Nuuru) {
         QUrl url(baseUrl + QStringLiteral("/api/booru/posts/") + id +

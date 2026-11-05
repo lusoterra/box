@@ -94,6 +94,10 @@ void MainWindow::importLosnBackup() {
                                      effectiveDownloadDir(m_settings),
                                      this);
     dlg->setAttribute(Qt::WA_DeleteOnClose);
+    connect(dlg, &LosnImportDialog::wallSolveRequested, this,
+            [this](const QString &siteKey, const QUrl &url) {
+                solveWallInBrowser(siteKey, m_wallKinds.value(siteKey), url);
+            });
     dlg->show();
     dlg->raise();
 }

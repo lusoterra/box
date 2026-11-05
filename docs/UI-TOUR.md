@@ -218,8 +218,6 @@ the config but hides the booru from every picker)/`short` (grid badge text)/`Bad
 (known hosts get house colors: gelbooru blue, rule34 green, aibooru green,
 danbooru/safebooru tan, shimmie gray; editable anytime)/`Base
 URL`/`Type` (engine) editor with cookie capture + favicon override.
-HiddenBooru is frozen: it is no longer offered for new boorus, while
-existing hiddenbooru entries keep working/editable.
 Per-entry `Tags` (skip auto-categorization), `Drag posts as` (direct
 media vs post page; `Use global` follows Preferences → Browse), `Blacklist` (filter
 blacklist locally instead of server `-tags`, for tag-capped accounts),
@@ -289,7 +287,7 @@ can link it), `Import files…` (local copy-in, hashed names), `Close`.
 Direct image/video links pass straight to the downloader. Recognised
 post-page URLs (Danbooru/HyBooru `/posts/<id>`, Moebooru
 `/post/show/<id>`, Shimmie/Nuuru `/post/view/<id>`, Szurubooru
-`/post/<id>`, HiddenBooru `/post/<id>/view`, Gelbooru/Safebooru
+`/post/<id>`, Gelbooru/Safebooru
 `index.php?page=post&s=view&id=`) probe their public API first; when the
 API refuses anonymous calls (Gelbooru 401) the page itself is read
 (`og:image` + typed tag list). Unreadable links are reported once,

@@ -54,7 +54,8 @@ QVector<TagSuggestion> takeCapped(QVector<TagSuggestion> v, int cap = 12) {
 QVector<TagSuggestion> parseGelbooruXmlList(const QByteArray &body);
 QVector<TagSuggestion> parseHybooru(const QByteArray &body);
 QVector<TagSuggestion> parseNuuru(const QByteArray &body);
-QVector<TagSuggestion> parseHiddenbooru(const QByteArray &body);
+QVector<TagSuggestion> parseDerpibooruTags(const QByteArray &body);
+QVector<TagSuggestion> parseTwibooruTags(const QByteArray &body);
 
 QVector<TagSuggestion> parseDanbooru(const QByteArray &body) {
     // [{name, category, post_count}] - category is danbooru numbering.
@@ -280,25 +281,60 @@ QVector<TagSuggestion> parseNuuru(const QByteArray &body) {
     }
     return takeCapped(out, 24);
 }
-QVector<TagSuggestion> parseHiddenbooru(const QByteArray &body) {
-    // Flat array of tag name strings (db->tags->complete).
+
+QVector<TagSuggestion> parseDerpibooruTags(const QByteArray &body) {
     QVector<TagSuggestion> out;
     QJsonParseError err;
     const QJsonDocument doc = QJsonDocument::fromJson(body, &err);
-    if (err.error != QJsonParseError::NoError || !doc.isArray())
+    if (err.error != QJsonParseError::NoError || !doc.isObject())
         return out;
-    for (const QJsonValue &v : doc.array()) {
-        QString name;
-        if (v.isString())
-            name = v.toString();
-        else if (v.isObject())
-            name = v.toObject().value(QStringLiteral("name")).toString();
-        name = name.trimmed();
-        if (name.isEmpty() || !tagTokenOk(name))
-            continue;
+    const QJsonArray arr = doc.object().value(QStringLiteral("tags")).toArray();
+    for (const QJsonValue &v : arr) {
+        if (!v.isObject()) continue;
+        const QJsonObject o = v.toObject();
+        const QString name = o.value(QStringLiteral("name")).toString().trimmed();
+        if (name.isEmpty()) continue;
         TagSuggestion s;
         s.tag = name;
-        s.bucket = QStringLiteral("general"); // no categories in the API
+        s.count = qMax(0, o.value(QStringLiteral("images")).toInt());
+        const QString cat = o.value(QStringLiteral("category")).toString().toLower();
+        if (cat == QStringLiteral("artist")) s.bucket = QStringLiteral("artist");
+        else if (cat == QStringLiteral("character") || cat == QStringLiteral("oc"))
+            s.bucket = QStringLiteral("character");
+        else if (cat == QStringLiteral("origin") || cat == QStringLiteral("content"))
+            s.bucket = QStringLiteral("copyright");
+        else if (cat == QStringLiteral("rating") || cat == QStringLiteral("spoiler"))
+            s.bucket = QStringLiteral("meta");
+        else s.bucket = QStringLiteral("general");
+        out.append(s);
+    }
+    return takeCapped(out, 24);
+}
+
+QVector<TagSuggestion> parseTwibooruTags(const QByteArray &body) {
+    QVector<TagSuggestion> out;
+    QJsonParseError err;
+    const QJsonDocument doc = QJsonDocument::fromJson(body, &err);
+    if (err.error != QJsonParseError::NoError || !doc.isObject())
+        return out;
+    const QJsonArray arr = doc.object().value(QStringLiteral("tags")).toArray();
+    for (const QJsonValue &v : arr) {
+        if (!v.isObject()) continue;
+        const QJsonObject o = v.toObject();
+        const QString name = o.value(QStringLiteral("name")).toString().trimmed();
+        if (name.isEmpty()) continue;
+        TagSuggestion s;
+        s.tag = name;
+        s.count = qMax(0, o.value(QStringLiteral("posts")).toInt());
+        const QString cat = o.value(QStringLiteral("category")).toString().toLower();
+        if (cat == QStringLiteral("artist")) s.bucket = QStringLiteral("artist");
+        else if (cat == QStringLiteral("character") || cat == QStringLiteral("oc"))
+            s.bucket = QStringLiteral("character");
+        else if (cat == QStringLiteral("origin") || cat == QStringLiteral("content"))
+            s.bucket = QStringLiteral("copyright");
+        else if (cat == QStringLiteral("rating") || cat == QStringLiteral("spoiler"))
+            s.bucket = QStringLiteral("meta");
+        else s.bucket = QStringLiteral("general");
         out.append(s);
     }
     return takeCapped(out, 24);
@@ -385,11 +421,19 @@ QUrl TagSuggester::urlFor(BooruEngine engine, const QString &baseUrl,
         url.setQuery(q);
         return url;
     }
-    if (engine == BooruEngine::Hiddenbooru) {
-        // Flat array of tag name strings.
-        QUrl url(baseUrl + QStringLiteral("/api/tag/complete"));
+    if (engine == BooruEngine::Derpibooru) {
+        QUrl url(baseUrl + QStringLiteral("/api/v1/json/search/tags"));
         QUrlQuery q;
-        q.addQueryItem(QStringLiteral("term"), prefix);
+        q.addQueryItem(QStringLiteral("q"), prefix + QStringLiteral("*"));
+        q.addQueryItem(QStringLiteral("per_page"), QStringLiteral("24"));
+        url.setQuery(q);
+        return url;
+    }
+    if (engine == BooruEngine::Twibooru) {
+        QUrl url(baseUrl + QStringLiteral("/api/v3/search/tags"));
+        QUrlQuery q;
+        q.addQueryItem(QStringLiteral("q"), prefix + QStringLiteral("*"));
+        q.addQueryItem(QStringLiteral("per_page"), QStringLiteral("24"));
         url.setQuery(q);
         return url;
     }
@@ -522,8 +566,7 @@ QVector<TagSuggestion> TagSuggester::metaFor(const QString &bare,
         }
     } else if (head == QStringLiteral("rating") &&
                engine != BooruEngine::Hybooru &&
-               engine != BooruEngine::Nuuru &&
-               engine != BooruEngine::Hiddenbooru) {
+               engine != BooruEngine::Nuuru) {
         for (const QString &v :
              {QStringLiteral("general"), QStringLiteral("sensitive"),
               QStringLiteral("questionable"), QStringLiteral("explicit"),
@@ -667,8 +710,10 @@ QVector<TagSuggestion> TagSuggester::parse(BooruEngine engine,
         return parseHybooru(body);
     case Nuuru:
         return parseNuuru(body);
-    case Hiddenbooru:
-        return parseHiddenbooru(body);
+    case Derpibooru:
+        return parseDerpibooruTags(body);
+    case Twibooru:
+        return parseTwibooruTags(body);
     case Shimmie:
         return {};
     }

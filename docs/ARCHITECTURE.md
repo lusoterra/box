@@ -29,18 +29,11 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
   `parseSingle`/`applyAuth`; `engineOps()` at `:146`).
   - Pure shared helpers in `RemotePosts`: `translateSearchTags`,
     `sortSearchTag`, `isTransientSearchError`, `fromDanbooru/Gelbooru/Moebooru/
-    Szuru/Shimmie/Hybooru/Nuuru/Hiddenbooru`, `parseShimmieXml`
-    (`src/engines/booruengine.h:25-95`).
-    HiddenBooru notes: shapes from the v0.8 source tarball (Tor-first
-    instance + I2P mirror; plain fetches need the Tor stack - or i2pd,
-    SOCKS5 at `socks5h://127.0.0.1:4447`); `terms=`
-    search with `id:` refresh narrowing, `/api/tag/complete` suggestions,
-    letter ratings, relative file URLs; md5 normalized into `rawJson`
-    when the hash is md5. The API sits behind an HBS anti-bot wall (302
-    to `/hbs/verify`, captcha clearance cookie): QNAM reports the wall
-    and the browser-backed stack retries it, so the embedded browser
-    must ride the same proxy (`applyWebEngineProxy`, `--proxy-server`
-    at startup) or onion hosts fail it with ERR_NAME_NOT_RESOLVED.
+    Szuru/Shimmie/Hybooru/Nuuru/Derpibooru/Twibooru`, `parseShimmieXml`
+    (`src/engines/booruengine.h:25-95`). `engine_derpibooru.cpp`/`engine_twibooru.cpp`:
+    Philomena-family engines (Derpibooru v1 `/api/v1/json/search/images|images/:id`,
+    Twibooru v3 `/api/v3/search/posts|posts/:id`; ratings from `safe`/`suggestive`/
+    `questionable`/`explicit` tags; namespaced `artist:`/`character:`/`oc:` buckets).
     Nuuru notes: plain fetches hit HTTP 449 `{"error":"pow_required"}`
     (or `captcha_required`: hCaptcha via `/api/captcha/*`); PoW is a WASM
     worker (`/api/pow/challenge` → `/api/pow/verify`). The token embeds
@@ -128,7 +121,7 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
   by the browse sidebar, filter pills and viewer tag groups.
 - `src/ui/` - `mainwindow.h:105` `MainWindow` (all tabs, all searches);
   `BrowserTab` session state (`:47-61`); `PendingSite` OR fan-out (`:342-350`).
-  - `viewerpage.h:170` `ViewerPage` (same-window viewer; `ImageView` `:33`,
+  - `viewerpage.h:170` `ViewerPage` (same-window viewer; member defs split across `src/ui/viewerpage.cpp`, `viewerpage_meta.cpp` metadata/notes/comments+reload, `viewerpage_tags.cpp` tag rendering, `viewerpage_load.cpp` notes/cache/web load, `viewerpage_setters.cpp` state/setters/badges; `ImageView` `:33`,
     `GifView` `:65`, `VideoView` `:93`); software video decoding forced in
     `main.cpp` (`QT_FFMPEG_DECODING_HW_DEVICE_TYPES=,`, user-overridable;
     the VAAPI/hardware path segfaulted on broken surfaces) and

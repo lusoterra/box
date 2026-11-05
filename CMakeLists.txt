@@ -32,7 +32,8 @@ add_executable(box
     src/engines/engine_shimmie.cpp
     src/engines/engine_hybooru.cpp
     src/engines/engine_nuuru.cpp
-    src/engines/engine_hiddenbooru.cpp
+    src/engines/engine_derpibooru.cpp
+    src/engines/engine_twibooru.cpp
     src/library/ugoioconvert.cpp
     src/library/miniz/miniz.c
     src/library/miniz/miniz_tdef.c
@@ -57,8 +58,13 @@ add_executable(box
     src/remote/cookiegrab.cpp
     src/ui/progressbar.cpp
     src/ui/viewerpage.cpp
+    src/ui/viewerpage_meta.cpp
+    src/ui/viewerpage_tags.cpp
+    src/ui/viewerpage_load.cpp
+    src/ui/viewerpage_setters.cpp
     src/ui/welcomepage.cpp
     src/ui/prefsdlg.cpp
+    src/ui/prefsdlg_booru.cpp
     src/ui/straydialog.cpp
     src/ui/mainwindow.cpp
     src/ui/mainwindow_gridmenu.cpp

@@ -40,15 +40,15 @@ QList<BooruSite> RemoteSource::presetBoorus() {
     // New users start SFW-only: just Safebooru. Everything else is one
     // Add away in Preferences → Booru manager (existing configs keep
     // whatever they already have).
-    return {
-        {QStringLiteral("safebooru"), QStringLiteral("Safebooru"),
-         QStringLiteral("SFW"),
-         RemotePosts::defaultBadgeColor(
-             QStringLiteral("https://safebooru.donmai.us"),
-             BooruEngine::Danbooru),
-         QStringLiteral("https://safebooru.donmai.us"),
-         BooruEngine::Danbooru},
-    };
+    BooruSite safe;
+    safe.key = QStringLiteral("safebooru");
+    safe.label = QStringLiteral("Safebooru");
+    safe.shortName = QStringLiteral("SFW");
+    safe.badgeColor = RemotePosts::defaultBadgeColor(
+        QStringLiteral("https://safebooru.donmai.us"), BooruEngine::Danbooru);
+    safe.baseUrl = QStringLiteral("https://safebooru.donmai.us");
+    safe.engine = BooruEngine::Danbooru;
+    return {safe};
 }
 
 namespace {
@@ -550,30 +550,30 @@ void RemoteSource::search(const QStringList &tags, int page, int limit) {
                     // proxy and egress, same cookie jar), then retry once.
                     m_powRetried = true;
                     const int gen = m_searchGen;
-                    const QStringList tags = m_lastTags;
-                    const int page = m_pendingPage;
-                    const int limit = m_pendingLimit;
+                    const QStringList retryTags = m_lastTags;
+                    const int retryPage = m_pendingPage;
+                    const int retryLimit = m_pendingLimit;
                     PowSolver::solve(
                         m_nam, m_baseUrl, this,
-                        [this, gen, tags, page,
-                         limit](bool ok, const QStringList &fresh,
-                                const QString &err) {
+                        [this, gen, retryTags, retryPage,
+                         retryLimit](bool ok, const QStringList &fresh,
+                                     const QString &err) {
                             if (gen != m_searchGen)
                                 return; // superseded by a newer search
                             if (ok) {
                                 m_lastFreshCookies = fresh;
-                                search(tags, page, limit);
+                                search(retryTags, retryPage, retryLimit);
                                 m_powRetried = true;
                             } else {
                                 m_lastPowError = err;
-                                SearchResult result;
-                                result.site = m_site.key;
-                                result.httpStatus = 449;
-                                result.error = powWallError(false, {});
+                                SearchResult powResult;
+                                powResult.site = m_site.key;
+                                powResult.httpStatus = 449;
+                                powResult.error = powWallError(false, {});
                                 m_lastWall = true;
-                                m_lastError = result.error;
+                                m_lastError = powResult.error;
                                 m_lastHttp = 449;
-                                emit searchFinished(result);
+                                emit searchFinished(powResult);
                             }
                         });
                     reply->deleteLater();
@@ -791,15 +791,15 @@ void PostRefresher::refresh(const RefreshTarget &target, qint64 reqId) {
         if (reply->error() != QNetworkReply::NoError) {
             const int http =
                 reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-            const qint64 reqId = m_reqId;
+            const qint64 failedId = m_reqId;
             const QString detail =
                 QString::fromUtf8(reply->readAll()).simplified().left(200);
             const QString what =
                 http > 0 ? QStringLiteral("HTTP %1 (%2)").arg(http).arg(reply->errorString())
                          : QStringLiteral("Network error: %1").arg(reply->errorString());
-            emit failed(reqId, detail.isEmpty()
-                                         ? what
-                                         : what + QStringLiteral(" - ") + detail);
+            emit failed(failedId, detail.isEmpty()
+                                            ? what
+                                            : what + QStringLiteral(" - ") + detail);
         } else {
             bool ok = false;
             const QByteArray refreshBody = reply->readAll();
@@ -988,9 +988,10 @@ QString postPageUrlFor(const BooruSite &site, qint64 id) {
         return base + QStringLiteral("/posts/") + QString::number(id);
     case Nuuru:
         return base + QStringLiteral("/post/view/") + QString::number(id);
-    case Hiddenbooru:
-        return base + QStringLiteral("/post/") + QString::number(id) +
-               QStringLiteral("/view");
+    case Derpibooru:
+        return base + QStringLiteral("/images/") + QString::number(id);
+    case Twibooru:
+        return base + QStringLiteral("/posts/") + QString::number(id);
     case Gelbooru:
     case Safebooru:
         return base + QStringLiteral("/index.php?page=post&s=view&id=") +

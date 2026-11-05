@@ -334,12 +334,6 @@ BooruPostUrl parseBooruPostUrl(const QString &url) {
         return out.id > 0;
     };
 
-    static const QRegularExpression hidden(
-        QStringLiteral("^(.*)/post/(\\d+)/view(?:/.*)?$"));
-    if (pathMatch(hidden)) {
-        out.engines = {BooruEngine::Hiddenbooru};
-        return out;
-    }
     static const QRegularExpression view(
         QStringLiteral("^(.*)/post/view/(\\d+)(?:/.*)?$"));
     if (pathMatch(view)) {
@@ -354,11 +348,17 @@ BooruPostUrl parseBooruPostUrl(const QString &url) {
         out.engines = {BooruEngine::Moebooru};
         return out;
     }
+    static const QRegularExpression derpi(
+        QStringLiteral("^(.*)/images/(\\d+)(?:/.*)?$"));
+    if (pathMatch(derpi)) {
+        out.engines = {BooruEngine::Derpibooru};
+        return out;
+    }
     static const QRegularExpression posts(
         QStringLiteral("^(.*)/posts/(\\d+)(?:/.*)?$"));
     if (pathMatch(posts)) {
-        // Danbooru-family and HyBooru both use /posts/<id>.
-        out.engines = {BooruEngine::Danbooru, BooruEngine::Hybooru};
+        // Danbooru-family, HyBooru and Twibooru (Philomena v3) use /posts/<id>.
+        out.engines = {BooruEngine::Danbooru, BooruEngine::Hybooru, BooruEngine::Twibooru};
         return out;
     }
     static const QRegularExpression single(
@@ -510,8 +510,11 @@ Post postFromRaw(BooruEngine engine, const QJsonObject &raw,
     case BooruEngine::Nuuru:
         p = fromNuuru(raw, baseUrl);
         break;
-    case BooruEngine::Hiddenbooru:
-        p = fromHiddenbooru(raw, baseUrl);
+    case BooruEngine::Derpibooru:
+        p = fromDerpibooru(raw, baseUrl);
+        break;
+    case BooruEngine::Twibooru:
+        p = fromTwibooru(raw, baseUrl);
         break;
     }
     genericFillPost(p, raw, baseUrl);

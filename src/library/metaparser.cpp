@@ -472,16 +472,16 @@ bool writeRefreshedSidecar(const QString &sidecarPath, const QJsonObject &fresh,
     // Atomic replace (QSaveFile tmp+rename, full-write checked): a kill
     // between truncate and write used to leave 0B sidecars behind,
     // which Syncthing-style mirrors then flag as local additions.
-    auto atomicReplace = [&](const QJsonDocument &doc) {
-        QSaveFile f(sidecarPath);
-        if (!f.open(QIODevice::WriteOnly))
+    auto atomicReplace = [&](const QJsonDocument &outDoc) {
+        QSaveFile outFile(sidecarPath);
+        if (!outFile.open(QIODevice::WriteOnly))
             return false;
-        const QByteArray bytes = doc.toJson(QJsonDocument::Indented); // jq-readable
-        if (f.write(bytes) != bytes.size()) {
-            f.cancelWriting();
+        const QByteArray bytes = outDoc.toJson(QJsonDocument::Indented); // jq-readable
+        if (outFile.write(bytes) != bytes.size()) {
+            outFile.cancelWriting();
             return false;
         }
-        return f.commit();
+        return outFile.commit();
     };
     if (isLosn) {
         // Rebuild the tag array with real types; blob tags stay "none"

@@ -120,8 +120,10 @@ Post remapFresh(const QJsonObject &raw, const RefreshTarget &t) {
         return RemotePosts::fromHybooru(raw, t.baseUrl);
     case Nuuru:
         return RemotePosts::fromNuuru(raw, t.baseUrl);
-    case Hiddenbooru:
-        return RemotePosts::fromHiddenbooru(raw, t.baseUrl);
+    case Derpibooru:
+        return RemotePosts::fromDerpibooru(raw, t.baseUrl);
+    case Twibooru:
+        return RemotePosts::fromTwibooru(raw, t.baseUrl);
     case Shimmie: {
         QMap<QString, QString> attrs;
         for (auto it = raw.begin(); it != raw.end(); ++it)

@@ -41,6 +41,9 @@ struct AppSettings {
     // Optional override for the on-disk cache root; empty = default
     // (~/.cache/box via QStandardPaths::CacheLocation).
     QString cacheDir;
+    // Cache media opened from the favourites tab too (downloads already
+    // are). Off keeps fav views session-only.
+    bool cacheFavs = true;
     int thumbLongSide = 360; // 256/360/512/768
     QString lastRoot;
     QStringList history; // most-recent-first archive roots, cap 10
@@ -263,6 +266,7 @@ inline bool operator==(const AppSettings &a, const AppSettings &b) {
     return a.indexCache == b.indexCache && a.cacheMode == b.cacheMode &&
            a.fullCache == b.fullCache && a.cacheLimitMB == b.cacheLimitMB &&
            a.cacheDir == b.cacheDir &&
+           a.cacheFavs == b.cacheFavs &&
            a.thumbLongSide == b.thumbLongSide && a.lastRoot == b.lastRoot &&
            a.history == b.history && a.historyTokens == b.historyTokens &&
            a.restoreSession == b.restoreSession &&

@@ -351,6 +351,9 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     m_fullCache = new QCheckBox(
         tr("Also cache full-quality images while browsing (large)"), this);
     m_fullCache->setChecked(current.fullCache);
+    m_cacheFavs = new QCheckBox(
+        tr("Cache media opened from Favourites too"), this);
+    m_cacheFavs->setChecked(current.cacheFavs);
     auto *limitRow = new QHBoxLayout();
     limitRow->addWidget(new QLabel(tr("Cache size limit:"), this));
     m_cacheLimit = new QSpinBox(this);
@@ -433,6 +436,7 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     sizeRow->addWidget(m_deleteMediaCache);
     sizeRow->addWidget(clearBtn);
     libLay->addWidget(m_fullCache);
+    libLay->addWidget(m_cacheFavs);
     libLay->addWidget(m_classify);
     libLay->addLayout(classifyRow);
     libLay->addLayout(limitRow);
@@ -1049,9 +1053,10 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
                            RemotePosts::engineKey(BooruEngine::Hybooru));
     m_booruEngine->addItem(RemotePosts::engineLabel(BooruEngine::Nuuru),
                            RemotePosts::engineKey(BooruEngine::Nuuru));
-    // HiddenBooru is frozen: its code and existing entries stay, but the
-    // engine is no longer offered for new boorus. loadBooruEditor() adds
-    // it back temporarily when an existing entry needs to show it.
+    m_booruEngine->addItem(RemotePosts::engineLabel(BooruEngine::Derpibooru),
+                           RemotePosts::engineKey(BooruEngine::Derpibooru));
+    m_booruEngine->addItem(RemotePosts::engineLabel(BooruEngine::Twibooru),
+                           RemotePosts::engineKey(BooruEngine::Twibooru));
     m_booruUser = new QLineEdit(this);
     m_booruSecret = new QLineEdit(this);
     m_booruSecret->setEchoMode(QLineEdit::Password);
@@ -1644,6 +1649,8 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
                         m_favTagList->addItem(t);
                 }
                 m_fullCache->setChecked(d.fullCache);
+                if (m_cacheFavs)
+                    m_cacheFavs->setChecked(d.cacheFavs);
                 m_cacheLimit->setValue(d.cacheLimitMB);
                 m_browseLimit->setCurrentIndex(
                     qMax(0, m_browseLimit->findData(d.browseLimit)));
@@ -2023,397 +2030,6 @@ void PrefsDialog::showProbeDetails() {
             tr("\nCookies sent: %1").arg(cookies));
 }
 
-void PrefsDialog::commitBooruEditor(const QString &key) {
-    if (key.isEmpty() || m_loadingBooru)
-        return;
-    for (BooruSite &b : m_booruEdits) {
-        if (b.key != key)
-            continue;
-        b.label = m_booruName->text().trimmed();
-        if (b.label.isEmpty())
-            b.label = b.key;
-        b.enabled = m_booruEnabled->isChecked();
-        b.shortName = m_booruShort->text().trimmed();
-        if (b.shortName.isEmpty())
-            b.shortName = RemotePosts::shortFor(b.label);
-        b.badgeColor = m_booruColor.name();
-        QString base = m_booruBase->text().trimmed();
-        while (base.endsWith(u'/'))
-            base.chop(1);
-        const QString oldHost = QUrl(b.baseUrl).host().toLower();
-        const QString newHost = QUrl(base).host().toLower();
-        b.baseUrl = base;
-        b.engine = RemotePosts::engineForKey(m_booruEngine->currentData().toString());
-        b.user = m_booruUser->text().trimmed();
-        b.secret = m_booruSecret->text();
-        b.skipAutoClassify = m_booruNoClassify->isChecked();
-        b.localBlacklist = m_booruLocalBlacklist->isChecked();
-        if (m_booruCacheInherit->isChecked())
-            b.cacheMode = CacheMode::Inherit;
-        else if (m_booruCacheNone->isChecked())
-            b.cacheMode = CacheMode::None;
-        else if (m_booruCacheSfw->isChecked())
-            b.cacheMode = CacheMode::SfwOnly;
-        else
-            b.cacheMode = CacheMode::All;
-        b.defaultTags = m_booruTags->text().trimmed();
-        if (m_booruDragMode) {
-            const int dm = m_booruDragMode->currentData().toInt();
-            b.dragLinkMode =
-                dm == int(DragLinkMode::DirectMedia)
-                    ? DragLinkMode::DirectMedia
-                    : (dm == int(DragLinkMode::PostPage)
-                           ? DragLinkMode::PostPage
-                           : DragLinkMode::Inherit);
-        }
-        b.proxy = m_booruProxy->text().trimmed();
-        // Fresh entries still wearing the generic blue inherit the new
-        // host's house color (explicit picks and existing entries are
-        // untouched: this only fires while the color is still default).
-        if (b.badgeColor.compare(QStringLiteral("#3a7ec2"),
-                                 Qt::CaseInsensitive) == 0 &&
-            QRegularExpression(QStringLiteral("^newbooru\\d*$"))
-                .match(b.key)
-                .hasMatch())
-            b.badgeColor = RemotePosts::defaultBadgeColor(b.baseUrl, b.engine);
-        // Seed per-host default cookies once (quirks table: gelbooru.com
-        // wants fringeBenefits=yup for restricted content). They land in
-        // the stored list, so they stay visible - and removable - in the
-        // cookie manager. Keyed on the host transition so a deliberate
-        // removal is never re-added behind your back.
-        if (oldHost != newHost)
-            b.cookies << RemotePosts::seedQuirkCookies(b.cookies, newHost);
-        // Fresh "newbooru" entries get a descriptive key the first time
-        // they are named or pointed at a host ("Rule34" -> rule34,
-        // https://rule34.xxx -> rule34). After that the key is frozen:
-        // saved tabs and defaults reference it.
-        if (QRegularExpression(QStringLiteral("^newbooru\\d*$"))
-                .match(b.key)
-                .hasMatch()) {
-            QSet<QString> taken;
-            for (const BooruSite &o : m_booruEdits) {
-                if (o.key != b.key)
-                    taken.insert(o.key);
-            }
-            QString candidate;
-            if (b.label.compare(QStringLiteral("New booru"),
-                               Qt::CaseInsensitive) != 0)
-                candidate = RemotePosts::uniqueBooruKey(b.label, taken);
-            else if (!newHost.isEmpty() && newHost != QStringLiteral("www"))
-                candidate = RemotePosts::uniqueBooruKey(
-                    newHost.split(u'.').first(), taken);
-            else if (!newHost.isEmpty())
-                candidate = RemotePosts::uniqueBooruKey(newHost, taken);
-            if (!candidate.isEmpty() && candidate != b.key) {
-                const QString oldKey = b.key;
-                b.key = candidate;
-                // A staged favicon follows the rename.
-                if (m_pendingFavicons.contains(oldKey))
-                    m_pendingFavicons.insert(
-                        candidate, m_pendingFavicons.take(oldKey));
-                // Keep the list + defaults picker pointing at the entry.
-                for (int i = 0; i < m_booruList->count(); ++i) {
-                    QListWidgetItem *item = m_booruList->item(i);
-                    if (item->data(Qt::UserRole).toString() == oldKey) {
-                        item->setData(Qt::UserRole, candidate);
-                        item->setText(b.label);
-                    }
-                }
-                if (m_defBoorus) {
-                    for (int i = 0; i < m_defBoorus->count(); ++i) {
-                        QListWidgetItem *item = m_defBoorus->item(i);
-                        if (item->data(Qt::UserRole).toString() == oldKey)
-                            item->setData(Qt::UserRole, candidate);
-                    }
-                }
-            }
-        }
-        // Live list title: the left pane follows every keystroke, not
-        // just the one-time key rename above (which is why the name
-        // used to freeze after its first letter).
-        for (int i = 0; i < m_booruList->count(); ++i) {
-            QListWidgetItem *item = m_booruList->item(i);
-            if (item->data(Qt::UserRole).toString() == b.key) {
-                item->setText(b.label);
-                break;
-            }
-        }
-        return;
-    }
-}
-
-void PrefsDialog::saveBooruEditor() {
-    BooruSite *e = currentBooruEntry();
-    if (e)
-        commitBooruEditor(e->key);
-}
-
-BooruSite *PrefsDialog::currentBooruEntry() {
-    const int row = m_booruList ? m_booruList->currentRow() : -1;
-    if (row < 0 || !m_booruList)
-        return nullptr;
-    const QListWidgetItem *item = m_booruList->item(row);
-    const QString key = item ? item->data(Qt::UserRole).toString() : QString();
-    if (key.isEmpty())
-        return nullptr;
-    for (BooruSite &b : m_booruEdits) {
-        if (b.key == key)
-            return &b;
-    }
-    return nullptr;
-}
-
-void PrefsDialog::updateCookieLabel() {
-    if (!m_booruCookieLabel)
-        return;
-    const BooruSite *e = currentBooruEntry();
-    const int n = e ? e->cookies.size() : 0;
-    m_booruCookieLabel->setText(
-        n == 0 ? tr("none") : tr("%1 set").arg(n));
-}
-
-QString PrefsDialog::customFaviconDir() const {
-    QString dataDir = m_dataDir ? m_dataDir->text().trimmed() : QString();
-    if (dataDir.isEmpty())
-        dataDir = defaultDataDir();
-    return dataDir + QStringLiteral("/favicons");
-}
-
-void PrefsDialog::updateFaviconPreview() {
-    if (!m_booruFavicon)
-        return;
-    const BooruSite *e = currentBooruEntry();
-    QPixmap pm;
-    QString tip;
-    if (e) {
-        // Staged choice wins, then the saved custom file, then the
-        // auto-fetched icon (if the cache already holds one).
-        QString src = m_pendingFavicons.value(e->key);
-        if (src.isEmpty() && !m_pendingFavicons.contains(e->key))
-            src = customFaviconDir() + u'/' + e->key +
-                  QStringLiteral(".png");
-        if (!src.isEmpty()) {
-            pm = QIcon(src).pixmap(16, 16);
-            tip = src;
-        }
-        if (pm.isNull() && m_favicons) {
-            const QIcon autoIcon = m_favicons->iconFor(e->key, e->baseUrl);
-            if (!autoIcon.isNull()) {
-                pm = autoIcon.pixmap(16, 16);
-                tip = tr("Auto-fetched");
-            }
-        }
-    }
-    if (pm.isNull()) {
-        m_booruFavicon->setText(tr("-"));
-        m_booruFavicon->setToolTip(tr("No icon yet"));
-    } else {
-        m_booruFavicon->setText(QString());
-        m_booruFavicon->setPixmap(pm);
-        m_booruFavicon->setToolTip(tip);
-    }
-}
-
-void PrefsDialog::loadBooruEditor(int row) {
-    const BooruSite *found = nullptr;
-    if (row >= 0) {
-        const QListWidgetItem *item = m_booruList->item(row);
-        const QString key = item ? item->data(Qt::UserRole).toString() : QString();
-        for (const BooruSite &b : m_booruEdits) {
-            if (b.key == key) {
-                found = &b;
-                break;
-            }
-        }
-    }
-    const bool on = found != nullptr;
-    // Disabled controls hide entirely instead of sitting greyed-out.
-    m_booruFormBox->setVisible(on);
-    m_booruEmpty->setVisible(!on);
-    // Guarded: these programmatic fills emit textChanged, which must not
-    // commit half-loaded widgets back into the entry (see m_loadingBooru).
-    m_loadingBooru = true;
-    if (!found) {
-        const int frozenIdx = m_booruEngine->findData(
-            RemotePosts::engineKey(BooruEngine::Hiddenbooru));
-        if (frozenIdx >= 0)
-            m_booruEngine->removeItem(frozenIdx);
-        m_booruName->clear();
-        m_booruBase->clear();
-        m_booruUser->clear();
-        m_booruSecret->clear();
-        m_booruShort->clear();
-        m_booruNoClassify->setChecked(false);
-        m_booruLocalBlacklist->setChecked(false);
-        m_booruEnabled->setChecked(true);
-        m_booruCacheInherit->setChecked(true);
-        m_booruTags->clear();
-        if (m_booruDragMode)
-            m_booruDragMode->setCurrentIndex(0);
-        m_booruProxy->clear();
-        m_booruColor = QColor(QStringLiteral("#3a7ec2"));
-        setBooruSwatch();
-        updateCookieLabel();
-        updateFaviconPreview();
-        m_loadingBooru = false;
-        return;
-    }
-    m_booruName->setText(found->label);
-    m_booruEnabled->setChecked(found->enabled);
-    m_booruShort->setText(found->shortName);
-    m_booruColor = QColor(found->badgeColor);
-    if (!m_booruColor.isValid())
-        m_booruColor = QColor(QStringLiteral("#3a7ec2"));
-    setBooruSwatch();
-    m_booruBase->setText(found->baseUrl);
-    // HiddenBooru is frozen out of the picker; only the existing entry
-    // being edited brings its disabled item back (so saving keeps it sane).
-    const QString hiddenKey =
-        RemotePosts::engineKey(BooruEngine::Hiddenbooru);
-    int hiddenIdx = m_booruEngine->findData(hiddenKey);
-    if (found->engine != BooruEngine::Hiddenbooru && hiddenIdx >= 0)
-        m_booruEngine->removeItem(hiddenIdx);
-    if (found->engine == BooruEngine::Hiddenbooru && hiddenIdx < 0) {
-        m_booruEngine->addItem(
-            tr("%1 (frozen)")
-                .arg(RemotePosts::engineLabel(BooruEngine::Hiddenbooru)),
-            hiddenKey);
-        if (auto *mi =
-                qobject_cast<QStandardItemModel *>(m_booruEngine->model()))
-            if (QStandardItem *item = mi->item(m_booruEngine->count() - 1))
-                item->setEnabled(false);
-        hiddenIdx = m_booruEngine->count() - 1;
-    }
-    m_booruEngine->setCurrentIndex(
-        qMax(0, hiddenIdx >= 0 && found->engine == BooruEngine::Hiddenbooru
-                    ? hiddenIdx
-                    : m_booruEngine->findData(
-                          RemotePosts::engineKey(found->engine))));
-    m_booruUser->setText(found->user);
-    m_booruSecret->setText(found->secret);
-    m_booruNoClassify->setChecked(found->skipAutoClassify);
-    m_booruLocalBlacklist->setChecked(found->localBlacklist);
-    switch (found->cacheMode) {
-    case CacheMode::All:
-        m_booruCacheAll->setChecked(true);
-        break;
-    case CacheMode::SfwOnly:
-        m_booruCacheSfw->setChecked(true);
-        break;
-    case CacheMode::None:
-        m_booruCacheNone->setChecked(true);
-        break;
-    case CacheMode::Inherit:
-    default:
-        m_booruCacheInherit->setChecked(true);
-        break;
-    }
-    m_booruTags->setText(found->defaultTags);
-    if (m_booruDragMode)
-        m_booruDragMode->setCurrentIndex(qMax(
-            0, m_booruDragMode->findData(int(found->dragLinkMode))));
-    m_booruProxy->setText(found->proxy);
-    updateCookieLabel();
-    updateFaviconPreview();
-    m_loadingBooru = false;
-}
-
-void PrefsDialog::refreshBooruList() {
-    m_booruList->blockSignals(true);
-    m_booruList->clear();
-    for (const BooruSite &b : m_booruEdits) {
-        auto *item = new QListWidgetItem(
-            b.enabled ? b.label : tr("%1 (disabled)").arg(b.label),
-            m_booruList);
-        item->setData(Qt::UserRole, b.key);
-        if (!b.enabled)
-            item->setForeground(palette().color(QPalette::Disabled,
-                                                QPalette::Text));
-    }
-    m_booruList->blockSignals(false);
-    if (m_booruList->count() > 0 && m_booruList->currentRow() < 0)
-        m_booruList->setCurrentRow(0);
-    else
-        loadBooruEditor(m_booruList->currentRow());
-}
-
-void PrefsDialog::refreshBooruListLabels() {
-    for (int i = 0; i < m_booruList->count(); ++i) {
-        QListWidgetItem *item = m_booruList->item(i);
-        const QString key = item->data(Qt::UserRole).toString();
-        for (const BooruSite &b : m_booruEdits) {
-            if (b.key == key) {
-                item->setText(b.enabled
-                                  ? b.label
-                                  : tr("%1 (disabled)").arg(b.label));
-                item->setForeground(
-                    b.enabled
-                        ? palette().color(QPalette::Text)
-                        : palette().color(QPalette::Disabled,
-                                          QPalette::Text));
-                break;
-            }
-        }
-    }
-}
-
-void PrefsDialog::harvest() {
-    harvestInto(m_result);
-    commitPendingFavicons();
-}
-
-// Custom favicons: convert staged choices to
-// <dataDir>/favicons/<key>.png, drop files for removed entries (and
-// staged removals). Runs only on real Apply/OK - harvestInto doubles
-// as the Apply-state comparison and must never touch files.
-void PrefsDialog::commitPendingFavicons() {
-    if (m_pendingFavicons.isEmpty())
-        return;
-    const QString favDir = effectiveDataDir(m_result) + QStringLiteral("/favicons");
-    QSet<QString> live;
-    for (const BooruSite &b : m_result.boorus)
-        live.insert(b.key);
-    QDir().mkpath(favDir);
-    for (auto it = m_pendingFavicons.begin();
-         it != m_pendingFavicons.end(); ++it) {
-        const QString dest = favDir + u'/' + it.key() +
-                             QStringLiteral(".png");
-        if (it.value().isEmpty()) {
-            QFile::remove(dest);
-            continue;
-        }
-        QImage img(it.value());
-        if (img.isNull()) {
-            m_accStatus->setText(
-                tr("✗ favicon image unreadable: %1").arg(it.value()));
-            continue;
-        }
-        if (!img.scaled(32, 32, Qt::KeepAspectRatio,
-                        Qt::SmoothTransformation)
-                 .save(dest, "PNG")) {
-            m_accStatus->setText(
-                tr("✗ cannot write favicon: %1").arg(dest));
-        }
-    }
-    m_pendingFavicons.clear();
-    QDir dir(favDir);
-    for (const QString &f :
-         dir.entryList({QStringLiteral("*.png")}, QDir::Files)) {
-        if (!live.contains(f.left(f.size() - 4)))
-            QFile::remove(favDir + u'/' + f);
-    }
-    updateFaviconPreview();
-}
-
-void PrefsDialog::updateApplyState() {
-    if (!m_applyBtn)
-        return;
-    AppSettings cur = m_result;
-    harvestInto(cur);
-    // Staged favicons live outside AppSettings: any pending choice or
-    // removal is itself an unapplied change.
-    m_applyBtn->setEnabled(cur != m_initial || !m_pendingFavicons.isEmpty());
-}
 
 void PrefsDialog::harvestInto(AppSettings &out) {
     out = m_result; // carry history/session/geometry: not edited here
@@ -2481,6 +2097,8 @@ void PrefsDialog::harvestInto(AppSettings &out) {
     saveBooruEditor();
     out.boorus = m_booruEdits;
     out.fullCache = m_fullCache->isChecked();
+    if (m_cacheFavs)
+        out.cacheFavs = m_cacheFavs->isChecked();
     if (m_gridSnap)
         out.gridSnap = m_gridSnap->isChecked();
     if (m_gridStaggered)

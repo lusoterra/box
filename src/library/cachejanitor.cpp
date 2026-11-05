@@ -77,9 +77,9 @@ QSqlDatabase janitorDb() {
     if (QSqlQuery info(t_db);
         info.exec(QStringLiteral("PRAGMA table_info(files)"))) {
         while (info.next()) {
-            const QString name = info.value(1).toString();
-            hasNsfw = hasNsfw || name == QStringLiteral("nsfw");
-            hasSite = hasSite || name == QStringLiteral("site");
+            const QString colName = info.value(1).toString();
+            hasNsfw = hasNsfw || colName == QStringLiteral("nsfw");
+            hasSite = hasSite || colName == QStringLiteral("site");
         }
     }
     if (!hasNsfw)

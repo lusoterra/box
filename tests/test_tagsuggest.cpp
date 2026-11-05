@@ -91,14 +91,11 @@ private slots:
         QCOMPARE(tags.size(), 1);
         QCOMPARE(tags.first().tag, QStringLiteral("rating:explicit"));
         // Shimmie keeps rating: tokens server-side (translate only
-        // strips them for Hybooru/Nuuru/Hiddenbooru), so offer it there.
+        // strips them for Hybooru/Nuuru), so offer it there.
         QCOMPARE(TagSuggester::metaFor(QStringLiteral("rating:e"),
                                        BooruEngine::Shimmie)
                      .size(),
                  1);
-        QVERIFY(TagSuggester::metaFor(QStringLiteral("rating:e"),
-                                      BooruEngine::Hiddenbooru)
-                    .isEmpty());
     }
 
     void capped() {

@@ -218,6 +218,11 @@ QJsonObject exportJson(const AppSettings &s, const QVector<Post> &favs) {
     ugoira[QStringLiteral("format")] = s.ugoiraFormat;
     ugoira[QStringLiteral("frameDelayMs")] = s.ugoiraFrameDelayMs;
     o[QStringLiteral("ugoira")] = ugoira;
+    QJsonObject cache;
+    cache[QStringLiteral("dir")] = s.cacheDir;
+    cache[QStringLiteral("limitMB")] = s.cacheLimitMB;
+    cache[QStringLiteral("favs")] = s.cacheFavs;
+    o[QStringLiteral("cache")] = cache;
     o[QStringLiteral("tabsDefault")] = s.tabsDefault;
     o[QStringLiteral("language")] = s.language;
     QJsonObject video;
@@ -366,6 +371,13 @@ bool importJson(const QJsonObject &o, AppSettings *s, QVector<Post> *favs,
             20, ugoira.value(QStringLiteral("frameDelayMs")).toInt(100), 2000);
     if (!o.value(QStringLiteral("tabsDefault")).toString().isEmpty())
         s->tabsDefault = o.value(QStringLiteral("tabsDefault")).toString();
+    const QJsonObject cache = o.value(QStringLiteral("cache")).toObject();
+    if (cache.contains(QStringLiteral("dir")))
+        s->cacheDir = cache.value(QStringLiteral("dir")).toString();
+    if (cache.contains(QStringLiteral("limitMB")))
+        s->cacheLimitMB = qBound(0, cache.value(QStringLiteral("limitMB")).toInt(s->cacheLimitMB), 1048576);
+    if (cache.contains(QStringLiteral("favs")))
+        s->cacheFavs = cache.value(QStringLiteral("favs")).toBool(s->cacheFavs);
     if (o.contains(QStringLiteral("language")))
         s->language = o.value(QStringLiteral("language")).toString();
     const QJsonObject video = o.value(QStringLiteral("video")).toObject();
