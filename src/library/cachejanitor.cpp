@@ -10,10 +10,7 @@
 #include <QMutexLocker>
 #include <QSet>
 #include <QSqlDatabase>
-#include <QSqlError>
 #include <QSqlQuery>
-#include <QStandardPaths>
-#include <QThread>
 #include <QUuid>
 
 QRecursiveMutex &CacheJanitor::mutex() {
