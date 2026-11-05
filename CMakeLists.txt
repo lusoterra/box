@@ -58,6 +58,7 @@ add_executable(box
     src/remote/cookiegrab.cpp
     src/ui/progressbar.cpp
     src/ui/viewerpage.cpp
+    src/ui/viewerpage_mediaviews.cpp
     src/ui/viewerpage_meta.cpp
     src/ui/viewerpage_tags.cpp
     src/ui/viewerpage_load.cpp
