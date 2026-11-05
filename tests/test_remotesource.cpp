@@ -1450,6 +1450,54 @@ private slots:
 
         RemoteSource::setConfiguredBoorus(RemoteSource::presetBoorus());
     }
+
+    void engineHelperGaps() {
+        // src/engines/booruengine.cpp
+        // isTransientSearchError:552
+        QVERIFY(!RemotePosts::isTransientSearchError(500, QString()));
+        QVERIFY(RemotePosts::isTransientSearchError(408, QStringLiteral("timeout")));
+        QVERIFY(RemotePosts::isTransientSearchError(429, QStringLiteral("rate")));
+        QVERIFY(RemotePosts::isTransientSearchError(503, QStringLiteral("unavailable")));
+        QVERIFY(RemotePosts::isTransientSearchError(0, QStringLiteral("network error")));
+        QVERIFY(!RemotePosts::isTransientSearchError(0, QStringLiteral("Operation cancelled")));
+        QVERIFY(!RemotePosts::isTransientSearchError(404, QStringLiteral("not found")));
+
+        // uniqueBooruKey:564
+        QSet<QString> taken;
+        QCOMPARE(RemotePosts::uniqueBooruKey(QStringLiteral("My Booru"), taken),
+                 QStringLiteral("mybooru"));
+        taken.insert(QStringLiteral("mybooru"));
+        QCOMPARE(RemotePosts::uniqueBooruKey(QStringLiteral("My Booru"), taken),
+                 QStringLiteral("mybooru2"));
+        taken.insert(QStringLiteral("mybooru2"));
+        QCOMPARE(RemotePosts::uniqueBooruKey(QStringLiteral("My Booru"), taken),
+                 QStringLiteral("mybooru3"));
+        QCOMPARE(RemotePosts::uniqueBooruKey(QStringLiteral("!!!"), QSet<QString>{}),
+                 QStringLiteral("booru"));
+
+        // displayFileName:683
+        Post p;
+        p.fileUrl = QStringLiteral("https://x/path/image.png");
+        QCOMPARE(RemotePosts::displayFileName(p), QStringLiteral("image.png"));
+        p.fileUrl = QStringLiteral("https://nuuru.example/file");
+        p.id = 42;
+        p.ext = QStringLiteral("webp");
+        p.tags = QStringLiteral("tag1 tag2");
+        const QString dn = RemotePosts::displayFileName(p);
+        QVERIFY(dn.contains(QStringLiteral("42")));
+        QVERIFY(dn.contains(QStringLiteral("nuuru.example")));
+        QVERIFY(dn.contains(QStringLiteral("tag1")));
+        QVERIFY(dn.endsWith(QStringLiteral(".webp")));
+
+        // isNativeNuuruSort:386 (nuuruSortValues)
+        QVERIFY(RemotePosts::isNativeNuuruSort(QStringLiteral("date")));
+        QVERIFY(RemotePosts::isNativeNuuruSort(QStringLiteral("score_desc")));
+        QVERIFY(RemotePosts::isNativeNuuruSort(QStringLiteral(" DATE_ASC ")));
+        QVERIFY(RemotePosts::isNativeNuuruSort(QStringLiteral("random")));
+        QVERIFY(RemotePosts::isNativeNuuruSort(QStringLiteral("tagcount_desc")));
+        QVERIFY(!RemotePosts::isNativeNuuruSort(QStringLiteral("bogus")));
+        QVERIFY(!RemotePosts::isNativeNuuruSort(QString()));
+    }
 };
 
 int main(int argc, char *argv[]) {
