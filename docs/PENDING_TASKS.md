@@ -18,9 +18,8 @@
       `ctest` green after every batch (current: 33/33).
 
 ## 147. QA pass over the whole app - TODO
-- [ ] Manual/headless run (Xvfb per `docs/TESTING.md`): walk every menu,
-      dialog, tab type, viewer path, download/favourite flow; log found
-      bugs as tasks (or fix inline + tests), never in silence.
+- [~] Scripted smoke (verified 2026-11-05, `docs/TESTING.md`): `cd /home/lev/Sources/box && timeout 6 xvfb-run -a ./build/box > /tmp/opencode/box-smoke.log 2>&1` → exit `124` (timeout, expected for GUI app); log shows Qt/WebEngine startup and expected headless-env warnings (no DBus/PipeWire/VDPAU/GPU) with no immediate crash trace. `ctest` 34/34 green (rerun flaky `test_gridwindow` when needed).
+- [ ] **Blocked on manual/Xvfb walkthrough/eyes** for full coverage (visual correctness, menu/dialog interactions, end-to-end network flows not verifiable headlessly without user-named scripted scenarios): walk every menu/dialog/tab type/viewer path/download+favourite flow; log bugs as numbered tasks or fix inline+tests.
 
 ## 148. Dead-code elimination + optimization round - TODO
 ##    (the old task 34 audit is DONE and stale; this is a fresh pass
