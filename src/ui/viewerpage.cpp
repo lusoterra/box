@@ -1294,10 +1294,9 @@ ViewerPage::ViewerPage(QWidget *parent) : QWidget(parent) {
     openBtn->setIcon(UiIcons::icon(QStringLiteral("globe")));
     openBtn->setIconSize(QSize(16, 16));
     openBtn->setFixedWidth(34);
-    openBtn->setToolTip(tr("Open file"));
-    auto *copyBtn = new QPushButton(tr("Copy file URL"), this);
-    copyBtn->setIcon(UiIcons::icon(QStringLiteral("copy")));
-    copyBtn->setIconSize(QSize(15, 15));
+    openBtn->setToolTip(tr("Open file / copy URL"));
+    auto *fileMenu = new QMenu(openBtn);
+    openBtn->setMenu(fileMenu);
     m_commentsBtn = new QPushButton(tr("Comments"), this);
     m_commentsBtn->setToolTip(tr("Show the comment thread in a popup"));
     connect(m_commentsBtn, &QPushButton::clicked, this,
@@ -1333,7 +1332,8 @@ ViewerPage::ViewerPage(QWidget *parent) : QWidget(parent) {
             RemotePosts::isHttpUrl(m_posts[m_row].postUrl))
             QDesktopServices::openUrl(url);
     });
-    connect(openBtn, &QPushButton::clicked, this, [this] {
+    auto *openAct = fileMenu->addAction(tr("Open file"));
+    connect(openAct, &QAction::triggered, this, [this] {
         if (m_posts.isEmpty())
             return;
         const Post &p = m_posts[m_row];
@@ -1344,7 +1344,8 @@ ViewerPage::ViewerPage(QWidget *parent) : QWidget(parent) {
             QDesktopServices::openUrl(QUrl::fromLocalFile(p.absFile));
         }
     });
-    connect(copyBtn, &QPushButton::clicked, this, [this] {
+    auto *copyAct = fileMenu->addAction(tr("Copy file URL"));
+    connect(copyAct, &QAction::triggered, this, [this] {
         if (m_posts.isEmpty())
             return;
         const Post &p = m_posts[m_row];
@@ -1396,7 +1397,6 @@ ViewerPage::ViewerPage(QWidget *parent) : QWidget(parent) {
     bar->addWidget(m_favBtn);
     bar->addWidget(m_downloadBtn);
     bar->addWidget(openBtn);
-    bar->addWidget(copyBtn);
     bar->addWidget(m_commentsBtn);
     m_toolbarBox = new QWidget(this);
     m_toolbarBox->setLayout(bar);
