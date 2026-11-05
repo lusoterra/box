@@ -100,6 +100,23 @@ private slots:
         setActiveExplicitTags(defaultExplicitTags());
         QCOMPARE(explicitTagsHash(), h1);
     }
+
+    void normalizeAndDefaults() {
+        // src/library/explicittags.h:91,103
+        QCOMPARE(normalizeExplicitTags({QStringLiteral(" NSFW "), QStringLiteral("nsfw"),
+                                        QStringLiteral("Porn"), QString()}),
+                 (QStringList{QStringLiteral("nsfw"), QStringLiteral("porn")}));
+        QVERIFY(normalizeExplicitTags({}).isEmpty());
+        const QStringList defs = defaultExplicitTagList();
+        QVERIFY(defs.contains(QStringLiteral("explicit")));
+        QVERIFY(defs.contains(QStringLiteral("blowjob")));
+        for (const QString &t : defs) {
+            QVERIFY(!t.isEmpty());
+            QCOMPARE(t, t.trimmed().toLower());
+        }
+        QCOMPARE(QSet<QString>(defs.begin(), defs.end()), defaultExplicitTags());
+        setActiveExplicitTags(defaultExplicitTags());
+    }
 };
 
 int main(int argc, char *argv[]) {

@@ -60,6 +60,15 @@ private slots:
         QVERIFY(!isMd5Stem(QStringLiteral("Safebooru_1663554")));
         QVERIFY(!isMd5Stem(QStringLiteral("plainname")));
         QVERIFY(!isMd5Stem(QStringLiteral("A_short")));
+        // src/library/filehash.h: isMd5Stem requires last 32 chars hex,
+        // preceded by '_' (hash at end of stem).
+        QVERIFY(isMd5Stem(QStringLiteral("a_00000000000000000000000000000000"))); // min boundary
+        QVERIFY(!isMd5Stem(QStringLiteral("_00000000000000000000000000000000"))); // no site prefix before '_'? size 33, at(0)=='_' ok
+        QVERIFY(isMd5Stem(QStringLiteral("x_ffffffffffffffffffffffffffffffff")));
+        QVERIFY(!isMd5Stem(QStringLiteral("Danbooru_900150983cd24fb0d6963f7d28e17f7z"))); // non-hex
+        QVERIFY(!isMd5Stem(QStringLiteral("Danbooru-900150983cd24fb0d6963f7d28e17f72"))); // no underscore
+        QVERIFY(!isMd5Stem(QStringLiteral("Danbooru_900150983cd24fb0d6963f7d28e17f72_x"))); // hash not at end
+        QVERIFY(!isMd5Stem(QString()));
     }
 };
 

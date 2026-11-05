@@ -59,6 +59,55 @@ private slots:
         QVERIFY(Ugoira::delaysFromRaw(QJsonObject(), 100).isEmpty());
     }
 
+    void frameDelaysGaps() {
+        // src/library/ugoioconvert.cpp:115-140
+        // Array root form (no {data:...} wrapper).
+        QJsonArray arr;
+        QJsonObject a;
+        a[QStringLiteral("file")] = QStringLiteral("sub/000000.jpg");
+        a[QStringLiteral("delay")] = 33;
+        arr.append(a);
+        QJsonObject rawArr;
+        rawArr[QStringLiteral("pixiv_ugoira_frame_data")] = arr;
+        auto d = Ugoira::delaysFromRaw(rawArr, 100);
+        QCOMPARE(d.value(QStringLiteral("000000.jpg")), 33); // basename match
+
+        // clampDelay: <10 or >10000 falls back to defaultMs.
+        QJsonObject rawClamp;
+        QJsonArray cd;
+        QJsonObject lo; lo[QStringLiteral("file")] = QStringLiteral("a.jpg"); lo[QStringLiteral("delay")] = 1; cd.append(lo);
+        QJsonObject hi; hi[QStringLiteral("file")] = QStringLiteral("b.jpg"); hi[QStringLiteral("delay")] = 99999; cd.append(hi);
+        QJsonObject ok; ok[QStringLiteral("file")] = QStringLiteral("c.jpg"); ok[QStringLiteral("delay")] = 10; cd.append(ok);
+        QJsonObject wrap; wrap[QStringLiteral("data")] = cd;
+        rawClamp[QStringLiteral("pixiv_ugoira_frame_data")] = wrap;
+        d = Ugoira::delaysFromRaw(rawClamp, 77);
+        QCOMPARE(d.value(QStringLiteral("a.jpg")), 77);
+        QCOMPARE(d.value(QStringLiteral("b.jpg")), 77);
+        QCOMPARE(d.value(QStringLiteral("c.jpg")), 10);
+
+        // Missing name or negative delay skipped.
+        QJsonObject rawBad;
+        QJsonArray bd;
+        bd.append(QJsonObject{{QStringLiteral("file"), QStringLiteral("x.jpg")}}); // no delay
+        bd.append(QJsonObject{{QStringLiteral("delay"), 50}}); // no name
+        QJsonObject w2; w2[QStringLiteral("data")] = bd;
+        rawBad[QStringLiteral("pixiv_ugoira_frame_data")] = w2;
+        QVERIFY(Ugoira::delaysFromRaw(rawBad, 100).isEmpty());
+    }
+
+    void mediaExtHelpers() {
+        // src/post.h:78+ isVideoExt/gifLikeExts/videoExts
+        QVERIFY(isVideoExt(QStringLiteral("mp4")));
+        QVERIFY(isVideoExt(QStringLiteral("webm")));
+        QVERIFY(!isVideoExt(QStringLiteral("gif")));
+        QVERIFY(!isVideoExt(QStringLiteral("zip")));
+        QVERIFY(gifLikeExts().contains(QStringLiteral("gif")));
+        QVERIFY(gifLikeExts().contains(QStringLiteral("webp")));
+        QVERIFY(gifLikeExts().contains(QStringLiteral("jxl")));
+        QVERIFY(!gifLikeExts().contains(QStringLiteral("mp4")));
+        QCOMPARE(videoExts(), (QStringList{QStringLiteral("mp4"), QStringLiteral("webm")}));
+    }
+
     void unpackFixture() {
         QVERIFY(QFile::exists(fixtureZip()));
         Ugoira::Frames frames;
