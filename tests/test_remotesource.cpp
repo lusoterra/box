@@ -1375,6 +1375,45 @@ private slots:
         QVERIFY(harvestCookies({}, QStringLiteral("booru.example")).isEmpty());
         QVERIFY(harvestCookies(jar, QString()).isEmpty());
     }
+
+    void fsTagForPostCases() {
+        // src/remote/remotesource.cpp:1045
+        BooruSite a;
+        a.key = QStringLiteral("testa");
+        a.label = QStringLiteral("Test A");
+        a.baseUrl = QStringLiteral("https://DanBooru.Donmai.US/path");
+        BooruSite b;
+        b.key = QStringLiteral("testb");
+        b.label = QStringLiteral("Test B");
+        b.baseUrl = QStringLiteral("http://localhost:8080");
+        BooruSite c;
+        c.key = QStringLiteral("testc");
+        c.label = QStringLiteral("Test C");
+        c.baseUrl = QStringLiteral("https://example.org:443");
+        RemoteSource::setConfiguredBoorus({a, b, c});
+
+        Post stray;
+        stray.siteName = QStringLiteral("_Stray");
+        QCOMPARE(RemotePosts::fsTagForPost(stray), QStringLiteral("_Stray"));
+
+        Post p;
+        p.siteKey = QStringLiteral("testa");
+        p.siteName = QStringLiteral("Test A");
+        QCOMPARE(RemotePosts::fsTagForPost(p), QStringLiteral("danbooru.donmai.us"));
+
+        p.siteKey = QStringLiteral("testb");
+        QCOMPARE(RemotePosts::fsTagForPost(p), QStringLiteral("localhost_8080"));
+
+        p.siteKey = QStringLiteral("testc");
+        QCOMPARE(RemotePosts::fsTagForPost(p), QStringLiteral("example.org")); // default https 443 dropped
+
+        Post unknown;
+        unknown.siteKey = QString();
+        unknown.siteName = QStringLiteral("Legacy Label");
+        QCOMPARE(RemotePosts::fsTagForPost(unknown), QStringLiteral("Legacy Label"));
+
+        RemoteSource::setConfiguredBoorus(RemoteSource::presetBoorus());
+    }
 };
 
 int main(int argc, char *argv[]) {
