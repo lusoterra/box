@@ -290,12 +290,20 @@ void MainWindow::showGridMenu(const QPoint &pos) {
                 revMenu->addSeparator();
         }
     }
-    // Tag editing is a stray-only affair: exactly one stray file, so the
-    // dialog prefills from its sidecar. Everything else keeps the menu.
-    if (targets.size() == 1 && Stray::isStrayPost(targets.first())) {
-        QAction *edit = menu.addAction(tr("Edit tags…"));
-        connect(edit, &QAction::triggered, this,
-                [this, post = targets.first()] { editStrayTags(post); });
+    // Tag editing is a stray-only affair: every selected target must be a
+    // stray file; the dialog prefills from its sidecar. Supports bulk
+    // edits by opening the dialog for each selected stray.
+    bool allStray = !targets.isEmpty();
+    for (const Post &t : targets)
+        if (!Stray::isStrayPost(t)) { allStray = false; break; }
+    if (allStray) {
+        QAction *edit = menu.addAction(targets.size() > 1
+                                          ? tr("Edit tags… (%1)").arg(targets.size())
+                                          : tr("Edit tags…"));
+        connect(edit, &QAction::triggered, this, [this, targets] {
+            for (const Post &p : targets)
+                editStrayTags(p);
+        });
     }
     // Any on-disk file can become the home mascot - including downloaded
     // remote rows, whose copy the favourites DB links (absFile is empty
