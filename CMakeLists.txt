@@ -70,6 +70,7 @@ add_executable(box
     src/ui/mainwindow_filter.cpp
     src/ui/mainwindow_stray.cpp
     src/ui/mainwindow_backup.cpp
+    src/ui/mainwindow_favtab.cpp
     src/icons.qrc
     src/seed.qrc
 )
