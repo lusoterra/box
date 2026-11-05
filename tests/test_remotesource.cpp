@@ -274,12 +274,21 @@ private slots:
         RemoteSource::setConfiguredBoorus(RemoteSource::presetBoorus());
     }
 
-    void engineKeysRoundTrip() {        for (BooruEngine e : {BooruEngine::Danbooru, BooruEngine::Gelbooru,
+    void engineKeysRoundTrip() {
+        for (BooruEngine e : {BooruEngine::Danbooru, BooruEngine::Gelbooru,
                               BooruEngine::Moebooru, BooruEngine::Szurubooru,
-                              BooruEngine::Shimmie}) {
+                              BooruEngine::Shimmie, BooruEngine::Hybooru,
+                              BooruEngine::Nuuru, BooruEngine::Derpibooru,
+                              BooruEngine::Twibooru}) {
             QCOMPARE(RemotePosts::engineForKey(RemotePosts::engineKey(e)), e);
             QVERIFY(!RemotePosts::engineLabel(e).isEmpty());
         }
+        // Safebooru rides the Gelbooru dapi engine key.
+        QCOMPARE(RemotePosts::engineKey(BooruEngine::Safebooru),
+                 QStringLiteral("gelbooru"));
+        QCOMPARE(RemotePosts::engineForKey(QStringLiteral("gelbooru")),
+                 BooruEngine::Gelbooru);
+        QVERIFY(!RemotePosts::engineLabel(BooruEngine::Safebooru).isEmpty());
         QCOMPARE(RemotePosts::engineForKey(QStringLiteral("bogus")),
                  BooruEngine::Danbooru);
     }
