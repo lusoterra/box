@@ -37,6 +37,8 @@ private slots:
         QVERIFY(PostMeta::notesUrl(BooruEngine::Szurubooru, kDan, 1).isEmpty());
         QVERIFY(PostMeta::notesUrl(BooruEngine::Shimmie, kDan, 1).isEmpty());
         QVERIFY(PostMeta::notesUrl(BooruEngine::Hybooru, kDan, 1).isEmpty());
+        QVERIFY(PostMeta::notesUrl(BooruEngine::Derpibooru, kDan, 1).isEmpty());
+        QVERIFY(PostMeta::notesUrl(BooruEngine::Twibooru, kDan, 1).isEmpty());
     }
 
     void commentsUrls() {
@@ -48,6 +50,8 @@ private slots:
         QCOMPARE(queryItem(sfw, "s"), QStringLiteral("comment"));
         QVERIFY(PostMeta::commentsUrl(BooruEngine::Shimmie, kDan, 1).isEmpty());
         QVERIFY(PostMeta::commentsUrl(BooruEngine::Hybooru, kDan, 1).isEmpty());
+        QVERIFY(PostMeta::commentsUrl(BooruEngine::Derpibooru, kDan, 1).isEmpty());
+        QVERIFY(PostMeta::commentsUrl(BooruEngine::Twibooru, kDan, 1).isEmpty());
     }
 
     void commentaryUrlPerEngine() {
