@@ -100,7 +100,7 @@ add_unit_test(test_queryor test_queryor.cpp ../src/library/queryor.cpp)
 add_unit_test(test_tagcolors test_tagcolors.cpp)
 add_unit_test(test_gridwindow test_gridwindow.cpp
               ../src/remote/webdlbackend.h
-              ../src/ui/mainwindow.cpp ../src/ui/mainwindow_gridmenu.cpp ../src/ui/mainwindow_tabs.cpp ../src/ui/mainwindow_downloads.cpp ../src/ui/mainwindow_sidebar.cpp ../src/ui/mainwindow_wall.cpp ../src/ui/mainwindow_search.cpp ../src/ui/mainwindow_filter.cpp ../src/ui/mainwindow_stray.cpp ../src/ui/mainwindow_backup.cpp ../src/ui/mainwindow_favtab.cpp ../src/ui/mainwindow_sites.cpp ../src/ui/mainwindow_refresh.cpp ../src/ui/mainwindow_classify.cpp ../src/ui/mainwindow_scan.cpp ../src/ui/mainwindow_fill.cpp ../src/ui/viewerpage.cpp
+              ../src/ui/mainwindow.cpp ../src/ui/mainwindow_gridmenu.cpp ../src/ui/mainwindow_tabs.cpp ../src/ui/mainwindow_downloads.cpp ../src/ui/mainwindow_sidebar.cpp ../src/ui/mainwindow_wall.cpp ../src/ui/mainwindow_search.cpp ../src/ui/mainwindow_filter.cpp ../src/ui/mainwindow_stray.cpp ../src/ui/mainwindow_backup.cpp ../src/ui/mainwindow_favtab.cpp ../src/ui/mainwindow_sites.cpp ../src/ui/mainwindow_refresh.cpp ../src/ui/mainwindow_classify.cpp ../src/ui/mainwindow_scan.cpp ../src/ui/mainwindow_fill.cpp ../src/ui/mainwindow_sidebar2.cpp ../src/ui/viewerpage.cpp
               ../src/ui/welcomepage.cpp ../src/ui/tabbar.cpp
               ../src/ui/theme.cpp ../src/ui/flowlayout.cpp
               ../src/ui/prefsdlg.cpp ../src/remote/cookiegrab.cpp
