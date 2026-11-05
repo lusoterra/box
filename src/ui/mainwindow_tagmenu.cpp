@@ -161,6 +161,8 @@ void MainWindow::onTagContextMenu(const QPoint &pos) {
 
 void MainWindow::showSearchHistoryMenu() {
     QMenu menu(this);
+    menu.setMinimumWidth(240);
+    menu.setMaximumHeight(384);
     const QVector<FavDb::SearchEntry> entries =
         m_favDb.isOpen() ? m_favDb.searches(30)
                          : QVector<FavDb::SearchEntry>();

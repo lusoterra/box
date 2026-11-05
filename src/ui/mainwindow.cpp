@@ -892,19 +892,6 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     // once data arrives ("All (12)"); same data value, same semantics.
     m_ratingBox->addItem(tr("All"), QStringLiteral("all"));
     m_categoryBox = new QComboBox(this);
-    // Media-kind shortcut: writes a filetype: tag like typing it (stills
-    // exclude GIF-likes + videos; ugoira/animated webp/jxl count as GIF;
-    // sound is the audio-carrying container). Single-select like rating.
-    // Canonical tokens (post.h): the query layer expands them to native
-    // tags where verified (Danbooru), filetype: elsewhere.
-    m_mediaBox = new QComboBox(this);
-    m_mediaBox->setToolTip(tr("Filter by media kind (adds a filetype: tag)"));
-    m_mediaBox->addItem(tr("All media"), QString());
-    m_mediaBox->addItem(tr("Still images"), mediaStillsToken());
-    m_mediaBox->addItem(tr("Animated GIFs"), mediaGifToken());
-    m_mediaBox->addItem(tr("Anything animated"), mediaAnimatedToken());
-    m_mediaBox->addItem(tr("Videos"), mediaVideoToken());
-    m_mediaBox->addItem(tr("Sound"), mediaSoundToken());
     m_sortBox = new QComboBox(this);
     m_sortBox->addItem(tr("Recently added"), QStringLiteral("added"));
     m_sortBox->addItem(tr("Newest"), QStringLiteral("id-desc"));
@@ -931,8 +918,6 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
             &MainWindow::onRatingChanged);
     connect(m_categoryBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
             &MainWindow::onCategoryChanged);
-    connect(m_mediaBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
-            &MainWindow::onMediaChanged);
     connect(m_aspectBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
             &MainWindow::onAspectChanged);
     m_sizeSlider = new QSlider(Qt::Horizontal, this);
@@ -989,7 +974,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     // Filter combos ignore the wheel until clicked (same as Preferences),
     // and size to their content: translated labels must never elide.
     auto *wheelGuard = new WheelGuard(this);
-    for (QComboBox *cb : {m_ratingBox, m_categoryBox, m_mediaBox, m_sortBox, m_aspectBox}) {
+    for (QComboBox *cb : {m_ratingBox, m_categoryBox, m_sortBox, m_aspectBox}) {
         cb->installEventFilter(wheelGuard);
         cb->setSizeAdjustPolicy(QComboBox::AdjustToContents);
     }
@@ -1024,7 +1009,6 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     omniLay->addWidget(m_searchEdit, 1);
     omniLay->addWidget(m_ratingBox);
     omniLay->addWidget(m_categoryBox);
-    omniLay->addWidget(m_mediaBox);
     // One-click AI-content filter: hides ai_generated/ai_created/
     // ai_assisted/ai_art everywhere (server -exclusions + client net).
     auto *aiBtn = new QPushButton(tr("AI"), this);
