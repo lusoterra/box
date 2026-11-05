@@ -221,7 +221,7 @@ bool ImageView::viewportEvent(QEvent *e) {
 }
 
 void ImageView::mouseDoubleClickEvent(QMouseEvent *e) {
-    if (!m_item)
+    if (!m_item || e->button() != Qt::LeftButton)
         return;
     emit fullscreenToggleRequested();
     e->accept();
@@ -424,7 +424,7 @@ bool GifView::viewportEvent(QEvent *e) {
 }
 
 void GifView::mouseDoubleClickEvent(QMouseEvent *e) {
-    if (!m_item)
+    if (!m_item || e->button() != Qt::LeftButton)
         return;
     emit fullscreenToggleRequested();
     e->accept();
@@ -603,6 +603,8 @@ bool VideoView::viewportEvent(QEvent *e) {
 }
 
 void VideoView::mouseDoubleClickEvent(QMouseEvent *e) {
+    if (e->button() != Qt::LeftButton)
+        return;
     emit fullscreenToggleRequested();
     e->accept();
 }
