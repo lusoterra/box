@@ -7,23 +7,16 @@
 #include <QApplication>
 #include <QAudioDevice>
 #include <QAudioOutput>
-#include <QClipboard>
-#include <QCursor>
+#include <QCryptographicHash>
 #include <QDir>
 #include <QDrag>
-#include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
-#include <QFutureWatcher>
 #include <QGraphicsEllipseItem>
-#include <QGraphicsPixmapItem>
 #include <QGraphicsRectItem>
 #include <QGraphicsScene>
-#include <QGraphicsTextItem>
 #include <QGraphicsView>
 #include <QHBoxLayout>
-#include <QImageReader>
-#include <QKeyEvent>
 #include <QLabel>
 #include <QMediaDevices>
 #include <QMediaPlayer>
@@ -32,11 +25,8 @@
 #include <QMouseEvent>
 #include <QMovie>
 #include <QPainter>
-#include <QPainterPath>
 #include <QPixmap>
 #include <QPushButton>
-#include <QScrollBar>
-#include <QShortcut>
 #include <QSlider>
 #include <QStandardPaths>
 #include <QStyle>
@@ -46,8 +36,6 @@
 #include <QVBoxLayout>
 #include <QVideoSink>
 #include <QWheelEvent>
-#include <QtConcurrent>
-#include <QtGlobal>
 
 #include <algorithm>
 #include <cmath>
