@@ -67,6 +67,10 @@ add_unit_test(test_cachejanitor test_cachejanitor.cpp ../src/library/cachejanito
 add_unit_test(test_cache test_cache.cpp ../src/library/cache.cpp
               ../src/settings.cpp ${REMOTE_SOURCES})
 set_tests_properties(test_cache PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+add_unit_test(test_cachepolicy test_cachepolicy.cpp)
+add_unit_test(test_stray test_stray.cpp)
+set_tests_properties(test_cachepolicy test_stray PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_unit_test(test_tagtypes test_tagtypes.cpp ../src/library/tagtypes.cpp
               ${REMOTE_SOURCES})
 add_unit_test(test_tagsuggest test_tagsuggest.cpp ../src/remote/tagsuggest.cpp

@@ -6,6 +6,7 @@
 // tag blob (auto-categorized by the normal scan pipeline). Key rules:
 // sidecar refresh never touches them, and the tag editor is only
 // offered for them.
+#include <QDir>
 #include <QFileInfo>
 #include <QString>
 
