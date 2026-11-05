@@ -45,6 +45,9 @@ class ImageCache;
 
 std::pair<QString, qint64> favIdentity(const Post &p);
 QString favVetoKey(const QString &site, qint64 pid);
+extern const QString kSrcDownloads;
+extern const QString kSrcFavourites;
+QString viewerKeyFor(const Post &post);
 
 // One tab = one session: a local archive or a remote multi-booru search.
 // UI widgets are shared; switching tabs saves/restores this state.
