@@ -13,13 +13,9 @@
 #include <QImage>
 #include <QImageReader>
 #include <QLabel>
-#include <QMenu>
-#include <QPixmap>
 #include <QPoint>
 #include <QPushButton>
 #include <QStandardPaths>
-#include <QStyle>
-#include <QTimer>
 #include <QUrl>
 #include <QVBoxLayout>
 #include <QtConcurrent>

@@ -5,15 +5,10 @@
 #include "remotesource.h"
 #include "uicons.h"
 
-#include <QBoxLayout>
-#include <QCursor>
-#include <QDesktopServices>
 #include <QLabel>
-#include <QMenu>
 #include <QPushButton>
 #include <QSize>
 #include <QTimer>
-#include <QUrl>
 
 void ViewerPage::rebuildMetaTail() {
     if (!m_tagLayout)

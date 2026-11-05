@@ -5,10 +5,8 @@
 #include "uicons.h"
 
 #include <QBoxLayout>
-#include <QCursor>
 #include <QLabel>
 #include <QPushButton>
-#include <QSize>
 #include <QStringList>
 #include <QVBoxLayout>
 
