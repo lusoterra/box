@@ -73,6 +73,7 @@ add_executable(box
     src/ui/mainwindow_favtab.cpp
     src/ui/mainwindow_sites.cpp
     src/ui/mainwindow_refresh.cpp
+    src/ui/mainwindow_classify.cpp
     src/icons.qrc
     src/seed.qrc
 )
