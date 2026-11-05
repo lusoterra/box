@@ -33,6 +33,7 @@
   - `src/ui/prefsdlg.cpp:1109,1141` booru editor layout shadows → `booruTypeRow`, `booruCacheRow`.
   - `src/engines/engine_derpibooru.cpp:5-9` removed unused includes (`sitequirks.h`, `<QSet>`); `tests/test_philomena.cpp:2-4` removed unused `<QJsonDocument>`.
   - `src/ui/theme.cpp` removed 8 unused palette helpers (grep no call sites + `-Wunused-function`).
+  - `src/ui/viewerpage.cpp` removed 22 Qt includes left unused after `viewerpage_mediaviews.cpp` split (`QMovie`/`QVideoSink`/`QtConcurrent`/graphics/media/timer/etc.; heuristic + build proof; `QClipboard`/`QAbstractItemModel` restored as build-required). Build+`ctest` 34/34.
   Further provably-unreferenced removals need grep+build proof.
 - [ ] Optimization: obvious wins only (hot paths, redundant copies,
       needless repaints/fetches); measure before/after where possible.

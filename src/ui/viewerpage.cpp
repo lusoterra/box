@@ -7,53 +7,30 @@
 #include "uicons.h"
 #include "webdlbackend.h"
 
-#include <QApplication>
-#include <atomic>
 #include <QAbstractItemModel>
-#include <QBoxLayout>
+#include <QApplication>
 #include <QClipboard>
-#include <QCryptographicHash>
+#include <atomic>
 #include <QApplication>
 #include <QDesktopServices>
-#include <QDrag>
-#include <QMimeData>
-#include <QDir>
 #include <QFile>
 #include <QFileInfo>
-#include <QFutureWatcher>
-#include <QGraphicsEllipseItem>
-#include <QGraphicsRectItem>
-#include <QVideoFrame>
-#include <QVideoSink>
 #include <QGridLayout>
 #include <QHBoxLayout>
-#include <QImageReader>
 #include <QJsonValue>
 #include <QKeyEvent>
 #include <QLabel>
-#include <QMediaDevices>
-#include <QAudioDevice>
 #include <QMenu>
 #include <QMouseEvent>
-#include <QMovie>
-#include <QProgressBar>
 #include <QPushButton>
 #include <QScrollArea>
-#include <QScrollBar>
 #include <QShortcut>
-#include <QStandardPaths>
 #include <QStyle>
-#include <QStyleOption>
-#include <QTimer>
 #include <QUrl>
 #include <QVBoxLayout>
-#include <QWheelEvent>
-#include <QElapsedTimer>
 #include <algorithm>
 #include <climits>
-#include <QtConcurrent>
 
-#include "flowlayout.h"
 
 
 // ImageView/GifView/VideoView implementations: viewerpage_mediaviews.cpp
