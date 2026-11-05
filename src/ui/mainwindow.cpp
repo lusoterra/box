@@ -739,8 +739,8 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
         }
         if (!kept.isEmpty())
             openMenu->addSeparator();
-        openMenu->addAction(tr("&Folder…"), this, &MainWindow::openFolder);
-        QAction *all = openMenu->addAction(tr("Open &history…"));
+        openMenu->addAction(tr("Open &folder…"), this, &MainWindow::openFolder);
+        QAction *all = openMenu->addAction(tr("Browse all recent &folders…"));
         all->setEnabled(!kept.isEmpty());
         connect(all, &QAction::triggered, this, [this] {
             bool ok = false;
@@ -764,8 +764,6 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
                         &MainWindow::importLosnBackup);
     fileMenu->addAction(tr("Backup settings…"), this,
                         &MainWindow::exportSettingsBackup);
-    fileMenu->addAction(tr("Restore settings…"), this,
-                        &MainWindow::importSettingsBackup);
     fileMenu->addAction(tr("Download/Add Stray…"), this,
                         &MainWindow::openStrayDialog);
     fileMenu->addAction(tr("Update downloaded sidecars…"), this,
@@ -779,6 +777,12 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     tabsMenu->addAction(tr("&Close Folder"), this, &MainWindow::showWelcome);
     tabsMenu->addAction(tr("Start &fresh session"), this,
                         &MainWindow::startFreshSession);
+    tabsMenu->addAction(tr("New &remote tab"), this, [this] {
+        addRemoteTab(QStringList(), QStringList());
+    });
+    tabsMenu->addAction(tr("Open &downloads folder"), this, [this] {
+        addLocalTab(effectiveDownloadDir(m_settings));
+    });
     QAction *favAct =
         tabsMenu->addAction(tr("&Favourites"), this, &MainWindow::openFavTab);
     favAct->setIcon(UiIcons::heart(UiIcons::favRed(), true));
@@ -792,9 +796,34 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     prefsAct->setShortcut(QKeySequence(QStringLiteral("Ctrl+,")));
     editMenu->addAction(tr("Load Custom &Stylesheet…"), this,
                         &MainWindow::loadStylesheet);
+    editMenu->addSeparator();
+    QAction *histAct = editMenu->addAction(tr("Open &history…"));
+    connect(histAct, &QAction::triggered, this, [this] {
+        bool ok = false;
+        const QStringList items = m_settings.history;
+        const QString pick = QInputDialog::getItem(
+            this, tr("Open history"), tr("Folder:"), items, 0, false,
+            &ok);
+        if (ok && !pick.isEmpty() && QDir(pick).exists()) {
+            m_settings.lastRoot = pick;
+            noteFolderOpened(m_settings, pick);
+            saveSettings(m_settings);
+            addLocalTab(pick);
+        }
+    });
 
     auto *helpMenu = menuBar()->addMenu(tr("&Help"));
     helpMenu->addAction(tr("&About Box"), this, &MainWindow::showAbout);
+    helpMenu->addAction(tr("&Keyboard shortcuts…"), this, [this] {
+        QMessageBox::information(this, tr("Keyboard shortcuts"),
+            tr("Enter: open post\\n"
+               "/: focus search\\n"
+               "Esc: clear filters / leave viewer\\n"
+               "Arrows: navigate grid"));
+    });
+    helpMenu->addAction(tr("&Documentation…"), this, [this] {
+        QDesktopServices::openUrl(QUrl("https://github.com/"));
+    });
     // Keyboard: arrows navigate the grid natively, Enter opens.
     // "/" focuses search, Esc clears filters (or leaves the viewer).
     auto *focusSearch = new QShortcut(QKeySequence(QStringLiteral("/")), this);
