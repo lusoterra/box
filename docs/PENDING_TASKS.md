@@ -31,7 +31,8 @@
   - `src/remote/remotesource.cpp:51` missing-field-initializers for `BooruSite` aggregate (`presetBoorus`) → explicit `BooruSite` init; `:553-555,569` shadows in PoW-retry/search result handling → `retryTags/retryPage/retryLimit`, `powResult`; `:794` `reqId` shadow in refresh handler → `failedId`.
   - `src/engines/engine_derpibooru.cpp:5-9` removed provably unused includes (`sitequirks.h`, `<QSet>`).
   - `tests/test_philomena.cpp:2-4` removed unused `<QJsonDocument>` include.
-  Rebuild+`ctest` 34/34 green after batches. No other `src/` unused/shadow warnings observed in reviewed log output (miniz/moc excluded). Further provably-unreferenced removals need grep+build proof.
+  - `src/ui/theme.cpp` removed 8 provably unused palette helpers (`keepassxcDark/Light`, `genericLight`, `nord`, `catppuccin`, `dracula`, `atomOneDark`, `tokyoNight`; grep no call sites + strict-build `-Wunused-function`, `/tmp/opencode/warn-build.log`).
+  Rebuild+`ctest` 34/34 green after batches. Further provably-unreferenced removals need grep+build proof.
 - [ ] Optimization: obvious wins only (hot paths, redundant copies,
       needless repaints/fetches); measure before/after where possible.
 
