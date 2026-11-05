@@ -26,7 +26,11 @@ private slots:
         Post tagged;
         tagged.ext = QStringLiteral("mp4");
         tagged.tags = QStringLiteral("ugoira animated");
-        QVERIFY(isUgoiraPost(tagged));
+        QVERIFY(!isUgoiraPost(tagged));
+        Post taggedZip;
+        taggedZip.ext = QStringLiteral("");
+        taggedZip.tags = QStringLiteral("ugoira animated");
+        QVERIFY(isUgoiraPost(taggedZip));
         Post still;
         still.ext = QStringLiteral("jpg");
         still.tags = QStringLiteral("sky");

@@ -226,8 +226,14 @@ inline const QStringList &aiContentTags() {
 // animated GIFs for classification, converted to animated webp/jxl on
 // download - the zip itself is never rendered.
 inline bool isUgoiraPost(const Post &post) {
+    // Only a real archive counts: a post tagged `ugoira` but served as a
+    // normal media file (mp4/gif/webm/...) was converted by the booru and
+    // must not be unzipped/converted again.
     if (post.ext.compare(QStringLiteral("zip"), Qt::CaseInsensitive) == 0)
         return true;
+    if (!post.ext.isEmpty() &&
+        post.ext.compare(QStringLiteral("zip"), Qt::CaseInsensitive) != 0)
+        return false;
     for (const QString &t : post.tags.split(QChar::Space, Qt::SkipEmptyParts)) {
         if (t.compare(QStringLiteral("ugoira"), Qt::CaseInsensitive) == 0)
             return true;
