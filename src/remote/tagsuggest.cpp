@@ -503,15 +503,15 @@ void TagSuggester::suggest(const BooruSite &site, const SiteCreds &creds,
         if (const RemoteSource::WebFetchFn web = RemoteSource::webFetcher()) {
             const BooruEngine engine = site.engine;
             QPointer<TagSuggester> self(this);
-            const QString key = m_siteKey, prefix = m_prefix;
-            (void)QtConcurrent::run([web, url, engine, key, prefix, self] {
+            const QString reqKey = m_siteKey, reqPrefix = m_prefix;
+            (void)QtConcurrent::run([web, url, engine, reqKey, reqPrefix, self] {
                 const RemoteSource::WebFetchResult fetched = web(url, 20000);
                 const QVector<TagSuggestion> out =
                     fetched.error.isEmpty() && !fetched.body.isEmpty()
                         ? parse(engine, fetched.body)
                         : QVector<TagSuggestion>{};
                 if (self)
-                    emit self->finished(key, prefix, out);
+                    emit self->finished(reqKey, reqPrefix, out);
             });
             return;
         }
@@ -520,19 +520,19 @@ void TagSuggester::suggest(const BooruSite &site, const SiteCreds &creds,
     connect(m_reply, &QNetworkReply::finished, this, [this] {
         QNetworkReply *reply = m_reply;
         m_reply = nullptr;
-        const QString key = m_siteKey, prefix = m_prefix;
+        const QString doneKey = m_siteKey, donePrefix = m_prefix;
         QVector<TagSuggestion> out;
         if (reply && reply->error() == QNetworkReply::NoError) {
-            const BooruSite *site = RemoteSource::siteFor(key);
-            out = parse(site ? site->engine : BooruEngine::Danbooru,
+            const BooruSite *doneSite = RemoteSource::siteFor(doneKey);
+            out = parse(doneSite ? doneSite->engine : BooruEngine::Danbooru,
                         reply->readAll());
             if (m_cache.size() > 300)
                 m_cache.clear();
-            m_cache.insert(key + u'\n' + prefix.toLower(), out);
+            m_cache.insert(doneKey + u'\n' + donePrefix.toLower(), out);
         }
         if (reply)
             reply->deleteLater();
-        emit finished(key, prefix, out);
+        emit finished(doneKey, donePrefix, out);
     });
 }
 

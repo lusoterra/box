@@ -1106,15 +1106,15 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     accForm->addRow(tr("Base URL:"), m_booruBase);
     auto *typeBox = new QWidget(this);
     {
-        auto *typeRow = new QHBoxLayout(typeBox);
-        typeRow->setContentsMargins(0, 0, 0, 0);
+        auto *booruTypeRow = new QHBoxLayout(typeBox);
+        booruTypeRow->setContentsMargins(0, 0, 0, 0);
         m_booruEngine->setSizePolicy(QSizePolicy::Expanding,
                                      QSizePolicy::Fixed);
-        typeRow->addWidget(m_booruEngine, 1);
+        booruTypeRow->addWidget(m_booruEngine, 1);
         auto *detectBtn = new QPushButton(tr("Detect"), typeBox);
         detectBtn->setToolTip(
             tr("Probe the instance URL and select the matching engine"));
-        typeRow->addWidget(detectBtn);
+        booruTypeRow->addWidget(detectBtn);
         connect(detectBtn, &QPushButton::clicked, this,
                 [this, detectBtn] { detectBooruEngine(detectBtn); });
     }
@@ -1138,8 +1138,8 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     accForm->addRow(tr("Drag posts as:"), m_booruDragMode);
     auto *cacheBox = new QWidget(this);
     {
-        auto *cacheRow = new QHBoxLayout(cacheBox);
-        cacheRow->setContentsMargins(0, 0, 0, 0);
+        auto *booruCacheRow = new QHBoxLayout(cacheBox);
+        booruCacheRow->setContentsMargins(0, 0, 0, 0);
         m_booruCacheInherit = new QRadioButton(tr("Global"), cacheBox);
         m_booruCacheAll = new QRadioButton(tr("All"), cacheBox);
         m_booruCacheSfw = new QRadioButton(tr("SFW only"), cacheBox);
@@ -1148,9 +1148,9 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
         for (QRadioButton *r : {m_booruCacheInherit, m_booruCacheAll,
                                 m_booruCacheSfw, m_booruCacheNone}) {
             group->addButton(r);
-            cacheRow->addWidget(r);
+            booruCacheRow->addWidget(r);
         }
-        cacheRow->addStretch(1);
+        booruCacheRow->addStretch(1);
         m_booruCacheInherit->setToolTip(
             tr("Use the global media cache mode"));
         m_booruCacheAll->setToolTip(

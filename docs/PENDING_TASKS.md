@@ -25,14 +25,16 @@
 ## 148. Dead-code elimination + optimization round - TODO
 ##    (the old task 34 audit is DONE and stale; this is a fresh pass
 ##    after the feature batch: 123-145)
-- [~] Dead code: scratch `-Wall -Wextra -Wunused-function -Wunused-variable -Wunused-parameter -Wshadow` build in `/tmp/opencode/box-warn` (configured against source, `/tmp/opencode/warn-build.log`). Source warnings found and fixed with safe renames/clean init (build+`ctest` 33/33 after each batch):
+- [~] Dead code: scratch `-Wall -Wextra -Wunused-function -Wunused-variable -Wunused-parameter -Wshadow` build in `/tmp/opencode/box-warn` (configured against source, `/tmp/opencode/warn-build.log`, completed 100%). Reviewed `src/` warnings (miniz/autogen excluded) and fixed verified-safe cases (build+`ctest` 34/34 green after batches):
   - `src/library/metaparser.cpp:475-476` `atomicReplace` lambda `doc`/`f` shadowed outer → `outDoc`/`outFile`.
   - `src/library/cachejanitor.cpp:80` `name` shadowed outer connection name → `colName`.
-  - `src/remote/remotesource.cpp:51` missing-field-initializers for `BooruSite` aggregate (`presetBoorus`) → explicit `BooruSite` init; `:553-555,569` shadows in PoW-retry/search result handling → `retryTags/retryPage/retryLimit`, `powResult`; `:794` `reqId` shadow in refresh handler → `failedId`.
-  - `src/engines/engine_derpibooru.cpp:5-9` removed provably unused includes (`sitequirks.h`, `<QSet>`).
-  - `tests/test_philomena.cpp:2-4` removed unused `<QJsonDocument>` include.
-  - `src/ui/theme.cpp` removed 8 provably unused palette helpers (`keepassxcDark/Light`, `genericLight`, `nord`, `catppuccin`, `dracula`, `atomOneDark`, `tokyoNight`; grep no call sites + strict-build `-Wunused-function`, `/tmp/opencode/warn-build.log`).
-  Rebuild+`ctest` 34/34 green after batches. Further provably-unreferenced removals need grep+build proof.
+  - `src/remote/remotesource.cpp:51` `BooruSite` aggregate init → explicit init; `:553-555,569` PoW-retry shadows → `retryTags/retryPage/retryLimit`, `powResult`; `:794` refresh `reqId` shadow → `failedId`.
+  - `src/remote/tagsuggest.cpp:506-550` shadows in web-fallback/finished lambdas (`prefix`/`key`/`site`) → `reqKey`/`reqPrefix`, `doneKey`/`donePrefix`, `doneSite`.
+  - `src/ui/mainwindow_result.cpp:100` pill lambda `text` shadow → `pillText`.
+  - `src/ui/prefsdlg.cpp:1109,1141` booru editor layout shadows → `booruTypeRow`, `booruCacheRow`.
+  - `src/engines/engine_derpibooru.cpp:5-9` removed unused includes (`sitequirks.h`, `<QSet>`); `tests/test_philomena.cpp:2-4` removed unused `<QJsonDocument>`.
+  - `src/ui/theme.cpp` removed 8 unused palette helpers (grep no call sites + `-Wunused-function`).
+  Further provably-unreferenced removals need grep+build proof.
 - [ ] Optimization: obvious wins only (hot paths, redundant copies,
       needless repaints/fetches); measure before/after where possible.
 

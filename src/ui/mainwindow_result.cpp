@@ -97,10 +97,10 @@ void MainWindow::updateResultLabel() {
     updateDots();
     m_pills->clear();
     const QColor accent(0x7c, 0x9e, 0xf8);
-    auto addPill = [this](const QString &text, const QString &tip,
+    auto addPill = [this](const QString &pillText, const QString &tip,
                           const QColor &color, auto &&onClick,
                           const QString &favTag = {}) {
-        auto *b = new QPushButton(text, this);
+        auto *b = new QPushButton(pillText, this);
         b->setFlat(true);
         b->setCursor(Qt::PointingHandCursor);
         b->setToolTip(tip);
