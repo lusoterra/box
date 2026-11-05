@@ -1513,11 +1513,9 @@
 - [x] Add a dedicated Close button alongside Cancel.
 - [x] Build + `ctest`.
 
-## 156. False ugoira detection: mp4/gif files downloaded as .zip
-- Some downloads fail saying "tried to download a zip" on files whose
-  name is .mp4/.gif/etc. Likely misclassified as ugoira (Booru
-  converted them). Gelbooru has no ugoira; Danbooru may serve a real
-  zip. Don't treat non-zip extensions as ugoira.
-- [ ] Gate ugoira handling on actual zip/archive content/extension, not
-      filename guess.
-- [ ] Build + `ctest` (+ docs).
+## 156. False ugoira detection: mp4/gif files downloaded as .zip - DONE
+##    (isUgoiraPost now requires zip ext or empty ext; build OK, 33/33)
+- Posts tagged ugoira but served as normal media (mp4/gif/...) were
+  treated as ugoira and unzipped, failing downloads.
+- [x] Gate ugoira on zip extension (or unknown ext + tag).
+- [x] Build + `ctest`.
