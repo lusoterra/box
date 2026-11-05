@@ -5,14 +5,12 @@
 #include <QCryptographicHash>
 #include <QDir>
 #include <QFileInfo>
-#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QSqlDatabase>
-#include <QSqlError>
 #include <QSqlQuery>
 #include <QTimer>
 #include <QUrl>
