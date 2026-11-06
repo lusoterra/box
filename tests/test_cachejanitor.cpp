@@ -182,6 +182,17 @@ private slots:
         QVERIFY(QFile::exists(index)); // scan index / DBs are not media
         QCOMPARE(trackedRows(tracking), 0);
     }
+
+    void cacheJanitorGaps() {
+        // src/library/cachejanitor.h: dbPath
+        CacheJanitor::setTrackingDir(QString());
+        QVERIFY(!CacheJanitor::dbPath().isEmpty());
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        CacheJanitor::setTrackingDir(tmp.path());
+        QCOMPARE(CacheJanitor::dbPath(), tmp.filePath(QStringLiteral("cache.db")));
+        CacheJanitor::setTrackingDir(QString());
+    }
 };
 
 int main(int argc, char *argv[]) {
