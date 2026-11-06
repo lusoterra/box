@@ -92,6 +92,28 @@ ViewerPage::ViewerPage(QWidget *parent) : QWidget(parent) {
     m_postBtn = new QPushButton(tr("Open post"), this);
     m_postBtn->setIcon(UiIcons::icon(QStringLiteral("external-link")));
     m_postBtn->setIconSize(QSize(15, 15));
+    m_openExtBtn = new QPushButton(tr("Open externally"), this);
+    m_openExtBtn->setIcon(UiIcons::icon(QStringLiteral("external-link")));
+    m_openExtBtn->setIconSize(QSize(15, 15));
+    m_openExtBtn->setToolTip(tr("Open the current media in the system default viewer"));
+    connect(m_openExtBtn, &QPushButton::clicked, this, [this] {
+        if (m_posts.isEmpty() || m_row < 0 || m_row >= m_posts.size())
+            return;
+        const Post &p = m_posts.at(m_row);
+        QString target;
+        if (!p.absFile.isEmpty() && QFile::exists(p.absFile))
+            target = p.absFile;
+        else if (!p.fileUrl.isEmpty())
+            target = p.fileUrl;
+        else if (!p.sampleUrl.isEmpty())
+            target = p.sampleUrl;
+        if (target.isEmpty())
+            return;
+        if (target.startsWith(QStringLiteral("http")))
+            QDesktopServices::openUrl(QUrl(target));
+        else
+            QDesktopServices::openUrl(QUrl::fromLocalFile(target));
+    });
     m_variantsBtn = new QPushButton(tr("Variants"), this);
     m_variantsBtn->setToolTip(
         tr("Show this post's parent/child variants in a filtered search"));
@@ -244,6 +266,7 @@ ViewerPage::ViewerPage(QWidget *parent) : QWidget(parent) {
     bar->addStretch(1);
     bar->addWidget(m_variantsBtn);
     bar->addWidget(m_postBtn);
+    bar->addWidget(m_openExtBtn);
     bar->addWidget(m_imgSearchBtn);
     bar->addWidget(m_refreshBtn);
     bar->addWidget(notesBtn);
