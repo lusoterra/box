@@ -179,6 +179,77 @@ private slots:
                  QStringLiteral("gelbooru"));
         RemoteSource::setConfiguredBoorus({});
     }
+
+    void collectGaps() {
+        // src/library/sidecarrefresh.cpp:10-56
+        // src/remote/remotesource.cpp:931 (hostKeys)
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        QDir().mkpath(tmp.filePath(QStringLiteral("Danbooru")));
+        QJsonObject o;
+        o[QStringLiteral("id")] = 42;
+        o[QStringLiteral("tag_string")] = QStringLiteral("sky");
+        writeJson(tmp.filePath(QStringLiteral("Danbooru/Danbooru_a.json")), o);
+
+        // id as string "42" is parsed by toLongLong -> passes
+        QJsonObject sid;
+        sid[QStringLiteral("id")] = QStringLiteral("42");
+        writeJson(tmp.filePath(QStringLiteral("Danbooru/Danbooru_sid.json")), sid);
+        // id as 0 -> skipped
+        QJsonObject zero;
+        zero[QStringLiteral("id")] = 0;
+        writeJson(tmp.filePath(QStringLiteral("Danbooru/Danbooru_zero.json")), zero);
+        // id as -1 -> skipped
+        QJsonObject neg;
+        neg[QStringLiteral("id")] = -1;
+        writeJson(tmp.filePath(QStringLiteral("Danbooru/Danbooru_neg.json")), neg);
+        // stray as 1 -> skipped
+        QJsonObject strayInt;
+        strayInt[QStringLiteral("id")] = 7;
+        strayInt[QStringLiteral("stray")] = true;
+        writeJson(tmp.filePath(QStringLiteral("Danbooru/Danbooru_stray.json")), strayInt);
+        // stray as string "true" -> NOT skipped (toBool returns false for strings)
+        QJsonObject strayStr;
+        strayStr[QStringLiteral("id")] = 8;
+        strayStr[QStringLiteral("stray")] = QStringLiteral("true");
+        writeJson(tmp.filePath(QStringLiteral("Danbooru/Danbooru_straystr.json")), strayStr);
+        // JSON array -> skipped
+        QJsonArray arr;
+        arr.append(1);
+        QFile arrf(tmp.filePath(QStringLiteral("Danbooru/arr.json")));
+        QVERIFY(arrf.open(QIODevice::WriteOnly));
+        arrf.write(QJsonDocument(arr).toJson(QJsonDocument::Compact));
+        arrf.close();
+        // empty download dir -> empty list
+        QVERIFY(SidecarRefresh::collect(tmp.filePath(QStringLiteral("nope")), labels()).isEmpty());
+
+        const auto jobs = SidecarRefresh::collect(tmp.path(), labels());
+        // a (42) + sid (42) + straystr (8) = 3
+        QCOMPARE(jobs.size(), 3);
+
+        // siteLabels empty -> collects all known folders
+        const auto all = SidecarRefresh::collect(tmp.path(), labels(), {});
+        QCOMPARE(all.size(), 3);
+
+        // siteLabels with unknown folder -> skips all
+        const auto none = SidecarRefresh::collect(tmp.path(), labels(),
+                                                  {QStringLiteral("Nope")});
+        QVERIFY(none.isEmpty());
+
+        // hostKeys: configured entries win on collision, presets included
+        BooruSite dan;
+        dan.key = QStringLiteral("danbooru");
+        dan.label = QStringLiteral("Danbooru");
+        dan.baseUrl = QStringLiteral("https://danbooru.donmai.us");
+        dan.engine = BooruEngine::Danbooru;
+        RemoteSource::setConfiguredBoorus({dan});
+        const QMap<QString, QString> hk = RemotePosts::hostKeys();
+        QVERIFY(hk.contains(QStringLiteral("danbooru.donmai.us")));
+        QCOMPARE(hk.value(QStringLiteral("danbooru.donmai.us")), QStringLiteral("danbooru"));
+        // preset booru (Safebooru) included
+        QVERIFY(hk.contains(QStringLiteral("safebooru.donmai.us")));
+        RemoteSource::setConfiguredBoorus({});
+    }
 };
 
 int main(int argc, char *argv[]) {
