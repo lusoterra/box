@@ -126,6 +126,21 @@ private slots:
         QCOMPARE(videoExts(), (QStringList{QStringLiteral("mp4"), QStringLiteral("webm")}));
     }
 
+    void md5DedupeAndHexGaps() {
+        Post p;
+        p.md5.clear();
+        QVERIFY(md5DedupeKey(p).isEmpty());
+        p.md5 = QStringLiteral("ABCDEF1234567890ABCDEF1234567890");
+        QCOMPARE(md5DedupeKey(p), QStringLiteral("md5#abcdef1234567890abcdef1234567890"));
+        // isMd5Hex
+        QVERIFY(isMd5Hex(QStringLiteral("0123456789abcdef0123456789abcdef")));
+        QVERIFY(isMd5Hex(QStringLiteral("0123456789ABCDEF0123456789ABCDEF")));
+        QVERIFY(!isMd5Hex(QStringLiteral("")));
+        QVERIFY(!isMd5Hex(QStringLiteral("zzzz")));
+        QVERIFY(!isMd5Hex(QStringLiteral("0123456789abcdef0123456789abcde"))); // 31
+        QVERIFY(!isMd5Hex(QStringLiteral("0123456789abcdef0123456789abcdef0"))); // 33
+    }
+
     void unpackFixture() {
         QVERIFY(QFile::exists(fixtureZip()));
         Ugoira::Frames frames;
