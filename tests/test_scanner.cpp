@@ -122,6 +122,17 @@ private slots:
             paths.insert(p.absFile);
         QCOMPARE(paths.size(), n);
     }
+
+    void mediaExtensionsGaps() {
+        const QStringList exts = Scanner::mediaExtensions();
+        QVERIFY(!exts.isEmpty());
+        QVERIFY(exts.contains(QStringLiteral("jpg")));
+        QVERIFY(exts.contains(QStringLiteral("png")));
+        QVERIFY(exts.contains(QStringLiteral("mp4")));
+        // case-insensitive? just check lowercase entries
+        for (const QString &e : exts)
+            QCOMPARE(e, e.toLower());
+    }
 };
 
 int main(int argc, char *argv[]) {
