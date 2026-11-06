@@ -336,6 +336,68 @@ private slots:
         QVERIFY(refuseArchiveWrite(QString(), dl));
         QVERIFY(refuseArchiveWrite(dl + QStringLiteral("/x.json"), QString()));
     }
+
+    void writeRefreshedSidecarGaps() {
+        // src/library/metaparser.cpp:449
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        const QString dl = tmp.filePath(QStringLiteral("dl"));
+        QDir().mkpath(dl);
+        // losn sidecar gets re-typed tag arrays
+        const QString losnPath = tmp.filePath(QStringLiteral("losn.json"));
+        QJsonObject losn;
+        losn[QStringLiteral("serverId")] = 1;
+        losn[QStringLiteral("postURL")] = QStringLiteral("https://x/posts/1");
+        losn[QStringLiteral("md5String")] = QStringLiteral("abc");
+        losn[QStringLiteral("tags")] = QStringLiteral("a b");
+        QJsonDocument losnDoc(losn);
+        QFile lf(losnPath);
+        QVERIFY(lf.open(QIODevice::WriteOnly));
+        lf.write(losnDoc.toJson());
+        lf.close();
+        QJsonObject fresh;
+        fresh[QStringLiteral("tag_string_general")] = QStringLiteral("c d");
+        QVERIFY(writeRefreshedSidecar(losnPath, fresh, QStringLiteral("danbooru")));
+        QFile lf2(losnPath);
+        QVERIFY(lf2.open(QIODevice::ReadOnly));
+        const QJsonObject updated = QJsonDocument::fromJson(lf2.readAll()).object();
+        QVERIFY(updated.contains(QStringLiteral("tags")));
+        // native sidecar replaced wholesale
+        const QString nativePath = tmp.filePath(QStringLiteral("native.json"));
+        QJsonObject native;
+        native[QStringLiteral("tag_string")] = QStringLiteral("a b");
+        native[QStringLiteral("id")] = 1;
+        QJsonDocument nativeDoc(native);
+        QFile nf(nativePath);
+        QVERIFY(nf.open(QIODevice::WriteOnly));
+        nf.write(nativeDoc.toJson());
+        nf.close();
+        QJsonObject fresh2;
+        fresh2[QStringLiteral("id")] = 2;
+        QVERIFY(writeRefreshedSidecar(nativePath, fresh2, QStringLiteral("danbooru")));
+        QFile nf2(nativePath);
+        QVERIFY(nf2.open(QIODevice::ReadOnly));
+        const QJsonObject updated2 = QJsonDocument::fromJson(nf2.readAll()).object();
+        QCOMPARE(updated2.value(QStringLiteral("id")).toInt(), 2);
+        // unknown shape -> false
+        const QString unknownPath = tmp.filePath(QStringLiteral("unknown.json"));
+        QJsonObject unknown;
+        unknown[QStringLiteral("foo")] = QStringLiteral("bar");
+        QJsonDocument unknownDoc(unknown);
+        QFile uf(unknownPath);
+        QVERIFY(uf.open(QIODevice::WriteOnly));
+        uf.write(unknownDoc.toJson());
+        uf.close();
+        QVERIFY(!writeRefreshedSidecar(unknownPath, fresh, QStringLiteral("danbooru")));
+        // oversized sidecar -> false
+        const QString bigPath = tmp.filePath(QStringLiteral("big.json"));
+        QFile bf(bigPath);
+        QVERIFY(bf.open(QIODevice::WriteOnly));
+        QByteArray big(8 * 1024 * 1024 + 10, 'x');
+        bf.write(big);
+        bf.close();
+        QVERIFY(!writeRefreshedSidecar(bigPath, fresh, QStringLiteral("danbooru")));
+    }
 };
 
 int main(int argc, char *argv[]) {
