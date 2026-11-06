@@ -318,6 +318,27 @@ private slots:
         QVERIFY(idx.suggest(QStringLiteral("zzz-no-match"), 12).isEmpty());
         QVERIFY(idx.suggest(QStringLiteral("lu"), 0).isEmpty());
     }
+
+    void indexHelpersGaps() {
+        // src/library/index.cpp:299,310
+        Index idx;
+        Post p;
+        p.untyped = QStringLiteral("Untyped_Tag ANOTHER");
+        p.tags = p.untyped;
+        idx.setPosts({p});
+        const QSet<QString> untyped = idx.collectUntyped();
+        QVERIFY(untyped.contains(QStringLiteral("untyped_tag")));
+        QVERIFY(untyped.contains(QStringLiteral("another")));
+        QCOMPARE(untyped.size(), 2);
+
+        Post p2;
+        p2.untyped = QString();
+        idx.setPosts({p2});
+        QVERIFY(idx.collectUntyped().isEmpty());
+
+        // bucketOf unknown -> general
+        QCOMPARE(idx.bucketOf(QStringLiteral("missing")), QStringLiteral("general"));
+    }
 };
 
 int main(int argc, char *argv[]) {
