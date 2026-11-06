@@ -36,6 +36,29 @@ private slots:
         QVERIFY(!Stray::isStrayPath(QStringLiteral("/dl/_Stray/x.jpg/")));
         QVERIFY(Stray::isStrayPath(QStringLiteral("/dl/_Stray/../_Stray/x.jpg")));
     }
+
+    void strayGaps() {
+        // src/library/stray.h
+        // isStrayPath empty -> false
+        QVERIFY(!Stray::isStrayPath(QString()));
+        // isStrayPath with no _Stray folder -> false
+        QVERIFY(!Stray::isStrayPath(QStringLiteral("/dl/other/x.jpg")));
+        // isStrayPost: remote post never qualifies
+        Post p;
+        p.isRemote = true;
+        p.absFile = QStringLiteral("/dl/_Stray/x.png");
+        QVERIFY(!Stray::isStrayPost(p));
+        // isStrayPost: local post with empty absFile -> false
+        Post p2;
+        p2.isRemote = false;
+        p2.absFile = QString();
+        QVERIFY(!Stray::isStrayPost(p2));
+        // isStrayPost: local post in _Stray -> true
+        Post p3;
+        p3.isRemote = false;
+        p3.absFile = QStringLiteral("/dl/_Stray/x.png");
+        QVERIFY(Stray::isStrayPost(p3));
+    }
 };
 
 QTEST_MAIN(TestStray)
