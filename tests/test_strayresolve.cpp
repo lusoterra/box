@@ -263,6 +263,19 @@ private slots:
         QVERIFY(tp.isRemote);
         QCOMPARE(tp.postUrl, QStringLiteral("https://twibooru.org/posts/55"));
     }
+
+    void strayResolveHelpers() {
+        // src/remote/strayresolve.cpp:282 (parseBooruPostUrl)
+        auto r = RemotePosts::parseBooruPostUrl(QStringLiteral("https://gelbooru.com/index.php?page=post&s=view&id=123"));
+        QCOMPARE(r.id, 123LL);
+        QVERIFY(r.valid());
+        auto r2 = RemotePosts::parseBooruPostUrl(QStringLiteral("https://gelbooru.com/index.php?page=post&s=view&id=0"));
+        QCOMPARE(r2.id, 0LL);
+        QVERIFY(!r2.valid());
+        auto r3 = RemotePosts::parseBooruPostUrl(QStringLiteral("https://gelbooru.com/"));
+        QCOMPARE(r3.id, 0LL);
+        QVERIFY(!r3.valid());
+    }
 };
 
 QTEST_MAIN(TestStrayResolve)
