@@ -534,6 +534,53 @@ private slots:
         QCOMPARE(posts.first().absFile, QStringLiteral("/pics/a.jpg"));
         QCOMPARE(posts.first().category, QStringLiteral("Favourites"));
     }
+
+    void pidForGaps() {
+        // local post keys by absFile hash
+        Post local;
+        local.isRemote = false;
+        local.siteName.clear();
+        local.absFile = QStringLiteral("/pics/a.jpg");
+        const qint64 localId = FavDb::pidFor(local);
+        QVERIFY(localId > 0);
+        // same path -> same id
+        Post local2 = local;
+        QCOMPARE(FavDb::pidFor(local2), localId);
+        // remote with real id -> id
+        Post remote;
+        remote.isRemote = true;
+        remote.siteName = QStringLiteral("Gelbooru");
+        remote.id = 42;
+        QCOMPARE(FavDb::pidFor(remote), 42LL);
+        // id-less remote keys by fileUrl
+        Post idless;
+        idless.isRemote = true;
+        idless.siteName = QStringLiteral("_Stray");
+        idless.id = 0;
+        idless.fileUrl = QStringLiteral("https://example.com/a.png");
+        const qint64 idlessId = FavDb::pidFor(idless);
+        QVERIFY(idlessId > 0);
+        QVERIFY(idlessId != localId);
+        // different url -> different id
+        Post idless2 = idless;
+        idless2.fileUrl = QStringLiteral("https://example.com/b.png");
+        QVERIFY(FavDb::pidFor(idless2) != idlessId);
+        // id-less with empty fileUrl falls back to absFile
+        Post idless3;
+        idless3.isRemote = true;
+        idless3.siteName = QStringLiteral("_Stray");
+        idless3.id = 0;
+        idless3.absFile = QStringLiteral("/tmp/x.jpg");
+        QVERIFY(FavDb::pidFor(idless3) > 0);
+        // empty input -> stable id of empty string (still >0? could be 0 masked)
+        Post empty;
+        empty.isRemote = true;
+        empty.siteName = QStringLiteral("X");
+        empty.id = 0;
+        // fileUrl and absFile both empty -> stableId("")
+        const qint64 emptyId = FavDb::pidFor(empty);
+        QVERIFY(emptyId >= 0);
+    }
 };
 
 int main(int argc, char *argv[]) {
