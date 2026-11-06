@@ -99,6 +99,48 @@ private slots:
         QVERIFY(!MediaCache::persistFor(QStringLiteral("s"), QStringLiteral("explicit"), true));
         MediaCache::configure(CacheMode::All, {});
     }
+
+    void cachepolicyGaps() {
+        // src/library/cachepolicy.h
+        QCOMPARE(MediaCache::modeFromKey(QStringLiteral("sfw-only"), CacheMode::All),
+                 CacheMode::SfwOnly);
+        QCOMPARE(MediaCache::modeFromKey(QStringLiteral("nothing"), CacheMode::All),
+                 CacheMode::None);
+        QCOMPARE(MediaCache::modeFromKey(QStringLiteral("bogus"), CacheMode::Inherit),
+                 CacheMode::Inherit);
+        QCOMPARE(MediaCache::modeFromKey(QStringLiteral("  ALL  "), CacheMode::None),
+                 CacheMode::All);
+
+        QCOMPARE(MediaCache::stricter(CacheMode::Inherit, CacheMode::SfwOnly),
+                 CacheMode::SfwOnly);
+        QCOMPARE(MediaCache::stricter(CacheMode::All, CacheMode::Inherit),
+                 CacheMode::All);
+
+        QVERIFY(MediaCache::isSfwRating(QStringLiteral("s")));
+        QVERIFY(MediaCache::isSfwRating(QStringLiteral("g")));
+        QVERIFY(!MediaCache::isSfwRating(QString()));
+        QVERIFY(!MediaCache::isSfwRating(QStringLiteral("questionable")));
+
+        Post p;
+        p.tags = QStringLiteral("-rating:safe rating:explicit");
+        QVERIFY(!MediaCache::tagsProveSfw(p));
+        p.tags = QStringLiteral("rating:safe -rating:explicit");
+        QVERIFY(MediaCache::tagsProveSfw(p));
+
+        Post p2;
+        p2.rating = QString();
+        p2.tags = QStringLiteral("rating:safe");
+        QVERIFY(MediaCache::isSfwPost(p2));
+        p2.tags = QStringLiteral("rating:explicit");
+        QVERIFY(!MediaCache::isSfwPost(p2));
+
+        MediaCache::configure(CacheMode::SfwOnly, {});
+        QVERIFY(MediaCache::persistFor(QStringLiteral("x"), QStringLiteral("explicit"), true));
+        QVERIFY(!MediaCache::persistFor(QStringLiteral("x"), QStringLiteral("explicit"), false));
+        MediaCache::configure(CacheMode::None, {});
+        QVERIFY(!MediaCache::persistFor(QStringLiteral("x"), QStringLiteral("general"), true));
+        MediaCache::configure(CacheMode::All, {});
+    }
 };
 
 QTEST_MAIN(TestCachePolicy)
