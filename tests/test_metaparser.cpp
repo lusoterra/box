@@ -325,6 +325,17 @@ private slots:
         QVERIFY(!writeRefreshedSidecar(tmp.filePath(QStringLiteral("missing.json")),
                                        QJsonObject(), QStringLiteral("danbooru")));
     }
+    void refuseArchiveWriteGaps() {
+        // src/library/metaparser.cpp:440
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        QDir().mkpath(tmp.filePath(QStringLiteral("dl")));
+        const QString dl = tmp.filePath(QStringLiteral("dl"));
+        QVERIFY(!refuseArchiveWrite(dl + QStringLiteral("/x.json"), dl));
+        QVERIFY(refuseArchiveWrite(tmp.filePath(QStringLiteral("other/x.json")), dl));
+        QVERIFY(refuseArchiveWrite(QString(), dl));
+        QVERIFY(refuseArchiveWrite(dl + QStringLiteral("/x.json"), QString()));
+    }
 };
 
 int main(int argc, char *argv[]) {
