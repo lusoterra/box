@@ -505,6 +505,28 @@ private slots:
         s.downloadDir = QStringLiteral("/custom/dl/");
         QCOMPARE(effectiveDownloadDir(s), QStringLiteral("/custom/dl"));
     }
+
+    void tagCategoryMergeGaps() {
+        // src/library/tagcategories.h
+        QCOMPARE(TagCategories::normalizeKey(QStringLiteral("")), QString());
+        QCOMPARE(TagCategories::normalizeKey(QStringLiteral("  ")), QString());
+        QCOMPARE(TagCategories::normalizeKey(QStringLiteral("A_B-C")), QStringLiteral("a b c"));
+        QCOMPARE(TagCategories::classicBucket(QStringLiteral("artists")), QStringLiteral("artist"));
+        QCOMPARE(TagCategories::classicBucket(QStringLiteral("creators")), QStringLiteral("artist"));
+        QCOMPARE(TagCategories::classicBucket(QStringLiteral("characters")), QStringLiteral("character"));
+        QCOMPARE(TagCategories::classicBucket(QStringLiteral("chars")), QStringLiteral("character"));
+        QCOMPARE(TagCategories::classicBucket(QStringLiteral("subvariants")), QStringLiteral("character"));
+        QCOMPARE(TagCategories::classicBucket(QStringLiteral("copyrights")), QStringLiteral("copyright"));
+        QCOMPARE(TagCategories::classicBucket(QStringLiteral("franchise")), QStringLiteral("copyright"));
+        QCOMPARE(TagCategories::classicBucket(QStringLiteral("franchises")), QStringLiteral("copyright"));
+        QCOMPARE(TagCategories::classicBucket(QStringLiteral("metas")), QStringLiteral("meta"));
+        QCOMPARE(TagCategories::classicBucket(QStringLiteral("medium")), QStringLiteral("meta"));
+        QCOMPARE(TagCategories::classicBucket(QStringLiteral("media")), QStringLiteral("meta"));
+        QCOMPARE(TagCategories::classicBucket(QStringLiteral("title")), QStringLiteral("meta"));
+        QCOMPARE(TagCategories::classicBucket(QStringLiteral("titles")), QStringLiteral("meta"));
+        QCOMPARE(TagCategories::classicBucket(QStringLiteral("general")), QStringLiteral("general"));
+        QCOMPARE(TagCategories::classicBucket(QStringLiteral("bogus")), QString());
+    }
 };
 
 int main(int argc, char *argv[]) {
