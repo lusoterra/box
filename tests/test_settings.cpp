@@ -506,6 +506,18 @@ private slots:
         QCOMPARE(effectiveDownloadDir(s), QStringLiteral("/custom/dl"));
     }
 
+    void mascotGaps() {
+        AppSettings s;
+        // default path when no custom pick
+        QCOMPARE(effectiveMascotPath(s), defaultMascotPath());
+        // hidden -> empty
+        s.mascotHidden = true;
+        QVERIFY(effectiveMascotPath(s).isEmpty());
+        s.mascotHidden = false;
+        s.mascotPath = QStringLiteral("/custom/m.png");
+        QCOMPARE(effectiveMascotPath(s), QStringLiteral("/custom/m.png"));
+    }
+
     void tagCategoryMergeGaps() {
         // src/library/tagcategories.h
         QCOMPARE(TagCategories::normalizeKey(QStringLiteral("")), QString());
