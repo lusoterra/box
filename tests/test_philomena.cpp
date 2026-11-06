@@ -198,6 +198,26 @@ private slots:
                               QStringLiteral("pony")}));
     }
 
+    void ratingMappingGaps() {
+        auto parseD = [](const char *tags) {
+            const QByteArray body = QByteArrayLiteral("{\"image\":{\"id\":1,\"width\":1,\"height\":1,"
+                                                      "\"format\":\"png\",\"representations\":{\"full\":\"https://x/f.png\","
+                                                      "\"thumb\":\"https://x/t.png\"},\"tags\":") +
+                                    QByteArray(tags) + QByteArrayLiteral("}}");
+            bool ok = false;
+            return RemotePosts::fromDerpibooru(
+                engineOps(BooruEngine::Derpibooru)->parseSingle(body, ok),
+                QStringLiteral("https://derpibooru.org"));
+        };
+        // grimdark upgrades safe to questionable
+        QCOMPARE(parseD("[\"safe\",\"semi-grimdark\"]").rating,
+                 QStringLiteral("questionable"));
+        // safe alone -> safe
+        QCOMPARE(parseD("[\"safe\"]").rating, QStringLiteral("safe"));
+        // no rating tags -> general
+        QCOMPARE(parseD("[\"artist:a\"]").rating, QStringLiteral("general"));
+    }
+
     void malformedAndMinimal() {
         const BooruEngineOps::Context dctx{BooruEngine::Derpibooru,
                                            QStringLiteral("https://derpibooru.org"), {}};
