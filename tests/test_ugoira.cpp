@@ -93,6 +93,24 @@ private slots:
         QJsonObject w2; w2[QStringLiteral("data")] = bd;
         rawBad[QStringLiteral("pixiv_ugoira_frame_data")] = w2;
         QVERIFY(Ugoira::delaysFromRaw(rawBad, 100).isEmpty());
+
+        // name fallback to "name" key, delay fallback to "delay_ms"
+        QJsonObject rawName;
+        QJsonArray nd;
+        QJsonObject n0; n0[QStringLiteral("name")] = QStringLiteral("x.jpg"); n0[QStringLiteral("delay_ms")] = 50; nd.append(n0);
+        QJsonObject w3; w3[QStringLiteral("data")] = nd;
+        rawName[QStringLiteral("pixiv_ugoira_frame_data")] = w3;
+        d = Ugoira::delaysFromRaw(rawName, 100);
+        QCOMPARE(d.value(QStringLiteral("x.jpg")), 50);
+
+        // invalid delay (0) skipped? clampDelay: 0 < 10 -> fallback to defaultMs. Wait, delay = 0, not < 0, so clampDelay(0, default) -> 0 < 10 -> default.
+        QJsonObject rawZero;
+        QJsonArray zd;
+        QJsonObject z0; z0[QStringLiteral("file")] = QStringLiteral("y.jpg"); z0[QStringLiteral("delay")] = 0; zd.append(z0);
+        QJsonObject w4; w4[QStringLiteral("data")] = zd;
+        rawZero[QStringLiteral("pixiv_ugoira_frame_data")] = w4;
+        d = Ugoira::delaysFromRaw(rawZero, 100);
+        QCOMPARE(d.value(QStringLiteral("y.jpg")), 100);
     }
 
     void mediaExtHelpers() {
