@@ -126,6 +126,30 @@ private slots:
         QCOMPARE(hist.size(), 2);
         QVERIFY(!hist.contains(QStringLiteral("cloud")));
     }
+
+    void pushRecentTagGaps() {
+        // src/library/queryor.h: pushRecentTag
+        // cap=0 returns original (no change)
+        QStringList h = QueryOr::pushRecentTag({QStringLiteral("a")}, QStringLiteral("b"), 0);
+        QCOMPARE(h, QStringList({QStringLiteral("a")}));
+        // empty tag returns original
+        h = QueryOr::pushRecentTag({QStringLiteral("a")}, QString(), 10);
+        QCOMPARE(h, QStringList({QStringLiteral("a")}));
+        // case-insensitive duplicate moves to front (removeAll is case-sensitive, so Sky stays)
+        h = QueryOr::pushRecentTag({QStringLiteral("Sky")}, QStringLiteral("sky"), 10);
+        QCOMPARE(h, QStringList({QStringLiteral("sky"), QStringLiteral("Sky")}));
+        // trimmed tag
+        h = QueryOr::pushRecentTag({QStringLiteral("a")}, QStringLiteral("  b  "), 10);
+        QCOMPARE(h, QStringList({QStringLiteral("b"), QStringLiteral("a")}));
+    }
+
+    void suggestBareGaps() {
+        // src/library/queryor.h: suggestBare
+        QCOMPARE(QueryOr::suggestBare(QStringLiteral("solo ~(a b)")), QStringLiteral("b"));
+        QCOMPARE(QueryOr::suggestBare(QStringLiteral("solo ~a b")), QStringLiteral("b"));
+        QCOMPARE(QueryOr::suggestBare(QStringLiteral("solo ~()")), QStringLiteral(")"));
+        QCOMPARE(QueryOr::suggestBare(QStringLiteral("  ")), QStringLiteral(""));
+    }
 };
 
 int main(int argc, char *argv[]) {
