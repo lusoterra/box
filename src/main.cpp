@@ -11,6 +11,8 @@
 #include <QLibraryInfo>
 #include <QLockFile>
 #include <QMessageBox>
+#include <QPushButton>
+#include <QFileDialog>
 #include <QLocale>
 #include <QTranslator>
 
@@ -71,7 +73,8 @@ int main(int argc, char *argv[]) {
     // the matching .qm embeds + loads automatically from :/i18n.
     // Preferences → General can pin a locale; otherwise the system wins.
     static QTranslator appTranslator;
-    const QString forcedLang = loadSettings().language;
+    AppSettings settings = loadSettings();
+    const QString forcedLang = settings.language;
     QStringList locales;
     if (!forcedLang.isEmpty())
         locales << forcedLang << forcedLang.split(u'_').first();
@@ -125,12 +128,77 @@ int main(int argc, char *argv[]) {
             "CommandLine", "Box is already running."));
     }
     // Theme before the window exists so first paint is already correct.
-    const AppSettings settings = loadSettings();
     // Custom data dir (databases + downloads): make sure it exists too.
     // The global lock above stays at the default location so two
     // instances can never share settings.ini either.
     // Structured log from here on: condensed levels on stderr plus a
     // rotating box.log in the data dir (128 MB default cap).
+    // Safeguard: a configured storage folder that does not exist usually
+    // means its disk is not mounted. Do not create anything there (which
+    // would shadow the mount point); let the user pick.
+    for (;;) {
+        QStringList bad;
+        if (!settings.dataDir.isEmpty() && !QDir(settings.dataDir).exists())
+            bad << QStringLiteral("Data: ") + settings.dataDir;
+        if (!settings.cacheDir.isEmpty() && !QDir(settings.cacheDir).exists())
+            bad << QStringLiteral("Cache: ") + settings.cacheDir;
+        if (!settings.downloadDir.isEmpty() && !QDir(settings.downloadDir).exists())
+            bad << QStringLiteral("Downloads: ") + settings.downloadDir;
+        if (bad.isEmpty())
+            break;
+        QMessageBox mb;
+        mb.setWindowTitle(QStringLiteral("Box"));
+        mb.setIcon(QMessageBox::Warning);
+        mb.setText(QCoreApplication::translate(
+            "CommandLine",
+            "One or more configured storage folders are not available. "
+            "The disk may not be mounted; nothing has been created there."));
+        mb.setDetailedText(bad.join(u'\n'));
+        QAbstractButton *defBtn = mb.addButton(
+            QCoreApplication::translate("CommandLine", "Use defaults"),
+            QMessageBox::AcceptRole);
+        QAbstractButton *chgBtn = mb.addButton(
+            QCoreApplication::translate("CommandLine", "Change folders…"),
+            QMessageBox::ActionRole);
+        QAbstractButton *quitBtn = mb.addButton(
+            QCoreApplication::translate("CommandLine", "Quit"),
+            QMessageBox::RejectRole);
+        mb.exec();
+        if (mb.clickedButton() == quitBtn)
+            return 0;
+        if (mb.clickedButton() == defBtn) {
+            if (!settings.dataDir.isEmpty() && !QDir(settings.dataDir).exists())
+                settings.dataDir.clear();
+            if (!settings.cacheDir.isEmpty() && !QDir(settings.cacheDir).exists())
+                settings.cacheDir.clear();
+            if (!settings.downloadDir.isEmpty() && !QDir(settings.downloadDir).exists())
+                settings.downloadDir.clear();
+            saveSettings(settings);
+        } else {
+            if (!settings.dataDir.isEmpty() && !QDir(settings.dataDir).exists()) {
+                const QString p = QFileDialog::getExistingDirectory(
+                    nullptr, QCoreApplication::translate("CommandLine", "Select data folder"),
+                    settings.dataDir);
+                if (!p.isEmpty())
+                    settings.dataDir = p;
+            }
+            if (!settings.cacheDir.isEmpty() && !QDir(settings.cacheDir).exists()) {
+                const QString p = QFileDialog::getExistingDirectory(
+                    nullptr, QCoreApplication::translate("CommandLine", "Select cache folder"),
+                    settings.cacheDir);
+                if (!p.isEmpty())
+                    settings.cacheDir = p;
+            }
+            if (!settings.downloadDir.isEmpty() && !QDir(settings.downloadDir).exists()) {
+                const QString p = QFileDialog::getExistingDirectory(
+                    nullptr, QCoreApplication::translate("CommandLine", "Select downloads folder"),
+                    settings.downloadDir);
+                if (!p.isEmpty())
+                    settings.downloadDir = p;
+            }
+            saveSettings(settings);
+        }
+    }
     QDir().mkpath(effectiveDataDir(settings));
     AppLog::install(effectiveDataDir(settings) + QStringLiteral("/box.log"));
     applyStartupTheme(app, settings, cli.value(styleOpt), cli.isSet(nativeOpt));
