@@ -117,6 +117,14 @@ private slots:
         QCOMPARE(QSet<QString>(defs.begin(), defs.end()), defaultExplicitTags());
         setActiveExplicitTags(defaultExplicitTags());
     }
+
+    void inferExplicitCaseInsensitive() {
+        // src/library/explicittags.h:122
+        setActiveExplicitTags(QSet<QString>{QStringLiteral("nsfw")});
+        QCOMPARE(inferExplicit({QStringLiteral("NSFW"), QStringLiteral("Sky")}, QStringLiteral("general")),
+                 std::make_pair(QStringLiteral("explicit"), true));
+        setActiveExplicitTags(defaultExplicitTags());
+    }
 };
 
 int main(int argc, char *argv[]) {
