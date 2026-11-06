@@ -190,6 +190,27 @@ private slots:
                  QString());
     }
 
+    void planGaps() {
+        // non-http fileUrl skipped
+        Post bad = favPost(QStringLiteral("Gelbooru"), 1,
+                           QStringLiteral("file:///etc/passwd"));
+        QVERIFY(DownloadManager::plan({bad}, QStringLiteral("/d")).isEmpty());
+        // p.ext fills missing file_ext
+        QJsonObject raw;
+        raw[QStringLiteral("id")] = 9;
+        raw[QStringLiteral("md5")] = QStringLiteral("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        Post withExt = remotePost(QStringLiteral("Gelbooru"),
+                                  QStringLiteral("https://img/x.jpg"), raw);
+        withExt.ext = QStringLiteral("png");
+        raw.remove(QStringLiteral("file_ext"));
+        withExt.rawJson = raw;
+        const auto jobs1 = DownloadManager::plan({withExt}, QStringLiteral("/d"));
+        QCOMPARE(jobs1.size(), 1);
+        QVERIFY(jobs1.first().fileName.endsWith(QStringLiteral(".png")));
+        // empty posts -> empty
+        QVERIFY(DownloadManager::plan({}, QStringLiteral("/d")).isEmpty());
+    }
+
     void batchCollisionsDisambiguated() {        // Two id-less rows with plain URLs: previously both planned as
         // Site_0.ext and the second download overwrote the first.
         const Post a =
