@@ -70,6 +70,20 @@ private slots:
         c2.close();
         setAppCacheDirOverride(QString());
     }
+
+    void cacheGaps() {
+        // src/library/cache.h: dbPathFor
+        const QString root = QStringLiteral("/tmp/opencode/testroot");
+        const QString dbPath = ScanCache::dbPathFor(root);
+        QVERIFY(dbPath.contains(QStringLiteral("cache")));
+        QVERIFY(dbPath.endsWith(QStringLiteral(".db")));
+        // dbPathFor with empty root still returns a path
+        const QString emptyDb = ScanCache::dbPathFor(QString());
+        QVERIFY(!emptyDb.isEmpty());
+        // isOpen false before open
+        ScanCache cache;
+        QVERIFY(!cache.isOpen());
+    }
 };
 
 QTEST_MAIN(TestCache)
