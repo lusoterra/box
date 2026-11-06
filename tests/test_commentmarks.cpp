@@ -110,6 +110,37 @@ private slots:
         QVERIFY(p.hasComments);
         QVERIFY(p.hasNotes);
     }
+
+    void defaultPathCountsAndNotes() {
+        // Hybooru/Nuuru/Shimmie fall through to the default branch:
+        // numeric counts + explicit flags only.
+        const QString kHybooru = QStringLiteral("https://hybooru.com");
+        QJsonObject o;
+        o[QStringLiteral("id")] = 1;
+        o[QStringLiteral("file_url")] = QStringLiteral("https://hybooru.com/img.jpg");
+        o[QStringLiteral("tags")] = QStringLiteral("sky");
+        const Post bare = RemotePosts::fromHybooru(o, kHybooru);
+        QVERIFY(!bare.hasComments);
+        QVERIFY(!bare.hasNotes);
+        QCOMPARE(bare.commentCount, 0);
+        QJsonObject c = o;
+        c[QStringLiteral("comment_count")] = 5;
+        c[QStringLiteral("has_notes")] = QStringLiteral("yes");
+        const Post with = RemotePosts::fromHybooru(c, kHybooru);
+        QCOMPARE(with.commentCount, 5);
+        QVERIFY(with.hasComments);
+        QVERIFY(with.hasNotes);
+        // notes array also counts.
+        QJsonObject n = o;
+        QJsonArray notes;
+        notes.append(QJsonObject());
+        n[QStringLiteral("notes")] = notes;
+        QVERIFY(RemotePosts::fromHybooru(n, kHybooru).hasNotes);
+        // string count.
+        QJsonObject s = o;
+        s[QStringLiteral("commentCount")] = QStringLiteral("2");
+        QCOMPARE(RemotePosts::fromHybooru(s, kHybooru).commentCount, 2);
+    }
 };
 
 int main(int argc, char *argv[]) {
