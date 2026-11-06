@@ -275,6 +275,25 @@ private slots:
         auto r3 = RemotePosts::parseBooruPostUrl(QStringLiteral("https://gelbooru.com/"));
         QCOMPARE(r3.id, 0LL);
         QVERIFY(!r3.valid());
+        // non-http
+        auto r4 = RemotePosts::parseBooruPostUrl(QStringLiteral("file:///x"));
+        QVERIFY(!r4.valid());
+        // path-shaped
+        auto p1 = RemotePosts::parseBooruPostUrl(QStringLiteral("https://x/posts/42"));
+        QCOMPARE(p1.id, 42LL);
+        QVERIFY(p1.valid());
+        auto p2 = RemotePosts::parseBooruPostUrl(QStringLiteral("https://x/post/show/7"));
+        QCOMPARE(p2.id, 7LL);
+        QVERIFY(p2.valid());
+        auto p3 = RemotePosts::parseBooruPostUrl(QStringLiteral("https://x/images/9"));
+        QCOMPARE(p3.id, 9LL);
+        QVERIFY(p3.valid());
+        auto p4 = RemotePosts::parseBooruPostUrl(QStringLiteral("https://x/post/5"));
+        QCOMPARE(p4.id, 5LL);
+        QVERIFY(p4.valid());
+        auto p5 = RemotePosts::parseBooruPostUrl(QStringLiteral("https://x/post/view/11"));
+        QCOMPARE(p5.id, 11LL);
+        QVERIFY(p5.valid());
     }
 };
 
