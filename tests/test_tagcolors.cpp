@@ -26,6 +26,23 @@ private slots:
         QCOMPARE(UiIcons::tagBucketColor(QStringLiteral("bogus")),
                  QColor(0xe8, 0xe8, 0xec));
     }
+
+    void filterTagColorGaps() {
+        // plain tag -> invalid color
+        QVERIFY(!UiIcons::filterTagColor(QStringLiteral("sky")).isValid());
+        // negation/boost stripped
+        QVERIFY(UiIcons::filterTagColor(QStringLiteral("-rating:g")).isValid());
+        QVERIFY(UiIcons::filterTagColor(QStringLiteral("~sort:random")).isValid());
+        // no colon -> invalid
+        QVERIFY(!UiIcons::filterTagColor(QStringLiteral("rating")).isValid());
+        // colon at start -> invalid (key empty)
+        QVERIFY(!UiIcons::filterTagColor(QStringLiteral(":x")).isValid());
+        // unknown key -> accent
+        QCOMPARE(UiIcons::filterTagColor(QStringLiteral("foo:bar")),
+                 QColor(0x7c, 0x9e, 0xf8));
+        // trimmed
+        QVERIFY(UiIcons::filterTagColor(QStringLiteral("  rating:g  ")).isValid());
+    }
 };
 
 int main(int argc, char *argv[]) {
