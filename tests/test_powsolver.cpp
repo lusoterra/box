@@ -64,6 +64,23 @@ private slots:
                     .isEmpty());
         QVERIFY(!ok);
     }
+
+    void solvePowGaps() {
+        // src/remote/powsolver.h:25
+        // difficulty 0 -> any nonce works (first try, empty nonce? no, nonce must be hex)
+        bool ok = false;
+        const QString n = RemotePosts::solvePowWork(QStringLiteral("challenge"), 0, 10, &ok);
+        QVERIFY(ok);
+        QVERIFY(!n.isEmpty());
+        // bad difficulty (negative) -> ok false
+        bool ok2 = true;
+        const QString n2 = RemotePosts::solvePowWork(QStringLiteral("challenge"), -1, 10, &ok2);
+        QVERIFY(n2.isEmpty());
+        QVERIFY(!ok2);
+        // null ok pointer -> no crash
+        const QString n3 = RemotePosts::solvePowWork(QStringLiteral("challenge"), 1, 10, nullptr);
+        QVERIFY(!n3.isEmpty());
+    }
 };
 
 int main(int argc, char *argv[]) {
