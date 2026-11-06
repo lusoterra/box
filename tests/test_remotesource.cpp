@@ -1615,6 +1615,29 @@ private slots:
         QCOMPARE(s.general, QStringList({QStringLiteral("g1"), QStringLiteral("g2"), QStringLiteral("g3")}));
         QCOMPARE(s.custom.value(QStringLiteral("oc")), QStringList({QStringLiteral("o1")}));
     }
+
+    void seedAndCookieBelongsToGaps() {
+        using RemotePosts::seedQuirkCookies;
+        using RemotePosts::cookieBelongsTo;
+        // no quirk -> empty
+        QVERIFY(seedQuirkCookies({}, QStringLiteral("example.com")).isEmpty());
+        QVERIFY(seedQuirkCookies({QStringLiteral("a=1")}, QStringLiteral("example.com")).isEmpty());
+        // cookieBelongsTo
+        QNetworkCookie c;
+        c.setName(QStringLiteral("x").toUtf8());
+        c.setValue(QStringLiteral("1").toUtf8());
+        // empty host -> false
+        QVERIFY(!cookieBelongsTo(c, QString()));
+        // empty name -> false
+        QNetworkCookie noname;
+        noname.setValue(QStringLiteral("1").toUtf8());
+        QVERIFY(!cookieBelongsTo(noname, QStringLiteral("example.com")));
+        // host-only session cookie (no domain) -> true
+        QNetworkCookie sess;
+        sess.setName(QStringLiteral("s").toUtf8());
+        sess.setValue(QStringLiteral("v").toUtf8());
+        QVERIFY(cookieBelongsTo(sess, QStringLiteral("example.com")));
+    }
 };
 
 int main(int argc, char *argv[]) {
