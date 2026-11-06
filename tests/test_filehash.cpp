@@ -69,6 +69,31 @@ private slots:
         QVERIFY(!isMd5Stem(QStringLiteral("Danbooru-900150983cd24fb0d6963f7d28e17f72"))); // no underscore
         QVERIFY(!isMd5Stem(QStringLiteral("Danbooru_900150983cd24fb0d6963f7d28e17f72_x"))); // hash not at end
         QVERIFY(!isMd5Stem(QString()));
+        // uppercase hex tail is accepted
+        QVERIFY(isMd5Stem(QStringLiteral("Site_ABCDEF0123456789abcdef0123456789")));
+    }
+
+    void fileContentMd5Gaps() {
+        // src/library/filehash.h: fileContentMd5
+        // directory path -> empty
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QVERIFY(fileContentMd5(dir.path()).isEmpty());
+        // zero-byte file -> d41d8cd98f00b204e9800998ecf8427e
+        const QString emptyPath = dir.filePath(QStringLiteral("empty2.bin"));
+        QFile f(emptyPath);
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.close();
+        QCOMPARE(fileContentMd5(emptyPath),
+                 QStringLiteral("d41d8cd98f00b204e9800998ecf8427e"));
+        // 1-byte file
+        const QString onePath = dir.filePath(QStringLiteral("one.bin"));
+        QFile f2(onePath);
+        QVERIFY(f2.open(QIODevice::WriteOnly));
+        f2.write("a");
+        f2.close();
+        QCOMPARE(fileContentMd5(onePath),
+                 QStringLiteral("0cc175b9c0f1b6a831c399e269772661"));
     }
 };
 
