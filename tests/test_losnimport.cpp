@@ -258,6 +258,26 @@ private slots:
                     .isEmpty());
     }
 
+    void losnGaps() {
+        // src/library/losnimport.cpp
+        // siteForHost: known host
+        QString key, label;
+        LosnImport::siteForHost(QStringLiteral("gelbooru.com"), key, label);
+        QCOMPARE(key, QStringLiteral("gelbooru"));
+        QVERIFY(!label.isEmpty());
+        // siteForHost: unknown host derives label
+        LosnImport::siteForHost(QStringLiteral("unknown.example"), key, label);
+        QVERIFY(!key.isEmpty() || !label.isEmpty());
+        // idFromPostUrl: various forms
+        QCOMPARE(LosnImport::idFromPostUrl(QStringLiteral("https://x/posts/123")), 123LL);
+        QCOMPARE(LosnImport::idFromPostUrl(QStringLiteral("https://x/post/show/456")), 456LL);
+        QCOMPARE(LosnImport::idFromPostUrl(QStringLiteral("https://x/?id=789")), 789LL);
+        QCOMPARE(LosnImport::idFromPostUrl(QStringLiteral("https://x/no-id")), 0LL);
+        // md5sOnDisk: empty/nonexistent -> empty
+        QVERIFY(LosnImport::md5sOnDisk(QString()).isEmpty());
+        QVERIFY(LosnImport::md5sOnDisk(QStringLiteral("/nonexistent")).isEmpty());
+    }
+
     void readSyntheticBackup() {
         QTemporaryDir tmp;
         QVERIFY(tmp.isValid());
