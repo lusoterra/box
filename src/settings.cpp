@@ -32,6 +32,65 @@ QString settingsBackupFilePath() {
     return settingsFilePath() + QStringLiteral(".bak");
 }
 
+static QString normalizeDir(QString d) {
+    while (d.endsWith(u'/') && d.size() > 1) d.chop(1);
+    return d;
+}
+
+QString moveConfigFiles(const QString &fromDir, const QString &toDir) {
+    const QString from = normalizeDir(fromDir.trimmed());
+    const QString to = normalizeDir(toDir.trimmed());
+    if (to.isEmpty())
+        return QStringLiteral("Destination folder is empty.");
+    if (from == to)
+        return QString();
+    if (!QDir().mkpath(to))
+        return QStringLiteral("Cannot create %1.").arg(to);
+    for (const QString &n :
+         {QStringLiteral("settings.ini"), QStringLiteral("settings.ini.bak"),
+          QStringLiteral("boorus.json")}) {
+        const QString src = from + u'/' + n;
+        if (!QFile::exists(src))
+            continue;
+        const QString dst = to + u'/' + n;
+        if (src == dst)
+            continue;
+        const QString tmp = dst + QStringLiteral(".move-tmp");
+        QFile::remove(tmp);
+        if (!QFile::copy(src, tmp))
+            return QStringLiteral("Cannot copy %1.").arg(n);
+        QFile::remove(dst);
+        if (!QFile::rename(tmp, dst)) {
+            QFile::remove(tmp);
+            return QStringLiteral("Cannot move %1 into place.").arg(n);
+        }
+    }
+    return QString();
+}
+
+QString writeConfigStub(const QString &defaultDir, const QString &customDir) {
+    const QString dir = normalizeDir(defaultDir.trimmed());
+    const QString custom = normalizeDir(customDir.trimmed());
+    if (dir.isEmpty() || custom.isEmpty())
+        return QStringLiteral("Folder is empty.");
+    if (!QDir().mkpath(dir))
+        return QStringLiteral("Cannot create %1.").arg(dir);
+    const QString path = dir + QStringLiteral("/settings.ini");
+    const QString tmp = path + QStringLiteral(".tmp");
+    QFile::remove(tmp);
+    {
+        QSettings c(tmp, QSettings::IniFormat);
+        c.setValue(QStringLiteral("app/configDir"), custom);
+        c.sync();
+    }
+    if (!QFile::exists(tmp))
+        return QStringLiteral("Cannot write stub.");
+    QFile::remove(path);
+    if (!QFile::rename(tmp, path))
+        return QStringLiteral("Cannot install stub.");
+    return QString();
+}
+
 void restoreSettingsBackupIfNeeded() {
     const QString path = settingsFilePath();
     const QFileInfo info(path);

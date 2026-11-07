@@ -42,6 +42,7 @@
 #include <QPushButton>
 #include <QRadioButton>
 #include <QRegularExpression>
+#include <QStandardPaths>
 #include <QTimer>
 #include <QScrollArea>
 #include <QStandardItem>
@@ -131,7 +132,10 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
       m_favicons(favicons), m_accent(current.accent) {
     setWindowTitle(tr("Preferences"));
     setModal(true);
-    resize(700, 780);
+    // Wide enough that the Booru manager editor (name/badge/base/type +
+    // cookie buttons) fits at 1600x900 and 1080p without overflow; the
+    // page scrolls vertically, never horizontally.
+    resize(980, 820);
     auto *outer = new QVBoxLayout(this);
     auto *tabs = new QTabWidget(this);
     // Document mode: no tab-pane frame. The framed pane rounds its
@@ -215,6 +219,63 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     langRow->addWidget(m_language, 1);
     genLay->addLayout(langRow);
     genLay->addWidget(note(tr("Language applies on next launch.")));
+    // Config folder (where settings.ini lives). Moving copies the current
+    // files to the chosen folder and leaves a pointer stub at the default
+    // location; the app restarts from the stub on next launch.
+    auto *cfgRow = new QHBoxLayout();
+    cfgRow->addWidget(new QLabel(tr("Config folder:"), this));
+    m_configDir = new QLineEdit(effectiveConfigDir(), this);
+    m_configDir->setReadOnly(true);
+    m_configDir->setToolTip(tr("Effective config folder (settings.ini lives here)"));
+    cfgRow->addWidget(m_configDir, 1);
+    auto *cfgMove = new QPushButton(tr("Move…"), this);
+    cfgMove->setToolTip(tr("Move the config files to a chosen folder"));
+    connect(cfgMove, &QPushButton::clicked, this, [this] {
+        const QString dest = QFileDialog::getExistingDirectory(
+            this, tr("Move config folder to"), m_configDir->text());
+        if (dest.isEmpty())
+            return;
+        const QString cleanDest =
+            QDir(dest).absolutePath();
+        const QString fromDir = effectiveConfigDir();
+        const QString defaultDir =
+            QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) +
+            QStringLiteral("/box");
+        if (cleanDest == fromDir)
+            return;
+        // Flush pending edits to the old location first, so nothing is lost.
+        harvest();
+        saveSettings(m_result);
+        if (QMessageBox::question(
+                this, tr("Move config folder"),
+                tr("Move %1 to %2? settings.ini and boorus.json are copied "
+                   "there and the default folder keeps a pointer stub.")
+                    .arg(fromDir, cleanDest),
+                QMessageBox::Yes | QMessageBox::No,
+                QMessageBox::No) != QMessageBox::Yes)
+            return;
+        const QString moveErr = moveConfigFiles(fromDir, cleanDest);
+        if (!moveErr.isEmpty()) {
+            QMessageBox::warning(this, tr("Move config folder"), moveErr);
+            return;
+        }
+        setConfigDirOverride(cleanDest);
+        m_configDir->setText(effectiveConfigDir());
+        if (cleanDest != defaultDir) {
+            const QString stubErr = writeConfigStub(defaultDir, cleanDest);
+            if (!stubErr.isEmpty()) {
+                QMessageBox::warning(this, tr("Move config folder"), stubErr);
+                return;
+            }
+        }
+        QMessageBox::information(
+            this, tr("Move config folder"),
+            tr("Config moved. The app will use the new folder from the "
+               "next launch."));
+        updateApplyState();
+    });
+    cfgRow->addWidget(cfgMove);
+    genLay->addLayout(cfgRow);
     auto *histRow = new QHBoxLayout();
     histRow->addWidget(new QLabel(tr("Archive history:"), this));
     histRow->addStretch(1);

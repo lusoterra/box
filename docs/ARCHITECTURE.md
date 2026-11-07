@@ -219,15 +219,18 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
 
 ## Settings + XDG paths
 
-`settingsFilePath()` = `~/.config/box/settings.ini`
-(`src/settings.cpp:10`); defaults in `AppSettings`
-(`src/settings.h:19`); `loadSettings`/`saveSettings`
+`settingsFilePath()` = `~/.config/box/settings.ini` by default, or
+`<BOX_CONFIG_DIR>/settings.ini` / the `[app] configDir` pointer stub
+(`src/settings.cpp:10`, bootstrap in `src/main.cpp:82`); defaults in
+`AppSettings` (`src/settings.h:19`); `loadSettings`/`saveSettings`
 (`src/settings.cpp:25,169`); booru registry under `boorus/order` +
 `boorus/<key>` groups (`settings.cpp:265,346`). `saveSettings` is
 atomic (tmp-file stage + rename) and rotates the replaced file to
 `settings.ini.bak`; `loadSettings` heals a missing/truncated ini from
 the backup. Tab add/close/move persist synchronously (`saveTabsNow`);
-switches/edits coalesce 1500 ms (`saveTabs`).
+switches/edits coalesce 1500 ms (`saveTabs`). The Preferences `Move…`
+(`src/settings.cpp:36` `moveConfigFiles` + `writeConfigStub`) copies the
+ini + `boorus.json` to the target and leaves only the pointer stub.
 
 | Kind    | Path | Notes |
 |---|---|---|

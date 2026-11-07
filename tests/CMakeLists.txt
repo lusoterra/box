@@ -61,6 +61,10 @@ add_unit_test(test_downloadplan test_downloadplan.cpp ../src/remote/downloadmana
               ../src/remote/imagecache.cpp ../src/library/cachejanitor.cpp ../src/settings.cpp)
 add_unit_test(test_settings test_settings.cpp ../src/settings.cpp
               ${REMOTE_SOURCES})
+add_unit_test(test_configmove test_configmove.cpp ../src/settings.cpp
+              ${REMOTE_SOURCES})
+set_tests_properties(test_configmove PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_unit_test(test_favdb test_favdb.cpp ../src/library/favdb.cpp)
 add_unit_test(test_cachejanitor test_cachejanitor.cpp ../src/library/cachejanitor.cpp
               ../src/settings.cpp ${REMOTE_SOURCES})

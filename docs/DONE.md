@@ -1539,3 +1539,18 @@
   `bareMediaTagsDropOnMoebooruOnly` in `tests/test_remotesource.cpp`.
 - [x] Build at `-j3` + `ctest` 36/36 green (relinked `test_gridwindow`
   after the `-j8` interrupt left it non-executable).
+
+## 162. Config move with stub + wider Preferences - DONE
+##    (Move… copies ini + boorus.json, leaves pointer stub; 980px dialog;
+##    Xvfb 1600x900 + 1920x1080; 37/37)
+- `moveConfigFiles` + `writeConfigStub` (`src/settings.cpp:36`,
+  `src/settings.h:324`): atomic copy of `settings.ini`/`settings.ini.bak`/
+  `boorus.json`, stub `[app] configDir=<custom>` at the default folder.
+  General tab row (display + `Move…` picker, `src/ui/prefsdlg.cpp:218`):
+  flushes edits, copies, writes stub, sets the session override,
+  "next launch" prompt. Bootstrap stays env > pointer > default.
+- [x] Dialog widened 700x780 -> 980x820 (`src/ui/prefsdlg.cpp:135`);
+  Browse cookie buttons + Booru manager verified unclipped at 1600x900
+  and 1920x1080 via Xvfb screenshots.
+- [x] Tests: new `tests/test_configmove.cpp` (copy/stub/noop/errors,
+  offscreen) + `ctest` 37/37 green at `-j3`.

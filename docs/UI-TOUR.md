@@ -182,6 +182,9 @@ threads collapse behind a show-all toggle).
 
 ## 12-prefs-general - Preferences → General
 `Default tab`, `Language`, `Always load last session on startup`,
+`Config folder` (effective folder + `Move…`: copies
+`settings.ini` + `boorus.json` there, leaves a `[app] configDir` pointer
+stub at the default folder; takes effect next launch),
 `Archive history` (+ `Clear history`), Favourites toggles
 (auto-download/auto-favourite/unfavourite-deletes-file), blacklist box.
 Bottom: `Defaults` (reset page), `OK` / `Apply` (greys out when clean -

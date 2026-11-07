@@ -322,6 +322,13 @@ inline bool operator!=(const AppSettings &a, const AppSettings &b) {
 QString settingsFilePath();
 void setConfigDirOverride(const QString &dir);
 QString effectiveConfigDir();
+// Copy settings.ini + settings.ini.bak + boorus.json from `fromDir`
+// to `toDir` (created if needed). Returns empty on success, error text
+// otherwise. Does not write the stub; see writeConfigStub().
+QString moveConfigFiles(const QString &fromDir, const QString &toDir);
+// Write the pointer stub ([app] configDir) to the default config folder,
+// so next launch bootstraps straight to `customDir`. Atomic (tmp+rename).
+QString writeConfigStub(const QString &defaultDir, const QString &customDir);
 // Record an opened archive root: most-recent-first, deduped, capped.
 void noteFolderOpened(AppSettings &s, const QString &dir);
 // Previous-good copy (settings.ini.bak): rotated on every atomic save,
