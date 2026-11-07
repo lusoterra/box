@@ -110,6 +110,9 @@ struct AppSettings {
     int browseLimit = 40;
     QString dataDir; // empty = default data dir (all DBs + downloads live here)
     QString downloadDir; // empty = <datadir>/downloads
+    // Optional override for the config folder (settings.ini lives here).
+    // Empty = default (~/.config/box). Applied on next launch.
+    QString configDir;
     // Global proxy for all app traffic (http:// or socks5:// host:port).
     // SOCKS5 resolves hostnames through the proxy (curl socks5h
     // behavior), never locally. Empty = direct; a per-booru proxy
@@ -148,6 +151,10 @@ struct AppSettings {
     QString themeMode = QStringLiteral("builtin"); // "builtin" | "native"
     QString accent = QStringLiteral("#3a7ec2");
     QString stylesheet; // optional custom .qss on top, empty = none
+    // External media handlers. Empty = system default. {file}/{url}
+    // placeholders are substituted; otherwise the path/URL is appended.
+    QString defaultImageViewer;
+    QString defaultVideoPlayer;
     // Home mascot: empty path = shipped default (マニフェスト.jpg);
     // mascotHidden hides even the default (Preferences → Remove).
     QString mascotPath;
@@ -292,6 +299,8 @@ inline bool operator==(const AppSettings &a, const AppSettings &b) {
            a.savedTabCurrent == b.savedTabCurrent &&
            a.explicitTags == b.explicitTags && a.themeMode == b.themeMode &&
            a.accent == b.accent && a.stylesheet == b.stylesheet &&
+           a.defaultImageViewer == b.defaultImageViewer &&
+           a.defaultVideoPlayer == b.defaultVideoPlayer &&
            a.mascotPath == b.mascotPath && a.mascotHidden == b.mascotHidden &&
            qFuzzyCompare(a.mascotOpacity + 1.0, b.mascotOpacity + 1.0) &&
            qFuzzyCompare(a.mascotScale + 1.0, b.mascotScale + 1.0) &&
@@ -314,6 +323,8 @@ inline bool operator!=(const AppSettings &a, const AppSettings &b) {
 
 // Single config file (~/.config/box/settings.ini).
 QString settingsFilePath();
+void setConfigDirOverride(const QString &dir);
+QString effectiveConfigDir();
 // Record an opened archive root: most-recent-first, deduped, capped.
 void noteFolderOpened(AppSettings &s, const QString &dir);
 // Previous-good copy (settings.ini.bak): rotated on every atomic save,

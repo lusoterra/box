@@ -1006,8 +1006,11 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
             &MainWindow::showSearchHistoryMenu);
 
     omniLay->addWidget(favBtn);
-    omniLay->addWidget(histBtn);
-    omniLay->addWidget(m_searchEdit, 1);
+    if (m_settings.searchHistory)
+        omniLay->addWidget(histBtn);
+    else
+        histBtn->hide();
+    omniLay->addWidget(m_searchEdit, 10);
     omniLay->addWidget(m_ratingBox);
     omniLay->addWidget(m_categoryBox);
     // One-click AI-content filter: hides ai_generated/ai_created/

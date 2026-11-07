@@ -138,7 +138,12 @@ void PostMetaFetcher::fetch(const QString &siteKey, const QString &baseUrl,
                     r->attribute(QNetworkRequest::HttpStatusCodeAttribute)
                         .toInt();
                 body = r->readAll();
-                if (r->error() == QNetworkReply::NoError && http / 100 == 2)
+                if (http == 404) {
+                    // No comments endpoint / none posted: treat as empty,
+                    // not a failure (avoids misleading "failed to load").
+                    m_comments.clear();
+                    ok = true;
+                } else if (r->error() == QNetworkReply::NoError && http / 100 == 2)
                     m_comments = PostMeta::parseComments(body, &ok);
                 else if (r->error() != QNetworkReply::NoError)
                     m_commentsErr = r->errorString();

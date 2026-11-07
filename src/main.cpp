@@ -13,6 +13,7 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QFileDialog>
+#include <QSettings>
 #include <QLocale>
 #include <QTranslator>
 
@@ -73,6 +74,20 @@ int main(int argc, char *argv[]) {
     // the matching .qm embeds + loads automatically from :/i18n.
     // Preferences → General can pin a locale; otherwise the system wins.
     static QTranslator appTranslator;
+    // Optional custom config folder: bootstrap from the default config file
+    // (or BOX_CONFIG_DIR) before loading settings.
+    {
+        QString custom = qgetenv("BOX_CONFIG_DIR");
+        if (custom.isEmpty()) {
+            QSettings boot(
+                QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) +
+                    QStringLiteral("/box/settings.ini"),
+                QSettings::IniFormat);
+            custom = boot.value(QStringLiteral("app/configDir")).toString();
+        }
+        if (!custom.isEmpty())
+            setConfigDirOverride(custom);
+    }
     AppSettings settings = loadSettings();
     const QString forcedLang = settings.language;
     QStringList locales;

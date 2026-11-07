@@ -67,7 +67,7 @@ struct BooruSite {
     // defaults (space-separated, same syntax as the omnibar). New entries
     // start with "furry:g" (expanded to `furry rating:general`): furry
     // posts stay allowed, but only general-rated ones by default.
-    QString defaultTags = QStringLiteral("furry:g");
+    QString defaultTags; // safe by default: no furry filter
     // Danbooru free accounts cap queries at ~2 tags, so server-side
     // -blacklist exclusions break searches: entries with this set skip
     // the server exclusions and rely on the client-side blacklist net.

@@ -378,6 +378,8 @@ private slots:
         // unshipped boorus are dropped (existing profiles keep theirs).
         QSettings c(settingsFilePath(), QSettings::IniFormat);
         c.clear();
+        QFile::remove(QFileInfo(settingsFilePath()).absolutePath() +
+                      QStringLiteral("/boorus.json"));
         c.setValue(QStringLiteral("danbooru/user"), QStringLiteral("duser"));
         c.setValue(QStringLiteral("danbooru/key"), QStringLiteral("dkey"));
         c.setValue(QStringLiteral("gelbooru/user"), QStringLiteral("guser"));

@@ -1,6 +1,7 @@
 #include "viewerpage.h"
 
 #include "imagecache.h"
+#include "settings.h"
 #include "postmeta.h"
 #include "progressbar.h"
 #include "remotesource.h"
@@ -20,6 +21,8 @@
 #include <QJsonValue>
 #include <QKeyEvent>
 #include <QLabel>
+#include <QProcess>
+#include <QSettings>
 #include <QMenu>
 #include <QMouseEvent>
 #include <QPushButton>
@@ -109,6 +112,26 @@ ViewerPage::ViewerPage(QWidget *parent) : QWidget(parent) {
             target = p.sampleUrl;
         if (target.isEmpty())
             return;
+        const bool isVideo = target.endsWith(QStringLiteral(".mp4"), Qt::CaseInsensitive) ||
+                             target.endsWith(QStringLiteral(".webm"), Qt::CaseInsensitive) ||
+                             target.endsWith(QStringLiteral(".mkv"), Qt::CaseInsensitive) ||
+                             target.endsWith(QStringLiteral(".avi"), Qt::CaseInsensitive);
+        QSettings c(settingsFilePath(), QSettings::IniFormat);
+        const QString cmd = isVideo ? c.value(QStringLiteral("app/defaultVideoPlayer")).toString()
+                                    : c.value(QStringLiteral("app/defaultImageViewer")).toString();
+        if (!cmd.isEmpty()) {
+            QString line = cmd;
+            if (line.contains(QStringLiteral("{file}")))
+                line.replace(QStringLiteral("{file}"), target);
+            else if (line.contains(QStringLiteral("{url}")))
+                line.replace(QStringLiteral("{url}"), target);
+            else
+                line += QStringLiteral(" ") + target;
+            const QStringList parts = QProcess::splitCommand(line);
+            if (!parts.isEmpty())
+                QProcess::startDetached(parts.first(), parts.mid(1));
+            return;
+        }
         if (target.startsWith(QStringLiteral("http")))
             QDesktopServices::openUrl(QUrl(target));
         else

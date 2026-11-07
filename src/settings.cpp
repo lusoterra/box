@@ -5,14 +5,27 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QSettings>
 #include <QStandardPaths>
 
 #include <algorithm>
 
-QString settingsFilePath() {
+static QString s_configDirOverride;
+void setConfigDirOverride(const QString &dir) { s_configDirOverride = dir; }
+QString effectiveConfigDir() {
+    if (!s_configDirOverride.isEmpty()) {
+        QString d = s_configDirOverride;
+        while (d.endsWith(u'/') && d.size() > 1) d.chop(1);
+        return d;
+    }
     return QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) +
-           QStringLiteral("/box/settings.ini");
+           QStringLiteral("/box");
+}
+QString settingsFilePath() {
+    return effectiveConfigDir() + QStringLiteral("/settings.ini");
 }
 
 QString settingsBackupFilePath() {
@@ -246,6 +259,10 @@ AppSettings loadSettings() {
     s.themeMode = c.value(QStringLiteral("theme/mode"), s.themeMode).toString();
     s.accent = c.value(QStringLiteral("theme/accent"), s.accent).toString();
     s.stylesheet = c.value(QStringLiteral("theme/stylesheet")).toString();
+    s.defaultImageViewer =
+        c.value(QStringLiteral("app/defaultImageViewer")).toString();
+    s.defaultVideoPlayer =
+        c.value(QStringLiteral("app/defaultVideoPlayer")).toString();
     s.mascotPath = c.value(QStringLiteral("home/mascot")).toString();
     s.mascotHidden =
         c.value(QStringLiteral("home/mascotHidden"), false).toBool();
@@ -383,6 +400,8 @@ void writeSettingsTo(QSettings &c, const AppSettings &s) {
     c.setValue(QStringLiteral("theme/mode"), s.themeMode);
     c.setValue(QStringLiteral("theme/accent"), s.accent);
     c.setValue(QStringLiteral("theme/stylesheet"), s.stylesheet);
+    c.setValue(QStringLiteral("app/defaultImageViewer"), s.defaultImageViewer);
+    c.setValue(QStringLiteral("app/defaultVideoPlayer"), s.defaultVideoPlayer);
     c.setValue(QStringLiteral("home/mascot"), s.mascotPath);
     c.setValue(QStringLiteral("home/mascotHidden"), s.mascotHidden);
     c.setValue(QStringLiteral("home/mascotOpacity"), s.mascotOpacity);
@@ -451,6 +470,64 @@ QString booruGroupKey(const QString &key) {
 // Configured boorus: order + one group per key. First run seeds the
 // presets and folds the legacy per-site credentials/bases into them.
 QList<BooruSite> loadBoorus(QSettings &c) {
+    // Portable JSON wins when present.
+    const QString jsonPath = QFileInfo(settingsFilePath()).absolutePath() +
+                            QStringLiteral("/boorus.json");
+    if (QFile::exists(jsonPath)) {
+        QFile f(jsonPath);
+        if (f.open(QIODevice::ReadOnly)) {
+            const QJsonDocument doc = QJsonDocument::fromJson(f.readAll());
+            if (doc.isArray()) {
+                QList<BooruSite> out;
+                for (const QJsonValue &v : doc.array()) {
+                    const QJsonObject o = v.toObject();
+                    BooruSite b;
+                    b.key = o.value(QStringLiteral("key")).toString();
+                    if (b.key.isEmpty())
+                        continue;
+                    b.label = o.value(QStringLiteral("label")).toString(b.key);
+                    b.enabled = o.value(QStringLiteral("enabled")).toBool(true);
+                    b.shortName = o.value(QStringLiteral("shortName")).toString();
+                    if (b.shortName.isEmpty())
+                        b.shortName = RemotePosts::shortFor(b.label);
+                    b.badgeColor =
+                        o.value(QStringLiteral("badgeColor")).toString(
+                            QStringLiteral("#3a7ec2"));
+                    b.baseUrl = o.value(QStringLiteral("baseUrl")).toString();
+                    b.engine = RemotePosts::engineForKey(
+                        o.value(QStringLiteral("engine")).toString(
+                            QStringLiteral("danbooru")));
+                    b.user = o.value(QStringLiteral("user")).toString();
+                    b.secret = o.value(QStringLiteral("secret")).toString();
+                    const QJsonValue cookies = o.value(QStringLiteral("cookies"));
+                    if (cookies.isArray()) {
+                        for (const QJsonValue &cv : cookies.toArray())
+                            b.cookies << cv.toString();
+                    } else if (cookies.isString() && !cookies.toString().isEmpty())
+                        b.cookies << cookies.toString();
+                    b.skipAutoClassify =
+                        o.value(QStringLiteral("skipAutoClassify")).toBool(false);
+                    const QJsonValue db = o.value(QStringLiteral("disabledBuckets"));
+                    if (db.isArray())
+                        for (const QJsonValue &dv : db.toArray())
+                            b.disabledBuckets.insert(dv.toString());
+                    b.defaultTags = o.value(QStringLiteral("defaultTags")).toString();
+                    b.proxy = o.value(QStringLiteral("proxy")).toString();
+                    b.localBlacklist =
+                        o.value(QStringLiteral("localBlacklist")).toBool(false);
+                    b.cacheMode = MediaCache::modeFromKey(
+                        o.value(QStringLiteral("cacheMode")).toString(),
+                        CacheMode::Inherit);
+                    b.dragLinkMode = dragModeFromKey(
+                        o.value(QStringLiteral("dragMode")).toString(),
+                        DragLinkMode::Inherit);
+                    out.append(b);
+                }
+                if (!out.isEmpty())
+                    return out;
+            }
+        }
+    }
     QList<BooruSite> out;
     const QStringList order = c.value(QStringLiteral("boorus/order")).toStringList();
     for (const QString &key : order) {
@@ -577,4 +654,41 @@ void saveBoorus(QSettings &c, const QList<BooruSite> &boorus) {
         c.endGroup();
     }
     c.setValue(QStringLiteral("boorus/order"), order);
+    // Portable JSON copy.
+    QJsonArray arr;
+    for (const BooruSite &b : boorus) {
+        if (b.key.trimmed().isEmpty())
+            continue;
+        QJsonObject o;
+        o[QStringLiteral("key")] = b.key;
+        o[QStringLiteral("label")] = b.label;
+        o[QStringLiteral("enabled")] = b.enabled;
+        o[QStringLiteral("shortName")] = b.shortName;
+        o[QStringLiteral("badgeColor")] = b.badgeColor;
+        o[QStringLiteral("baseUrl")] = b.baseUrl;
+        o[QStringLiteral("engine")] = RemotePosts::engineKey(b.engine);
+        o[QStringLiteral("user")] = b.user;
+        o[QStringLiteral("secret")] = b.secret;
+        QJsonArray cookies;
+        for (const QString &ck : b.cookies)
+            cookies.append(ck);
+        o[QStringLiteral("cookies")] = cookies;
+        o[QStringLiteral("skipAutoClassify")] = b.skipAutoClassify;
+        QJsonArray db;
+        for (const QString &d : b.disabledBuckets)
+            db.append(d);
+        o[QStringLiteral("disabledBuckets")] = db;
+        o[QStringLiteral("defaultTags")] = b.defaultTags;
+        o[QStringLiteral("proxy")] = b.proxy;
+        o[QStringLiteral("localBlacklist")] = b.localBlacklist;
+        o[QStringLiteral("cacheMode")] = MediaCache::modeKey(b.cacheMode);
+        o[QStringLiteral("dragMode")] = dragModeKey(b.dragLinkMode);
+        arr.append(o);
+    }
+    QFile jf(QFileInfo(settingsFilePath()).absolutePath() +
+             QStringLiteral("/boorus.json"));
+    if (jf.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        jf.write(QJsonDocument(arr).toJson(QJsonDocument::Indented));
+        jf.close();
+    }
 }
