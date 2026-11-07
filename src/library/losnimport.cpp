@@ -102,6 +102,47 @@ QSet<QString> md5sOnDisk(const QString &destDir) {
     return out;
 }
 
+SummaryDiff diffNewFiles(const QSet<QString> &beforeMd5,
+                         const QList<QPair<QString, QString>> &finalPaths) {
+    // Same `_<md5>.<ext>` stem rule as md5sOnDisk; md5-less names (the
+    // manager hashes those, so finalPaths normally carries md5s) count new.
+    static const QRegularExpression md5Stem(
+        QStringLiteral("_(?P<md5>[0-9a-f]{32})\\.[^.]+$"));
+    SummaryDiff out;
+    for (const auto &[url, path] : finalPaths) {
+        (void)url;
+        const QString name = QFileInfo(path).fileName();
+        if (name.isEmpty())
+            continue;
+        const auto m = md5Stem.match(name);
+        const QString md5 =
+            m.hasMatch() ? m.captured(QStringLiteral("md5")) : QString();
+        if (!md5.isEmpty() && beforeMd5.contains(md5))
+            out.alreadyPresent.append(name);
+        else
+            out.newFiles.append(name);
+    }
+    QSet<QString> seen;
+    out.newFiles.erase(
+        std::remove_if(out.newFiles.begin(), out.newFiles.end(),
+                       [&seen](const QString &n) {
+                           const bool dup = seen.contains(n);
+                           seen.insert(n);
+                           return dup;
+                       }),
+        out.newFiles.end());
+    seen.clear();
+    out.alreadyPresent.erase(
+        std::remove_if(out.alreadyPresent.begin(), out.alreadyPresent.end(),
+                       [&seen](const QString &n) {
+                           const bool dup = seen.contains(n);
+                           seen.insert(n);
+                           return dup;
+                       }),
+        out.alreadyPresent.end());
+    return out;
+}
+
 DownloadPaths pathsForRow(const LosnRow &row, const QJsonObject &sidecar,
                           const QString &destDir) {
     LosnRow named = row;
@@ -426,6 +467,9 @@ void LosnImportDialog::onStart() {
         return;
     }
     m_downloadRows.clear();
+    // Pre-import disk snapshot: the finish summary diffs finalPaths
+    // against these md5 stems to list only genuinely new files.
+    m_beforeMd5 = LosnImport::md5sOnDisk(m_downloadDir);
     auto rowKey = [](const LosnRow &r) {
         if (r.postId > 0)
             return r.siteLabel + u'#' + QString::number(r.postId);
@@ -881,6 +925,23 @@ void LosnImportDialog::onDownloadsDone(const DownloadSummary &summary) {
     m_fileRows.clear();
     m_filePct.clear();
     log(tr("Downloads finished - rescan the download folder to browse them."));
+    // Summary diff: which final files were genuinely new (md5 not on
+    // disk before the run) vs already present. `done` counts downloads
+    // in this batch; skipped/failed come from the manager's summary.
+    const LosnImport::SummaryDiff diff =
+        LosnImport::diffNewFiles(m_beforeMd5, summary.finalPaths);
+    log(tr("Summary: %1 new file(s), %2 already present, %3 failed.")
+            .arg(diff.newFiles.size())
+            .arg(diff.alreadyPresent.size())
+            .arg(summary.failed));
+    if (!diff.newFiles.isEmpty()) {
+        log(tr("New files:"));
+        const int shown = qMin(diff.newFiles.size(), 50);
+        for (int i = 0; i < shown; ++i)
+            log(tr("  + %1").arg(diff.newFiles.at(i)));
+        if (diff.newFiles.size() > shown)
+            log(tr("  + %1 more…").arg(diff.newFiles.size() - shown));
+    }
     if (m_settings.wallAutoPopup && !summary.wallTargets.isEmpty()) {
         const auto &wt = summary.wallTargets.first();
         emit wallSolveRequested(wt.first, QUrl(wt.second));

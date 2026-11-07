@@ -276,6 +276,22 @@ private slots:
         // md5sOnDisk: empty/nonexistent -> empty
         QVERIFY(LosnImport::md5sOnDisk(QString()).isEmpty());
         QVERIFY(LosnImport::md5sOnDisk(QStringLiteral("/nonexistent")).isEmpty());
+        // diffNewFiles: new vs already-present by md5 stem.
+        const QString oldMd5 = QStringLiteral("4f0a3d37c18e61c8550ab82b94ef06a2");
+        const QString newMd5 = QStringLiteral("d41d8cd98f00b204e9800998ecf8427e");
+        const LosnImport::SummaryDiff diff = LosnImport::diffNewFiles(
+            {oldMd5},
+            {{QStringLiteral("https://x/a.jpg"),
+              QStringLiteral("/d/Site_") + oldMd5 + QStringLiteral(".jpg")},
+             {QStringLiteral("https://x/b.jpg"),
+              QStringLiteral("/d/Site_") + newMd5 + QStringLiteral(".jpg")},
+             {QStringLiteral("https://x/c.jpg"),
+              QStringLiteral("/d/Site_losn9.jpg")}});
+        QCOMPARE(diff.newFiles.size(), 2);
+        QVERIFY(diff.newFiles.contains(QStringLiteral("Site_") + newMd5 + QStringLiteral(".jpg")));
+        QVERIFY(diff.newFiles.contains(QStringLiteral("Site_losn9.jpg")));
+        QCOMPARE(diff.alreadyPresent.size(), 1);
+        QVERIFY(diff.alreadyPresent.contains(QStringLiteral("Site_") + oldMd5 + QStringLiteral(".jpg")));
     }
 
     void readSyntheticBackup() {

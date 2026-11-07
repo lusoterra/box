@@ -1511,3 +1511,15 @@
 - [x] Verified by execution under Xvfb (omnibar shows ★ only; Browse has
   no Remember/Clear rows) + `ctest` 36/36 green (translations included,
   removed `tr()` strings obsolete).
+
+## 160. LOSN import: summary diff of new files - DONE
+##    (Summary X new/Y present/Z failed + new-file names; 36/36)
+- Pure `LosnImport::diffNewFiles(beforeMd5, finalPaths)`
+  (`src/library/losnimport.h`, `src/library/losnimport.cpp:105`): md5-stem
+  split (md5-less counts new, names deduped). Dialog snapshots
+  `md5sOnDisk` at `onStart`, logs the summary + first 50 `+ name` lines
+  in `onDownloadsDone` (`src/library/losnimport.cpp:930`).
+- [x] Tests: `losnGaps` covers new/already-present/md5-less in
+  `tests/test_losnimport.cpp`; verified by execution (`test_losnimport`
+  15/15, `ctest` 36/36). Full dialog import needs a backup + downloads,
+  verified via the pure helper + Xvfb open path.

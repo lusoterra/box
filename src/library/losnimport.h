@@ -61,6 +61,15 @@ DownloadPaths targetPaths(const LosnRow &row, const QString &destDir);
 // otherwise keep Site_losn123 names despite carrying a real md5.
 DownloadPaths pathsForRow(const LosnRow &row, const QJsonObject &sidecar,
                           const QString &destDir);
+// Summary diff for the import dialog: split the manager's final on-disk
+// paths (fileURL -> path) into new files (md5 not in beforeMd5) vs
+// already-present (md5 was in beforeMd5). Names only, for the log.
+struct SummaryDiff {
+    QStringList newFiles;
+    QStringList alreadyPresent;
+};
+SummaryDiff diffNewFiles(const QSet<QString> &beforeMd5,
+                         const QList<QPair<QString, QString>> &finalPaths);
 } // namespace LosnImport
 
 class FavDb;
@@ -138,5 +147,7 @@ private:
     QHash<QString, class QListWidgetItem *> m_fileRows;
     QHash<QString, int> m_filePct;
     QHash<QString, QString> m_jobPaths; // planned file name -> file path
+    // Pre-import disk snapshot (md5 stems) for the new-file summary diff.
+    QSet<QString> m_beforeMd5;
     void onFileRenamed(const QString &oldName, const QString &newName);
 };
