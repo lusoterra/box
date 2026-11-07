@@ -1471,3 +1471,25 @@
   CMakeLists.txt:5`): verified by execution under Xvfb (before/after
   screenshots: cookie row wraps fully visible; Clear/Test compact).
 - [x] Build + `ctest` 36/36 green (incl. `check_translations`).
+
+## 158. Mass edit tags on stray posts - DONE
+##    (one window, paste, steal via URL, ordered by category; Xvfb +
+##    36/36 ctest)
+- New `StrayMassTagDialog` (`src/ui/straydialog.h:68`) + `applyStrayTagEdits`
+  (`src/ui/mainwindow_stray.cpp:420`): file list, per-bucket boxes in order
+  artist/character/copyright/general/meta, paste field (tokens to General),
+  `Copy from URL` + `Fetch` via `StrayResolver`
+  (`src/remote/strayresolve.h:48`, buckets merged), `Copy to all` duplicates
+  the current file. Save writes `tags` + `tags_*` sidecar buckets (category
+  order kept, `MetaParser::parseStray` bucketed path
+  `src/library/metaparser.cpp:295`); index/viewer/sidebar/classifier refresh
+  in bulk like `editStrayTags`.
+- [x] Wire grid menu bulk: `Edit tags… (%1 strays)` opens the mass dialog
+  for 2+ strays (`src/ui/mainwindow_gridmenu.cpp:296`); single stray keeps
+  `StrayTagDialog`. UI text updated in `docs/UI-TOUR.md` (20-stray).
+- [x] No GUI headless test (URL steal needs live network; dialog needs
+  manual Xvfb eyes, `tests/CMakeLists.txt:5` headless only): verified by
+  execution under Xvfb (paste appended to General, copy-to-all set both
+  sidecars, 403 fetch reported cleanly, sidebar rebuilt, `Saved tags for
+  2 stray(s)`).
+- [x] Build + `ctest` 36/36 green.

@@ -291,18 +291,24 @@ void MainWindow::showGridMenu(const QPoint &pos) {
         }
     }
     // Tag editing is a stray-only affair: every selected target must be a
-    // stray file; the dialog prefills from its sidecar. Supports bulk
-    // edits by opening the dialog for each selected stray.
+    // stray file; the dialogs prefill from their sidecars. Bulk (2+)
+    // opens the mass editor (one window, per-bucket, paste + steal via
+    // URL); a single stray keeps the one-box editor.
     bool allStray = !targets.isEmpty();
     for (const Post &t : targets)
         if (!Stray::isStrayPost(t)) { allStray = false; break; }
     if (allStray) {
         QAction *edit = menu.addAction(targets.size() > 1
-                                          ? tr("Edit tags… (%1)").arg(targets.size())
+                                          ? tr("Edit tags… (%1 strays)").arg(targets.size())
                                           : tr("Edit tags…"));
         connect(edit, &QAction::triggered, this, [this, targets] {
-            for (const Post &p : targets)
-                editStrayTags(p);
+            if (targets.size() == 1) {
+                editStrayTags(targets.first());
+                return;
+            }
+            StrayMassTagDialog dlg(targets, this);
+            if (dlg.exec() == QDialog::Accepted)
+                applyStrayTagEdits(dlg.edits());
         });
     }
     // Any on-disk file can become the home mascot - including downloaded

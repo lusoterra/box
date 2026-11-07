@@ -292,6 +292,15 @@ post-page URLs (Danbooru/HyBooru `/posts/<id>`, Moebooru
 API refuses anonymous calls (Gelbooru 401) the page itself is read
 (`og:image` + typed tag list). Unreadable links are reported once,
 without queues of wall pages.
+Grid right-click `Edit tags…` on strays: one stray opens the one-box
+editor (flat, auto-categorized on save); two or more (`Edit tags…
+(N strays)`) open `Mass edit stray tags (N)`: file list, per-bucket boxes
+(Artist / Character / Copyright / General / Meta in that order), `Paste
+tags:` (`Add pasted` appends tokens to General), `Copy from URL:` +
+`Fetch` steals buckets from a booru post link (same resolver as above,
+merged into the current file), `Copy to all` duplicates the current
+file to every listed stray, `Save all` writes `tags` + `tags_*` sidecars
+(category order kept). Status bar reports `Saved tags for N stray(s)`.
 
 ## Not yet documented (keep unchecked until done)
 - [ ] Downloads tab (non-empty: sidecar-backed offline rows)

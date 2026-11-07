@@ -394,3 +394,143 @@ void MainWindow::editStrayTags(const Post &post) {
     statusBar()->showMessage(tr("Tags saved"), 4000);
 }
 
+void MainWindow::applyStrayTagEdits(const QVector<StrayTagEdit> &edits) {
+    if (edits.isEmpty())
+        return;
+    auto norm = [](const QString &s) {
+        QStringList kept;
+        for (const QString &t : s.simplified().toLower().split(
+                 QChar::Space, Qt::SkipEmptyParts)) {
+            if (!kept.contains(t))
+                kept.append(t);
+        }
+        return kept;
+    };
+    QVector<QPair<QString, QJsonObject>> written; // absFile -> new sidecar
+    int skippedArchive = 0;
+    int skippedWrite = 0;
+    for (const StrayTagEdit &e : edits) {
+        if (e.absFile.isEmpty())
+            continue;
+        const QFileInfo fi(e.absFile);
+        const QString sidecar = fi.absolutePath() + u'/' +
+                                fi.completeBaseName() +
+                                QStringLiteral(".json");
+        if (refuseArchiveWrite(sidecar, effectiveDownloadDir(m_settings))) {
+            ++skippedArchive;
+            continue;
+        }
+        QJsonObject obj;
+        {
+            QFile f(sidecar);
+            if (f.open(QIODevice::ReadOnly)) {
+                QJsonParseError err;
+                const QJsonDocument doc =
+                    QJsonDocument::fromJson(f.readAll(), &err);
+                if (err.error == QJsonParseError::NoError && doc.isObject())
+                    obj = doc.object();
+            }
+        }
+        const QStringList artist = norm(e.artist);
+        const QStringList character = norm(e.character);
+        const QStringList copyright = norm(e.copyright);
+        const QStringList general = norm(e.general);
+        const QStringList meta = norm(e.meta);
+        QStringList unionTags;
+        for (const QStringList &bucket :
+             {artist, character, copyright, general, meta})
+            for (const QString &t : bucket)
+                if (!unionTags.contains(t))
+                    unionTags.append(t);
+        // Write both the flat union and the buckets sidecar keys (order:
+        // artist/character/copyright/general/meta, parseStray bucketed
+        // path). Stale buckets are replaced, never merged.
+        for (const char *k : {"tags_artist", "tags_character", "tags_copyright",
+                              "tags_general", "tags_meta", "stray_tags"})
+            obj.remove(QString::fromLatin1(k));
+        obj[QStringLiteral("tags")] = unionTags.join(u' ');
+        if (!artist.isEmpty())
+            obj[QStringLiteral("tags_artist")] = artist.join(u' ');
+        if (!character.isEmpty())
+            obj[QStringLiteral("tags_character")] = character.join(u' ');
+        if (!copyright.isEmpty())
+            obj[QStringLiteral("tags_copyright")] = copyright.join(u' ');
+        if (!general.isEmpty())
+            obj[QStringLiteral("tags_general")] = general.join(u' ');
+        if (!meta.isEmpty())
+            obj[QStringLiteral("tags_meta")] = meta.join(u' ');
+        obj[QStringLiteral("stray")] = true;
+        {
+            QFile f(sidecar);
+            if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+                ++skippedWrite;
+                continue;
+            }
+            f.write(QJsonDocument(obj).toJson(QJsonDocument::Indented));
+        }
+        // Touch the media so rescans reparse the sidecar (same
+        // scan-cache lifecycle as the single editor).
+        if (!refuseArchiveWrite(e.absFile, effectiveDownloadDir(m_settings))) {
+            QFile touch(e.absFile);
+            if (touch.open(QIODevice::ReadWrite))
+                touch.setFileTime(QDateTime::currentDateTime(),
+                                  QFileDevice::FileModificationTime);
+        }
+        written.append(qMakePair(e.absFile, obj));
+    }
+    if (written.isEmpty()) {
+        statusBar()->showMessage(
+            skippedArchive ? tr("Library archives are read-only")
+                           : tr("Cannot write sidecars"),
+            6000);
+        return;
+    }
+    // Apply once (no per-file refresh flash): reparse, patch the live
+    // index + viewer list, then refresh sidebar/filter/classifier.
+    QVector<Post> posts = m_index.posts();
+    for (const auto &[abs, obj] : written) {
+        for (Post &p : posts) {
+            if (!p.isRemote && p.absFile == abs) {
+                Post updated = p;
+                if (MetaParser::parse(obj, updated)) {
+                    updated.absFile = p.absFile;
+                    updated.file = p.file;
+                    updated.ext = p.ext;
+                    updated.category = p.category;
+                    p = updated;
+                }
+                break;
+            }
+        }
+        for (Post &p : m_current) {
+            if (!p.isRemote && p.absFile == abs) {
+                for (const Post &q : posts) {
+                    if (!q.isRemote && q.absFile == abs) {
+                        p = q;
+                        break;
+                    }
+                }
+                break;
+            }
+        }
+    }
+    m_index.setPosts(posts);
+    if (BrowserTab *t = currentTab();
+        t && !t->isRemote && !t->isFavourites)
+        t->localPosts = posts;
+    rebuildCombos();
+    rebuildSidebar();
+    applyFilter();
+    if (m_pages->currentIndex() == 1) {
+        const QPixmap keep = m_viewer->currentPixmap();
+        m_viewer->setPosts(m_current);
+        if (!keep.isNull())
+            m_viewer->showThumbPreview(keep);
+    }
+    maybeClassify();
+    QString msg = tr("Saved tags for %1 stray(s)").arg(written.size());
+    if (skippedArchive || skippedWrite)
+        msg += tr(" (skipped %1)").arg(skippedArchive + skippedWrite);
+    statusBar()->showMessage(msg, 4000);
+}
+

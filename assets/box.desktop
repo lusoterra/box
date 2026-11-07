@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Version=1.0
-Name=box
+Name=Box
 GenericName=Booru Client
 Comment=Booru client for local archives and online boorus
 Exec=box %F

@@ -7,6 +7,7 @@
 #include "settings.h"
 #include "sidecarrefresh.h"
 #include "faviconcache.h"
+#include "straydialog.h"
 #include "tagsuggest.h"
 
 #include <QFutureWatcher>
@@ -235,6 +236,7 @@ private slots:
     void setAsMascot(const Post &post); // home mascot from a grid file
     void importStrayFiles(const QStringList &paths);
     void editStrayTags(const Post &post);
+    void applyStrayTagEdits(const QVector<StrayTagEdit> &edits);
     void refreshPost(const Post &post);
     QString refreshReason(const Post &post);
     void onRefreshDone(qint64 reqId, const QJsonObject &raw);
