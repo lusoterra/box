@@ -30,9 +30,6 @@ struct AppSettings {
     // downloads would fill the disk with images you never asked to keep.
     // It is also subject to cacheMode (and any per-booru override).
     bool fullCache = false;
-    // Remember executed searches in store.db (off by default: opt-in
-    // browsing history). Reusable from the omnibar history menu.
-    bool searchHistory = false;
     // What dragging a remote post hands to other apps. Per-booru entries
     // can override this (BooruSite::dragLinkMode).
     DragLinkMode dragLinkMode = DragLinkMode::PostPage;
@@ -281,7 +278,7 @@ inline bool operator==(const AppSettings &a, const AppSettings &b) {
            a.favAutoDownload == b.favAutoDownload && a.favAutoFav == b.favAutoFav &&
            a.unfavDeletesFile == b.unfavDeletesFile &&
            a.deleteUnfavs == b.deleteUnfavs && a.strayAutoFav == b.strayAutoFav &&
-           a.dragLinkMode == b.dragLinkMode && a.searchHistory == b.searchHistory &&
+           a.dragLinkMode == b.dragLinkMode &&
            a.blacklist == b.blacklist &&
            a.hideAi == b.hideAi && a.wallAutoPopup == b.wallAutoPopup &&
            a.favTags == b.favTags &&

@@ -242,11 +242,6 @@ void MainWindow::onSearchReturn() {
     m_suggester->setHistoryTags(m_settings.historyTokens);
     saveSettings(m_settings);
     m_searchQuery = canonicalQuery({}, pq.groups);
-    if (m_settings.searchHistory && m_favDb.isOpen()) {
-        const QString recorded = canonicalQuery(m_activeTags, pq.groups);
-        if (!recorded.trimmed().isEmpty())
-            m_favDb.addSearch(recorded);
-    }
     m_searchEdit->clear();
     commitSearch();
 }

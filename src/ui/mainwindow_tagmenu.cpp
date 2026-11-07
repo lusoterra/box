@@ -159,42 +159,6 @@ void MainWindow::onTagContextMenu(const QPoint &pos) {
     menu.exec(list->mapToGlobal(pos));
 }
 
-void MainWindow::showSearchHistoryMenu() {
-    QMenu menu(this);
-    menu.setMinimumWidth(240);
-    menu.setMaximumHeight(384);
-    const QVector<FavDb::SearchEntry> entries =
-        m_favDb.isOpen() ? m_favDb.searches(30)
-                         : QVector<FavDb::SearchEntry>();
-    if (entries.isEmpty()) {
-        QAction *none = menu.addAction(
-            m_settings.searchHistory
-                ? tr("No searches yet")
-                : tr("Search history is off (Preferences → Browse)"));
-        none->setEnabled(false);
-    }
-    for (const FavDb::SearchEntry &e : entries) {
-        QAction *a = menu.addAction(e.query);
-        a->setToolTip(tr("%1 time(s)").arg(e.count));
-        connect(a, &QAction::triggered, this, [this, q = e.query] {
-            // Replay replaces the current query instead of stacking.
-            m_activeTags.clear();
-            m_searchQuery.clear();
-            m_searchEdit->setText(q);
-            onSearchReturn();
-        });
-    }
-    if (!entries.isEmpty()) {
-        menu.addSeparator();
-        QAction *clear = menu.addAction(tr("Clear search history"));
-        connect(clear, &QAction::triggered, this, [this] {
-            m_favDb.clearSearches();
-            statusBar()->showMessage(tr("Search history cleared"), 4000);
-        });
-    }
-    menu.exec(QCursor::pos());
-}
-
 void MainWindow::showFavTagsMenu() {
     QMenu menu(this);
     QStringList tags = m_settings.favTags;

@@ -31,8 +31,7 @@ mapped under Preferences → Tags. Category labels read as words
 (`ENTITY TYPE`, not `entity_type`); empty categories hide entirely until
 tags show up, and tiny ones (≤3 tags) shrink so many fit at once;
 click toggles filter pills, right-click stars/un-stars favourite tags. The
-omnibar also has a history button (clock icon): executed searches are
-replayed from there when `Remember search history` is enabled. A captcha/PoW wall failure pops the solve browser open (opt out in Preferences → Browse, back to a small menu: solve the challenge in the capture browser, or drop the booru (deselect in multibooru, close a solo tab)). Center: post grid. Bottom-left: `40 results · page 1` and infinite scroll (more loads at the bottom); a failed query leaves its one-liner there (click = full server response) plus a `Solve … in browser…` button while walls are reported. The browser
+omnibar keeps only the ★ favourite-tags button. A captcha/PoW wall failure pops the solve browser open (opt out in Preferences → Browse, back to a small menu: solve the challenge in the capture browser, or drop the booru (deselect in multibooru, close a solo tab)). Center: post grid. Bottom-left: `40 results · page 1` and infinite scroll (more loads at the bottom); a failed query leaves its one-liner there (click = full server response) plus a `Solve … in browser…` button while walls are reported. The browser
 opens AT the failing URL (failed search request, failed file URL) instead of
 the homepage, since file/media hosts challenge while `/` lets you through.
 API-gated sites (soybooru) answer HTTP 449 `pow_required`/`captcha_required`
@@ -203,8 +202,7 @@ and an empty/unknown rating is treated as NSFW unless a positive
 ## 14-prefs-browse - Preferences → Browse
 `Page size`, `Drag posts as` (what a post drag sends to Discord/other
 apps: post page or direct media; per-booru overrides live in the manager),
-`Remember search history` (off by default; stored in `store.db`) +
-`Clear search history`, `Default boorus` checklist (new tabs + fallbacks), `Data
+`Default boorus` checklist (new tabs + fallbacks), `Data
 folder` / `Download folder` (empty = XDG defaults under `box/`),
 `Ugoira downloads` (animated webp / animated jxl / keep zip; needs
 ffmpeg in PATH, +cjxl for jxl) + `Ugoira frame delay` (fallback when the

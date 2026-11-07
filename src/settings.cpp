@@ -93,8 +93,6 @@ AppSettings loadSettings() {
     if (s.cacheMode == CacheMode::Inherit)
         s.cacheMode = CacheMode::All;
     s.fullCache = c.value(QStringLiteral("cache/full"), s.fullCache).toBool();
-    s.searchHistory =
-        c.value(QStringLiteral("search/history"), s.searchHistory).toBool();
     s.dragLinkMode = dragModeFromKey(
         c.value(QStringLiteral("drag/linkMode")).toString(), s.dragLinkMode);
     if (s.dragLinkMode == DragLinkMode::Inherit)
@@ -310,7 +308,6 @@ void writeSettingsTo(QSettings &c, const AppSettings &s) {
                s.cacheMode != CacheMode::None);
     c.setValue(QStringLiteral("cache/full"), s.fullCache);
     c.setValue(QStringLiteral("drag/linkMode"), dragModeKey(s.dragLinkMode));
-    c.setValue(QStringLiteral("search/history"), s.searchHistory);
     c.setValue(QStringLiteral("cache/limitMB"), s.cacheLimitMB);
     c.setValue(QStringLiteral("cache/dir"), s.cacheDir);
     c.setValue(QStringLiteral("cache/favs"), s.cacheFavs);
@@ -418,6 +415,7 @@ void writeSettingsTo(QSettings &c, const AppSettings &s) {
     c.setValue(QStringLiteral("viewer/volume"), s.volume);
     c.setValue(QStringLiteral("viewer/maxSide"), s.viewerMaxSide);
     c.remove(QStringLiteral("privacy/paranoia")); // retired: false promise
+    c.remove(QStringLiteral("search/history")); // retired: search history removed
     c.sync();
 }
 } // namespace

@@ -810,26 +810,6 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     connect(m_dragMode, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &PrefsDialog::updateApplyState);
     browseLay->addRow(tr("Drag posts as:"), m_dragMode);
-    m_searchHistory = new QCheckBox(
-        tr("Remember search history (stored in the favourites database)"),
-        this);
-    m_searchHistory->setChecked(current.searchHistory);
-    m_searchHistory->setToolTip(
-        tr("Off by default. When on, executed searches are kept locally "
-           "and can be replayed from the history button next to the "
-           "omnibar."));
-    connect(m_searchHistory, &QCheckBox::toggled, this,
-            &PrefsDialog::updateApplyState);
-    browseLay->addRow(QString(), m_searchHistory);
-    auto *clearHistory = new QPushButton(tr("Clear search history"), this);
-    connect(clearHistory, &QPushButton::clicked, this,
-            &PrefsDialog::clearSearchHistoryRequested);
-    // Compact button: the form field would stretch a bare button to the
-    // full width (a solid block). Wrap it with a stretch instead.
-    auto *clearHistoryRow = new QHBoxLayout();
-    clearHistoryRow->addWidget(clearHistory);
-    clearHistoryRow->addStretch(1);
-    browseLay->addRow(QString(), clearHistoryRow);
     m_defBoorus = new QListWidget(this);
     m_defBoorus->setMinimumHeight(110);
     for (const BooruSite &s : tabBoorus) {
@@ -1670,8 +1650,6 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
                 m_cacheLimit->setValue(d.cacheLimitMB);
                 m_browseLimit->setCurrentIndex(
                     qMax(0, m_browseLimit->findData(d.browseLimit)));
-                if (m_searchHistory)
-                    m_searchHistory->setChecked(d.searchHistory);
                 if (m_dragMode)
                     m_dragMode->setCurrentIndex(qMax(
                         0, m_dragMode->findData(int(d.dragLinkMode))));

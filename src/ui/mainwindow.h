@@ -268,7 +268,6 @@ private slots:
     bool isFavTag(const QString &tag) const;
     void toggleFavTag(const QString &tag);
     void showFavTagsMenu();
-    void showSearchHistoryMenu();
     // HyBooru summaries carry no tags: hydrate the loaded page in the
     // background so the sidebar fills like every other engine.
     void scheduleHybooruHydration();

@@ -37,7 +37,6 @@ signals:
     void classifyNowRequested();
     // "Refresh favicons" (Browse): drop cached site icons and refetch.
     void faviconsRefreshRequested();
-    void clearSearchHistoryRequested();
     // Apply button: harvest + let the owner apply live without closing.
     void applyRequested();
 
@@ -88,7 +87,6 @@ private:
     QSpinBox *m_ugoiraDelay = nullptr;
     QLineEdit *m_globalProxy = nullptr;
     QComboBox *m_dragMode = nullptr;
-    QCheckBox *m_searchHistory = nullptr;
     QCheckBox *m_wallAutoPopup = nullptr;
     QListWidget *m_booruList = nullptr;
     QLineEdit *m_booruName = nullptr;

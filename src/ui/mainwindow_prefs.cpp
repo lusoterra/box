@@ -104,10 +104,6 @@ void MainWindow::openPreferences() {
             &MainWindow::runClassifyPopup);
     connect(&dlg, &PrefsDialog::faviconsRefreshRequested, this,
             &MainWindow::refreshFavicons);
-    connect(&dlg, &PrefsDialog::clearSearchHistoryRequested, this, [this] {
-        if (m_favDb.isOpen())
-            m_favDb.clearSearches();
-    });
     connect(&dlg, &PrefsDialog::applyRequested, this, [this, &dlg] {
         const QString before = m_settings.language;
         applyPreferences(dlg.settings());

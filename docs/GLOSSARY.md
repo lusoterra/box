@@ -46,9 +46,9 @@
 - drag mode = `DragLinkMode` (`src/engines/boorutypes.h`): direct media
   URL vs post page for post drags; global `dragLinkMode`, per-booru
   `BooruSite.dragLinkMode` (Inherit follows global).
-- search history = opt-in `search_history` table in `store.db`
-  (`FavDb::addSearch/searches`), replayed from the clock button by the
-  omnibar; `search/history` setting defaults off.
+- search history = removed (whole-query replay + clock button). Recent
+  search tokens still feed suggestions (`historyTokens`,
+  `src/settings.h:50`); the omnibar keeps only the ★ favourite-tags button.
 - sort orders = `id-desc/id-asc/score/rating/added/...` (`BrowserTab.sort`,
   `src/ui/mainwindow.h:57`); `added` has no server spellings (client-side).
 - OR-groups = `~(...)` query syntax (`src/library/queryor.h:1-9`); one search

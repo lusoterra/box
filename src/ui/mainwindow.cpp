@@ -996,20 +996,8 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     favBtn->setCursor(Qt::PointingHandCursor);
     connect(favBtn, &QPushButton::clicked, this,
             &MainWindow::showFavTagsMenu);
-    auto *histBtn = new QPushButton(this);
-    histBtn->setIcon(UiIcons::icon(QStringLiteral("history")));
-    histBtn->setIconSize(QSize(15, 15));
-    histBtn->setFixedWidth(32);
-    histBtn->setToolTip(tr("Search history"));
-    histBtn->setCursor(Qt::PointingHandCursor);
-    connect(histBtn, &QPushButton::clicked, this,
-            &MainWindow::showSearchHistoryMenu);
 
     omniLay->addWidget(favBtn);
-    if (m_settings.searchHistory)
-        omniLay->addWidget(histBtn);
-    else
-        histBtn->hide();
     omniLay->addWidget(m_searchEdit, 10);
     omniLay->addWidget(m_ratingBox);
     omniLay->addWidget(m_categoryBox);

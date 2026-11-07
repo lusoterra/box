@@ -691,8 +691,6 @@ void PrefsDialog::harvestInto(AppSettings &out) {
         out.downloadDir.clear(); // default stays implicit
     out.globalProxy = m_globalProxy ? m_globalProxy->text().trimmed()
                                     : QString();
-    if (m_searchHistory)
-        out.searchHistory = m_searchHistory->isChecked();
     if (m_dragMode) {
         const int dm = m_dragMode->currentData().toInt();
         out.dragLinkMode = dm == int(DragLinkMode::DirectMedia)

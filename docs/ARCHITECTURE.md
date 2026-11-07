@@ -96,8 +96,7 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     (`:40`), `suggestBare()` (`:45`).
   - `favdb.h:12` `FavDb` (`store.db`): identity `pidFor`/`siteFor` (`:24`),
     `open/add/addMany/remove/list` (`:33-52`), `unlinked()` (`:61`),
-    `setTagSplits()` (`:68`); `migrateHashIds()` (`:74`). Also owns the
-    opt-in `search_history` table (`addSearch/searches/clearSearches`).
+    `setTagSplits()` (`:68`); `migrateHashIds()` (`:74`).
   - `settingsexport.h` (`src/library/`): JSON backup/restore of
     portable settings + favourites (`exportJson`/`importJson`;
     boorus merge by key, favourites addMany skips duplicates).

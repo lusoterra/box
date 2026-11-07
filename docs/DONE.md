@@ -1493,3 +1493,21 @@
   sidecars, 403 fetch reported cleanly, sidebar rebuilt, `Saved tags for
   2 stray(s)`).
 - [x] Build + `ctest` 36/36 green.
+
+## 159. Remove search history, keep favourites button - DONE
+##    (whole-query history + clock button cut; ★ stays; Xvfb + 36/36)
+- Cut: `search/history` setting (`src/settings.h`), `FavDb`
+  `addSearch/searches/clearSearches` + `search_history` table
+  (`src/library/favdb.h`, `src/library/favdb.cpp`), Browse checkbox +
+  `Clear search history` (`src/ui/prefsdlg.cpp`), omnibar history button +
+  `showSearchHistoryMenu` (`src/ui/mainwindow.cpp`,
+  `src/ui/mainwindow_tagmenu.cpp`), query recording
+  (`src/ui/mainwindow_suggest.cpp`). Old ini key dropped on save
+  (`src/settings.cpp`, like retired paranoia). Recent-token suggestions
+  (`historyTokens`) kept - invisible autocomplete memory, not a button.
+- [x] Kept: omnibar ★ favourite-tags button (`src/ui/mainwindow.cpp`).
+  Docs updated (`docs/GLOSSARY.md`, `docs/ARCHITECTURE.md`,
+  `docs/UI-TOUR.md`, `docs/PRIVACY.md`).
+- [x] Verified by execution under Xvfb (omnibar shows ★ only; Browse has
+  no Remember/Clear rows) + `ctest` 36/36 green (translations included,
+  removed `tr()` strings obsolete).
