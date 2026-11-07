@@ -605,20 +605,22 @@ private slots:
                  QStringList({QStringLiteral("sky")}));
     }
 
-    void translateGelbooruMediaTags() {
-        // Gelbooru/Safebooru/Moebooru drop bare animated/animated_gif/video
-        // server-side (client filters); ugoira stays literal.
-        // src/engines/booruengine.cpp:470-490
+    void translateMoebooruMediaTags() {
+        // Moebooru drops bare animated/animated_gif/video server-side
+        // (client filters); Gelbooru/Safebooru keep them (verified real
+        // tags 2026-11-07); ugoira stays literal everywhere.
+        // src/engines/booruengine.cpp:~466
         using enum BooruEngine;
         QCOMPARE(RemotePosts::translateSearchTags(
                      {QStringLiteral("sky"), QStringLiteral("animated"),
                       QStringLiteral("video"), QStringLiteral("ugoira")},
                      BooruEngine::Gelbooru),
-                 QStringList({QStringLiteral("sky"), QStringLiteral("ugoira")}));
+                 QStringList({QStringLiteral("sky"), QStringLiteral("animated"),
+                              QStringLiteral("video"), QStringLiteral("ugoira")}));
         QCOMPARE(RemotePosts::translateSearchTags(
                      {QStringLiteral("-animated_gif"), QStringLiteral("cat")},
                      BooruEngine::Safebooru),
-                 QStringList({QStringLiteral("cat")}));
+                 QStringList({QStringLiteral("-animated_gif"), QStringLiteral("cat")}));
         QCOMPARE(RemotePosts::translateSearchTags(
                      {QStringLiteral("animated"), QStringLiteral("solo")},
                      BooruEngine::Moebooru),
@@ -653,24 +655,25 @@ private slots:
                  QStringList());
     }
 
-    void bareMediaTagsDropOnUnverifiedEngines() {
-        // Typed `animated` on Gelbooru-family/Moebooru searches the sparse
-        // literal tag: drop it server-side (full set returns, the client
-        // ext net filters). Danbooru keeps the native tag; unverified
-        // engines keep the literal; `ugoira` stays literal everywhere.
+    void bareMediaTagsDropOnMoebooruOnly() {
+        // Typed `animated` on Moebooru searches the sparse literal tag:
+        // drop it server-side (full set returns, the client ext net
+        // filters). Gelbooru/Safebooru keep it (verified real/comprehensive
+        // 2026-11-07); Danbooru keeps the native tag; unverified engines
+        // keep the literal; `ugoira` stays literal everywhere.
         using RemotePosts::translateSearchTags;
         QCOMPARE(translateSearchTags({QStringLiteral("animated")},
                                      BooruEngine::Gelbooru),
-                 QStringList());
+                 QStringList({QStringLiteral("animated")}));
         QCOMPARE(translateSearchTags({QStringLiteral("animated")},
                                      BooruEngine::Safebooru),
-                 QStringList());
+                 QStringList({QStringLiteral("animated")}));
         QCOMPARE(translateSearchTags({QStringLiteral("animated")},
                                      BooruEngine::Moebooru),
                  QStringList());
         QCOMPARE(translateSearchTags({QStringLiteral("-video")},
                                      BooruEngine::Gelbooru),
-                 QStringList());
+                 QStringList({QStringLiteral("-video")}));
         QCOMPARE(translateSearchTags({QStringLiteral("animated_gif")},
                                      BooruEngine::Moebooru),
                  QStringList());

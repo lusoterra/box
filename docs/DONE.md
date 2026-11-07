@@ -1523,3 +1523,19 @@
   `tests/test_losnimport.cpp`; verified by execution (`test_losnimport`
   15/15, `ctest` 36/36). Full dialog import needs a backup + downloads,
   verified via the pure helper + Xvfb open path.
+
+## 161. Gelbooru "video" tag loads only a few videos - DONE
+##    (stopped stripping bare media tags on Gelbooru/Safebooru; 36/36)
+- Root cause: `translateSearchTags` stripped bare `animated`/`animated_gif`/
+  `video` for Gelbooru/Safebooru (comment claimed sparse), so the server
+  returned 100 mixed posts and the client ext net (`filetypeExtOk`,
+  `mp4/webm`) kept 1-3 per page; starved grid never scrolled. Live check
+  2026-11-07 (API JSON + HTML list/view, no media cached): Gelbooru
+  `video`/`webm` lists identical (42 on page one, page two likewise),
+  posts carry `video` + `animated`, both tags comprehensive.
+- [x] Fix: keep bare media tags server-side on Gelbooru/Safebooru
+  (`src/engines/booruengine.cpp:466`); Moebooru keeps dropping. Client
+  ext net unchanged. Updated `translateMoebooruMediaTags` +
+  `bareMediaTagsDropOnMoebooruOnly` in `tests/test_remotesource.cpp`.
+- [x] Build at `-j3` + `ctest` 36/36 green (relinked `test_gridwindow`
+  after the `-j8` interrupt left it non-executable).
