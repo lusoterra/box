@@ -3,6 +3,7 @@
 #include "cachepolicy.h"
 #include "cookiegrab.h"
 #include "faviconcache.h"
+#include "flowlayout.h"
 #include "tagtypes.h"
 #include "theme.h"
 
@@ -823,7 +824,12 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     auto *clearHistory = new QPushButton(tr("Clear search history"), this);
     connect(clearHistory, &QPushButton::clicked, this,
             &PrefsDialog::clearSearchHistoryRequested);
-    browseLay->addRow(QString(), clearHistory);
+    // Compact button: the form field would stretch a bare button to the
+    // full width (a solid block). Wrap it with a stretch instead.
+    auto *clearHistoryRow = new QHBoxLayout();
+    clearHistoryRow->addWidget(clearHistory);
+    clearHistoryRow->addStretch(1);
+    browseLay->addRow(QString(), clearHistoryRow);
     m_defBoorus = new QListWidget(this);
     m_defBoorus->setMinimumHeight(110);
     for (const BooruSite &s : tabBoorus) {
@@ -1264,12 +1270,17 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
                         .arg(label).arg(fresh.size()));
             });
     });
-    auto *cookieRow = new QHBoxLayout();
-    cookieRow->addWidget(m_booruCookieLabel, 1);
-    cookieRow->addWidget(cookieEdit);
-    cookieRow->addWidget(cookieGrab);
-    cookieRow->addWidget(cookieRefresh);
-    accForm->addRow(tr("Cookies:"), cookieRow);
+    // Wrapping layout: three fixed-size buttons + the "N set"/"none"
+    // label are wider than the editor column, so a plain HBox overflowed
+    // past the (horizontally unscrollable) page edge and clipped the
+    // "Capture in browser…" button. FlowLayout wraps to a second line.
+    auto *cookieBox = new QWidget(this);
+    auto *cookieFlow = new FlowLayout(cookieBox, 0, 6, 4);
+    cookieFlow->addWidget(m_booruCookieLabel);
+    cookieFlow->addWidget(cookieEdit);
+    cookieFlow->addWidget(cookieGrab);
+    cookieFlow->addWidget(cookieRefresh);
+    accForm->addRow(tr("Cookies:"), cookieBox);
     // Custom favicon for boorus whose icon refuses to fetch (or have
     // none): staged here, converted to <dataDir>/favicons/<key>.png on
     // Apply. Cancel touches nothing.
@@ -1320,7 +1331,12 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
             return;
         testSite(m_booruEdits.at(row));
     });
-    accForm->addRow(QStringLiteral(""), testBtn);
+    // Compact button (same stretch fix as Clear search history): a bare
+    // button as a form field grows to the full editor width.
+    auto *testRow = new QHBoxLayout();
+    testRow->addWidget(testBtn);
+    testRow->addStretch(1);
+    accForm->addRow(QStringLiteral(""), testRow);
     accForm->addRow(QStringLiteral(""), note(tr(
         "Keys and cookies are stored plaintext in settings.ini. Renaming a booru orphans "
         "its old favourites entries (they keep the old name); the key itself "

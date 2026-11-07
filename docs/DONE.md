@@ -1455,3 +1455,19 @@
   treated as ugoira and unzipped, failing downloads.
 - [x] Gate ugoira on zip extension (or unknown ext + tag).
 - [x] Build + `ctest`.
+
+## 157. Settings menu / Browse tab clipping (xvfb) - DONE
+##    (`src/ui/prefsdlg.cpp`: cookie buttons wrapped; Clear/Test compact;
+##    Xvfb screenshots; 36/36 ctest)
+- `Cookies:` HBox (`Edit…` + `Capture in browser…` + `Refresh` + label)
+  overflowed the editor column and clipped past the horizontally
+  unscrollable page edge (`Capture in browser…` showed as `pture in
+  brows`); bare `Clear search history`/`Test` buttons as form fields
+  stretched full width.
+- [x] `Cookies:` row now a `FlowLayout` in a container widget (wraps to
+  `src/ui/flowlayout.h:9`); both standalone buttons wrapped in HBox +
+  stretch so they stay compact (`src/ui/prefsdlg.cpp:827,1329`).
+- [x] No GUI test (headless `QCoreApplication` tests only, `tests/
+  CMakeLists.txt:5`): verified by execution under Xvfb (before/after
+  screenshots: cookie row wraps fully visible; Clear/Test compact).
+- [x] Build + `ctest` 36/36 green (incl. `check_translations`).
