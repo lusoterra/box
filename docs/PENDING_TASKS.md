@@ -11,13 +11,12 @@
   video/gif) defaults (mpv-style). Files: `viewerpage` (Open externally),
   `settings`/`prefsdlg` (new keys).
 
-## 7. Double-click out of fullscreen un-maximizes (TODO)
-- Maximized window + double-click into immersive fullscreen, double-click
-  again to exit -> window comes back non-maximized. Distinct from task 3
-  (F11/Esc path). Likely mouse double-click handling in `viewerpage` /
-  `MainWindow::setViewerFullscreen`. File: `src/ui/mainwindow_viewer.cpp`,
-  `src/ui/viewerpage*.cpp`.
-
+## 7. Double-click out of fullscreen un-maximizes - DONE
+- Double-click in the viewer emits `fullscreenToggleRequested`, which
+  routes through `MainWindow::toggleViewerFullscreen` -> `setViewerFullscreen`,
+  already fixed in task 3 (capture state before chrome hides, restore via
+  `setWindowState`). No separate code path; the same fix covers it.
+- Verify: Xvfb double-click (enter/exit) roundtrip + 37/37.
 ## 13. Preferences/settings terminology (TODO)
 - Note: user uses "preferences" and "settings" interchangeably. Docs +
   UI strings to unify (pick "Preferences").

@@ -1640,3 +1640,12 @@
   Gelbooru dapi fallback and returns Nuuru (`src/ui/prefsdlg_booru.cpp`,
   `detectEngineFor`).
 - [x] Build at `-j3` + `ctest` 37/37 green.
+
+## 171. Double-click fullscreen un-maximize - DONE
+##    (same fix as task 3; Xvfb + 37/37)
+- The double-click path routes through `MainWindow::toggleViewerFullscreen`
+  -> `setViewerFullscreen`, which now captures the window state before
+  hiding chrome and restores it with `setWindowState()` (`src/ui/
+  mainwindow_viewer.cpp:126`). No separate handler needed.
+- [x] Verified by execution under Xvfb (double-click enter/exit) +
+  `ctest` 37/37 `-j3`.
