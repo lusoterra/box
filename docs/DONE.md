@@ -1599,3 +1599,17 @@
 - [x] `commentsUrls` now asserts `query=post:7` on the Szuru URL and
   the absence of `postId` (`tests/test_postmeta.cpp`); viewer parse
   unchanged (already shape-tolerant). `ctest` 37/37 `-j3`.
+
+## 167. Unmounted config dir silently falls back - DONE
+##    (config dir in the startup safeguard; Xvfb + 37/37)
+- The storage-folder safeguard (`src/main.cpp:154`) covered data/cache/
+  downloads only; with a config dir on an unmounted USB
+  (`BOX_CONFIG_DIR` or the `[app] configDir` stub, `src/main.cpp:86`)
+  the app loaded pre-seed defaults without asking. The override dir now
+  warns like the others (`Config:` in details); the missing flag is
+  captured before `loadSettings()` so QSettings creating the parent dir
+  can't hide it. Use defaults drops the override; Change re-points,
+  writes the stub, and reloads settings from the new location.
+- [x] Verified by execution under Xvfb (`BOX_CONFIG_DIR=/nonexistent-…`:
+  warning + `Config:` details, Use defaults reaches the main window) +
+  `ctest` 37/37 `-j3`.

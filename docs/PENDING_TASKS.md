@@ -38,12 +38,13 @@
   3 for one post), `commentsUrls` fixture in `tests/test_postmeta.cpp`;
   37/37.
 
-## 5. Unmounted config dir silently falls back - TODO
-- Config override chain (env `BOX_CONFIG_DIR` + `[app] configDir` stub,
-  `src/main.cpp:86`) is missing from the startup safeguard that checks
-  only `dataDir`/`cacheDir`/`downloadDir` (`src/main.cpp:155`). A missing
-  config dir (USB unplugged) loads defaults without asking; must warn
-  (Use defaults / Change folders / Quit) like the others, and never
-  create files at the missing path. Note: stub pointer itself is fine.
-- Verify: Xvfb with `BOX_CONFIG_DIR` pointed at a missing dir.
+## 5. Unmounted config dir silently falls back - DONE
+- Config override chain (`src/main.cpp:86`) joined the storage safeguard:
+  missing custom dir warns (Use defaults / Change folders / Quit), name
+  `Config:` in the details. Missingness is captured pre-load (opening
+  the QSettings file creates the parent dir, hiding the gap). Use
+  defaults drops the override; Change re-points + writes the stub and
+  reloads settings.
+- Verify: Xvfb `BOX_CONFIG_DIR=/nonexistent-…` showed the warning with
+  `Config:` details, Use defaults reached the window; 37/37.
 [rest omitted]

@@ -88,6 +88,18 @@ int main(int argc, char *argv[]) {
         if (!custom.isEmpty())
             setConfigDirOverride(custom);
     }
+    // Capture the config dir's missingness BEFORE loadSettings(): opening
+    // the QSettings file creates parent directories, so the safeguard
+    // below would otherwise never see a missing (unmounted) config dir.
+    // (The stub pointer itself is untouched; only a custom location is
+    // checked, the default location is never missing.)
+    const QString configDirAtBoot = effectiveConfigDir();
+    const QString defaultConfigAtBoot =
+        QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) +
+        QStringLiteral("/box");
+    const bool configMissingAtBoot =
+        configDirAtBoot != defaultConfigAtBoot &&
+        !QDir(configDirAtBoot).exists();
     AppSettings settings = loadSettings();
     const QString forcedLang = settings.language;
     QStringList locales;
@@ -152,7 +164,21 @@ int main(int argc, char *argv[]) {
     // means its disk is not mounted. Do not create anything there (which
     // would shadow the mount point); let the user pick.
     for (;;) {
+        const QString defaultConfigDir =
+            QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) +
+            QStringLiteral("/box");
+        // Config check: the boot flag covers a dir that was missing at
+        // startup (opening the QSettings file creates it before the loop
+        // runs, so exists() alone can no longer tell). Once the user
+        // pointed it at a new folder, only the live dir matters.
+        const bool configMissing =
+            (configMissingAtBoot &&
+             effectiveConfigDir() == configDirAtBoot) ||
+            (effectiveConfigDir() != defaultConfigDir &&
+             !QDir(effectiveConfigDir()).exists());
         QStringList bad;
+        if (configMissing)
+            bad << QStringLiteral("Config: ") + effectiveConfigDir();
         if (!settings.dataDir.isEmpty() && !QDir(settings.dataDir).exists())
             bad << QStringLiteral("Data: ") + settings.dataDir;
         if (!settings.cacheDir.isEmpty() && !QDir(settings.cacheDir).exists())
@@ -182,6 +208,11 @@ int main(int argc, char *argv[]) {
         if (mb.clickedButton() == quitBtn)
             return 0;
         if (mb.clickedButton() == defBtn) {
+            // Defaults for the config live at the default location: drop
+            // the custom-dir override (the pointer in the stub goes away
+            // when the fresh defaults are saved over it).
+            if (configMissing)
+                setConfigDirOverride(QString());
             if (!settings.dataDir.isEmpty() && !QDir(settings.dataDir).exists())
                 settings.dataDir.clear();
             if (!settings.cacheDir.isEmpty() && !QDir(settings.cacheDir).exists())
@@ -189,6 +220,18 @@ int main(int argc, char *argv[]) {
             if (!settings.downloadDir.isEmpty() && !QDir(settings.downloadDir).exists())
                 settings.downloadDir.clear();
             saveSettings(settings);
+        } else if (configMissing) {
+            // Config (env/stub pointer) is the thing missing: let the user
+            // point it at an existing folder, persist the pointer stub,
+            // and re-read settings from the new location.
+            const QString p = QFileDialog::getExistingDirectory(
+                nullptr, QCoreApplication::translate("CommandLine", "Select config folder"),
+                effectiveConfigDir());
+            if (!p.isEmpty()) {
+                setConfigDirOverride(p);
+                writeConfigStub(defaultConfigDir, p);
+                settings = loadSettings();
+            }
         } else {
             if (!settings.dataDir.isEmpty() && !QDir(settings.dataDir).exists()) {
                 const QString p = QFileDialog::getExistingDirectory(
