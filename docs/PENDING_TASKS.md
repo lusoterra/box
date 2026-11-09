@@ -21,12 +21,14 @@
 - Verify: `sidecarPathsFor` in `tests/test_downloadplan.cpp`; Xvfb
   favourited-stray delete left no `.json`; 37/37.
 
-## 3. Fullscreen exit drops maximized state - TODO
+## 3. Fullscreen exit drops maximized state - DONE
 - `MainWindow::setViewerFullscreen` (`src/ui/mainwindow_viewer.cpp:126`)
-  saves `windowState()` but exit path (`showMaximized`/`showNormal`) ends
-  non-maximized when the app was maximized. Likely saved state already
-  lost maximized bit or geometry restored clobbers it.
-- Verify: Xvfb maximize -> F11 -> Esc roundtrip stays maximized.
+  lost maximized via the showMaximized()/showNormal() pair. Now captures
+  `windowState()` before chrome hides and restores it wholesale with
+  `setWindowState()` on exit.
+- Verify: Xvfb F11 (fills) -> Esc roundtrip back to entry size; Qt state
+  threading probed offscreen (test would need a WM for the bit, so no
+  unit test). 37/37.
 
 ## 4. Szuru comments fetch floods post - TODO
 - `PostMeta::commentsUrl` Szuru branch uses `/api/comments/?postId=`

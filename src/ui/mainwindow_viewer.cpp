@@ -126,6 +126,12 @@ void MainWindow::toggleViewerFullscreen() {
 void MainWindow::setViewerFullscreen(bool on) {
     if (m_viewerFullscreen == on)
         return;
+    // Capture the window state before touching any chrome: hiding the
+    // menu/omnibar/sidebar triggers relayouts that some WMs answer with
+    // a geometry state change, and the fullscreen restore must reflect
+    // how the window was the moment the user asked for fullscreen.
+    if (on)
+        m_preFullscreenState = windowState();
     m_viewerFullscreen = on;
     if (m_viewer)
         m_viewer->setImmersive(on);
@@ -142,13 +148,13 @@ void MainWindow::setViewerFullscreen(bool on) {
         m_pillBar->setVisible(!on && m_pills && m_pills->count() > 0);
     statusBar()->setVisible(!on);
     if (on) {
-        m_preFullscreenState = windowState();
         showFullScreen();
     } else {
-        if (m_preFullscreenState & Qt::WindowMaximized)
-            showMaximized();
-        else
-            showNormal();
+        // Restore the exact state captured on entry through the Qt state
+        // API instead of a showMaximized()/showNormal() pair: on several
+        // WMs the pair ends up non-maximized.
+        setWindowState(m_preFullscreenState);
+        m_preFullscreenState = Qt::WindowNoState;
         if (m_pages)
             m_pages->setCurrentIndex(1); // stay on the viewer
         if (m_viewer)

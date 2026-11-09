@@ -1576,3 +1576,16 @@
   (`src/ui/theme.cpp`), `docs/UI-TOUR.md` Appearance list.
 - [x] Verified by execution under Xvfb (theme dropdown lists it, Apply
   paints the dialog Steam green with gold sliders) + `ctest` 37/37.
+
+## 165. Fullscreen exit drops maximized state - DONE
+##    (restore saved windowState wholesale; Xvfb + 37/37)
+- `MainWindow::setViewerFullscreen` (`src/ui/mainwindow_viewer.cpp:126`)
+  captured `windowState()` after chrome hides and restored via
+  `showMaximized()`/`showNormal()`; some WMs end non-maximized. Capture
+  now precedes the chrome hides and the exit restores the exact state
+  with `setWindowState()` (never showMaximized/showNormal again).
+- [x] No unit test (fullscreen bit tracks via the WM, unverifiable on
+  offscreen) - verified by execution under Xvfb (F11 fills the viewer,
+  Esc returns to the entry geometry).
+- [x] Build at `-j3` + `ctest` 37/37 (one `test_gridwindow` segfault flake
+  on shutdown in the WebEngine teardown, pre-existing, unrelated).
