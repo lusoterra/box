@@ -8,10 +8,6 @@
   already fixed in task 3 (capture state before chrome hides, restore via
   `setWindowState`). No separate code path; the same fix covers it.
 - Verify: Xvfb double-click (enter/exit) roundtrip + 37/37.
-## 13. Preferences/settings terminology (TODO)
-- Note: user uses "preferences" and "settings" interchangeably. Docs +
-  UI strings to unify (pick "Preferences").
-
 ## 1. Post URL shapes for Szuru-family hosts - DONE
 - Root-id hosts (`yosho.io/31121`, `jej.lol`, `boymoders.com`,
   `bury.pink`, `flube.supply`, `spikedog.school`) -> `/<id>` in

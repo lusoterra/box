@@ -20,6 +20,7 @@ add_executable(box
     src/settings.cpp
     src/library/tagtypes.cpp
     src/remote/postmeta.cpp
+    src/remote/tempmedia.cpp
     src/engines/boorutypes.h
     src/engines/sitequirks.h
     src/engines/sitequirks.cpp

@@ -1660,3 +1660,11 @@
 - [x] Build at `-j3` + `ctest` 37/37 green. Player-pickers in the
   Preferences UI were not added this round (defaults resolve to the
   system handler when empty); the {file}/{url} template path still works.
+
+## 173. Preferences/settings terminology - DONE
+##    (UI says Preferences; docs aligned; 37/37)
+- The menu item is already `&Preferences…` and the dialog title is
+  `Preferences`; release notes / docs already use "Preferences". No
+  further rename needed beyond the existing strings; the user's
+  interchangeable usage is documented in `docs/GLOSSARY.md` ("preferences
+  = settings menu"). No code change.
