@@ -189,15 +189,34 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     m_defaultTab = new QComboBox(this);
     m_defaultTab->addItem(tr("Welcome home"), QStringLiteral("welcome"));
     m_defaultTab->addItem(tr("Last session"), QStringLiteral("last"));
-    const QList<BooruSite> tabBoorus =
+    // Default booru (driven by Browse > Default boorus): open the first
+    // configured default booru as a browse tab instead of a per-site list.
+    const QList<BooruSite> defBoorus =
         current.boorus.isEmpty() ? RemoteSource::presetBoorus() : current.boorus;
-    for (const BooruSite &s : tabBoorus)
-        if (s.enabled)
-            m_defaultTab->addItem(tr("%1 browse").arg(s.label), s.key);
+    QStringList defKeys;
+    for (const BooruSite &s : defBoorus)
+        if (s.enabled && current.browseSites.contains(s.key))
+            defKeys << s.key;
+    if (defKeys.isEmpty()) {
+        for (const BooruSite &s : defBoorus)
+            if (s.enabled && !s.key.isEmpty()) {
+                defKeys << s.key;
+                break;
+            }
+    }
+    if (!defKeys.isEmpty()) {
+        const BooruSite *pick = nullptr;
+        for (const BooruSite &s : defBoorus)
+            if (s.key == defKeys.first()) { pick = &s; break; }
+        const QString label = pick ? pick->label : defKeys.first();
+        m_defaultTab->addItem(tr("Default booru (%1)").arg(label),
+                              defKeys.first());
+    }
     int defaultIdx = m_defaultTab->findData(current.tabsDefault);
     if (defaultIdx < 0 && !current.tabsDefault.isEmpty() &&
         current.tabsDefault != QStringLiteral("welcome") &&
-        current.tabsDefault != QStringLiteral("last")) {
+        current.tabsDefault != QStringLiteral("last") &&
+        current.tabsDefault != defKeys.value(0)) {
         m_defaultTab->addItem(
             tr("%1 (disabled)").arg(current.tabsDefault),
             current.tabsDefault);
@@ -873,6 +892,8 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     browseLay->addRow(tr("Drag posts as:"), m_dragMode);
     m_defBoorus = new QListWidget(this);
     m_defBoorus->setMinimumHeight(110);
+    const QList<BooruSite> tabBoorus =
+        current.boorus.isEmpty() ? RemoteSource::presetBoorus() : current.boorus;
     for (const BooruSite &s : tabBoorus) {
         if (!s.enabled)
             continue;

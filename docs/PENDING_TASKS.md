@@ -27,11 +27,6 @@
   engine probe for soybooru.com (`detectEngineFor` in
   `src/ui/prefsdlg_booru.cpp`, `src/engines/engine_*`).
 
-## 12. Default-tab dropdown limits (TODO)
-- General > Default tab should only offer: Welcome home, Last session,
-  Default booru (driven by Preferences > Browse > Default boorus).
-  Remove per-booru entries (`src/ui/prefsdlg.cpp`).
-
 ## 13. Preferences/settings terminology (TODO)
 - Note: user uses "preferences" and "settings" interchangeably. Docs +
   UI strings to unify (pick "Preferences").

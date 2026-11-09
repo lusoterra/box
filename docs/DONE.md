@@ -1622,3 +1622,10 @@
   `RemotePosts::shortFor` already derives three capitals (known hosts
   have explicit shorts).
 - [x] Build at `-j3` + `ctest` 37/37 green.
+
+## 169. Default-tab dropdown limited to Welcome/Last/Default booru - DONE
+##    (no per-site entries; 37/37)
+- General > Default tab now offers only Welcome home, Last session, and
+  Default booru (first of Browse > Default boorus); the previous
+  per-booru list is gone (`src/ui/prefsdlg.cpp:192`).
+- [x] Build at `-j3` + `ctest` 37/37 green.
