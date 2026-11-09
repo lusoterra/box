@@ -23,7 +23,7 @@
 #include "sidecarrefresh.h"
 #include "tagsuggest.h"
 #include "theme.h"
-#include "uicons.h"
+#include "tempmedia.h"
 #include "scanner.h"
 #include "tagtypes.h"
 #include "theme.h"
@@ -200,6 +200,27 @@ void MainWindow::showViewerContextMenu(const Post &post,
         QAction *copyPath = menu.addAction(tr("Copy file path"));
         connect(copyPath, &QAction::triggered, this, [local] {
             QApplication::clipboard()->setText(local);
+        });
+        QAction *copyFile = menu.addAction(tr("Copy file (clipboard)"));
+        connect(copyFile, &QAction::triggered, this, [this, post, local] {
+            QString path = local;
+            if (path.isEmpty()) {
+                const QString url = post.fileUrl.isEmpty() ? post.sampleUrl : post.fileUrl;
+                if (url.isEmpty())
+                    return;
+                TempMedia::ensureTemp(url, QStringLiteral("jpg"),
+                                     [this](const QString &p) {
+                                         if (p.isEmpty())
+                                             return;
+                                         auto *md = new QMimeData();
+                                         md->setUrls({QUrl::fromLocalFile(p)});
+                                         QApplication::clipboard()->setMimeData(md);
+                                     });
+                return;
+            }
+            auto *md = new QMimeData();
+            md->setUrls({QUrl::fromLocalFile(path)});
+            QApplication::clipboard()->setMimeData(md);
         });
         QAction *open = menu.addAction(tr("Open file"));
         connect(open, &QAction::triggered, this, [local] {

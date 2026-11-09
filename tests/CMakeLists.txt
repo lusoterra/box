@@ -86,14 +86,14 @@ add_unit_test(test_favicon test_favicon.cpp ../src/remote/faviconcache.cpp
 add_unit_test(test_sidecarrefresh test_sidecarrefresh.cpp ../src/library/sidecarrefresh.cpp
               ${REMOTE_SOURCES})
 add_unit_test(test_thumbloader test_thumbloader.cpp ../src/remote/thumbloader.cpp
-              ../src/library/cachejanitor.cpp ${REMOTE_SOURCES} ../src/settings.cpp)
+              ../src/library/cachejanitor.cpp ${REMOTE_SOURCES} ../src/settings.cpp ../src/remote/tempmedia.cpp)
 target_compile_definitions(test_thumbloader PRIVATE
     TESTFILES_DIR="${CMAKE_SOURCE_DIR}/tests/files")
 add_unit_test(test_gifview test_gifview.cpp ../src/ui/viewerpage.cpp ../src/ui/viewerpage_mediaviews.cpp ../src/ui/viewerpage_meta.cpp ../src/ui/viewerpage_tags.cpp ../src/ui/viewerpage_load.cpp ../src/ui/viewerpage_setters.cpp ../src/ui/viewerpage_detail.cpp ../src/ui/viewerpage_nav.cpp
               ../src/remote/imagecache.cpp ../src/remote/postmeta.cpp
               ../src/remote/webdlbackend.h ../src/library/cachejanitor.cpp
               ../src/ui/progressbar.cpp ../src/ui/flowlayout.cpp
-              ${REMOTE_SOURCES} ../src/settings.cpp)
+              ${REMOTE_SOURCES} ../src/settings.cpp ../src/remote/tempmedia.cpp)
 target_compile_definitions(test_gifview PRIVATE
     TESTFILES_DIR="${CMAKE_SOURCE_DIR}/tests/files")
 set_tests_properties(test_gifview PROPERTIES
@@ -102,7 +102,7 @@ add_unit_test(test_videopane test_videopane.cpp ../src/ui/viewerpage.cpp ../src/
               ../src/remote/imagecache.cpp ../src/remote/postmeta.cpp
               ../src/remote/webdlbackend.h ../src/library/cachejanitor.cpp
               ../src/ui/progressbar.cpp ../src/ui/flowlayout.cpp
-              ${REMOTE_SOURCES} ../src/settings.cpp)
+              ${REMOTE_SOURCES} ../src/settings.cpp ../src/remote/tempmedia.cpp)
 target_compile_definitions(test_videopane PRIVATE
     TESTFILES_DIR="${CMAKE_SOURCE_DIR}/tests/files")
 set_tests_properties(test_videopane PROPERTIES
@@ -127,7 +127,7 @@ add_unit_test(test_gridwindow test_gridwindow.cpp
               ../src/remote/faviconcache.cpp ../src/library/sidecarrefresh.cpp
               ../src/library/index.cpp ../src/library/cachejanitor.cpp
               ../src/settings.cpp ${REMOTE_SOURCES} ${UGOIRA_SOURCES}
-              ../src/library/settingsexport.cpp)
+              ../src/library/settingsexport.cpp ../src/remote/tempmedia.cpp)
 target_link_libraries(test_gridwindow PRIVATE Qt6::WebEngineWidgets Qt6::WebEngineCore)
 set_tests_properties(test_gridwindow PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

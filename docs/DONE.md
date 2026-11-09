@@ -1649,3 +1649,14 @@
   mainwindow_viewer.cpp:126`). No separate handler needed.
 - [x] Verified by execution under Xvfb (double-click enter/exit) +
   `ctest` 37/37 `-j3`.
+
+## 172. Open-externally streams remote media + Copy file - DONE
+##    (TempMedia fetch-to-temp, viewer + clipboard; 37/37)
+- Remote posts now fetch to a stable /tmp/box-ext path (TempMedia,
+  src/remote/tempmedia.cpp) and launch the configured external player
+  instead of opening the URL in the browser. ImageCache hit is used first.
+  The viewer right-click menu gained `Copy file (clipboard)`, which copies
+  the local file URL (or fetches remotely then sets QMimeData urls).
+- [x] Build at `-j3` + `ctest` 37/37 green. Player-pickers in the
+  Preferences UI were not added this round (defaults resolve to the
+  system handler when empty); the {file}/{url} template path still works.

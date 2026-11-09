@@ -2,15 +2,6 @@
 
 
 
-## 6. Open-externally streams remote media + player pickers (TODO)
-- "Open externally" only opens media in the default player when
-  downloaded/cached; otherwise it opens the URL in the browser. Remote
-  posts should download somewhere usable (even with caching off - /tmp
-  that survives until playback) or stream.
-- Add Settings pickers: image viewer + video player (+ CLI flags/loop for
-  video/gif) defaults (mpv-style). Files: `viewerpage` (Open externally),
-  `settings`/`prefsdlg` (new keys).
-
 ## 7. Double-click out of fullscreen un-maximizes - DONE
 - Double-click in the viewer emits `fullscreenToggleRequested`, which
   routes through `MainWindow::toggleViewerFullscreen` -> `setViewerFullscreen`,
