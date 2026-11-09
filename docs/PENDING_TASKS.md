@@ -18,15 +18,6 @@
   `MainWindow::setViewerFullscreen`. File: `src/ui/mainwindow_viewer.cpp`,
   `src/ui/viewerpage*.cpp`.
 
-## 8. Drag needs Shift hold (TODO)
-- Media drag currently anything drags; conflicts with area panning. Require
-  holding Shift to start a drag (`src/ui/mainwindow.cpp`, grid drags).
-
-## 11. Soybooru autocheck fails (TODO)
-- Engine autodetect falls for Soybooru (wrong detection). Fix Detect
-  engine probe for soybooru.com (`detectEngineFor` in
-  `src/ui/prefsdlg_booru.cpp`, `src/engines/engine_*`).
-
 ## 13. Preferences/settings terminology (TODO)
 - Note: user uses "preferences" and "settings" interchangeably. Docs +
   UI strings to unify (pick "Preferences").

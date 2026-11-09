@@ -584,6 +584,9 @@ void GridView::resizeEvent(QResizeEvent *e) {
 }
 
 void GridView::startDrag(Qt::DropActions) {
+    // Drag requires Shift (otherwise it fights panning / the wheel scroll).
+    if (!(QApplication::keyboardModifiers() & Qt::ShiftModifier))
+        return;
     const QModelIndexList sel = selectedIndexes();
     QList<QUrl> urls;
     for (const QModelIndex &i : sel) {

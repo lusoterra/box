@@ -1629,3 +1629,14 @@
   Default booru (first of Browse > Default boorus); the previous
   per-booru list is gone (`src/ui/prefsdlg.cpp:192`).
 - [x] Build at `-j3` + `ctest` 37/37 green.
+
+## 170. Shift-hold drag + Soybooru autodetect - DONE
+##    (grid + viewer media drags gated on Shift; detect probe; 37/37)
+- Grid (`GridView::startDrag`) and viewer media (ImageView/GifView/
+  VideoView) now only start a URL drag when Shift is held, so plain
+  drags pan/scroll instead (`src/ui/mainwindow.cpp:586`,
+  `src/ui/viewerpage_mediaviews.cpp:202,407,585`).
+- Detect now probes soybooru.com's pow wall (`pow_required`) before the
+  Gelbooru dapi fallback and returns Nuuru (`src/ui/prefsdlg_booru.cpp`,
+  `detectEngineFor`).
+- [x] Build at `-j3` + `ctest` 37/37 green.

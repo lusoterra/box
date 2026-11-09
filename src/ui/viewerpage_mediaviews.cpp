@@ -211,8 +211,10 @@ void ImageView::mousePressEvent(QMouseEvent *e) {
             return;
         }
     }
-    // At fit there is nothing to pan: a left drag exports the post URL.
-    if (e->button() == Qt::LeftButton && m_fitted && !m_dragUrl.isEmpty()) {
+    // At fit there is nothing to pan: a left drag (Shift held) exports the
+    // post URL. Plain drag pans when zoomed in.
+    if (e->button() == Qt::LeftButton && m_fitted && !m_dragUrl.isEmpty() &&
+        (QApplication::keyboardModifiers() & Qt::ShiftModifier)) {
         m_dragPress = e->pos();
         m_dragMaybe = true;
     }
@@ -403,7 +405,8 @@ void GifView::contextMenuEvent(QContextMenuEvent *e) {
 }
 
 void GifView::mousePressEvent(QMouseEvent *e) {
-    if (e->button() == Qt::LeftButton && m_fitted && !m_dragUrl.isEmpty()) {
+    if (e->button() == Qt::LeftButton && m_fitted && !m_dragUrl.isEmpty() &&
+        (QApplication::keyboardModifiers() & Qt::ShiftModifier)) {
         m_dragPress = e->pos();
         m_dragMaybe = true;
     }
@@ -582,7 +585,8 @@ void VideoView::contextMenuEvent(QContextMenuEvent *e) {
 }
 
 void VideoView::mousePressEvent(QMouseEvent *e) {
-    if (e->button() == Qt::LeftButton && m_fitted && !m_dragUrl.isEmpty()) {
+    if (e->button() == Qt::LeftButton && m_fitted && !m_dragUrl.isEmpty() &&
+        (QApplication::keyboardModifiers() & Qt::ShiftModifier)) {
         m_dragPress = e->pos();
         m_dragMaybe = true;
     }

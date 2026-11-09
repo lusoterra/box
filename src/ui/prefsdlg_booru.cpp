@@ -500,6 +500,18 @@ QPair<int, QString> detectEngineFor(const QString &base) {
         if (!o.isEmpty() && o.value(QStringLiteral("tags")).isString())
             return {int(BooruEngine::Moebooru), base};
     }
+    // Soybooru (and other pow-walled hosts) answer HTTP 449
+    // pow_required on plain fetches: detect it BEFORE the Gelbooru dapi
+    // fallback so it isn't mis-identified (Gelbooru). The wall is itself
+    // the signature of the Nuuru family.
+    {
+        // Probe the same shape Nuuru's detect path uses.
+        const QByteArray body = get(
+            base + QStringLiteral("/api/booru/posts?limit=1"));
+        if (body.contains("pow_required") ||
+            body.contains("captcha_required"))
+            return {int(BooruEngine::Nuuru), base};
+    }
     // Gelbooru dapi family: {"post": [...]} or a bare tags array.
     {
         const QByteArray body = get(
