@@ -414,7 +414,10 @@ void PrefsDialog::updateApplyState() {
 namespace {
 // Blocking engine probe (worker thread): fetch shape-revealing endpoints,
 // first match wins. -1 when nothing matches (walled/gone/unknown).
-int detectEngineFor(const QString &base) {
+// Szuru instances sometimes live under a subpath (visuabusters at
+// /booru): the same probes run under <base> and <base>/booru, and the
+// winning base is returned in usedBase (via the QPair second).
+QPair<int, QString> detectEngineFor(const QString &base) {
     QNetworkAccessManager nam;
     auto get = [&](const QString &url) -> QByteArray {
         QNetworkRequest req{QUrl(url)};
@@ -453,22 +456,27 @@ int detectEngineFor(const QString &base) {
         const QByteArray xml =
             get(base + QStringLiteral("/api/danbooru/post/index.xml?limit=1"));
         if (xml.trimmed().startsWith('<') && xml.contains("<posts"))
-            return int(BooruEngine::Shimmie);
+            return {int(BooruEngine::Shimmie), base};
     }
-    // Szurubooru: version endpoint, else results-shaped listing.
-    {
+    // Szurubooru: version endpoint, else results-shaped listing. Tried at
+    // the base and at <base>/booru (subpath installs share no subdomain,
+    // e.g. visuabusters /booru/post/<id>).
+    QStringList cands = {base};
+    if (!base.endsWith(QStringLiteral("/booru")))
+        cands << base + QStringLiteral("/booru");
+    for (const QString &cand : cands) {
         QJsonParseError err;
         const QJsonDocument info = QJsonDocument::fromJson(
-            get(base + QStringLiteral("/api/info")), &err);
+            get(cand + QStringLiteral("/api/info")), &err);
         if (err.error == QJsonParseError::NoError && info.isObject() &&
             (info.object().contains(QStringLiteral("serverTime")) ||
              info.object().contains(QStringLiteral("version"))))
-            return int(BooruEngine::Szurubooru);
+            return {int(BooruEngine::Szurubooru), cand};
         const QJsonDocument list = QJsonDocument::fromJson(
-            get(base + QStringLiteral("/api/posts/?limit=1")), &err);
+            get(cand + QStringLiteral("/api/posts/?limit=1")), &err);
         if (err.error == QJsonParseError::NoError && list.isObject() &&
             list.object().value(QStringLiteral("results")).isArray())
-            return int(BooruEngine::Szurubooru);
+            return {int(BooruEngine::Szurubooru), cand};
     }
     // Danbooru: per-bucket tag_string_* fields.
     {
@@ -478,7 +486,7 @@ int detectEngineFor(const QString &base) {
             (o.contains(QStringLiteral("tag_string_artist")) ||
              o.contains(QStringLiteral("tag_string_general")) ||
              o.contains(QStringLiteral("tag_string_copyright"))))
-            return int(BooruEngine::Danbooru);
+            return {int(BooruEngine::Danbooru), base};
     }
     // Moebooru: flat "tags" string (epoch dates where present).
     // Gelbooru never serves /post.json, so anything tags-shaped here
@@ -487,7 +495,7 @@ int detectEngineFor(const QString &base) {
         const QJsonObject o =
             firstObj(get(base + QStringLiteral("/post.json?limit=1")));
         if (!o.isEmpty() && o.value(QStringLiteral("tags")).isString())
-            return int(BooruEngine::Moebooru);
+            return {int(BooruEngine::Moebooru), base};
     }
     // Gelbooru dapi family: {"post": [...]} or a bare tags array.
     {
@@ -499,16 +507,16 @@ int detectEngineFor(const QString &base) {
         if (err.error == QJsonParseError::NoError) {
             if (doc.isObject() &&
                 doc.object().value(QStringLiteral("post")).isArray())
-                return int(BooruEngine::Gelbooru);
+                return {int(BooruEngine::Gelbooru), base};
             if (doc.isArray() && !doc.array().isEmpty()) {
                 const QJsonValue v = doc.array().first();
                 if (v.isObject() &&
                     v.toObject().value(QStringLiteral("tags")).isString())
-                    return int(BooruEngine::Gelbooru);
+                    return {int(BooruEngine::Gelbooru), base};
             }
         }
     }
-    return -1;
+    return {-1, base};
 }
 } // namespace
 
@@ -522,16 +530,22 @@ void PrefsDialog::detectBooruEngine(QPushButton *detectBtn) {
     detectBtn->setEnabled(false);
     m_accStatus->setText(tr("Detecting engine…"));
     const QString base = e->baseUrl;
-    QFutureWatcher<int> *watcher = new QFutureWatcher<int>(this);
-    connect(watcher, &QFutureWatcher<int>::finished, this,
+    QFutureWatcher<QPair<int, QString>> *watcher =
+        new QFutureWatcher<QPair<int, QString>>(this);
+    connect(watcher, &QFutureWatcher<QPair<int, QString>>::finished, this,
             [this, watcher, detectBtn] {
-                const int found = watcher->result();
+                const auto [found, usedBase] = watcher->result();
                 detectBtn->setEnabled(true);
                 watcher->deleteLater();
                 if (found < 0) {
                     m_accStatus->setText(
                         tr("✗ engine not recognized - pick it manually"));
                     return;
+                }
+                if (!usedBase.isEmpty() && usedBase != m_booruBase->text()) {
+                    // Subpath install (e.g. /booru): adopt the discovered
+                    // base so /api/* and post links resolve under it.
+                    m_booruBase->setText(usedBase);
                 }
                 const BooruEngine engine = static_cast<BooruEngine>(found);
                 m_booruEngine->setCurrentIndex(qMax(

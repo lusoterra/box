@@ -2,15 +2,16 @@
 
 
 
-## 1. Post URL shapes for Szuru-family hosts - TODO
-- Generic Szuru `/post/<id>` (`src/engines/booruengine.cpp:666`,
-  `src/remote/remotesource.cpp:973`) breaks elsewhere:
-  - Root-id hosts (`yosho.io/31121`, also `jej.lol`, `boymoders.com`,
-    `bury.pink`, `flube.supply`, `spikedog.school`): need `/<id>`.
-  - `szuru.libre.moe/post/6556`: already `/post/` - confirm covered.
-  - `visuabusters.com/booru/post/2654`: base under `/booru/` subpath, no
-    subdomain - need base-path-aware `postPageUrl` (Detect `/booru/` prefix).
-- Verify: `test_remotesource` fixtures per shape + live click-through.
+## 1. Post URL shapes for Szuru-family hosts - DONE
+- Root-id hosts (`yosho.io/31121`, `jej.lol`, `boymoders.com`,
+  `bury.pink`, `flube.supply`, `spikedog.school`) -> `/<id>` in
+  `postPageUrl` (`src/engines/booruengine.cpp:666`); `postPageUrlFor`
+  delegates (`src/remote/remotesource.cpp:973`). `/post/` kept elsewhere
+  (`szuru.libre.moe/post/6556` OK; visuabusters `/booru/post/2654` via a
+  `/booru`-based URL). Detect probes `<base>` + `<base>/booru` for the Szuru
+  endpoints and adopts the winning base (`src/ui/prefsdlg_booru.cpp:417`).
+- Verify: `postPageUrls` fixtures (`tests/test_remotesource.cpp:914`) +
+  live HEADs (yosho/libre 200, visuabusters behind Cloudflare); 37/37.
 
 ## 2. Delete from disk leaves sidecars - TODO
 - Grid/viewer delete removes media but `.json` sidecars linger

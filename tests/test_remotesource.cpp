@@ -937,6 +937,23 @@ private slots:
         QCOMPARE(RemotePosts::postPageUrl(QStringLiteral("nuuru"),
                                           QStringLiteral("https://nu"), 8),
                  QStringLiteral("https://nu/post/view/8"));
+        // Szuru root-id hosts: post at the origin root.
+        QCOMPARE(RemotePosts::postPageUrl(QStringLiteral("szurubooru"),
+                                          QStringLiteral("https://yosho.io"), 31121),
+                 QStringLiteral("https://yosho.io/31121"));
+        QCOMPARE(RemotePosts::postPageUrl(QStringLiteral("szurubooru"),
+                                          QStringLiteral("https://www.boymoders.com"), 12),
+                 QStringLiteral("https://www.boymoders.com/12"));
+        QCOMPARE(RemotePosts::postPageUrl(QStringLiteral("szurubooru"),
+                                          QStringLiteral("https://jej.lol"), 13),
+                 QStringLiteral("https://jej.lol/13"));
+        // Generic Szuru: /post/<id>, subpath bases keep their path.
+        QCOMPARE(RemotePosts::postPageUrl(QStringLiteral("szurubooru"),
+                                          QStringLiteral("https://szuru.libre.moe"), 6556),
+                 QStringLiteral("https://szuru.libre.moe/post/6556"));
+        QCOMPARE(RemotePosts::postPageUrl(QStringLiteral("szurubooru"),
+                                          QStringLiteral("https://www.visuabusters.com/booru"), 2654),
+                 QStringLiteral("https://www.visuabusters.com/booru/post/2654"));
         QCOMPARE(RemotePosts::postPageUrl(QStringLiteral("derpibooru"),
                                           QStringLiteral("https://derp"), 9),
                  QStringLiteral("https://derp/images/9"));

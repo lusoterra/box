@@ -8,6 +8,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QRegularExpression>
+#include <QSet>
 #include <QUrlQuery>
 #include <climits>
 #include <cmath>
@@ -670,8 +671,27 @@ QString postPageUrl(const QString &siteKey, const QString &baseUrl, qint64 id) {
         return baseUrl + QStringLiteral("/posts/") + QString::number(id);
     if (siteKey == QStringLiteral("yandere") || siteKey == QStringLiteral("konachan"))
         return baseUrl + QStringLiteral("/post/show/") + QString::number(id);
-    if (siteKey == QStringLiteral("szurubooru"))
+    if (siteKey == QStringLiteral("szurubooru")) {
+        // Per-host post shapes: most instances sit under /post/<id>, but
+        // the root-id hosts (yosho.io and family -> /<id> directly) route
+        // the post at the origin root. Host of the instance decides;
+        // baseUrl may already carry a subpath (visuabusters lives under
+        // /booru and is entered as such, so /booru/post/<id> falls out).
+        QString host = QUrl(baseUrl).host().toLower();
+        if (host.startsWith(QStringLiteral("www.")))
+            host = host.mid(4);
+        static const QSet<QString> rootId = {
+            QStringLiteral("yosho.io"), QStringLiteral("jej.lol"),
+            QStringLiteral("boymoders.com"), QStringLiteral("bury.pink"),
+            QStringLiteral("flube.supply"), QStringLiteral("spikedog.school"),
+        };
+        if (rootId.contains(host)) {
+            QString b = baseUrl;
+            while (b.endsWith(u'/') && b.size() > 7) b.chop(1);
+            return b + u'/' + QString::number(id);
+        }
         return baseUrl + QStringLiteral("/post/") + QString::number(id);
+    }
     if (siteKey == QStringLiteral("shimmie") || siteKey == QStringLiteral("nuuru"))
         return baseUrl + QStringLiteral("/post/view/") + QString::number(id);
     if (siteKey == QStringLiteral("derpibooru"))

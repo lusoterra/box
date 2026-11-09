@@ -981,7 +981,8 @@ QString postPageUrlFor(const BooruSite &site, qint64 id) {
     case Moebooru:
         return base + QStringLiteral("/post/show/") + QString::number(id);
     case Szurubooru:
-        return base + QStringLiteral("/post/") + QString::number(id);
+        // Delegated: per-host shape (/post/ vs root /<id>).
+        return postPageUrl(QStringLiteral("szurubooru"), base, id);
     case Shimmie:
         return base + QStringLiteral("/post/view/") + QString::number(id);
     case Hybooru:
