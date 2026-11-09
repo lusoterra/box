@@ -2,6 +2,48 @@
 
 
 
+## 6. Open-externally streams remote media + player pickers (TODO)
+- "Open externally" only opens media in the default player when
+  downloaded/cached; otherwise it opens the URL in the browser. Remote
+  posts should download somewhere usable (even with caching off - /tmp
+  that survives until playback) or stream.
+- Add Settings pickers: image viewer + video player (+ CLI flags/loop for
+  video/gif) defaults (mpv-style). Files: `viewerpage` (Open externally),
+  `settings`/`prefsdlg` (new keys).
+
+## 7. Double-click out of fullscreen un-maximizes (TODO)
+- Maximized window + double-click into immersive fullscreen, double-click
+  again to exit -> window comes back non-maximized. Distinct from task 3
+  (F11/Esc path). Likely mouse double-click handling in `viewerpage` /
+  `MainWindow::setViewerFullscreen`. File: `src/ui/mainwindow_viewer.cpp`,
+  `src/ui/viewerpage*.cpp`.
+
+## 8. Drag needs Shift hold (TODO)
+- Media drag currently anything drags; conflicts with area panning. Require
+  holding Shift to start a drag (`src/ui/mainwindow.cpp`, grid drags).
+
+## 9. Mascot opacity default 35% (TODO)
+- Change default mascot opacity to 35% (`src/settings.h`,
+  mascot opacity spin/sliders in `src/ui/prefsdlg.cpp`).
+
+## 10. Booru badge auto from name (TODO)
+- Booru manager badge text: auto-pick acronym from first letters of the
+  box (Preferences > Browse > Booru manager, `src/ui/prefsdlg_booru.cpp`).
+
+## 11. Soybooru autocheck fails (TODO)
+- Engine autodetect falls for Soybooru (wrong detection). Fix Detect
+  engine probe for soybooru.com (`detectEngineFor` in
+  `src/ui/prefsdlg_booru.cpp`, `src/engines/engine_*`).
+
+## 12. Default-tab dropdown limits (TODO)
+- General > Default tab should only offer: Welcome home, Last session,
+  Default booru (driven by Preferences > Browse > Default boorus).
+  Remove per-booru entries (`src/ui/prefsdlg.cpp`).
+
+## 13. Preferences/settings terminology (TODO)
+- Note: user uses "preferences" and "settings" interchangeably. Docs +
+  UI strings to unify (pick "Preferences").
+
 ## 1. Post URL shapes for Szuru-family hosts - DONE
 - Root-id hosts (`yosho.io/31121`, `jej.lol`, `boymoders.com`,
   `bury.pink`, `flube.supply`, `spikedog.school`) -> `/<id>` in
