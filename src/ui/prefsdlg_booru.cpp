@@ -720,6 +720,16 @@ void PrefsDialog::harvestInto(AppSettings &out) {
         out.downloadDir.clear(); // default stays implicit
     out.globalProxy = m_globalProxy ? m_globalProxy->text().trimmed()
                                     : QString();
+    if (m_defaultImageViewer)
+        out.defaultImageViewer = m_defaultImageViewer->text().trimmed();
+    if (m_defaultGifViewer)
+        out.defaultGifViewer = m_defaultGifViewer->text().trimmed();
+    if (m_defaultVideoPlayer)
+        out.defaultVideoPlayer = m_defaultVideoPlayer->text().trimmed();
+    if (m_loopGif)
+        out.loopGif = m_loopGif->isChecked();
+    if (m_loopVideo)
+        out.loopVideo = m_loopVideo->isChecked();
     if (m_dragMode) {
         const int dm = m_dragMode->currentData().toInt();
         out.dragLinkMode = dm == int(DragLinkMode::DirectMedia)

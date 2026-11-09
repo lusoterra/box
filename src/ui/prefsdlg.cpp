@@ -312,6 +312,36 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     });
     histRow->addWidget(histClear);
     genLay->addLayout(histRow);
+    // External media handlers: image viewer / GIF viewer / video player.
+    // Empty = system default. {file}/{url} placeholders substituted.
+    auto extRow = [this, &genLay](const QString &label, QLineEdit **out,
+                                  const QString &val) {
+        auto *row = new QHBoxLayout();
+        row->addWidget(new QLabel(label, this));
+        auto *edit = new QLineEdit(val, this);
+        row->addWidget(edit, 1);
+        genLay->addLayout(row);
+        *out = edit;
+    };
+    QLineEdit *ivEdit = nullptr, *gvEdit = nullptr, *vpEdit = nullptr;
+    extRow(tr("External image viewer:"), &ivEdit, current.defaultImageViewer);
+    extRow(tr("External GIF viewer:"), &gvEdit, current.defaultGifViewer);
+    extRow(tr("External video player:"), &vpEdit, current.defaultVideoPlayer);
+    m_defaultImageViewer = ivEdit;
+    m_defaultGifViewer = gvEdit;
+    m_defaultVideoPlayer = vpEdit;
+    auto *loopRow = new QHBoxLayout();
+    auto *loopGif = new QCheckBox(tr("Loop GIFs"), this);
+    loopGif->setChecked(current.loopGif);
+    auto *loopVideo = new QCheckBox(tr("Loop videos"), this);
+    loopVideo->setChecked(current.loopVideo);
+    loopRow->addWidget(loopGif);
+    loopRow->addWidget(loopVideo);
+    loopRow->addStretch(1);
+    genLay->addLayout(loopRow);
+    m_loopGif = loopGif;
+    m_loopVideo = loopVideo;
+
     // Favourite tags (starred via right-click anywhere): listed here for
     // review and removal. Starring still happens out in the app; this is
     // the only place that can bulk-remove.

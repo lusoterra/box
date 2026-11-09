@@ -151,7 +151,10 @@ struct AppSettings {
     // External media handlers. Empty = system default. {file}/{url}
     // placeholders are substituted; otherwise the path/URL is appended.
     QString defaultImageViewer;
+    QString defaultGifViewer;
     QString defaultVideoPlayer;
+    bool loopGif = true;
+    bool loopVideo = true;
     // Home mascot: empty path = shipped default (マニフェスト.jpg);
     // mascotHidden hides even the default (Preferences → Remove).
     QString mascotPath;
@@ -297,7 +300,9 @@ inline bool operator==(const AppSettings &a, const AppSettings &b) {
            a.explicitTags == b.explicitTags && a.themeMode == b.themeMode &&
            a.accent == b.accent && a.stylesheet == b.stylesheet &&
            a.defaultImageViewer == b.defaultImageViewer &&
+           a.defaultGifViewer == b.defaultGifViewer &&
            a.defaultVideoPlayer == b.defaultVideoPlayer &&
+           a.loopGif == b.loopGif && a.loopVideo == b.loopVideo &&
            a.mascotPath == b.mascotPath && a.mascotHidden == b.mascotHidden &&
            qFuzzyCompare(a.mascotOpacity + 1.0, b.mascotOpacity + 1.0) &&
            qFuzzyCompare(a.mascotScale + 1.0, b.mascotScale + 1.0) &&

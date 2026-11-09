@@ -318,8 +318,12 @@ AppSettings loadSettings() {
     s.stylesheet = c.value(QStringLiteral("theme/stylesheet")).toString();
     s.defaultImageViewer =
         c.value(QStringLiteral("app/defaultImageViewer")).toString();
+    s.defaultGifViewer =
+        c.value(QStringLiteral("app/defaultGifViewer")).toString();
     s.defaultVideoPlayer =
         c.value(QStringLiteral("app/defaultVideoPlayer")).toString();
+    s.loopGif = c.value(QStringLiteral("app/loopGif"), true).toBool();
+    s.loopVideo = c.value(QStringLiteral("app/loopVideo"), true).toBool();
     s.mascotPath = c.value(QStringLiteral("home/mascot")).toString();
     s.mascotHidden =
         c.value(QStringLiteral("home/mascotHidden"), false).toBool();
@@ -457,7 +461,10 @@ void writeSettingsTo(QSettings &c, const AppSettings &s) {
     c.setValue(QStringLiteral("theme/accent"), s.accent);
     c.setValue(QStringLiteral("theme/stylesheet"), s.stylesheet);
     c.setValue(QStringLiteral("app/defaultImageViewer"), s.defaultImageViewer);
+    c.setValue(QStringLiteral("app/defaultGifViewer"), s.defaultGifViewer);
     c.setValue(QStringLiteral("app/defaultVideoPlayer"), s.defaultVideoPlayer);
+    c.setValue(QStringLiteral("app/loopGif"), s.loopGif);
+    c.setValue(QStringLiteral("app/loopVideo"), s.loopVideo);
     c.setValue(QStringLiteral("home/mascot"), s.mascotPath);
     c.setValue(QStringLiteral("home/mascotHidden"), s.mascotHidden);
     c.setValue(QStringLiteral("home/mascotOpacity"), s.mascotOpacity);

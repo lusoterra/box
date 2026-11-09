@@ -78,6 +78,11 @@ private:
     QPlainTextEdit *m_blacklist;
     QListWidget *m_favTagList = nullptr; // General: review/remove stars
     QLineEdit *m_configDir = nullptr; // General: effective config folder
+    QLineEdit *m_defaultImageViewer = nullptr;
+    QLineEdit *m_defaultGifViewer = nullptr;
+    QLineEdit *m_defaultVideoPlayer = nullptr;
+    QCheckBox *m_loopGif = nullptr;
+    QCheckBox *m_loopVideo = nullptr;
     QComboBox *m_browseLimit;
     QListWidget *m_defBoorus = nullptr;
     QLineEdit *m_dataDir = nullptr;
