@@ -147,6 +147,20 @@ void enrichSidecarRaw(QJsonObject &raw, const Post &p) {
 }
 } // namespace
 
+QStringList DownloadManager::sidecarPathsFor(const QString &absFile) {
+    const QFileInfo fi(absFile);
+    QStringList out;
+    out.append(fi.absolutePath() + u'/' +
+               fi.completeBaseName() + QStringLiteral(".json"));
+    out.append(absFile + QStringLiteral(".json"));
+    QStringList dedup;
+    for (const QString &p : out) {
+        if (!dedup.contains(p) && p != absFile)
+            dedup.append(p);
+    }
+    return dedup;
+}
+
 QList<DownloadJob> DownloadManager::plan(const QVector<Post> &posts,
                                          const QString &destDir) {
     QList<DownloadJob> jobs;

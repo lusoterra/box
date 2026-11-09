@@ -1554,3 +1554,25 @@
   and 1920x1080 via Xvfb screenshots.
 - [x] Tests: new `tests/test_configmove.cpp` (copy/stub/noop/errors,
   offscreen) + `ctest` 37/37 green at `-j3`.
+
+## 163. Delete from disk orphaned sidecars - DONE
+##    (always remove both sidecar candidates with the media; 37/37)
+- Grid delete preserved favourited regenerable sidecars (`keepSidecar`);
+  the lone `.json` without media can never be re-scanned, so it was pure
+  litter (redownload runs from the DB row, not the file). Dropped the
+  preservation, unified both delete paths on
+  `DownloadManager::sidecarPathsFor` (`src/remote/downloadmanager.h:55`,
+  `src/ui/mainwindow_gridmenu.cpp:440`, `src/ui/mainwindow_viewer.cpp:220`).
+- [x] Test `sidecarPathsFor` (stem/flat/multi-dot cases) in
+  `tests/test_downloadplan.cpp`; Xvfb: favourited stray delete left no
+  `.json` (pre-fix left it). `ctest` 37/37 `-j3`.
+
+## 164. Steam Classic green theme - DONE
+##    (CC0 PrismLauncher palette -> Box INI keys; Xvfb; 37/37)
+- New `themes/steam-classic.ini` (order 12, `dark=true`): window/base/
+  button `#4c5844`, alternate `#5a6a50`, text `#ffffff`, dim `#a0aa95`,
+  disabled/border `#3e4637`, accent `#c4b550`; embedded via the
+  `themes/*.ini` glob (`CMakeLists.txt:146`), fallback list updated
+  (`src/ui/theme.cpp`), `docs/UI-TOUR.md` Appearance list.
+- [x] Verified by execution under Xvfb (theme dropdown lists it, Apply
+  paints the dialog Steam green with gold sliders) + `ctest` 37/37.

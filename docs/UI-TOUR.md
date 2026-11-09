@@ -241,7 +241,7 @@ invalidate the scan cache).
 ## 16-prefs-appearance - Preferences → Appearance
 `Theme` (file-based; Box dark, KeePassXC dark/light, Light, Nord,
 Catppuccin Latte/Frappé/Macchiato/Mocha, Dracula, Atom One Dark, Tokyo
-Night, System native), `Accent`, `Custom .qss`, `Sidebar: one scrollbar for all
+Night, Steam Classic, System native), `Accent`, `Custom .qss`, `Sidebar: one scrollbar for all
 tag categories` (default off), `Show local folder browser in the quick +
 menu` (default off), `Home mascot` Browse/Remove/Reset-to-default +
 opacity slider + margin, `Grid` ratio/scroll, `Snap grid post size to fill the window` (on by

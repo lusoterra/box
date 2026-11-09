@@ -13,13 +13,13 @@
 - Verify: `postPageUrls` fixtures (`tests/test_remotesource.cpp:914`) +
   live HEADs (yosho/libre 200, visuabusters behind Cloudflare); 37/37.
 
-## 2. Delete from disk leaves sidecars - TODO
-- Grid/viewer delete removes media but `.json` sidecars linger
-  (`src/ui/mainwindow_gridmenu.cpp:440`, `src/ui/mainwindow_viewer.cpp:220`).
-  Current logic only deletes sidecars inside `downloadsDir` and preserves
-  regenerable manifests - needs rework so orphaned sidecars are removed
-  with the media (strays included).
-- Verify: Xvfb delete of stray + downloaded rows, no `*.json` orphans.
+## 2. Delete from disk leaves sidecars - DONE
+- Grid/viewer delete orphaned sidecars: favourited regenerable files were
+  preserved (`keepSidecar`) and the lone `.json` could never re-scan.
+  Now both delete paths remove both sidecar candidates with the media
+  (`DownloadManager::sidecarPathsFor`, `src/remote/downloadmanager.h:55`).
+- Verify: `sidecarPathsFor` in `tests/test_downloadplan.cpp`; Xvfb
+  favourited-stray delete left no `.json`; 37/37.
 
 ## 3. Fullscreen exit drops maximized state - TODO
 - `MainWindow::setViewerFullscreen` (`src/ui/mainwindow_viewer.cpp:126`)

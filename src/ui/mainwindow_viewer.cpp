@@ -217,9 +217,9 @@ void MainWindow::showViewerContextMenu(const Post &post,
                     return;
                 const QFileInfo fi(path);
                 QFile::remove(path);
-                QFile::remove(fi.absolutePath() + u'/' +
-                              fi.completeBaseName() + QStringLiteral(".json"));
-                QFile::remove(path + QStringLiteral(".json"));
+                for (const QString &sp :
+                     DownloadManager::sidecarPathsFor(path))
+                    QFile::remove(sp);
                 updateViewerBadges();
                 repaintFavMarks();
                 statusBar()->showMessage(tr("Deleted %1").arg(fi.fileName()),

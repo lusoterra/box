@@ -196,6 +196,7 @@ QList<ThemeInfo> availableThemes() {
             {QStringLiteral("dracula"), QStringLiteral("Dracula")},
             {QStringLiteral("atom-one-dark"), QStringLiteral("Atom One Dark")},
             {QStringLiteral("tokyo-night"), QStringLiteral("Tokyo Night")},
+            {QStringLiteral("steam-classic"), QStringLiteral("Steam Classic")},
         };
         int order = 0;
         for (const auto &[key, label] : fallback)

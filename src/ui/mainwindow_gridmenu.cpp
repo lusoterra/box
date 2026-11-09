@@ -372,10 +372,12 @@ void MainWindow::showGridMenu(const QPoint &pos) {
             }
             return QString();
         };
-        // canonical path -> stays favourited but cannot regenerate
-        // (warned), vs sidecar must survive (staying favourited AND
-        // regenerable: the sidecar is the re-download manifest).
-        QSet<QString> doomed, keepSidecar;
+        // Kept favourites losing their file are still regenerated from
+        // the DB row's remote URLs (and the sidecar file is removed;
+        // a lone sidecar without media can never be re-scanned, so
+        // keeping it only littered). Doomed (no source link) is only
+        // for the warning below.
+        QSet<QString> doomed;
         // Path -> fav keys pointing at it (recorded before deletion,
         // while canonicalization still resolves). Local scanned posts
         // carry a ("local", file-hash) identity that never matches
@@ -398,10 +400,11 @@ void MainWindow::showGridMenu(const QPoint &pos) {
             warned.insert(favVetoKey(site, pid));
             const bool regen =
                 p.isRemote ? !p.fileUrl.isEmpty() : !sidecarUrl(abs).isEmpty();
-            (regen ? keepSidecar : doomed).insert(abs);
+            if (!regen)
+                doomed.insert(abs);
         }
         // Path-linked favourites missed above (Downloads-tab locals):
-        // warn/keep by the DB row's own source link.
+        // warn by the DB row's own source link.
         for (const QString &abs : anyFiles) {
             for (const auto &key : byCanonPath.value(abs)) {
                 const QString veto = favVetoKey(key.first, key.second);
@@ -414,7 +417,8 @@ void MainWindow::showGridMenu(const QPoint &pos) {
                     (!db.fileUrl.isEmpty() &&
                      RemotePosts::isHttpUrl(db.fileUrl)) ||
                     !sidecarUrl(abs).isEmpty();
-                (regen ? keepSidecar : doomed).insert(abs);
+                if (!regen)
+                    doomed.insert(abs);
             }
         }
         QString question =
@@ -440,22 +444,15 @@ void MainWindow::showGridMenu(const QPoint &pos) {
                 continue;
             if (QFile::remove(f)) {
                 gone++;
-                // Our download sidecar shares the stem (<stem>.json):
-                // remove it so no orphan is left behind - unless it is a
-                // kept re-download manifest (see above). Archive sidecars
-                // are the user's metadata and stay untouched.
+                // Our sidecars share the stem (<stem>.json) or ride flat
+                // (<media>.json): remove both alongside the media so no
+                // orphan is left behind. Archive sidecars (outside the
+                // download root) are the user's metadata and stay.
                 if (!dlRoot.isEmpty() &&
-                    (f == dlRoot || f.startsWith(dlRoot + u'/')) &&
-                    !keepSidecar.contains(f)) {
-                    const QFileInfo fi(f);
-                    const QString stemSidecar = fi.absolutePath() + u'/' +
-                                                fi.completeBaseName() +
-                                                QStringLiteral(".json");
-                    const QString flatSidecar = f + QStringLiteral(".json");
-                    if (stemSidecar != f)
-                        QFile::remove(stemSidecar);
-                    if (flatSidecar != f)
-                        QFile::remove(flatSidecar);
+                    (f == dlRoot || f.startsWith(dlRoot + u'/'))) {
+                    for (const QString &sp :
+                         DownloadManager::sidecarPathsFor(f))
+                        QFile::remove(sp);
                 }
             }
         }

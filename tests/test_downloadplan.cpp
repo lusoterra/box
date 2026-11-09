@@ -195,6 +195,22 @@ private slots:
         Post bad = favPost(QStringLiteral("Gelbooru"), 1,
                            QStringLiteral("file:///etc/passwd"));
         QVERIFY(DownloadManager::plan({bad}, QStringLiteral("/d")).isEmpty());
+        // sidecar candidates: stem form + flat form, media itself excluded;
+        // multi-dot + extensionless names collapse sanely.
+        const QStringList two = DownloadManager::sidecarPathsFor(
+            QStringLiteral("/d/Site_ab12.jpg"));
+        QCOMPARE(two.size(), 2);
+        QVERIFY(two.contains(QStringLiteral("/d/Site_ab12.json")));
+        QVERIFY(two.contains(QStringLiteral("/d/Site_ab12.jpg.json")));
+        QVERIFY(!two.contains(QStringLiteral("/d/Site_ab12.jpg")));
+        const QStringList dotted = DownloadManager::sidecarPathsFor(
+            QStringLiteral("/d/a.b.c.jpg"));
+        QCOMPARE(dotted.size(), 2);
+        QVERIFY(dotted.contains(QStringLiteral("/d/a.b.c.json")));
+        const QStringList bare = DownloadManager::sidecarPathsFor(
+            QStringLiteral("/d/noext"));
+        QCOMPARE(bare.size(), 1);
+        QVERIFY(bare.contains(QStringLiteral("/d/noext.json")));
         // p.ext fills missing file_ext
         QJsonObject raw;
         raw[QStringLiteral("id")] = 9;

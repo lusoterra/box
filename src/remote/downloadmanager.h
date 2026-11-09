@@ -54,6 +54,11 @@ public:
     // Build target paths for posts under destDir (one subfolder per site).
     static QList<DownloadJob> plan(const QVector<Post> &posts, const QString &destDir);
 
+    // Sidecar candidate paths for a media file (stem form + flat form,
+    // deduped): the downloads write the stem form (Site_md5.json),
+    // gallery-dl writes the flat form (Site_md5.jpg.json). Pure.
+    static QStringList sidecarPathsFor(const QString &absFile);
+
     void enqueue(const QList<DownloadJob> &jobs);
     void cancel();
     // Drop queued/in-flight jobs for these file URLs (explicit unfavourite:
