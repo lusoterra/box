@@ -292,9 +292,13 @@ QUrl commentsUrl(BooruEngine engine, const QString &baseUrl, qint64 postId,
                  const QString &gelUser, const QString &gelKey) {
     const QString id = QString::number(postId);
     if (engine == BooruEngine::Szurubooru) {
+        // The endpoint ignores a postId parameter and returns the whole
+        // feed; scope through the query language instead (live-verified).
         QUrl url(baseUrl + QStringLiteral("/api/comments/"));
         QUrlQuery q;
-        q.addQueryItem(QStringLiteral("postId"), id);
+        q.addQueryItem(QStringLiteral("query"),
+                       QStringLiteral("post:") + id);
+        q.addQueryItem(QStringLiteral("limit"), QStringLiteral("100"));
         url.setQuery(q);
         return url;
     }

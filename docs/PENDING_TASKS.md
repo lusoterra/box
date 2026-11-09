@@ -30,11 +30,13 @@
   threading probed offscreen (test would need a WM for the bit, so no
   unit test). 37/37.
 
-## 4. Szuru comments fetch floods post - TODO
-- `PostMeta::commentsUrl` Szuru branch uses `/api/comments/?postId=`
-  (`src/remote/postmeta.cpp:291`); viewer shows the whole feed instead of
-  the one post. Params/response shape likely wrong (ignores the filter).
-- Verify: live Szuru post, `test_postmeta` fixtures scoped per-post.
+## 4. Szuru comments fetch floods post - DONE
+- `/api/comments/?postId=` is ignored by the API (whole feed returned).
+  Scoping via the query language (`query=post:<id>`); limit 100
+  (`src/remote/postmeta.cpp:291`). Parse unchanged.
+- Verify: live `jej.lol` (`postId` -> total 265 across posts; `post:` ->
+  3 for one post), `commentsUrls` fixture in `tests/test_postmeta.cpp`;
+  37/37.
 
 ## 5. Unmounted config dir silently falls back - TODO
 - Config override chain (env `BOX_CONFIG_DIR` + `[app] configDir` stub,

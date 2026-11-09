@@ -48,6 +48,16 @@ private slots:
         const QUrl sfw =
             PostMeta::commentsUrl(BooruEngine::Safebooru, kSfw, 7, {}, {});
         QCOMPARE(queryItem(sfw, "s"), QStringLiteral("comment"));
+        // Szurubooru scopes through the query language: ?postId= is
+        // ignored and returns the whole feed.
+        // (Live jej.lol 2026-11-09: ?postId=35460 -> total 265 across
+        // posts; ?query=post:35460 -> total 3, all for 35460.)
+        const QUrl szuru = PostMeta::commentsUrl(
+            BooruEngine::Szurubooru, QStringLiteral("https://jej.lol"), 7);
+        QVERIFY(szuru.toString().startsWith(
+            QStringLiteral("https://jej.lol/api/comments/")));
+        QCOMPARE(queryItem(szuru, "query"), QStringLiteral("post:7"));
+        QVERIFY(queryItem(szuru, "postId").isEmpty());
         QVERIFY(PostMeta::commentsUrl(BooruEngine::Shimmie, kDan, 1).isEmpty());
         QVERIFY(PostMeta::commentsUrl(BooruEngine::Hybooru, kDan, 1).isEmpty());
         QVERIFY(PostMeta::commentsUrl(BooruEngine::Derpibooru, kDan, 1).isEmpty());

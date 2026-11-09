@@ -1589,3 +1589,13 @@
   Esc returns to the entry geometry).
 - [x] Build at `-j3` + `ctest` 37/37 (one `test_gridwindow` segfault flake
   on shutdown in the WebEngine teardown, pre-existing, unrelated).
+
+## 166. Szuru comments flood the viewer - DONE
+##    (postId ignored -> query=post:<id> scopes; live-verified; 37/37)
+- `/api/comments/?postId=<id>` returns the entire feed (live jej.lol:
+  `postId=35460` -> total 265, mixed postIds). Scoping is the query
+  language: `?query=post:<id>` (live -> total 3, all for 35460); limit
+  100 kept (`src/remote/postmeta.cpp:291`).
+- [x] `commentsUrls` now asserts `query=post:7` on the Szuru URL and
+  the absence of `postId` (`tests/test_postmeta.cpp`); viewer parse
+  unchanged (already shape-tolerant). `ctest` 37/37 `-j3`.
