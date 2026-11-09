@@ -156,7 +156,7 @@ struct AppSettings {
     // mascotHidden hides even the default (Preferences → Remove).
     QString mascotPath;
     bool mascotHidden = false;
-    double mascotOpacity = 0.9; // mascot translucency (0.1-1.0)
+    double mascotOpacity = 0.35; // mascot translucency (0.1-1.0)
     double mascotScale = 0.45;   // height fraction (0.1-0.65), 1.0 = max
                                  // height, 2.0 = full width
     int mascotMargin = 0;        // mascot right/bottom padding in px

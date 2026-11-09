@@ -1613,3 +1613,12 @@
 - [x] Verified by execution under Xvfb (`BOX_CONFIG_DIR=/nonexistent-…`:
   warning + `Config:` details, Use defaults reaches the main window) +
   `ctest` 37/37 `-j3`.
+
+## 168. Mascot opacity default 35% + badge auto-text - DONE
+##    (settings default + placeholder; 37/37)
+- Default mascot opacity `src/settings.h:159`: 0.9 -> 0.35 (new installs).
+- Booru manager badge text field now shows the auto-picked acronym as
+  placeholder and fills it when empty (`src/ui/prefsdlg_booru.cpp:57`);
+  `RemotePosts::shortFor` already derives three capitals (known hosts
+  have explicit shorts).
+- [x] Build at `-j3` + `ctest` 37/37 green.

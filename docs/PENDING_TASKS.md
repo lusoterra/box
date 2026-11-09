@@ -22,14 +22,6 @@
 - Media drag currently anything drags; conflicts with area panning. Require
   holding Shift to start a drag (`src/ui/mainwindow.cpp`, grid drags).
 
-## 9. Mascot opacity default 35% (TODO)
-- Change default mascot opacity to 35% (`src/settings.h`,
-  mascot opacity spin/sliders in `src/ui/prefsdlg.cpp`).
-
-## 10. Booru badge auto from name (TODO)
-- Booru manager badge text: auto-pick acronym from first letters of the
-  box (Preferences > Browse > Booru manager, `src/ui/prefsdlg_booru.cpp`).
-
 ## 11. Soybooru autocheck fails (TODO)
 - Engine autodetect falls for Soybooru (wrong detection). Fix Detect
   engine probe for soybooru.com (`detectEngineFor` in

@@ -55,6 +55,7 @@ void PrefsDialog::commitBooruEditor(const QString &key) {
         b.shortName = m_booruShort->text().trimmed();
         if (b.shortName.isEmpty())
             b.shortName = RemotePosts::shortFor(b.label);
+        m_booruShort->setPlaceholderText(RemotePosts::shortFor(b.label));
         b.badgeColor = m_booruColor.name();
         QString base = m_booruBase->text().trimmed();
         while (base.endsWith(u'/'))
@@ -276,6 +277,8 @@ void PrefsDialog::loadBooruEditor(int row) {
     m_booruName->setText(found->label);
     m_booruEnabled->setChecked(found->enabled);
     m_booruShort->setText(found->shortName);
+    if (m_booruShort->text().trimmed().isEmpty())
+        m_booruShort->setPlaceholderText(RemotePosts::shortFor(found->label));
     m_booruColor = QColor(found->badgeColor);
     if (!m_booruColor.isValid())
         m_booruColor = QColor(QStringLiteral("#3a7ec2"));
