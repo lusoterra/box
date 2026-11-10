@@ -12,7 +12,7 @@ inline QString appVersion() {
 }
 
 inline QString appRepoUrl() {
-    return QStringLiteral("https://git.lusosterone.net/lev/box");
+    return QStringLiteral("https://github.com/lusoterra/box");
 }
 
 inline QString appTagline() {

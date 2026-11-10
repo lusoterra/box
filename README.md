@@ -75,7 +75,7 @@ BOX_PREFIX=~/.local ./scripts/install-latest.sh
 ```
 
 Pacman packaging lives in the separate `box-git` repo (PKGBUILD builds
-from `git.lusosterone.net/lev/box`).
+from `github.com/lusoterra/box`).
 
 ## Local archives
 

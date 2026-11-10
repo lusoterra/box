@@ -1219,7 +1219,7 @@
 
 ## 111. box-git packaging + upgrade script
 - [x] Convert `packaging/` into a real `box-git` PKGBUILD sourcing
-      `git+https://git.lusosterone.net/lev/box.git`.
+      `git+https://github.com/lusoterra/box.git`.
 - [x] Add an install/upgrade helper that rebuilds the package and replaces
       the installed binary/libraries, removing stale `/usr/local/bin`
       copies so the GUI always launches the latest build.

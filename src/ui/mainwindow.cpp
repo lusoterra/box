@@ -826,7 +826,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
                "Arrows: navigate grid"));
     });
     helpMenu->addAction(tr("&Documentation…"), this, [this] {
-        QDesktopServices::openUrl(QUrl("https://github.com/"));
+        QDesktopServices::openUrl(QUrl("https://github.com/lusoterra/box"));
     });
     // Keyboard: arrows navigate the grid natively, Enter opens.
     // "/" focuses search, Esc clears filters (or leaves the viewer).
