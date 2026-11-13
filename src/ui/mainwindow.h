@@ -368,6 +368,7 @@ private:
     void showViewer(int row);
     bool m_viewerFullscreen = false;
     Qt::WindowStates m_preFullscreenState = Qt::WindowNoState;
+    bool m_preFullscreenMaximized = false;
 
     QString m_root;
     Index m_index;

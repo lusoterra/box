@@ -130,8 +130,10 @@ void MainWindow::setViewerFullscreen(bool on) {
     // menu/omnibar/sidebar triggers relayouts that some WMs answer with
     // a geometry state change, and the fullscreen restore must reflect
     // how the window was the moment the user asked for fullscreen.
-    if (on)
+    if (on) {
         m_preFullscreenState = windowState();
+        m_preFullscreenMaximized = isMaximized();
+    }
     m_viewerFullscreen = on;
     if (m_viewer)
         m_viewer->setImmersive(on);
@@ -153,8 +155,12 @@ void MainWindow::setViewerFullscreen(bool on) {
         // Restore the exact state captured on entry through the Qt state
         // API instead of a showMaximized()/showNormal() pair: on several
         // WMs the pair ends up non-maximized.
-        setWindowState(m_preFullscreenState);
+        if (m_preFullscreenMaximized)
+            showMaximized();
+        else
+            setWindowState(m_preFullscreenState);
         m_preFullscreenState = Qt::WindowNoState;
+        m_preFullscreenMaximized = false;
         if (m_pages)
             m_pages->setCurrentIndex(1); // stay on the viewer
         if (m_viewer)
