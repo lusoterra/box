@@ -64,6 +64,7 @@ void PrefsDialog::commitBooruEditor(const QString &key) {
             if (b.label.isEmpty() || b.label == b.key)
                 b.label = QStringLiteral("Soybooru");
             b.badgeColor = QStringLiteral("#ffffff");
+            b.shortName = QStringLiteral("SOY");
             b.skipAutoClassify = true;
         }
         while (base.endsWith(u'/'))
