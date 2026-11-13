@@ -58,6 +58,14 @@ void PrefsDialog::commitBooruEditor(const QString &key) {
         m_booruShort->setPlaceholderText(RemotePosts::shortFor(b.label));
         b.badgeColor = m_booruColor.name();
         QString base = m_booruBase->text().trimmed();
+        if (base.isEmpty() && m_booruEngine->currentData().toString() ==
+                            QStringLiteral("nuuru")) {
+            base = QStringLiteral("https://soybooru.com");
+            if (b.label.isEmpty() || b.label == b.key)
+                b.label = QStringLiteral("Soybooru");
+            b.badgeColor = QStringLiteral("#ffffff");
+            b.skipAutoClassify = true;
+        }
         while (base.endsWith(u'/'))
             base.chop(1);
         const QString oldHost = QUrl(b.baseUrl).host().toLower();
