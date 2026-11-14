@@ -41,6 +41,11 @@ void ThumbLoader::setCacheDir(const QString &dir) {
 void ThumbLoader::setMaxThreads(int n) {
     m_pool->setMaxThreadCount(n);
 }
+void ThumbLoader::lowerConcurrency() {
+    int n = m_pool->maxThreadCount();
+    if (n > 1)
+        m_pool->setMaxThreadCount(n - 1);
+}
 
 void ThumbLoader::setWebBackend(WebDownloadBackend *backend) {
     m_webBackend = backend;
@@ -158,8 +163,13 @@ void ThumbTask::run() {
             QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
             timer.start();
             loop.exec();
+            const int httpStatus = reply->attribute(
+                                       QNetworkRequest::HttpStatusCodeAttribute)
+                                       .toInt();
             if (reply->error() == QNetworkReply::NoError)
                 bytes = reply->readAll();
+            if (httpStatus == 429)
+                m_loader->lowerConcurrency();
             reply->deleteLater();
         }
         // Bounded decode: hostile dimensions must not balloon memory.

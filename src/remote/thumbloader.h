@@ -24,6 +24,7 @@ public:
     void setAspect(int num, int den); // e.g. 1,1 or 4,3
     void setCacheDir(const QString &dir);
     void setMaxThreads(int n);
+    void lowerConcurrency();
     // Browser backend for fingerprint-walled thumbnails (null = QNAM).
     // Set once by the app; read by pool tasks.
     void setWebBackend(class WebDownloadBackend *backend);

@@ -157,6 +157,6 @@ void MainWindow::applyBrowseFilter() {
     rebuildBrowseSidebar();
     updateResultLabel();
     updateTabTitle(m_curTab);
-    scheduleHybooruHydration();
+    QTimer::singleShot(0, this, [this] { scheduleHybooruHydration(); });
 }
 
