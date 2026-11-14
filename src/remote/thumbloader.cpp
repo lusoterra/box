@@ -168,7 +168,8 @@ void ThumbTask::run() {
                                        .toInt();
             if (reply->error() == QNetworkReply::NoError)
                 bytes = reply->readAll();
-            if (httpStatus == 429)
+            if (httpStatus == 429 || httpStatus >= 500 ||
+                reply->error() != QNetworkReply::NoError)
                 m_loader->lowerConcurrency();
             reply->deleteLater();
         }
