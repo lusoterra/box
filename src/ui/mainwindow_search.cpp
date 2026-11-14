@@ -558,6 +558,19 @@ void MainWindow::onRemoteFinished() {
 void MainWindow::scheduleHybooruHydration() {
     if (m_hybooruBusy || !m_hybooruFetch)
         return;
+    // Tag hydration shares the host with thumbnail downloads; waiting until
+    // the grid's thumbnails are idle keeps HyBooru detail requests from
+    // starving the previews the user is looking at.
+    if (m_thumbs && m_thumbs->busy()) {
+        if (!m_hybooruDeferring) {
+            m_hybooruDeferring = true;
+            QTimer::singleShot(500, this, [this] {
+                m_hybooruDeferring = false;
+                scheduleHybooruHydration();
+            });
+        }
+        return;
+    }
     m_hybooruQueue.clear();
     for (const Post &p : m_browseMerged) {
         if (!p.isRemote || !p.tags.trimmed().isEmpty())

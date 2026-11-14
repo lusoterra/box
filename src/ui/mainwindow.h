@@ -468,6 +468,7 @@ private:
     QVector<Post> m_hybooruQueue;
     QSet<QString> m_hybooruTried;
     bool m_hybooruBusy = false;
+    bool m_hybooruDeferring = false;
     RefreshTarget m_hybooruTarget;
     Post m_hybooruCurrent;
     DownloadManager *m_downloads = nullptr;

@@ -25,6 +25,7 @@ public:
     void setCacheDir(const QString &dir);
     void setMaxThreads(int n);
     void lowerConcurrency();
+    bool busy() const;
     // Browser backend for fingerprint-walled thumbnails (null = QNAM).
     // Set once by the app; read by pool tasks.
     void setWebBackend(class WebDownloadBackend *backend);
@@ -52,7 +53,7 @@ private:
     void releaseKey(const QString &key); // task exit path (all outcomes)
     QThreadPool *m_pool;
     QSet<QString> m_inflight; // keys with a queued/running task (scroll dedupe)
-    QMutex m_inflightMutex;
+    mutable QMutex m_inflightMutex;
     WebDownloadBackend *m_webBackend = nullptr;
     int m_aspectNum = 1;
     int m_aspectDen = 1;

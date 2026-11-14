@@ -46,6 +46,10 @@ void ThumbLoader::lowerConcurrency() {
     if (n > 1)
         m_pool->setMaxThreadCount(n - 1);
 }
+bool ThumbLoader::busy() const {
+    QMutexLocker lock(&m_inflightMutex);
+    return !m_inflight.isEmpty();
+}
 
 void ThumbLoader::setWebBackend(WebDownloadBackend *backend) {
     m_webBackend = backend;
