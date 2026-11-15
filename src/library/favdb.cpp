@@ -497,6 +497,38 @@ static Post rowToPost(const QSqlQuery &q) {
         p.tagsCopyright.isEmpty() && p.tagsMeta.isEmpty() &&
         p.customTags.isEmpty() && p.siteName != QStringLiteral("_Stray"))
         p.untyped = p.tagsGeneral;
+    // Heal rows where a tag leaked into two buckets (old duplicate bug):
+    // keep the most specific bucket so lucky_star is not bold in both
+    // Copyright and Meta, and counts stop splitting.
+    {
+        QStringList g = p.tagsGeneral.split(QChar::Space, Qt::SkipEmptyParts);
+        QStringList a = p.tagsArtist.split(QChar::Space, Qt::SkipEmptyParts);
+        QStringList c = p.tagsCharacter.split(QChar::Space, Qt::SkipEmptyParts);
+        QStringList cr = p.tagsCopyright.split(QChar::Space, Qt::SkipEmptyParts);
+        QStringList m = p.tagsMeta.split(QChar::Space, Qt::SkipEmptyParts);
+        const QList<QPair<int, QStringList *>> prio = {
+            {4, &a}, {3, &c}, {2, &cr}, {1, &m}, {0, &g}};
+        QHash<QString, int> bucketCount;
+        for (const auto &[pr, list] : prio)
+            for (const QString &t : *list)
+                bucketCount[t]++;
+        for (auto it = bucketCount.begin(); it != bucketCount.end(); ++it) {
+            if (it.value() < 2)
+                continue;
+            int best = -1;
+            for (const auto &[pr, list] : prio)
+                if (list->contains(it.key()) && pr > best)
+                    best = pr;
+            for (const auto &[pr, list] : prio)
+                if (pr != best)
+                    list->removeAll(it.key());
+        }
+        p.tagsGeneral = g.join(u' ');
+        p.tagsArtist = a.join(u' ');
+        p.tagsCharacter = c.join(u' ');
+        p.tagsCopyright = cr.join(u' ');
+        p.tagsMeta = m.join(u' ');
+    }
     p.hasMeta = true;
     // LOSN imports (and old rows) store "general" with no rating source:
     // upgrade in memory when the tags hit the explicit list, same rule

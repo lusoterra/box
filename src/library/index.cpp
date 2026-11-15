@@ -345,15 +345,25 @@ QVector<TagMove> applyTagBuckets(QVector<Post> &posts,
     if (tagToBucket.isEmpty())
         return moves;
     for (Post &p : posts) {
-        if (p.untyped.isEmpty())
-            continue;
         QStringList gen = splitTags(p.tagsGeneral);
         QStringList artist = splitTags(p.tagsArtist);
         QStringList character = splitTags(p.tagsCharacter);
         QStringList copyright = splitTags(p.tagsCopyright);
         QStringList meta = splitTags(p.tagsMeta);
+        // Tags to re-bucket: the untyped ones (existing) plus any tag
+        // already sitting in a bucket that has a verdict. The latter heals
+        // rows where a verdict moved a tag into its bucket but left a stale
+        // copy behind (lucky_star in both Copyright and Meta).
+        QStringList toProcess = splitTags(p.untyped);
+        for (const QString &t : gen + artist + character + copyright + meta) {
+            if (tagToBucket.contains(t.toLower()) &&
+                !toProcess.contains(t))
+                toProcess.append(t);
+        }
+        if (toProcess.isEmpty() && p.untyped.isEmpty())
+            continue;
         bool changed = false;
-        for (const QString &t : splitTags(p.untyped)) {
+        for (const QString &t : toProcess) {
             // Lookups are lowercase (fetched verdicts and manual overrides
             // are keyed that way); moves keep the post's original spelling.
             const QString bucket = tagToBucket.value(t.toLower());
@@ -402,6 +412,13 @@ QVector<TagMove> applyTagBuckets(QVector<Post> &posts,
         }
         if (!changed)
             continue;
+        // Tags that received a verdict leave `untyped` so they are not
+        // re-offered to the classifier on the next scan.
+        QStringList remainingUntyped;
+        for (const QString &t : splitTags(p.untyped))
+            if (!tagToBucket.contains(t.toLower()))
+                remainingUntyped.append(t);
+        p.untyped = remainingUntyped.join(u' ');
         p.tagsGeneral = gen.join(u' ');
         p.tagsArtist = artist.join(u' ');
         p.tagsCharacter = character.join(u' ');
