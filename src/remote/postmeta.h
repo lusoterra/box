@@ -24,6 +24,10 @@ struct PostComment {
     QString avatarUrl; // empty: no engine exposes one yet (initials used)
 };
 
+// Registered so tests/queued signals can carry the vectors.
+Q_DECLARE_METATYPE(PostNote)
+Q_DECLARE_METATYPE(PostComment)
+
 class PostMetaFetcher : public QObject {
     Q_OBJECT
 public:
@@ -80,7 +84,12 @@ QUrl commentsUrl(BooruEngine engine, const QString &baseUrl, qint64 postId,
                  const QString &gelUser = {}, const QString &gelKey = {});
 // Artist commentary (Danbooru only; empty elsewhere).
 QUrl commentaryUrl(BooruEngine engine, const QString &baseUrl, qint64 postId);
-QVector<PostNote> parseNotes(const QByteArray &body, bool *ok = nullptr);
-QVector<PostComment> parseComments(const QByteArray &body, bool *ok = nullptr);
+// postId > 0 scopes the result: some engines ignore the post filter and
+// dump the site-wide note/comment feed, so rows stamped with a different
+// post_id are dropped (a post must never wear another post's notes).
+QVector<PostNote> parseNotes(const QByteArray &body, bool *ok = nullptr,
+                             qint64 postId = 0);
+QVector<PostComment> parseComments(const QByteArray &body, bool *ok = nullptr,
+                                   qint64 postId = 0);
 QVector<PostComment> parseCommentary(const QByteArray &body, bool *ok = nullptr);
 } // namespace PostMeta

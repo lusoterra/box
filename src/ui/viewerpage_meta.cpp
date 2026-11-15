@@ -8,21 +8,30 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QSize>
-#include <QTimer>
 
 void ViewerPage::rebuildMetaTail() {
     if (!m_tagLayout)
         return;
     if (QLayoutItem *stretch = m_tagLayout->takeAt(m_tagLayout->count() - 1))
         delete stretch;
-    while (m_tagLayout->count() > m_metaSectionStart)
-        delete m_tagLayout->takeAt(m_metaSectionStart);
+    // takeAt() only detaches: the widgets stay children of the tag host and
+    // keep painting at their old geometry, which stacked the expanded
+    // comment list on top of the collapsed one. Destroy them with the items.
+    while (m_tagLayout->count() > m_metaSectionStart) {
+        QLayoutItem *item = m_tagLayout->takeAt(m_metaSectionStart);
+        if (QWidget *w = item->widget())
+            delete w;
+        else if (QLayout *l = item->layout())
+            delete l;
+        delete item;
+    }
     renderMetaSections();
     m_tagLayout->addStretch(1);
 }
 
 void ViewerPage::renderMetaSections() {
-    m_metaSectionStart = m_tagLayout ? m_tagLayout->count() : 0;    const auto it = m_metaCache.find(metaKey());
+    m_metaSectionStart = m_tagLayout ? m_tagLayout->count() : 0;
+    const auto it = m_metaCache.find(metaKey());
     if (it == m_metaCache.end()) {
         if (m_metaFailed.contains(metaKey())) {
             const QString why = m_metaFailureReason.value(metaKey());
@@ -55,16 +64,22 @@ void ViewerPage::renderMetaSections() {
         auto *hl = new QLabel(tr("NOTES (%1)").arg(notes.size()), this);
         hl->setStyleSheet(QStringLiteral("color:#4a5068;font-size:10px;"));
         m_tagLayout->addWidget(hl);
+        int nth = 0;
         for (const PostNote &n : notes) {
+            // Bodies are the translation itself: show them, not the box
+            // geometry (the coordinates ride the tooltip).
             auto *l = new QLabel(
-                QStringLiteral("[%1,%2 %3×%4] %5")
-                    .arg(n.x)
-                    .arg(n.y)
-                    .arg(n.w)
-                    .arg(n.h)
-                    .arg(n.body),
+                QStringLiteral("<b>%1</b> %2")
+                    .arg(++nth)
+                    .arg(n.body.toHtmlEscaped().left(4000)),
                 this);
+            l->setTextFormat(Qt::RichText);
             l->setWordWrap(true);
+            l->setToolTip(tr("%1,%2 · %3×%4")
+                              .arg(n.x)
+                              .arg(n.y)
+                              .arg(n.w)
+                              .arg(n.h));
             l->setStyleSheet(QStringLiteral("color:#9aa0b8;font-size:11px;"));
             l->setTextInteractionFlags(Qt::TextSelectableByMouse);
             m_tagLayout->addWidget(l);
@@ -90,7 +105,7 @@ void ViewerPage::renderMetaSections() {
         // Long threads stay readable: first few show, the rest hide
         // behind a show-all toggle (panel rebuilds reset to collapsed).
         static constexpr int kInitialComments = 5;
-        QList<QLabel *> extra;
+        QList<QWidget *> extra;
         int shown = 0;
         for (const PostComment &c : comments) {
             if (++shown > 50)
@@ -98,7 +113,8 @@ void ViewerPage::renderMetaSections() {
             const QString head = c.author.isEmpty() ? c.date : c.author + u" · " + c.date;
             auto *l = new QLabel(
                 QStringLiteral("<b>%1</b><br>%2")
-                    .arg(head.toHtmlEscaped(), c.body.toHtmlEscaped().left(2000)),
+                    .arg(head.toHtmlEscaped(),
+                         c.body.toHtmlEscaped().left(2000)),
                 this);
             l->setWordWrap(true);
             l->setStyleSheet(QStringLiteral("font-size:11px;"));
@@ -119,13 +135,24 @@ void ViewerPage::renderMetaSections() {
             more->setFlat(true);
             more->setCursor(Qt::PointingHandCursor);
             more->setStyleSheet(QStringLiteral("color:#7c9ef8;text-align:left;"));
-            connect(more, &QPushButton::clicked, this, [this] {
-                m_commentsExpanded = !m_commentsExpanded;
-                // Deferred: the click handler runs on the toggle itself,
-                // which the rebuild deletes.
-                QTimer::singleShot(0, this,
-                                   [this] { rebuildMetaTail(); });
-            });
+            // Toggle the hidden rows in place: a rebuild here re-laid the
+            // whole tail and the detached labels ended up stacked on each
+            // other (unreadable thread).
+            const int total = comments.size();
+            connect(more, &QPushButton::clicked, this,
+                    [this, more, extra, total] {
+                        m_commentsExpanded = !m_commentsExpanded;
+                        for (QWidget *w : extra)
+                            w->setVisible(m_commentsExpanded);
+                        more->setText(m_commentsExpanded
+                                          ? tr("Show fewer comments")
+                                          : tr("Show all %1 comments")
+                                                .arg(total));
+                        // Expand just below the button, so the newly shown
+                        // rows are in view instead of under the fold.
+                        if (m_commentsExpanded && m_tagScroll && m_tagHost)
+                            m_tagScroll->ensureWidgetVisible(more);
+                    });
             m_tagLayout->addWidget(more);
         }
     }

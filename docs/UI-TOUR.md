@@ -141,8 +141,11 @@ opens a larger `Annotation note` popup with selectable text instead of a
 hover tooltip),
 globe (`Open file`), `Copy file URL`, `Comments` (thread popup with cards,
 reuses the cached comments/notes). The tag panel below the groups shows
-three threads when the engine provides them: NOTES, ARTIST COMMENTARY
-(Danbooru `artist_commentary`, translated text preferred) and COMMENTS. A post can be dragged out from the media as well (stills/GIFs at
+three threads when the engine provides them: NOTES (translation bodies,
+box coordinates on the tooltip; deleted annotations are skipped),
+ARTIST COMMENTARY
+(Danbooru `artist_commentary`, translated text preferred) and COMMENTS
+(first five rows, `Show all N comments` expands them in place). A post can be dragged out from the media as well (stills/GIFs at
 fit zoom, same URL/file payload as grid drag; videos excluded). Double-click the media for
 fullscreen post view (`MainWindow::setViewerFullscreen`: menubar, tab bar,
 omnibar, sidebar, pills and status bar hide while the viewer goes immersive;

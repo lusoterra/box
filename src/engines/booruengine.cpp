@@ -152,9 +152,26 @@ void BooruEngineOps::finishRemote(Post &p, const QString &siteLabel,
             return v.toDouble() != 0.0;
         if (v.isString()) {
             const QString s = v.toString().trimmed();
-            return !s.isEmpty() && s != QStringLiteral("0") &&
-                   s.compare(QStringLiteral("no"),
-                             Qt::CaseInsensitive) != 0;
+            // Epoch-zero stamps and null-ish spellings some engines emit
+            // for "none" must not read as presence (they marked whole
+            // result pages as noted/commented).
+            if (s.isEmpty())
+                return false;
+            bool numeric = false;
+            const double d = s.toDouble(&numeric);
+            if (numeric)
+                return d != 0.0;
+            static const QStringList none = {
+                QStringLiteral("no"),   QStringLiteral("false"),
+                QStringLiteral("null"), QStringLiteral("none"),
+                QStringLiteral("nil"),  QStringLiteral("never")};
+            if (none.contains(s.toLower()))
+                return false;
+            if (s.startsWith(QStringLiteral("0000-00-00")) ||
+                s.startsWith(QStringLiteral("1970-01-01T00:00:00")) ||
+                s.startsWith(QStringLiteral("1969-12-31")))
+                return false;
+            return true;
         }
         if (v.isArray())
             return !v.toArray().isEmpty();

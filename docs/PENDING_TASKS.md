@@ -2,6 +2,26 @@
 
 
 
+## 8. Phantom notes/comments + unreadable expanded thread - DONE
+- Notes claimed on nearly every post: note/comment payloads are now scoped
+  to the requested `post_id` when the row carries one, so engines that
+  ignore the post filter (site-wide feed) can no longer paint another
+  post's annotations; deleted notes (`is_active=false`) are skipped.
+  Presence stamps also treat "0.0"/"null"/"none"/epoch-zero strings as
+  absent (`src/engines/booruengine.cpp`).
+- Notes never loaded on Gelbooru dapi builds that answer the note table
+  as XML despite `json=1` (live safebooru.org): both notes and comments
+  parse XML tables too (`src/remote/postmeta.cpp`).
+- `Show all N comments` stacked the expanded rows on the collapsed ones:
+  `rebuildMetaTail` detached widgets without deleting them (they kept
+  painting at their old geometry). Rows now toggle in place; rebuilds
+  delete the widgets (`src/ui/viewerpage_meta.cpp`).
+- Note click mapped overlay boxes to `m_notes` by index, so skipped notes
+  shifted the popup body; the body now rides the graphics item.
+- Verify: `test_postmeta` (scoping, XML, inactive) + `test_commentmarks`
+  (null-ish stamps) + `test_metathread` (notes bodies + expanded comment
+  rows never overlap); 38/38.
+
 ## 7. Double-click out of fullscreen un-maximizes - DONE
 - Double-click in the viewer emits `fullscreenToggleRequested`, which
   routes through `MainWindow::toggleViewerFullscreen` -> `setViewerFullscreen`,

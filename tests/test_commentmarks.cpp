@@ -76,6 +76,35 @@ private slots:
         QJsonObject q = o;
         q[QStringLiteral("has_notes")] = QStringLiteral("no");
         QVERIFY(!RemotePosts::fromGelbooru(q, kGelbooru).hasNotes);
+        // Null-ish spellings (real instances send these): no pill.
+        for (const auto &none : {QStringLiteral("false"), QStringLiteral("False"),
+                                 QStringLiteral("null"), QStringLiteral("none"),
+                                 QStringLiteral("0.0"), QStringLiteral("No")}) {
+            QJsonObject z = o;
+            z[QStringLiteral("has_notes")] = none;
+            QVERIFY2(!RemotePosts::fromGelbooru(z, kGelbooru).hasNotes,
+                     qPrintable(none));
+        }
+    }
+
+    void moebooruNullishStamps() {
+        QJsonObject o;
+        o[QStringLiteral("id")] = 1;
+        o[QStringLiteral("file_url")] =
+            QStringLiteral("https://konachan.com/img.png");
+        o[QStringLiteral("file_ext")] = QStringLiteral("png");
+        o[QStringLiteral("tags")] = QStringLiteral("sky");
+        // Some Moebooru builds stringify the epoch instead of sending 0.
+        for (const auto &none : {QStringLiteral("0"), QStringLiteral("0.0"),
+                                 QStringLiteral("null"), QStringLiteral(""),
+                                 QStringLiteral("0000-00-00 00:00:00")}) {
+            QJsonObject z = o;
+            z[QStringLiteral("last_noted_at")] = none;
+            z[QStringLiteral("last_commented_at")] = none;
+            const Post p = RemotePosts::fromMoebooru(z, kKonachan);
+            QVERIFY2(!p.hasNotes, qPrintable(none));
+            QVERIFY2(!p.hasComments, qPrintable(none));
+        }
     }
 
     void moebooruNumericStamps() {

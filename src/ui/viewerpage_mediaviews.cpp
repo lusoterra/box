@@ -128,6 +128,7 @@ void ImageView::applyPendingNotes() {
         box->setBrush(QColor(accent.red(), accent.green(), accent.blue(), 36));
         box->setToolTip(n.body);
         box->setAcceptHoverEvents(true);
+        box->setData(0, n.body); // click handler reads this (index-safe)
         // Hover dot at the corner (music-player-style affordance).
         auto *dot = new QGraphicsEllipseItem(-3, -3, 6, 6, box);
         dot->setPen(Qt::NoPen);
@@ -202,13 +203,21 @@ void ImageView::contextMenuEvent(QContextMenuEvent *e) {
 void ImageView::mousePressEvent(QMouseEvent *e) {
     if (e->button() == Qt::LeftButton) {
         const QPointF scenePos = mapToScene(e->pos());
-        const int idx = m_noteBoxes.indexOf(
-            static_cast<QGraphicsRectItem *>(scene()->itemAt(
-                scenePos, QTransform())));
-        if (idx >= 0 && idx < m_notes.size()) {
-            emit noteActivated(m_notes.at(idx).body, e->globalPosition().toPoint());
-            e->accept();
-            return;
+        // itemAt may land on the hover dot (child of a box); walk up to the
+        // annotated rect. The body rides the item, so notes the overlay
+        // skipped (zero-size/empty) cannot shift this to a neighbour's text.
+        QGraphicsItem *hit = m_item ? scene()->itemAt(scenePos, QTransform())
+                                    : nullptr;
+        while (hit && hit != m_item &&
+               !m_noteBoxes.contains(static_cast<QGraphicsRectItem *>(hit)))
+            hit = hit->parentItem();
+        if (hit && hit != m_item) {
+            const QString body = hit->data(0).toString();
+            if (!body.isEmpty()) {
+                emit noteActivated(body, e->globalPosition().toPoint());
+                e->accept();
+                return;
+            }
         }
     }
     // At fit there is nothing to pan: a left drag (Shift held) exports the

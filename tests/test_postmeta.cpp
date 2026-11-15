@@ -122,6 +122,58 @@ private slots:
         QVERIFY(PostMeta::parseNotes(QByteArray("<html>wall</html>"), &ok).isEmpty());
         QVERIFY(!ok);
     }
+
+    void parseNotesScopedToPost() {
+        // Endpoints that ignore the post filter dump the whole site's
+        // annotations: rows stamped with another post_id must never show
+        // up on this post (it looked like "notes on almost every post").
+        const QByteArray dump =
+            R"({"note":[{"post_id":11,"body":"not mine",)"
+            R"("x":1,"y":2,"width":3,"height":4},)"
+            R"({"post_id":42,"body":"mine","x":5,"y":6,"width":7,"height":8},)"
+            R"({"body":"unstamped","x":9,"y":10,"width":11,"height":12}]})";
+        bool ok = false;
+        const auto scoped = PostMeta::parseNotes(dump, &ok, 42);
+        QVERIFY(ok);
+        QCOMPARE(scoped.size(), 2); // this post + the unstamped row
+        QCOMPARE(scoped.at(0).body, QStringLiteral("mine"));
+        QCOMPARE(scoped.at(1).body, QStringLiteral("unstamped"));
+        // No scope asked: nothing filtered (back-compat).
+        QCOMPARE(PostMeta::parseNotes(dump, &ok).size(), 3);
+        // Deleted annotations (is_active=false) never render.
+        const auto inactive = PostMeta::parseNotes(
+            QByteArray(R"([{"post_id":42,"body":"gone","is_active":false},)"
+                       R"({"post_id":42,"body":"shown","is_active":true}])"),
+            &ok, 42);
+        QCOMPARE(inactive.size(), 1);
+        QCOMPARE(inactive.at(0).body, QStringLiteral("shown"));
+    }
+
+    void parseNotesXml() {
+        // Gelbooru dapi ignores json=1 for the note table on some builds
+        // (live safebooru.org) and answers XML: parse that too instead of
+        // failing every note fetch on the site.
+        const QByteArray xml =
+            R"(<?xml version="1.0" encoding="UTF-8"?><notes type="array">)"
+            R"(<note post_id="7" x="92" y="540" width="75" height="104" )"
+            R"(body="translation one" is_active="true" />)"
+            R"(<note post_id="9" x="1" y="2" width="3" height="4" )"
+            R"(body="other post" is_active="true" />)</notes>)";
+        bool ok = false;
+        const auto notes = PostMeta::parseNotes(xml, &ok, 7);
+        QVERIFY(ok);
+        QCOMPARE(notes.size(), 1);
+        QCOMPARE(notes.at(0).x, 92);
+        QCOMPARE(notes.at(0).y, 540);
+        QCOMPARE(notes.at(0).w, 75);
+        QCOMPARE(notes.at(0).h, 104);
+        QCOMPARE(notes.at(0).body, QStringLiteral("translation one"));
+        // Empty table = answered (no retry loop on quiet posts).
+        QVERIFY(PostMeta::parseNotes(
+                    QByteArray(R"xml(<notes type="array"/>)xml"), &ok, 7)
+                    .isEmpty());
+        QVERIFY(ok);
+    }
     void parseCommentsShapes() {
         // Danbooru array shape.
         const auto dan = PostMeta::parseComments(
@@ -174,6 +226,28 @@ private slots:
         QVERIFY(ok);
         QVERIFY(PostMeta::parseComments(QByteArray("<html>wall</html>"), &ok).isEmpty());
         QVERIFY(!ok);
+        // Gelbooru dapi XML comment table (same builds as notes), scoped to
+        // the requested post.
+        const QByteArray xml =
+            R"(<?xml version="1.0" encoding="UTF-8"?><comments type="array">)"
+            R"(<comment id="1" post_id="7" creator="alice" )"
+            R"(created_at="2026-01-01" body="first" />)"
+            R"(<comment id="2" post_id="9" creator="bob" )"
+            R"(created_at="2026-01-02" body="elsewhere" />)</comments>)";
+        const auto xmlc = PostMeta::parseComments(xml, &ok, 7);
+        QVERIFY(ok);
+        QCOMPARE(xmlc.size(), 1);
+        QCOMPARE(xmlc.at(0).author, QStringLiteral("alice"));
+        QCOMPARE(xmlc.at(0).body, QStringLiteral("first"));
+        QCOMPARE(xmlc.at(0).date, QStringLiteral("2026-01-01"));
+        // Unscoped comment feeds (endpoints that ignore the post filter)
+        // drop other posts' rows.
+        const auto dumps = PostMeta::parseComments(
+            QByteArray(R"({"comment":[{"post_id":1,"author":"x","comment":"no"},)"
+                       R"({"post_id":7,"author":"y","comment":"yes"}]})"),
+            &ok, 7);
+        QCOMPARE(dumps.size(), 1);
+        QCOMPARE(dumps.at(0).body, QStringLiteral("yes"));
     }
 };
 

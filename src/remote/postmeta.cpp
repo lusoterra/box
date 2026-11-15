@@ -6,11 +6,14 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QJsonValue>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QUrl>
 #include <QUrlQuery>
+#include <QXmlStreamAttributes>
+#include <QXmlStreamReader>
 
 PostMetaFetcher::PostMetaFetcher(QObject *parent)
     : QObject(parent), m_nam(new QNetworkAccessManager(this)) {}
@@ -109,7 +112,7 @@ void PostMetaFetcher::fetch(const QString &siteKey, const QString &baseUrl,
                         .toInt();
                 body = r->readAll();
                 if (r->error() == QNetworkReply::NoError && http / 100 == 2)
-                    m_notes = PostMeta::parseNotes(body, &ok);
+                    m_notes = PostMeta::parseNotes(body, &ok, m_postId);
                 else if (r->error() != QNetworkReply::NoError)
                     m_notesErr = r->errorString();
                 else
@@ -144,7 +147,7 @@ void PostMetaFetcher::fetch(const QString &siteKey, const QString &baseUrl,
                     m_comments.clear();
                     ok = true;
                 } else if (r->error() == QNetworkReply::NoError && http / 100 == 2)
-                    m_comments = PostMeta::parseComments(body, &ok);
+                    m_comments = PostMeta::parseComments(body, &ok, m_postId);
                 else if (r->error() != QNetworkReply::NoError)
                     m_commentsErr = r->errorString();
                 else
@@ -355,15 +358,47 @@ QUrl commentaryUrl(BooruEngine engine, const QString &baseUrl, qint64 postId) {
     return url;
 }
 
-QVector<PostNote> parseNotes(const QByteArray &body, bool *ok) {
+QVector<PostNote> parseNotes(const QByteArray &body, bool *ok, qint64 postId) {
     QVector<PostNote> out;
-    QJsonParseError err;
-    const QJsonDocument doc = QJsonDocument::fromJson(body, &err);
-    if (err.error != QJsonParseError::NoError) {
+    if (ok)
+        *ok = false;
+    // Gelbooru's dapi serves the note table as XML even when json=1 is
+    // requested (live safebooru.org, 2026-11-15), so a leading '<' routes
+    // to the XML reader instead of failing every note fetch there.
+    const QByteArray trimmed = body.trimmed();
+    if (trimmed.startsWith('<')) {
+        QXmlStreamReader xml(trimmed);
+        bool shaped = false; // root must be a notes table, not wall HTML
+        while (!xml.atEnd()) {
+            xml.readNext();
+            if (!xml.isStartElement())
+                continue;
+            if (xml.name() == u"notes" || xml.name() == u"note")
+                shaped = true;
+            if (xml.name() != u"note")
+                continue;
+            const QXmlStreamAttributes a = xml.attributes();
+            const auto owner = a.value(u"post_id");
+            if (postId > 0 && !owner.isEmpty() &&
+                owner.toLongLong() != postId)
+                continue; // site-wide dump: not this post's note
+            PostNote n;
+            n.x = int(a.value(u"x").toInt());
+            n.y = int(a.value(u"y").toInt());
+            n.w = int(a.value(u"width").toInt());
+            n.h = int(a.value(u"height").toInt());
+            n.body = a.value(u"body").toString().trimmed();
+            if (!n.body.isEmpty())
+                out.append(n);
+        }
         if (ok)
-            *ok = false; // challenge HTML, wall pages: not definitive
+            *ok = shaped && !xml.hasError();
         return out;
     }
+    QJsonParseError err;
+    const QJsonDocument doc = QJsonDocument::fromJson(body, &err);
+    if (err.error != QJsonParseError::NoError)
+        return out; // challenge HTML, wall pages: not definitive
     if (ok)
         *ok = true;
     QJsonArray arr;
@@ -375,6 +410,16 @@ QVector<PostNote> parseNotes(const QByteArray &body, bool *ok) {
         if (!v.isObject())
             continue;
         const QJsonObject o = v.toObject();
+        // Deleted/hidden annotations are not what the site shows.
+        const QJsonValue active = o.value(QStringLiteral("is_active"));
+        if (active.isBool() && !active.toBool())
+            continue;
+        if (postId > 0) {
+            const qint64 owner =
+                o.value(QStringLiteral("post_id")).toVariant().toLongLong();
+            if (owner > 0 && owner != postId)
+                continue; // unscoped endpoint: another post's annotation
+        }
         PostNote n;
         n.x = o.value(QStringLiteral("x")).toInt();
         n.y = o.value(QStringLiteral("y")).toInt();
@@ -387,15 +432,45 @@ QVector<PostNote> parseNotes(const QByteArray &body, bool *ok) {
     return out;
 }
 
-QVector<PostComment> parseComments(const QByteArray &body, bool *ok) {
+QVector<PostComment> parseComments(const QByteArray &body, bool *ok,
+                                   qint64 postId) {
     QVector<PostComment> out;
-    QJsonParseError err;
-    const QJsonDocument doc = QJsonDocument::fromJson(body, &err);
-    if (err.error != QJsonParseError::NoError) {
+    if (ok)
+        *ok = false;
+    // Gelbooru dapi XML shape for the comment table (see parseNotes).
+    const QByteArray trimmed = body.trimmed();
+    if (trimmed.startsWith('<')) {
+        QXmlStreamReader xml(trimmed);
+        bool shaped = false;
+        while (!xml.atEnd()) {
+            xml.readNext();
+            if (!xml.isStartElement())
+                continue;
+            if (xml.name() == u"comments" || xml.name() == u"comment")
+                shaped = true;
+            if (xml.name() != u"comment")
+                continue;
+            const QXmlStreamAttributes a = xml.attributes();
+            if (postId > 0) {
+                const auto owner = a.value(u"post_id");
+                if (!owner.isEmpty() && owner.toLongLong() != postId)
+                    continue;
+            }
+            PostComment c;
+            c.author = a.value(u"creator").toString();
+            c.body = a.value(u"body").toString().trimmed();
+            c.date = a.value(u"created_at").toString();
+            if (!c.body.isEmpty())
+                out.append(c);
+        }
         if (ok)
-            *ok = false; // challenge HTML, wall pages: not definitive
+            *ok = shaped && !xml.hasError();
         return out;
     }
+    QJsonParseError err;
+    const QJsonDocument doc = QJsonDocument::fromJson(body, &err);
+    if (err.error != QJsonParseError::NoError)
+        return out; // challenge HTML, wall pages: not definitive
     if (ok)
         *ok = true;
     QJsonArray arr;
@@ -416,6 +491,12 @@ QVector<PostComment> parseComments(const QByteArray &body, bool *ok) {
         if (!v.isObject())
             continue;
         const QJsonObject o = v.toObject();
+        if (postId > 0) {
+            const qint64 owner =
+                o.value(QStringLiteral("post_id")).toVariant().toLongLong();
+            if (owner > 0 && owner != postId)
+                continue; // unscoped feed: another post's comment
+        }
         PostComment c;
         c.author = o.value(QStringLiteral("creator_name")).toString();
         if (c.author.isEmpty())

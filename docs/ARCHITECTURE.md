@@ -79,7 +79,9 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
   - Also: `imagecache` (full-image fetch for viewer), `thumbloader`
     (grid thumbs), `tagsuggest` (per-engine autocomplete), `faviconcache`
     (site icons), `cookiegrab` (WebEngine cookie capture for walled hosts),
-    `postmeta` (notes + comments + Danbooru artist commentary for viewer).
+    `postmeta` (notes + comments + Danbooru artist commentary for viewer;
+    Gelbooru dapi XML bodies accepted, rows scoped by `post_id` so an
+    unscoped endpoint can never paint another post's notes/comments).
 - `src/library/` - local data + classification.
   - `scanner.h:19` `Scanner`: recursive scan, both sidecar layouts, emits
     `progress`/`cacheStats`; impl `src/library/scanner.cpp:156`.
