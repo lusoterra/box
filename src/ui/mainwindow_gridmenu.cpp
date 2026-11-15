@@ -456,6 +456,8 @@ void MainWindow::showGridMenu(const QPoint &pos) {
                 }
             }
         }
+        if (gone > 0)
+            invalidateDownloadIndex();
         int unfaved = 0;
         if (m_settings.deleteUnfavs) {
             QSet<QString> urls;

@@ -1071,6 +1071,21 @@ QString fsTagForPost(const Post &post) {
     return post.siteName; // unconfigured/unknown: legacy label layout
 }
 
+QString safeFolderSegment(const QString &tag) {
+    // settings.ini is hand-editable either way, so a hostile "../.." tag
+    // must never become a path. Separators and colons (IPv6/port
+    // leftovers) are flattened and bare dot-names prefixed; everything
+    // else (dots, spaces, unicode, "_Stray") passes through untouched so
+    // existing folders keep working.
+    QString seg = tag;
+    seg.replace(u'/', u'_').replace(u'\\', u'_').replace(u':', u'_');
+    while (seg == QStringLiteral(".") || seg == QStringLiteral(".."))
+        seg.prepend(u'_');
+    if (seg.isEmpty())
+        seg = QStringLiteral("Booru");
+    return seg;
+}
+
 QString mediaReferer(const QString &siteKey) {
     const BooruSite *site = RemoteSource::siteFor(siteKey);
     if (!site || site->engine != BooruEngine::Gelbooru || site->baseUrl.isEmpty())

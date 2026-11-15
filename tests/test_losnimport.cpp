@@ -144,6 +144,46 @@ private slots:
         QCOMPARE(q.filePath, QStringLiteral("/d/Danbooru/Danbooru_losn7.jpg"));
     }
 
+    void targetPathsUseHostFolderLikeDownloader() {
+        // A row read from a backup knows its host: naming must match
+        // DownloadManager::plan (<host>/<host-without-punctuation>_<md5>)
+        // so imports never create a parallel <Label>/ tree.
+        LosnRow row;
+        row.rowId = 5;
+        row.siteLabel = QStringLiteral("Gelbooru");
+        row.host = QStringLiteral("gelbooru.com");
+        row.md5 = QStringLiteral("516e1f01a05ea895b33316bd28bfd27f");
+        row.fileUrl = QStringLiteral("https://img4.gelbooru.com/x.jpg");
+        const LosnImport::DownloadPaths p =
+            LosnImport::targetPaths(row, QStringLiteral("/dest"));
+        QCOMPARE(p.fileName,
+                 QStringLiteral("gelboorucom_516e1f01a05ea895b33316bd28bfd27f.jpg"));
+        QCOMPARE(p.filePath,
+                 QStringLiteral("/dest/gelbooru.com/"
+                                "gelboorucom_516e1f01a05ea895b33316bd28bfd27f.jpg"));
+        QCOMPARE(p.jsonPath,
+                 QStringLiteral("/dest/gelbooru.com/"
+                                "gelboorucom_516e1f01a05ea895b33316bd28bfd27f.json"));
+    }
+
+    void md5PathsOnDiskReturnsRealFile() {
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        QDir(tmp.path()).mkpath(QStringLiteral("gelbooru.com"));
+        const QString md5 = QStringLiteral("516e1f01a05ea895b33316bd28bfd27f");
+        const QString media = tmp.filePath(
+            QStringLiteral("gelbooru.com/gelboorucom_") + md5 +
+            QStringLiteral(".jpg"));
+        QFile f(media);
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write("x");
+        f.close();
+        const QHash<QString, QString> paths =
+            LosnImport::md5PathsOnDisk(tmp.path());
+        QCOMPARE(paths.value(md5), media);
+        QCOMPARE(LosnImport::md5sOnDisk(tmp.path()), QSet<QString>{md5});
+    }
+
     void pathsForRowPrefersSidecarMd5() {
         // Refreshed rows carry a real md5 in the sidecar while the row
         // itself has none: naming must use it, not the losn fallback.
@@ -307,6 +347,7 @@ private slots:
         QVERIFY(gel.snatched && gel.favourite);
         QCOMPARE(gel.siteKey, QStringLiteral("gelbooru"));
         QCOMPARE(gel.siteLabel, QStringLiteral("Gelbooru"));
+        QCOMPARE(gel.host, QStringLiteral("gelbooru.com"));
         QCOMPARE(gel.postId, 7103104LL);
         QCOMPARE(gel.md5, QStringLiteral("516e1f01a05ea895b33316bd28bfd27f"));
         QCOMPARE(gel.tags, QStringList({QStringLiteral("1girl"), QStringLiteral("sky")}));

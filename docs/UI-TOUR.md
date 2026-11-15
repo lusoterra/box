@@ -70,7 +70,9 @@ so the two never stack).
 ## Grid card anatomy (see 19-badge-closeup)
 Thumbnail with, overlaid: top-right media kind (`▶` video / `GIF`);
 top-left status boxes, left to right: purple robot = AI-generated
-(`isAiPost`), red `♥` = favourited, green `↓` = downloaded,
+(`isAiPost`), red `♥` = favourited, green `↓` = the media file is
+actually present under the download folder (filesystem scan by md5, not
+a stale favourites DB link),
 blue speech bubble = has comments, amber note = has annotations
 (counts/stamps where the engine exposes them; viewer-fetched threads
 mark the grid too);
@@ -93,7 +95,9 @@ Tabs drag to reorder (welcome stays first).
 `Open ▸` (folder picker), `Browse Downloads`, `Import LoliSnatcher
 backup…` (favourite and downloaded flags are independent: import favs,
 download/download-as-favourite/skip downloaded rows, optionally cross
-them), `Download/Add Stray…` (paste direct media or booru post links;
+them; files land in the same host folders as the regular downloader,
+e.g. `gelbooru.com/` not `Gelbooru/`, and already-downloaded media is
+matched by md5 anywhere under the download folder), `Download/Add Stray…` (paste direct media or booru post links;
 see 20-stray-dialog), `Update downloaded sidecars…`,
 `Redownload missing files…`, `Quit`. Media downloads tolerate
 empty/misleading `Content-Type` headers (Shimmie2 serves real JPEGs with

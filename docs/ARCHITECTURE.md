@@ -163,6 +163,12 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     pretty-printed raw-API sidecar write (backfilled from the parsed post
     to a full gallery-dl-style record: urls, buckets, dims, ids);
     summary carries `downloaded` for auto-favourite (`downloadmanager.h:35`).
+    LoliSnatcher imports reuse the same folder/name shape via
+    `LosnImport::targetPaths` (`src/library/losnimport.cpp:188`) and skip
+    media already on disk by md5 anywhere below the download root
+    (`md5PathsOnDisk`), migrating old app-made `<Label>/` files once.
+    Grid/viewer `↓` marks are filesystem-only (`mainwindow_heal.cpp:102`
+    `downloadDiskIndex` + `isPostDownloaded`, md5 then planned filename).
   - Download/Add Stray (`strayresolve.h`): direct media passes through;
     recognised post pages probe their API (`parseBooruPostUrl` ->
     `engineOps()->refreshUrl`), then fall back to page HTML (`og:image` +

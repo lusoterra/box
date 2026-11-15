@@ -121,7 +121,7 @@ void MainWindow::fillModel() {
     // favourite does not), and the thumbnail queue + viewer copies below
     // must carry the same flag.
     for (Post &p : m_current)
-        p.downloaded = isPostDownloaded(p, &favLocal);
+        p.downloaded = isPostDownloaded(p);
     for (const Post &p : m_current) {
         auto *item = new QStandardItem();
         QString key;

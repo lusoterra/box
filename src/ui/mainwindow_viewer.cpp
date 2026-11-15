@@ -253,6 +253,7 @@ void MainWindow::showViewerContextMenu(const Post &post,
                 for (const QString &sp :
                      DownloadManager::sidecarPathsFor(path))
                     QFile::remove(sp);
+                invalidateDownloadIndex();
                 updateViewerBadges();
                 repaintFavMarks();
                 statusBar()->showMessage(tr("Deleted %1").arg(fi.fileName()),

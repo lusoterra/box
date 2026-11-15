@@ -12,6 +12,7 @@
 // URL); otherwise a native-shaped object is synthesized from the backup
 // row. Either way the scanner reads it back seamlessly.
 #include <QDialog>
+#include <QHash>
 #include <QJsonObject>
 #include <QList>
 #include <QObject>
@@ -32,6 +33,7 @@ struct LosnRow {
     QStringList tags;
     QString siteKey;   // danbooru|gelbooru|... or "" when unknown
     QString siteLabel; // "Gelbooru", "Rule34", ...
+    QString host;      // post URL host, else file (CDN) host
     qint64 postId = 0; // from the post URL, 0 when unparseable
     QString md5;       // 32-hex stem from the file URL, "" when absent
 };
@@ -46,6 +48,10 @@ QString md5FromFileUrl(const QString &fileUrl);
 // re-imports skip these without re-downloading, even when an earlier
 // run filed them under a different label (merge_* orphans).
 QSet<QString> md5sOnDisk(const QString &destDir);
+// Same scan, md5 -> absolute media path: lets an import link/write
+// sidecars next to the file wherever it already lives instead of
+// re-downloading a host-folder duplicate.
+QHash<QString, QString> md5PathsOnDisk(const QString &destDir);
 // Gallery-dl native-shaped fallback sidecar built from a backup row.
 QJsonObject nativeSidecar(const LosnRow &row);
 // Download target paths for a row (<Site>_<md5>.<ext> + sidecar).
@@ -149,5 +155,11 @@ private:
     QHash<QString, QString> m_jobPaths; // planned file name -> file path
     // Pre-import disk snapshot (md5 stems) for the new-file summary diff.
     QSet<QString> m_beforeMd5;
+    // md5 -> media path found anywhere under the download folder. Reused
+    // to classify rows as already downloaded, write refreshed sidecars
+    // next to the real file and link favourites without re-downloading.
+    QHash<QString, QString> m_diskByMd5;
+    // fileUrl -> real media path for rows skipped this run.
+    QHash<QString, QString> m_diskPaths;
     void onFileRenamed(const QString &oldName, const QString &newName);
 };

@@ -57,21 +57,6 @@ QString proxySpecForJob(const DownloadJob &job) {
 } // namespace
 
 namespace {
-// Site folder segment: hostname for configured sites (see
-// RemotePosts::fsTagForPost), legacy label otherwise; settings.ini is
-// hand-editable either way, so a hostile "../.." tag must never become
-// a path. Separators and colons (IPv6/port leftovers) are flattened
-// and bare dot-names prefixed; everything else (dots, spaces, unicode,
-// "_Stray") passes through untouched so existing folders keep working.
-QString safeSiteDir(const QString &tag) {
-    QString seg = tag;
-    seg.replace(u'/', u'_').replace(u'\\', u'_').replace(u':', u'_');
-    while (seg == QStringLiteral(".") || seg == QStringLiteral(".."))
-        seg.prepend(u'_');
-    if (seg.isEmpty())
-        seg = QStringLiteral("Booru");
-    return seg;
-}
 // 32-hex file stems double as content hashes on most boorus (Gelbooru,
 // Safebooru, Danbooru CDN...). Same rule as LosnImport::md5FromFileUrl.
 QString md5Stem(const QString &fileUrl) {
@@ -196,7 +181,8 @@ QList<DownloadJob> DownloadManager::plan(const QVector<Post> &posts,
         if (p.siteName == QStringLiteral("_Stray"))
             raw[QStringLiteral("stray")] = true;
         const QString tag = RemotePosts::fsTagForPost(p);
-        const QString dir = destDir + u'/' + safeSiteDir(tag);
+        const QString dir =
+            destDir + u'/' + RemotePosts::safeFolderSegment(tag);
         QString name = RemotePosts::downloadFileName(tag, raw);
         if (used.contains(dir + u'/' + name)) {
             const int dot = name.lastIndexOf(u'.');

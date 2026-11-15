@@ -329,11 +329,22 @@ private:
     // Fill in missing booru post URLs on scanned downloads (site + id ->
     // post page), except strays. Runs on the UI thread after each scan.
     void healLocalPosts(QVector<Post> &posts);
-    // True when the post has a copy under the download folder (local
-    // posts) or a linked favourite file (remote posts). Pass the
-    // fillModel-time localPaths() map in loops; null queries the DB.
-    bool isPostDownloaded(const Post &post,
-                          const QHash<QPair<QString, qint64>, QString> *favLocal);
+    // True when the media actually exists under the download folder:
+    // local posts by path, remote posts by content md5 (or the planned
+    // host-folder filename when the post has no hash). Purely filesystem
+    // based, so stale DB local_paths never fake or hide a ↓ badge.
+    bool isPostDownloaded(const Post &post);
+    // Download-folder scan backing isPostDownloaded(): md5 stems and
+    // complete file stems. Rescans when the folder's mtime changes or
+    // invalidateDownloadIndex() says so.
+    struct DownloadedIndex {
+        QSet<QString> md5s;
+        QSet<QString> stems;
+        QString root;
+        qint64 stamp = -1;
+    };
+    const DownloadedIndex &downloadDiskIndex();
+    void invalidateDownloadIndex() { m_dlIndex.stamp = -1; }
     // Refresh the viewer AI/favourite/downloaded marks for its current
     // post (call after fav/download changes while the viewer is open).
     void updateViewerBadges();
@@ -451,6 +462,8 @@ private:
     // Regeneration attempts this session (site#id): favourited strays
     // with a source URL re-download once, then never nag again.
     QSet<QString> m_regenTried;
+    // Download-folder inventory for the ↓ badge (see downloadDiskIndex).
+    DownloadedIndex m_dlIndex;
     // Explicit-unfavourite vetoes (site#pid): an in-flight or future
     // download finishing must not re-favourite the row. Cleared by an
     // explicit favourite or an explicit download request for the post.

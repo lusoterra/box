@@ -146,8 +146,13 @@ QString keyForLabel(const QString &siteLabel); // "Danbooru" -> "danbooru"
 // the port is explicit and non-default), so renaming the display label
 // never orphans files. "_Stray" stays literal; unconfigured/unknown
 // sites fall back to the label (legacy layout). Feed the result straight
-// into safeSiteDir()/downloadFileName().
+// into safeFolderSegment()/downloadFileName().
 QString fsTagForPost(const Post &post);
+// Sanitized folder segment for a filesystem tag: separators and colons
+// flattened, bare dot-names prefixed, "_Stray" and unicode kept. Used by
+// the downloader and the LoliSnatcher importer so both land in the same
+// host-named folder. Pure.
+QString safeFolderSegment(const QString &tag);
 // host -> key for every configured + preset entry. Lets sidecar refresh
 // resolve host-named folders back to sites.
 QMap<QString, QString> hostKeys();

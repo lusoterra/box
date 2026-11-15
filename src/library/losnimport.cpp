@@ -8,6 +8,7 @@
 #include <QCheckBox>
 #include <QCoreApplication>
 #include <QDir>
+#include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
 #include <QGroupBox>
@@ -80,25 +81,39 @@ QString md5FromFileUrl(const QString &fileUrl) {
     return hex32.match(stem).hasMatch() ? stem : QString();
 }
 
-QSet<QString> md5sOnDisk(const QString &destDir) {
+QHash<QString, QString> md5PathsOnDisk(const QString &destDir) {
     // One listing for the whole tree (not per row): file stems carry the
     // content hash, so any earlier filing (even under a stale "merge"
-    // label) counts as already imported.
+    // label or a host folder used by the regular downloader) counts as
+    // already imported. Case-insensitive: API/URL hashes differ in case.
     static const QRegularExpression md5Stem(
-        QStringLiteral("_(?P<md5>[0-9a-f]{32})\\.[^.]+$"));
-    QSet<QString> out;
+        QStringLiteral("_(?P<md5>[0-9a-f]{32})\\.[^.]+$"),
+        QRegularExpression::CaseInsensitiveOption);
+    QHash<QString, QString> out;
     const QDir dest(destDir);
     if (destDir.isEmpty() || !dest.exists())
         return out;
-    for (const QString &site :
-         dest.entryList(QDir::Dirs | QDir::NoDotAndDotDot)) {
-        const QDir sub(dest.absoluteFilePath(site));
-        for (const QString &f : sub.entryList(QDir::Files)) {
-            const auto m = md5Stem.match(f);
-            if (m.hasMatch())
-                out.insert(m.captured(QStringLiteral("md5")));
-        }
+    // Recursive: the download tree is normally one site level, but a user
+    // reorganising files into nested folders must not cause re-downloads.
+    QDirIterator it(destDir, QDir::Files, QDirIterator::Subdirectories);
+    while (it.hasNext()) {
+        const QFileInfo fi(it.next());
+        const auto m = md5Stem.match(fi.fileName());
+        if (!m.hasMatch())
+            continue;
+        const QString md5 = m.captured(QStringLiteral("md5")).toLower();
+        if (!out.contains(md5))
+            out.insert(md5, fi.absoluteFilePath());
     }
+    return out;
+}
+
+QSet<QString> md5sOnDisk(const QString &destDir) {
+    const QHash<QString, QString> paths = md5PathsOnDisk(destDir);
+    QSet<QString> out;
+    out.reserve(paths.size());
+    for (auto it = paths.begin(); it != paths.end(); ++it)
+        out.insert(it.key());
     return out;
 }
 
@@ -159,20 +174,58 @@ DownloadPaths pathsForRow(const LosnRow &row, const QJsonObject &sidecar,
     return targetPaths(named, destDir);
 }
 
+namespace {
+// Folder tag the regular downloader would use for this backup row: the
+// configured entry's base-URL host, else the row's own (post, then file)
+// host so unconfigured sources still match host-named folders instead of
+// the legacy display label.
+QString folderTagForRow(const LosnRow &row) {
+    Post p;
+    p.isRemote = true;
+    p.siteKey = row.siteKey;
+    p.siteName = row.siteLabel;
+    p.fileUrl = row.fileUrl;
+    p.postUrl = row.postUrl;
+    const QString tag = RemotePosts::fsTagForPost(p);
+    if (tag == row.siteLabel && !row.host.isEmpty())
+        return row.host;
+    return tag;
+}
+} // namespace
+
 DownloadPaths targetPaths(const LosnRow &row, const QString &destDir) {
+    // Same folder + filename shape as DownloadManager::plan(), so an
+    // import lands beside the regular downloader's files (gelbooru.com/,
+    // gelboorucom_<md5>.jpg) instead of a parallel <Label>/ tree.
     DownloadPaths out;
-    const QString stem = !row.md5.isEmpty()
-                             ? row.siteLabel + u'_' + row.md5
-                             : row.siteLabel + QStringLiteral("_losn") +
-                                   QString::number(row.rowId);
-    // Gated like downloadFileName: a 300-char suffix (or Windows-illegal
-    // chars) must not become a filename (ENAMETOOLONG -> perpetual job).
+    QString md5 = row.md5.trimmed().toLower();
+    static const QRegularExpression hex32(QStringLiteral("^[0-9a-f]{32}$"));
+    if (!hex32.match(md5).hasMatch())
+        md5.clear();
     const QString ext =
         BooruEngineOps::extOf(row.fileUrl, QStringLiteral("jpg"));
-    out.fileName = stem + u'.' + ext;
-    const QString dir = destDir + u'/' + row.siteLabel;
+    QJsonObject raw;
+    raw[QStringLiteral("file_ext")] = ext;
+    if (!md5.isEmpty())
+        raw[QStringLiteral("md5")] = md5;
+    const QString tag = folderTagForRow(row);
+    QString stem = RemotePosts::downloadFileName(tag, raw);
+    if (md5.isEmpty()) {
+        // Stable fallback stem (re-imports agree on the path) that can
+        // never be mistaken for a real content hash.
+        const int dot = stem.lastIndexOf(u'.');
+        const QString extPart = dot > 0 ? stem.mid(dot) : QString();
+        const QString base = dot > 0 ? stem.left(dot) : stem;
+        const int cut = base.lastIndexOf(u'_');
+        const QString prefix = cut > 0 ? base.left(cut) : base;
+        stem = prefix + QStringLiteral("_losn") + QString::number(row.rowId) +
+               extPart;
+    }
+    const QString dir = destDir + u'/' + RemotePosts::safeFolderSegment(tag);
+    out.fileName = stem;
     out.filePath = dir + u'/' + out.fileName;
-    out.jsonPath = dir + u'/' + stem + QStringLiteral(".json");
+    out.jsonPath =
+        dir + u'/' + stem.left(stem.lastIndexOf(u'.')) + QStringLiteral(".json");
     return out;
 }
 
@@ -276,12 +329,16 @@ QList<LosnRow> readBackup(const QString &dbPath, QString &error) {
             r.snatched = q.value(6).toLongLong() != 0;
             r.favourite = q.value(7).toLongLong() != 0;
             r.tags = itemTags.value(r.rowId);
-            siteForHost(QUrl(r.postUrl).host(), r.siteKey, r.siteLabel);
+            r.host = QUrl(r.postUrl).host().toLower();
+            siteForHost(r.host, r.siteKey, r.siteLabel);
             if (r.siteKey.isEmpty() && !r.fileUrl.isEmpty()) {
                 // Merge-tab rows often lack a post URL: fall back to the
                 // file (CDN) host so they file under the real booru instead
                 // of a "merge"/"LoliSnatcher" catch-all.
-                siteForHost(QUrl(r.fileUrl).host(), r.siteKey, r.siteLabel);
+                const QString fileHost = QUrl(r.fileUrl).host().toLower();
+                siteForHost(fileHost, r.siteKey, r.siteLabel);
+                if (r.host.isEmpty())
+                    r.host = fileHost;
             }
             r.postId = idFromPostUrl(r.postUrl);
             r.md5 = md5FromFileUrl(r.fileUrl);
@@ -469,7 +526,11 @@ void LosnImportDialog::onStart() {
     m_downloadRows.clear();
     // Pre-import disk snapshot: the finish summary diffs finalPaths
     // against these md5 stems to list only genuinely new files.
-    m_beforeMd5 = LosnImport::md5sOnDisk(m_downloadDir);
+    m_diskByMd5 = LosnImport::md5PathsOnDisk(m_downloadDir);
+    m_diskPaths.clear();
+    m_beforeMd5.clear();
+    for (auto it = m_diskByMd5.begin(); it != m_diskByMd5.end(); ++it)
+        m_beforeMd5.insert(it.key());
     auto rowKey = [](const LosnRow &r) {
         if (r.postId > 0)
             return r.siteLabel + u'#' + QString::number(r.postId);
@@ -529,9 +590,10 @@ void LosnImportDialog::onStart() {
             // Link only files that actually exist: a target path for a
             // never-downloaded row would later look like a deleted
             // download (redownload prompt / stale ↓ flag).
-            const QString target =
-                LosnImport::targetPaths(r, m_downloadDir).filePath;
-            if (QFileInfo::exists(target))
+            QString target = LosnImport::targetPaths(r, m_downloadDir).filePath;
+            if (!QFileInfo::exists(target) && !r.md5.isEmpty())
+                target = m_diskByMd5.value(r.md5.toLower());
+            if (!target.isEmpty() && QFileInfo::exists(target))
                 paths.insert({r.siteLabel, r.postId}, target);
         }
         const int n = m_favDb->addMany(favs);
@@ -589,9 +651,47 @@ void LosnImportDialog::onStart() {
     m_refreshPending.clear();
     m_refreshUrls.clear();
     for (const LosnRow &r : m_downloadRows) {
-        if (QFile::exists(LosnImport::targetPaths(r, m_downloadDir).filePath)) {
+        const QString target =
+            LosnImport::targetPaths(r, m_downloadDir).filePath;
+        QString onDisk =
+            QFile::exists(target)
+                ? target
+                : m_diskByMd5.value(r.md5.trimmed().toLower());
+        if (!onDisk.isEmpty() && onDisk != target && !QFile::exists(target)) {
+            // Upgrade an older import that filed the file under <Label>/
+            // (and <Label>_<md5>) into the regular downloader's host
+            // folder, so the tree stays consistent. Only app-made legacy
+            // label folders are touched; user-relocated files stay put.
+            const QString legacyDir =
+                m_downloadDir + u'/' + RemotePosts::safeFolderSegment(
+                                              r.siteLabel);
+            if (QFileInfo(onDisk).absolutePath() == legacyDir) {
+                QDir().mkpath(QFileInfo(target).absolutePath());
+                if (QFile::rename(onDisk, target)) {
+                    const QString oldStem =
+                        QFileInfo(onDisk).completeBaseName();
+                    const QString newStem =
+                        QFileInfo(target).completeBaseName();
+                    const QString oldJson = QFileInfo(onDisk).absolutePath() +
+                                            u'/' + oldStem +
+                                            QStringLiteral(".json");
+                    const QString newJson = QFileInfo(target).absolutePath() +
+                                            u'/' + newStem +
+                                            QStringLiteral(".json");
+                    if (QFile::exists(oldJson) && !QFile::exists(newJson))
+                        QFile::rename(oldJson, newJson);
+                    onDisk = target;
+                    m_diskByMd5.insert(r.md5.trimmed().toLower(), target);
+                }
+            }
+        }
+        if (!onDisk.isEmpty() && QFile::exists(onDisk)) {
+            // Same content anywhere under the download folder (host
+            // folder from the regular downloader, legacy label folder
+            // from an earlier import): never fetch the media again.
             m_refreshPending.append(r);
             m_refreshUrls.insert(r.fileUrl);
+            m_diskPaths.insert(r.fileUrl, onDisk);
         } else {
             m_metaPending.append(r);
         }
@@ -714,7 +814,17 @@ void LosnImportDialog::onMetaDone(qint64 reqId, const QJsonObject &raw) {
         // Re-fetched object replaces whatever sidecar is on disk.
         if (m_rowIndex.contains(url)) {
             const LosnRow &r = m_rows.at(m_rowIndex.value(url));
-            QFile jf(LosnImport::targetPaths(r, m_downloadDir).jsonPath);
+            // Write beside the media that actually exists (it may live in
+            // a host folder or an older label folder), never next to a
+            // non-existent planned path.
+            const QString media = m_diskPaths.value(url);
+            const QString jsonPath =
+                media.isEmpty()
+                    ? LosnImport::targetPaths(r, m_downloadDir).jsonPath
+                    : QFileInfo(media).absolutePath() + u'/' +
+                          QFileInfo(media).completeBaseName() +
+                          QStringLiteral(".json");
+            QFile jf(jsonPath);
             if (jf.open(QIODevice::WriteOnly | QIODevice::Truncate))
                 jf.write(QJsonDocument(raw).toJson(QJsonDocument::Indented));
             else
@@ -774,8 +884,10 @@ void LosnImportDialog::startDownloads() {
     const QString dest = m_downloadDir;
     // Re-imports skip what is already on disk ANYWHERE under dest (not
     // just at the computed path): earlier runs may have filed the same
-    // md5 under a stale label (merge_* orphans).
-    const QSet<QString> haveMd5 = LosnImport::md5sOnDisk(dest);
+    // md5 under a stale label (merge_* orphans), and the regular
+    // downloader uses host folders.
+    const QHash<QString, QString> haveMd5 =
+        LosnImport::md5PathsOnDisk(dest);
     int skippedMd5 = 0;
     for (const LosnRow &r : m_downloadRows) {
         if (r.fileUrl.isEmpty())
@@ -785,16 +897,29 @@ void LosnImportDialog::startDownloads() {
             sidecar = LosnImport::nativeSidecar(r);
         const LosnImport::DownloadPaths paths =
             LosnImport::pathsForRow(r, sidecar, dest);
-        if (QFile::exists(paths.filePath))
+        if (QFile::exists(paths.filePath)) {
+            m_diskPaths.insert(r.fileUrl, paths.filePath);
             continue; // re-import: already on disk
+        }
         QString md5 = sidecar.value(QStringLiteral("md5")).toString();
         if (md5.isEmpty())
             md5 = sidecar.value(QStringLiteral("checksumMD5")).toString();
         if (md5.isEmpty())
             md5 = r.md5;
-        if (!md5.isEmpty() && haveMd5.contains(md5.toLower())) {
+        md5 = md5.trimmed().toLower();
+        if (!md5.isEmpty() && haveMd5.contains(md5)) {
+            // Same bytes under another folder: keep them, but refresh the
+            // sidecar beside the file that already exists.
+            const QString media = haveMd5.value(md5);
+            m_diskPaths.insert(r.fileUrl, media);
+            const QFileInfo fi(media);
+            QFile jf(fi.absolutePath() + u'/' + fi.completeBaseName() +
+                     QStringLiteral(".json"));
+            if (jf.open(QIODevice::WriteOnly | QIODevice::Truncate))
+                jf.write(QJsonDocument(sidecar)
+                             .toJson(QJsonDocument::Indented));
             skippedMd5++;
-            continue; // same bytes under another label: nothing to fetch
+            continue; // same bytes elsewhere: nothing to fetch
         }
         DownloadJob job;
         job.fileName = paths.fileName;
@@ -803,8 +928,10 @@ void LosnImportDialog::startDownloads() {
         Post p;
         p.isRemote = true;
         p.siteName = r.siteLabel;
+        p.siteKey = r.siteKey; // folder/referer/cookies as the regular pull
         p.id = r.postId;
         p.fileUrl = r.fileUrl;
+        p.md5 = md5;
         // Stash the sidecar object for the manager to write.
         p.rawJson = sidecar;
         job.post = p;
@@ -910,6 +1037,8 @@ void LosnImportDialog::onDownloadsDone(const DownloadSummary &summary) {
         if (r.fileUrl.isEmpty())
             continue;
         QString path = byUrl.value(r.fileUrl);
+        if (path.isEmpty())
+            path = m_diskPaths.value(r.fileUrl);
         if (path.isEmpty()) {
             // Skipped (already on disk) or predates finalPaths: fall back.
             path = LosnImport::targetPaths(r, m_downloadDir).filePath;

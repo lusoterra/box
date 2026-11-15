@@ -1162,6 +1162,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     });
     connect(m_downloads, &DownloadManager::finished, this,
             [this](const DownloadSummary &s) {
+                invalidateDownloadIndex(); // new bytes = new ↓ badges
                 if (!m_favDb.isOpen())
                     return;
                 const QString dest =
@@ -1290,6 +1291,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
         QFile::remove(fi.absolutePath() + u'/' + fi.completeBaseName() +
                       QStringLiteral(".json"));
         QFile::remove(abs + QStringLiteral(".json"));
+        invalidateDownloadIndex();
         repaintFavMarks();
         updateViewerBadges();
         statusBar()->showMessage(tr("Deleted %1").arg(fi.fileName()), 4000);
@@ -1595,6 +1597,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
             });
     connect(m_downloads, &DownloadManager::finished, this,
             [this](const DownloadSummary &sum) {
+                invalidateDownloadIndex();
                 m_dlBar->setRange(0, 1);
                 m_dlBar->setValue(1);
                 QString doneMsg = tr("Downloads finished: %1 ok, %2 failed")

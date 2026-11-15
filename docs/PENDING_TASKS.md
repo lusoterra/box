@@ -1,5 +1,32 @@
 # Pending tasks (from user goal)
 
+## 11. Download badge follows the filesystem - DONE
+- Grid/viewer `↓` no longer trusts `FavDb.local_path`: remote posts resolve
+  a content md5 (post/raw sidecar, then file URL) against a download-folder
+  scan, or the planned host-folder filename when no hash exists
+  (`src/ui/mainwindow_heal.cpp:102`, `mainwindow.h:332`).
+- Deleting files (grid/viewer/unfavourite) or finishing a batch invalidates
+  the scan; external deletes are caught by the folder mtime.
+- Verify: `ctest -R 'losnimport|downloadplan|security|remotesource|stray'`
+  (6/6); badge needs GUI eyes, no unit seam.
+
+## 10. LoliSnatcher imports use host folders - DONE
+- `LosnImport::targetPaths` now mirrors `DownloadManager::plan`:
+  `<host>/<host-without-punctuation>_<md5>.<ext>` (e.g. `gelbooru.com/
+  gelboorucom_<md5>.jpg`) instead of a parallel `Gelbooru/` tree
+  (`src/library/losnimport.cpp:188`, shared `RemotePosts::safeFolderSegment`
+  at `src/remote/remotesource.cpp`).
+- Re-imports classify by md5 anywhere under the download folder
+  (`md5PathsOnDisk`), refresh sidecars beside the real file, link
+  favourites to it, and migrate old app-made `<Label>/` files into the host
+  folder once. Already-downloaded media is never re-fetched.
+- Verify: `test_losnimport` (`targetPathsUseHostFolderLikeDownloader`,
+  `md5PathsOnDiskReturnsRealFile`); 6/6 targeted.
+
+## 9. Downloader folder naming shared with imports - DONE
+- `safeSiteDir` moved to `RemotePosts::safeFolderSegment` so the batch
+  downloader and LoliSnatcher importer cannot drift on folder sanitizing
+  (`src/remote/downloadmanager.cpp:164`, `remotesource.h`).
 
 
 ## 8. Phantom notes/comments + unreadable expanded thread - DONE

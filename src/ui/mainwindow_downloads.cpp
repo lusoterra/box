@@ -193,7 +193,7 @@ void MainWindow::repaintFavMarks() {
     for (int row = 0; row < m_model->rowCount() && row < m_current.size();
          ++row) {
         Post &p = m_current[row];
-        p.downloaded = isPostDownloaded(p, &favLocal);
+        p.downloaded = isPostDownloaded(p);
         m_model->setData(m_model->index(row, 0),
                          isFavMarked(p, favLocal, byPath),
                          Qt::UserRole + 12);
@@ -312,8 +312,10 @@ void MainWindow::maybeDeleteUnfavFile(const Post &post) {
         return;
     if (!dlRoot.isEmpty() && !abs.isEmpty() &&
         (abs == dlRoot || abs.startsWith(dlRoot + u'/'))) {
-        if (QFile::remove(abs))
+        if (QFile::remove(abs)) {
+            invalidateDownloadIndex();
             statusBar()->showMessage(tr("Deleted %1").arg(abs), 6000);
+        }
     }
 }
 

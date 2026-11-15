@@ -41,6 +41,7 @@
 #include <QDateTime>
 #include <QDesktopServices>
 #include <QDir>
+#include <QDirIterator>
 #include <QDrag>
 #include <QFile>
 #include <QFileDialog>
@@ -60,6 +61,7 @@
 #include <QMimeData>
 #include <QPainter>
 #include <QPushButton>
+#include <QRegularExpression>
 #include <QProgressBar>
 #include <QProgressDialog>
 #include <QScrollArea>
@@ -99,9 +101,37 @@ void MainWindow::healLocalPosts(QVector<Post> &posts) {
     }
 }
 
-bool MainWindow::isPostDownloaded(
-    const Post &post,
-    const QHash<QPair<QString, qint64>, QString> *favLocal) {
+const MainWindow::DownloadedIndex &MainWindow::downloadDiskIndex() {
+    const QString root =
+        QDir(effectiveDownloadDir(m_settings)).absolutePath();
+    const qint64 stamp = QFileInfo(root).lastModified().toMSecsSinceEpoch();
+    if (m_dlIndex.stamp == stamp && m_dlIndex.root == root)
+        return m_dlIndex;
+    m_dlIndex = DownloadedIndex();
+    m_dlIndex.root = root;
+    m_dlIndex.stamp = stamp;
+    static const QRegularExpression md5Stem(
+        QStringLiteral("_(?P<md5>[0-9a-f]{32})$"),
+        QRegularExpression::CaseInsensitiveOption);
+    QDirIterator it(root, QDir::Files, QDirIterator::Subdirectories);
+    while (it.hasNext()) {
+        const QFileInfo fi(it.next());
+        const QString suffix = fi.suffix().toLower();
+        if (suffix == QStringLiteral("json") ||
+            suffix == QStringLiteral("part") ||
+            suffix == QStringLiteral("tmp"))
+            continue;
+        const QString stem = fi.completeBaseName();
+        m_dlIndex.stems.insert(stem);
+        const auto m = md5Stem.match(stem);
+        if (m.hasMatch())
+            m_dlIndex.md5s.insert(
+                m.captured(QStringLiteral("md5")).toLower());
+    }
+    return m_dlIndex;
+}
+
+bool MainWindow::isPostDownloaded(const Post &post) {
     if (!post.isRemote) {
         // On disk under the download folder counts; plain library
         // folders are archives, not downloads. The file must actually
@@ -113,18 +143,37 @@ bool MainWindow::isPostDownloaded(
         const QString abs = QFileInfo(post.absFile).absolutePath();
         return abs == dlRoot || abs.startsWith(dlRoot + u'/');
     }
-    // Remote posts count when a favourite row links a file that is
-    // still on disk (re-downloads and moved files heal via relink).
-    QHash<QPair<QString, qint64>, QString> fresh;
-    if (!favLocal) {
-        if (!m_favDb.isOpen())
-            return false;
-        fresh = m_favDb.localPaths();
-        favLocal = &fresh;
+    // Remote posts: the file itself decides. Prefer the content hash
+    // (folder-agnostic: host folders, legacy label folders, moved files),
+    // then the exact planned filename for hash-less posts.
+    const DownloadedIndex &idx = downloadDiskIndex();
+    QString md5 = post.md5.trimmed().toLower();
+    static const QRegularExpression hex32(
+        QStringLiteral("^[0-9a-f]{32}$"));
+    if (!hex32.match(md5).hasMatch())
+        md5 = LosnImport::md5FromFileUrl(post.fileUrl);
+    if (md5.isEmpty()) {
+        md5 = post.rawJson.value(QStringLiteral("md5")).toString().toLower();
+        if (md5.isEmpty())
+            md5 = post.rawJson.value(QStringLiteral("checksumMD5"))
+                      .toString()
+                      .toLower();
     }
-    const auto it = favLocal->find(favIdentity(post));
-    return it != favLocal->end() && !it.value().isEmpty() &&
-           QFileInfo::exists(it.value());
+    if (!md5.isEmpty() && idx.md5s.contains(md5))
+        return true;
+    Post probe = post;
+    if (!md5.isEmpty() &&
+        probe.rawJson.value(QStringLiteral("md5")).toString().isEmpty())
+        probe.rawJson[QStringLiteral("md5")] = md5;
+    const QList<DownloadJob> jobs =
+        DownloadManager::plan({probe}, idx.root);
+    if (!jobs.isEmpty()) {
+        const QString name = jobs.first().fileName;
+        const int dot = name.lastIndexOf(u'.');
+        if (idx.stems.contains(dot > 0 ? name.left(dot) : name))
+            return true;
+    }
+    return false;
 }
 
 void MainWindow::updateViewerBadges() {
@@ -134,7 +183,7 @@ void MainWindow::updateViewerBadges() {
     const auto [site, pid] = favIdentity(p);
     const bool faved =
         m_favDb.isOpen() && m_favDb.isFavourite(site, pid);
-    const bool downloaded = isPostDownloaded(p, nullptr);
+    const bool downloaded = isPostDownloaded(p);
     m_viewer->setStatusBadges(isAiPost(p), faved, downloaded);
     m_viewer->setFaved(faved);
     m_viewer->setDownloaded(downloaded);
