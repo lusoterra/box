@@ -156,6 +156,35 @@ private slots:
                                 "gelboorucom_516e1f01a05ea895b33316bd28bfd27f.png"));
     }
 
+    void yandereUsesHostFolder() {
+        // Configured entry under an odd label ("Yande.re"): favourites
+        // rows stamped with the plain label still file under yande.re/.
+        RemoteSource::setConfiguredBoorus({});
+        BooruSite y;
+        y.key = QStringLiteral("yandere");
+        y.label = QStringLiteral("Yande.re");
+        y.baseUrl = QStringLiteral("https://yande.re");
+        y.engine = BooruEngine::Moebooru;
+        RemoteSource::setConfiguredBoorus({y});
+        QJsonObject raw;
+        raw[QStringLiteral("id")] = 501;
+        raw[QStringLiteral("md5")] =
+            QStringLiteral("516e1f01a05ea895b33316bd28bfd27f");
+        raw[QStringLiteral("file_ext")] = QStringLiteral("jpg");
+        Post p = favPost(
+            QStringLiteral("Yandere"), 501,
+            QStringLiteral("https://files.yande.re/image/"
+                           "516e1f01a05ea895b33316bd28bfd27f.jpg"));
+        p.postUrl = QStringLiteral("https://yande.re/post/show/501");
+        const QList<DownloadJob> jobs =
+            DownloadManager::plan({p}, QStringLiteral("/dest"));
+        RemoteSource::setConfiguredBoorus({});
+        QCOMPARE(jobs.size(), 1);
+        QCOMPARE(jobs.first().filePath,
+                 QStringLiteral("/dest/yande.re/"
+                                "yandere_516e1f01a05ea895b33316bd28bfd27f.jpg"));
+    }
+
     void strayKeepsName() {
         // Homeless by design: no site, no host.
         QJsonObject raw;

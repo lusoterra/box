@@ -103,6 +103,7 @@ void MainWindow::refreshFavTabs() {
             commitFilter();
         else
             activateTab(m_curTab);
+        maybeClassifyBrowse(t); // fresh rows still need their bucket splits
     }
     updateViewerBadges();
 }

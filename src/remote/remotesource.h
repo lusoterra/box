@@ -105,6 +105,11 @@ private:
     // result. Emits only on success; otherwise fills note and returns
     // false so the normal wall error (plus note) is shown.
     bool tryWebRetry(QString &note);
+    // Run the native PoW solver once against the current search and retry
+    // it automatically when a wall answers `pow_required` (HTTP 449, or a
+    // browser fallback that passed Cloudflare but still got the JSON wall).
+    // False when a solve was already spent this search.
+    bool beginPowRetry();
     // 449 wall text shared by the sync path and the async solver-failure
     // path (solverNote appended when an in-app solve just failed).
     QString powWallError(bool captcha, const QString &webNote) const;
@@ -140,6 +145,10 @@ Q_DECLARE_METATYPE(RemoteSource::CredentialProbe)
 namespace RemotePosts {
 // Registry-dependent lookups (need RemoteSource::siteFor).
 QString keyForLabel(const QString &siteLabel); // "Danbooru" -> "danbooru"
+// Configured/preset entry whose base-URL host equals `host` or serves it
+// as a subdomain (img3.gelbooru.com -> gelbooru.com). Case-insensitive,
+// independent of the display label. Null when nothing matches.
+const BooruSite *entryForHost(const QString &host);
                                                // (custom labels via setConfiguredBoorus)
 // Filesystem tag for one remote post's download folder + filename
 // prefix: the entry's base-URL host (lowercased, "_<port>" suffixed when

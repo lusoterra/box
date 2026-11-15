@@ -52,6 +52,18 @@ QSet<QString> md5sOnDisk(const QString &destDir);
 // sidecars next to the file wherever it already lives instead of
 // re-downloading a host-folder duplicate.
 QHash<QString, QString> md5PathsOnDisk(const QString &destDir);
+// One favourite row selected by the opt-in sync pass.
+struct FavKey {
+    QString site;
+    qint64 id = 0;
+};
+// Rows the explicit sync may delete: present in the favourites store, not
+// in this backup's keep-set, and belonging to a site the backup actually
+// covers (a Gelbooru-only backup must never drop stray/Danbooru rows).
+// Pure, unit-tested.
+QVector<FavKey> staleFavourites(const QVector<Post> &existing,
+                                const QSet<QString> &keepKeys,
+                                const QSet<QString> &backupSites);
 // Gallery-dl native-shaped fallback sidecar built from a backup row.
 QJsonObject nativeSidecar(const LosnRow &row);
 // Download target paths for a row (<Site>_<md5>.<ext> + sidecar).

@@ -63,6 +63,29 @@ private slots:
         QCOMPARE(p.tagsGeneral, QStringLiteral("solo"));
     }
 
+    void tagLeavesEveryOtherBucket() {
+        // Imported rows carried the same tag in General AND untyped; the
+        // old code removed one copy, leaving lucky_star bold in General
+        // and Copyright with split counts. A verdict must leave exactly
+        // one copy, in the target bucket. Also covers a stale duplicate
+        // already persisted in two buckets.
+        Post p = untypedPost(QStringLiteral("lucky_star solo"),
+                             QStringLiteral("lucky_star"));
+        p.tags = QStringLiteral("lucky_star solo lucky_star");
+        p.tagsMeta = QStringLiteral("lucky_star");
+        Index idx;
+        idx.setPosts({p});
+        QHash<QString, QString> verdicts;
+        verdicts.insert(QStringLiteral("lucky_star"), QStringLiteral("copyright"));
+        QCOMPARE(idx.applyTagTypes(verdicts), 1);
+        const Post &back = idx.posts().first();
+        QCOMPARE(back.tagsCopyright, QStringLiteral("lucky_star"));
+        QVERIFY(back.tagsGeneral.split(u' ', Qt::SkipEmptyParts) ==
+                QStringList{QStringLiteral("solo")});
+        QVERIFY(back.tagsMeta.isEmpty());
+        QCOMPARE(back.tags.count(QStringLiteral("lucky_star")), 1);
+    }
+
     void overrideWinsOverEarlierVerdict() {
         // Simulates: fetcher said artist before, user pins copyright now.
         Post p = untypedPost(QStringLiteral("solo"), QStringLiteral("x_tag"));

@@ -86,6 +86,9 @@ struct TagMove {
     QString tag;
     QString from;
     QString to;
+    // Stale rows could carry one tag in several buckets; every extra
+    // bucket loses a count, while `to` gains exactly one.
+    QStringList alsoFrom;
 };
 // Free-function core of Index::applyTagTypes for post vectors living outside
 // an Index (browse results): same contract, no recount. Returns every move

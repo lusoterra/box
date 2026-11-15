@@ -7,6 +7,7 @@
 #include <QBoxLayout>
 #include <QLabel>
 #include <QPushButton>
+#include <QSet>
 #include <QStringList>
 #include <QVBoxLayout>
 
@@ -34,12 +35,18 @@ void ViewerPage::renderTags() {
         QMap<QString, QStringList> groups; // classic bucket -> tags
         QMap<QString, QStringList> customGroups;
         QMap<QString, QString> labels; // bucket/key -> display label
+        // A tag lives in exactly one group even when a stale row still
+        // carries it in two buckets: no duplicate chips, no split counts.
+        QSet<QString> seenTag;
         auto appendGroup = [&](const QString &target,
                                const QStringList &tagsIn) {
             if (tagsIn.isEmpty())
                 return;
             QStringList tags;
             for (const QString &t : tagsIn) {
+                if (seenTag.contains(t))
+                    continue;
+                seenTag.insert(t);
                 const auto custom =
                     m_customTagCategories.constFind(t.toLower());
                 if (custom == m_customTagCategories.constEnd()) {
@@ -75,6 +82,9 @@ void ViewerPage::renderTags() {
         appendBlob(p.tagsCopyright, QStringLiteral("copyright"));
         appendBlob(p.tagsMeta, QStringLiteral("meta"));
         appendBlob(p.tagsGeneral, QStringLiteral("general"));
+        // Tags still waiting for a category verdict stay visible in
+        // General instead of vanishing from the post panel.
+        appendBlob(p.untyped, QStringLiteral("general"));
         for (auto it = p.customTags.begin(); it != p.customTags.end();
              ++it) {
             if (it.value().isEmpty())

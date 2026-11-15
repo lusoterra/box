@@ -18,6 +18,7 @@
 #include <QLabel>
 #include <QListWidget>
 #include <QListWidgetItem>
+#include <QMessageBox>
 #include <QPushButton>
 #include <QRadioButton>
 #include <QRegularExpression>
@@ -104,6 +105,23 @@ QHash<QString, QString> md5PathsOnDisk(const QString &destDir) {
         const QString md5 = m.captured(QStringLiteral("md5")).toLower();
         if (!out.contains(md5))
             out.insert(md5, fi.absoluteFilePath());
+    }
+    return out;
+}
+
+QVector<FavKey> staleFavourites(const QVector<Post> &existing,
+                                const QSet<QString> &keepKeys,
+                                const QSet<QString> &backupSites) {
+    QVector<FavKey> out;
+    QSet<QString> seen;
+    for (const Post &p : existing) {
+        if (p.siteName.isEmpty() || !backupSites.contains(p.siteName))
+            continue; // site not in this backup: never touch it
+        const QString key = p.siteName + u'#' + QString::number(p.id);
+        if (keepKeys.contains(key) || seen.contains(key))
+            continue;
+        seen.insert(key);
+        out.append({p.siteName, p.id});
     }
     return out;
 }
@@ -417,7 +435,17 @@ LosnImportDialog::LosnImportDialog(const QString &dbPath, FavDb *favDb,
         tr("Sync: remove local favourites/downloads not in this backup"),
         this);
     m_sync->setChecked(false);
+    m_sync->setToolTip(
+        tr("Opt-in only: asks before removing, and only for sites in this "
+           "backup."));
     favsLay->addWidget(m_sync);
+    auto *appendNote = new QLabel(
+        tr("Imports only add favourites. Nothing is removed unless you tick "
+           "Sync, and Sync asks for confirmation."),
+        this);
+    appendNote->setWordWrap(true);
+    appendNote->setStyleSheet(QStringLiteral("color:#4a5068;"));
+    favsLay->addWidget(appendNote);
     lay->addWidget(favsBox);
 
     auto *opts = new QGroupBox(tr("Downloaded entries (↓)"), this);
@@ -603,15 +631,36 @@ void LosnImportDialog::onStart() {
     }
     if (m_sync && m_sync->isChecked()) {
         QSet<QString> imported;
+        QSet<QString> backupSites;
+        for (const LosnRow &r : m_rows)
+            if (!r.siteLabel.isEmpty())
+                backupSites.insert(r.siteLabel);
         for (const LosnRow &r : toFavourite)
             imported.insert(r.siteLabel + u'#' + QString::number(r.postId));
+        // Destructive action: count first, confirm with No/default, and
+        // never touch favourites from sites this backup does not cover.
+        const QVector<LosnImport::FavKey> stale =
+            LosnImport::staleFavourites(m_favDb->list(), imported,
+                                        backupSites);
+        bool doSync = !stale.isEmpty();
+        if (doSync) {
+            doSync = QMessageBox::question(
+                         this, tr("Sync favourites"),
+                         tr("Remove %1 favourite(s) from this backup's sites "
+                            "that are not in the backup?\n\n"
+                            "Only favourite entries are removed; downloaded "
+                            "files stay on disk. This cannot be undone.")
+                             .arg(stale.size()),
+                         QMessageBox::Yes | QMessageBox::No,
+                         QMessageBox::No) == QMessageBox::Yes;
+        }
         int removed = 0;
-        for (const Post &p : m_favDb->list()) {
-            const QString key = p.siteName + u'#' + QString::number(p.id);
-            if (imported.contains(key))
-                continue;
-            if (m_favDb->remove(p.siteName, p.id))
-                removed++;
+        if (doSync) {
+            for (const LosnImport::FavKey &k : stale)
+                if (m_favDb->remove(k.site, k.id))
+                    removed++;
+        } else if (!stale.isEmpty()) {
+            log(tr("Sync skipped: favourites were left untouched."));
         }
         if (removed > 0)
             log(tr("Sync removed %1 stale favourite entries.").arg(removed));

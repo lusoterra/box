@@ -1,5 +1,56 @@
 # Pending tasks (from user goal)
 
+## 18. Host folders for favourites and unconfigured sources - DONE
+- `fsTagForPost` (`src/remote/remotesource.cpp:1141`) resolves the entry
+  by key/label first, then falls back to the post URL host (and the file
+  host only for unknown labels): Yandere rows file under `yande.re/`, not
+  `Yandere/`. Known mirrors (konachan.net/com, soybooru.com) resolve via
+  `entryForHost` (`:932`).
+- Verify: `test_remotesource` (`labelAndHostFallbacks`),
+  `test_downloadplan` (`yandereUsesHostFolder`).
+
+## 17. Soybooru PoW after a Cloudflare pass - DONE
+- The browser fallback now checks its body: when Cloudflare passed but the
+  origin still returns `pow_required`, `beginPowRetry`
+  (`src/remote/remotesource.cpp:849`) solves the PoW natively on the search
+  QNAM and retries once, same as the plain HTTP 449 path.
+- Verify: `test_remotesource` challenge-body cases; a live wall cannot be
+  unit-tested, the branch is exercised by the shared 449 solver tests.
+
+## 16. `_Stray` is a Booru Explorer feature - DONE
+- `StrayDialog` hint and `docs/GLOSSARY.md` state strays are for random
+  URLs and paid/exclusive uploads (Patreon etc.), not a LoliSnatcher mode
+  (`src/ui/straydialog.cpp:20`).
+- Verify: `check_translations` (new source string not yet in locale files,
+  same as other recent strings).
+
+## 15. LoliSnatcher import is append-only by default - DONE
+- Imports only add rows. `Sync` stays opt-in, now asks for confirmation,
+  and `LosnImport::staleFavourites` scopes removals to sites present in
+  this backup (`src/library/losnimport.cpp:112`), so a Gelbooru backup
+  can never drop stray/Danbooru favourites.
+- Verify: `test_losnimport` (`syncOnlyTouchesBackupSites`).
+
+## 14. Favourites origin badges - DONE
+- `keyForLabel` (`src/remote/remotesource.cpp:976`) matches configured
+  labels/short names case- and punctuation-insensitively; `entryForPost`
+  then falls back to the post/file URL host (`entryForHost`), so konachan,
+  soybooru and visuabusters favourites keep their favicon/short name.
+- Verify: `test_remotesource` (`labelAndHostFallbacks`).
+
+## 13. Favourites tag categorization + counts - DONE
+- Favourites run the same cached classifier as browse tabs
+  (`maybeClassifyBrowse`, `src/ui/mainwindow_classify.cpp:87`) and persist
+  splits; flat legacy LOSN rows offer `tagsGeneral` as untyped once
+  (`src/library/favdb.cpp`), healing the 4-vs-200 split.
+- `applyTagBuckets` (`src/library/index.cpp:342`) removes a tag from every
+  bucket before placing it in the verdict bucket, so one tag cannot be
+  bold in two sections with split counts. Sidebar and viewer count each
+  post's tag once and show still-unclassified tags under General
+  (`src/ui/mainwindow_sidebar.cpp:172`, `src/ui/viewerpage_tags.cpp:40`).
+- Verify: `test_index` (`tagLeavesEveryOtherBucket`), `test_favdb`
+  (`flatRemoteRowOffersGeneralForClassification`); full `ctest` 38/38.
+
 ## 12. Duplicate checking on LoliSnatcher import - DONE
 - Favourites are already deduped by `(site, post_id)` (`FavDb::addMany`,
   `INSERT OR IGNORE`); media is skipped when its md5 exists anywhere under

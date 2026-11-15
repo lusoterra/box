@@ -487,6 +487,16 @@ static Post rowToPost(const QSqlQuery &q) {
     p.height = q.value(16).toInt();
     p.untyped = q.value(18).toString();
     p.customTags = decodeCustom(q.value(19).toString());
+    // Older LOSN imports stored one flat blob in tags_general with no
+    // untyped list, so lucky_star stayed General while downloaded siblings
+    // showed Copyright (4 vs 200 split). A flat favourite (no other
+    // buckets) is category-less by definition: offer it to the cached
+    // classifier once, which persists the healed splits.
+    if (p.isRemote && p.untyped.isEmpty() && !p.tagsGeneral.isEmpty() &&
+        p.tagsArtist.isEmpty() && p.tagsCharacter.isEmpty() &&
+        p.tagsCopyright.isEmpty() && p.tagsMeta.isEmpty() &&
+        p.customTags.isEmpty() && p.siteName != QStringLiteral("_Stray"))
+        p.untyped = p.tagsGeneral;
     p.hasMeta = true;
     // LOSN imports (and old rows) store "general" with no rating source:
     // upgrade in memory when the tags hit the explicit list, same rule

@@ -28,7 +28,9 @@
 - grid snap/stagger = `grid/snap` fills the viewport with whole columns
   (`MainWindow::applyGridSnap`); `grid/staggered` offsets odd columns half
   a card (`GalleryDelegate::m_staggered`). Videos never drag out.
-- stray = hand-tagged file in `<downloadDir>/_Stray/` as `_Stray_<md5>.<ext>`
+- stray = Booru Explorer feature (not a LoliSnatcher mode) for random
+  URLs and paid/exclusive uploads that never reach a booru (Patreon etc.):
+  hand-tagged file in `<downloadDir>/_Stray/` as `_Stray_<md5>.<ext>`
   (`src/library/stray.h:14`); via File -> Download/Add Stray
   (`straydialog`). Pasted booru post links are resolved through the public
   API/HTML (`src/remote/strayresolve.h`) so the sidecar keeps the real tags,

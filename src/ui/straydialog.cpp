@@ -20,7 +20,9 @@ StrayDialog::StrayDialog(bool autoFav, QWidget *parent) : QDialog(parent) {
     auto *hint = new QLabel(
         tr("Post or media URLs, one per line. Booru post links are read "
            "through their public API (the site is not added to your booru "
-           "list); direct image/video links are fetched as-is."),
+           "list); direct image/video links are fetched as-is. Strays are "
+           "a Booru Explorer feature for random URLs and paid/exclusive "
+           "uploads (Patreon etc.), not part of LoliSnatcher."),
         this);
     hint->setWordWrap(true);
     lay->addWidget(hint);

@@ -42,7 +42,10 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     into the entry) instead of relying on browser-harvested cookies that die
     on any IP change. Only captchas still need the human browser path.
     Traffic rides the browser-backed stack (`powWall` quirk on
-    `soybooru.com`);
+    `soybooru.com`). If that browser fallback passes Cloudflare but the
+    origin still answers `pow_required`, `RemoteSource::beginPowRetry`
+    solves natively and retries the search automatically
+    (`remotesource.cpp:879`);
     ATF notes: the wall is an `atf-anti-bot` cookie (minted by the checkbox
     verification page; rotates, so re-capture is routine) plus per-endpoint
     captchas. Media/file hosts challenge independently of `/`, so capture
@@ -207,6 +210,16 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     (same gate on stray regen).
   - Explicit-rating healing on fav list (`favdb.cpp:467,505`,
     `ratingInferred` flag).
+  - Favourites run the same cached classifier as browse tabs
+    (`maybeClassifyBrowse`, `mainwindow_classify.cpp:87`): cached verdicts
+    apply on tab open, misses fetch once, splits persist via
+    `setTagSplits`. `applyTagBuckets` removes a moved tag from every
+    bucket first (`index.cpp:338`), so imported duplicate rows cannot
+    leave one tag counted in two sections.
+  - Origin badges resolve favourite labels case-insensitively
+    (`keyForLabel`, `remotesource.cpp:940`) and fall back to the post/file
+    URL host (`entryForHost`), so a renamed entry keeps its favicon and
+    short name.
 - Tag classification waterfall (`src/library/tagtypes.h:112` `TagTypeFetcher`):
   Gelbooru-with-creds -> anon Danbooru -> Safebooru -> yandere; misses
   (type -1) cached, transient (`kTransientFailure = -2`) not cached and

@@ -545,37 +545,7 @@ void RemoteSource::search(const QStringList &tags, int page, int limit) {
                     QStringLiteral("captcha_required"), Qt::CaseInsensitive);
                 m_lastWallKind = captcha ? QStringLiteral("captcha")
                                          : QStringLiteral("pow");
-                if (!captcha && !m_powRetried) {
-                    // IP-bound token: solve on this exact stack (same
-                    // proxy and egress, same cookie jar), then retry once.
-                    m_powRetried = true;
-                    const int gen = m_searchGen;
-                    const QStringList retryTags = m_lastTags;
-                    const int retryPage = m_pendingPage;
-                    const int retryLimit = m_pendingLimit;
-                    PowSolver::solve(
-                        m_nam, m_baseUrl, this,
-                        [this, gen, retryTags, retryPage,
-                         retryLimit](bool ok, const QStringList &fresh,
-                                     const QString &err) {
-                            if (gen != m_searchGen)
-                                return; // superseded by a newer search
-                            if (ok) {
-                                m_lastFreshCookies = fresh;
-                                search(retryTags, retryPage, retryLimit);
-                                m_powRetried = true;
-                            } else {
-                                m_lastPowError = err;
-                                SearchResult powResult;
-                                powResult.site = m_site.key;
-                                powResult.httpStatus = 449;
-                                powResult.error = powWallError(false, {});
-                                m_lastWall = true;
-                                m_lastError = powResult.error;
-                                m_lastHttp = 449;
-                                emit searchFinished(powResult);
-                            }
-                        });
+                if (!captcha && beginPowRetry()) {
                     reply->deleteLater();
                     return;
                 }
@@ -876,6 +846,39 @@ SearchResult RemoteSource::parse(const QByteArray &body) const {
     return engineOps(m_site.engine)->parseSearch(m_site.key, opsContext(), body);
 }
 
+bool RemoteSource::beginPowRetry() {
+    if (m_powRetried)
+        return false; // one automatic solve per search
+    m_powRetried = true;
+    const int gen = m_searchGen;
+    const QStringList tags = m_lastTags;
+    const int page = m_pendingPage;
+    const int limit = m_pendingLimit;
+    PowSolver::solve(
+        m_nam, m_baseUrl, this,
+        [this, gen, tags, page, limit](bool ok, const QStringList &fresh,
+                                       const QString &err) {
+            if (gen != m_searchGen)
+                return; // superseded by a newer search
+            if (ok) {
+                m_lastFreshCookies = fresh;
+                search(tags, page, limit);
+                m_powRetried = true; // search() reset it; keep the retry spent
+            } else {
+                m_lastPowError = err;
+                SearchResult powResult;
+                powResult.site = m_site.key;
+                powResult.httpStatus = 449;
+                powResult.error = powWallError(false, {});
+                m_lastWall = true;
+                m_lastError = powResult.error;
+                m_lastHttp = 449;
+                emit searchFinished(powResult);
+            }
+        });
+    return true;
+}
+
 bool RemoteSource::tryWebRetry(QString &note) {
     const RemotePosts::SiteQuirk *q =
         RemotePosts::quirkForHost(QUrl(m_baseUrl).host().toLower());
@@ -896,6 +899,17 @@ bool RemoteSource::tryWebRetry(QString &note) {
             emit searchFinished(result);
             return true;
         }
+        // Cloudflare passed in the browser but the origin still demands
+        // its own proof-of-work (`{"error":"pow_required"}`). Solve it
+        // natively on this stack and retry the search, exactly like the
+        // plain 449 path, instead of stopping on "also hit the wall".
+        if (RemotePosts::looksLikeChallengePage(web.body) &&
+            QString::fromUtf8(web.body).contains(
+                QStringLiteral("pow_required"), Qt::CaseInsensitive) &&
+            beginPowRetry()) {
+            m_lastWallKind = QStringLiteral("pow");
+            return true;
+        }
     }
     note = web.error.isEmpty()
         ? tr("(browser fallback also hit the wall)")
@@ -905,27 +919,91 @@ bool RemoteSource::tryWebRetry(QString &note) {
 
 namespace RemotePosts {
 
+namespace {
+// Case/format-insensitive site label: "Yande.re", "yande_re" and "Yandere"
+// all normalise to "yandere", so renamed entries keep resolving.
+QString normalizedLabel(QString s) {
+    s = s.trimmed().toLower();
+    s.remove(QRegularExpression(QStringLiteral("[^a-z0-9]")));
+    return s;
+}
+} // namespace
+
+const BooruSite *entryForHost(const QString &hostIn) {
+    const QString host = hostIn.trimmed().toLower();
+    if (host.isEmpty())
+        return nullptr;
+    auto match = [&](const BooruSite &b) -> bool {
+        if (b.baseUrl.isEmpty())
+            return false;
+        const QString bh = QUrl(b.baseUrl).host().toLower();
+        return !bh.isEmpty() &&
+               (host == bh || host.endsWith(u'.' + bh));
+    };
+    for (const BooruSite &b : configuredBoorus()) {
+        if (match(b))
+            return &b;
+    }
+    for (const BooruSite &b : RemoteSource::presetBoorus()) {
+        if (match(b))
+            return &b;
+    }
+    // Domain aliases when the stored label drifted or the entry points at
+    // the other mirror (konachan.net vs konachan.com).
+    static const QMap<QString, QString> known = {
+        {QStringLiteral("danbooru.donmai.us"), QStringLiteral("danbooru")},
+        {QStringLiteral("safebooru.donmai.us"), QStringLiteral("safebooru")},
+        {QStringLiteral("safebooru.org"), QStringLiteral("safebooru")},
+        {QStringLiteral("gelbooru.com"), QStringLiteral("gelbooru")},
+        {QStringLiteral("yande.re"), QStringLiteral("yandere")},
+        {QStringLiteral("konachan.com"), QStringLiteral("konachan")},
+        {QStringLiteral("konachan.net"), QStringLiteral("konachan")},
+        {QStringLiteral("rule34.xxx"), QStringLiteral("rule34")},
+        {QStringLiteral("e621.net"), QStringLiteral("e621")},
+        {QStringLiteral("soybooru.com"), QStringLiteral("soybooru")},
+        {QStringLiteral("visuabusters.com"), QStringLiteral("visuabusters")},
+        {QStringLiteral("aibooru.online"), QStringLiteral("aibooru")},
+    };
+    for (auto it = known.begin(); it != known.end(); ++it) {
+        if (host == it.key() || host.endsWith(u'.' + it.key())) {
+            if (const BooruSite *e = RemoteSource::siteFor(it.value()))
+                return e;
+        }
+    }
+    return nullptr;
+}
+
 QString keyForLabel(const QString &siteLabel) {
-    const QString custom = labelKeyMap().value(siteLabel);
-    if (!custom.isEmpty())
-        return custom;
-    if (siteLabel == QStringLiteral("Danbooru"))
-        return QStringLiteral("danbooru");
-    if (siteLabel == QStringLiteral("Gelbooru"))
-        return QStringLiteral("gelbooru");
-    if (siteLabel == QStringLiteral("Safebooru"))
-        return QStringLiteral("safebooru");
-    if (siteLabel == QStringLiteral("Yandere"))
-        return QStringLiteral("yandere");
-    if (siteLabel == QStringLiteral("Konachan"))
-        return QStringLiteral("konachan");
-    if (siteLabel == QStringLiteral("AIBooru"))
-        return QStringLiteral("aibooru");
-    if (siteLabel == QStringLiteral("Szurubooru"))
-        return QStringLiteral("szurubooru");
-    if (siteLabel == QStringLiteral("Shimmie"))
-        return QStringLiteral("shimmie");
-    return {};
+    const QString wanted = normalizedLabel(siteLabel);
+    if (wanted.isEmpty())
+        return {};
+    for (auto it = labelKeyMap().begin(); it != labelKeyMap().end(); ++it) {
+        if (it.key().compare(siteLabel, Qt::CaseInsensitive) == 0 ||
+            normalizedLabel(it.key()) == wanted)
+            return it.value();
+    }
+    // Configured entries whose label differs only in punctuation/case.
+    for (const BooruSite &b : configuredBoorus()) {
+        if (normalizedLabel(b.label) == wanted ||
+            normalizedLabel(b.shortName) == wanted ||
+            normalizedLabel(b.key) == wanted)
+            return b.key;
+    }
+    static const QMap<QString, QString> aliases = {
+        {QStringLiteral("danbooru"), QStringLiteral("danbooru")},
+        {QStringLiteral("gelbooru"), QStringLiteral("gelbooru")},
+        {QStringLiteral("safebooru"), QStringLiteral("safebooru")},
+        {QStringLiteral("yandere"), QStringLiteral("yandere")},
+        {QStringLiteral("konachan"), QStringLiteral("konachan")},
+        {QStringLiteral("aibooru"), QStringLiteral("aibooru")},
+        {QStringLiteral("szurubooru"), QStringLiteral("szurubooru")},
+        {QStringLiteral("shimmie"), QStringLiteral("shimmie")},
+        {QStringLiteral("rule34"), QStringLiteral("rule34")},
+        {QStringLiteral("e621"), QStringLiteral("e621")},
+        {QStringLiteral("soybooru"), QStringLiteral("soybooru")},
+        {QStringLiteral("visuabusters"), QStringLiteral("visuabusters")},
+    };
+    return aliases.value(wanted);
 }
 
 QMap<QString, QString> hostKeys() {
@@ -955,7 +1033,22 @@ const BooruSite *entryForPost(const Post &post) {
                 return e;
         }
         const QString key = keyForLabel(post.siteName);
-        return key.isEmpty() ? nullptr : RemoteSource::siteFor(key);
+        if (!key.isEmpty()) {
+            if (const BooruSite *e = RemoteSource::siteFor(key))
+                return e;
+        }
+        // Favourites rows persist only the display label; older imports
+        // may keep a label no entry uses any more. The post/file URL still
+        // names the host, so resolve the entry from that instead of
+        // dropping the origin badge.
+        for (const QString &url : {post.postUrl, post.fileUrl}) {
+            const QString host = QUrl(url).host().toLower();
+            if (host.isEmpty() || !isHttpUrl(url))
+                continue;
+            if (const BooruSite *e = entryForHost(host))
+                return e;
+        }
+        return nullptr;
     }
     // Strays and plain library folders resolve to nothing.
     if (post.category.isEmpty() || post.category == QStringLiteral("_Stray"))
@@ -966,6 +1059,8 @@ const BooruSite *entryForPost(const Post &post) {
         if (const BooruSite *e = RemoteSource::siteFor(labelKey))
             return e;
     }
+    if (const BooruSite *e = entryForHost(post.category))
+        return e;
     return RemoteSource::siteFor(
         hostKeys().value(post.category.toLower()));
 }
@@ -1047,26 +1142,48 @@ QString fsTagForPost(const Post &post) {
     // Strays are homeless by design: no site, no host.
     if (post.siteName == QStringLiteral("_Stray"))
         return post.siteName;
+    // Host tag for a base URL: explicit ports stay distinct, scheme
+    // defaults drop ("localhost:8080" but "yande.re").
+    auto hostTag = [](const QUrl &u) -> QString {
+        const QString host = u.host().toLower();
+        if (host.isEmpty())
+            return {};
+        const int port = u.port();
+        const QString scheme = u.scheme().toLower();
+        const bool nonDefault =
+            port > 0 && !((scheme == QStringLiteral("http") && port == 80) ||
+                          (scheme == QStringLiteral("https") && port == 443));
+        return nonDefault ? host + u'_' + QString::number(port) : host;
+    };
     const QString key = !post.siteKey.isEmpty() ? post.siteKey
                                                 : keyForLabel(post.siteName);
     const BooruSite *site =
         key.isEmpty() ? nullptr : RemoteSource::siteFor(key);
-    if (site && !site->baseUrl.isEmpty()) {
-        const QUrl u(site->baseUrl);
-        const QString host = u.host().toLower();
-        if (!host.isEmpty()) {
-            // Self-hosted instances often live behind explicit ports
-            // (localhost:8080 vs :9090): keep those distinct, drop the
-            // scheme defaults.
-            const int port = u.port();
-            const QString scheme = u.scheme().toLower();
-            const bool nonDefault =
-                port > 0 && !((scheme == QStringLiteral("http") && port == 80) ||
-                              (scheme == QStringLiteral("https") && port == 443));
-            if (nonDefault)
-                return host + u'_' + QString::number(port);
-            return host;
+    if (!site) {
+        // Label drift ("Yande.re" vs "Yandere") or an old import: the
+        // post URL still names the host. Match a configured entry first
+        // (CDN hosts included), else use the host itself - never a
+        // display label. A bare file URL is only trusted when the label
+        // resolved to nothing (legacy label layouts keep working).
+        QString url = post.postUrl;
+        if (url.isEmpty() && key.isEmpty())
+            url = post.fileUrl;
+        if (isHttpUrl(url)) {
+            const QString host = QUrl(url).host().toLower();
+            if (!host.isEmpty()) {
+                if (const BooruSite *e = entryForHost(host)) {
+                    const QString tag = hostTag(QUrl(e->baseUrl));
+                    if (!tag.isEmpty())
+                        return tag;
+                }
+                return host;
+            }
         }
+    }
+    if (site && !site->baseUrl.isEmpty()) {
+        const QString tag = hostTag(QUrl(site->baseUrl));
+        if (!tag.isEmpty())
+            return tag;
     }
     return post.siteName; // unconfigured/unknown: legacy label layout
 }

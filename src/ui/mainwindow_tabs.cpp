@@ -542,6 +542,9 @@ void MainWindow::finishActivateTab(int tabIdx) {
         m_sortBox->setCurrentIndex(qMax(0, m_sortBox->findData(m_sort)));
         m_sortBox->blockSignals(false);
         commitFilter(); // rebuilds rating/category combos, filters, titles
+        // Cached verdicts apply now; misses fetch in the background and
+        // persist their splits so the next open starts categorised.
+        maybeClassifyBrowse(t);
         m_scanBar->setVisible(false); // skeleton done (no async work here)
         return;
     }

@@ -322,10 +322,14 @@ int Index::applyTagTypes(const QHash<QString, QString> &tagToBucket) {
     const QVector<TagMove> moves = applyTagBuckets(m_posts, tagToBucket);
     // Incremental tally: O(moved), not O(archive).
     for (const TagMove &m : moves) {
-        auto fromIt = m_tagCounts.find(m.from);
-        if (fromIt != m_tagCounts.end()) {
-            if (--fromIt.value()[m.tag] <= 0)
-                fromIt.value().remove(m.tag);
+        QStringList removed = m.alsoFrom;
+        removed.prepend(m.from);
+        for (const QString &from : removed) {
+            auto fromIt = m_tagCounts.find(from);
+            if (fromIt != m_tagCounts.end()) {
+                if (--fromIt.value()[m.tag] <= 0)
+                    fromIt.value().remove(m.tag);
+            }
         }
         m_tagCounts[m.to][m.tag]++;
     }
@@ -355,29 +359,34 @@ QVector<TagMove> applyTagBuckets(QVector<Post> &posts,
             const QString bucket = tagToBucket.value(t.toLower());
             if (bucket.isEmpty() || (!TagTypes::isValidBucket(bucket)))
                 continue;
-            QStringList *placed = nullptr;
-            QString placedName;
-            if (gen.contains(t)) {
-                placed = &gen;
-                placedName = QStringLiteral("general");
-            } else if (artist.contains(t)) {
-                placed = &artist;
-                placedName = QStringLiteral("artist");
-            } else if (character.contains(t)) {
-                placed = &character;
-                placedName = QStringLiteral("character");
-            } else if (copyright.contains(t)) {
-                placed = &copyright;
-                placedName = QStringLiteral("copyright");
-            } else if (meta.contains(t)) {
-                placed = &meta;
-                placedName = QStringLiteral("meta");
-            } else {
-                continue; // not placed anywhere: never invent tags
+            // A tag must live in exactly one bucket. Imported rows used to
+            // carry the same tag in General and untyped, so the old
+            // remove-one-bucket logic left a second copy behind (tag shown
+            // bold in two sections with split counts).
+            const QList<QPair<QString, QStringList *>> all = {
+                {QStringLiteral("general"), &gen},
+                {QStringLiteral("artist"), &artist},
+                {QStringLiteral("character"), &character},
+                {QStringLiteral("copyright"), &copyright},
+                {QStringLiteral("meta"), &meta},
+            };
+            QStringList present;
+            int occurrences = 0;
+            for (const auto &[name, list] : all) {
+                const int n = list->count(t);
+                if (n > 0) {
+                    occurrences += n;
+                    present << name;
+                }
             }
-            if (placedName == bucket)
+            if (occurrences == 0)
+                continue; // not placed anywhere: never invent tags
+            if (occurrences == 1 && present.first() == bucket)
                 continue; // already there: rescans are no-ops
-            placed->removeOne(t);
+            for (const auto &[name, list] : all) {
+                Q_UNUSED(name);
+                list->removeAll(t);
+            }
             if (bucket == QStringLiteral("general"))
                 gen << t;
             else if (bucket == QStringLiteral("artist"))
@@ -389,7 +398,7 @@ QVector<TagMove> applyTagBuckets(QVector<Post> &posts,
             else if (bucket == QStringLiteral("meta"))
                 meta << t;
             changed = true;
-            moves.append({t, placedName, bucket});
+            moves.append({t, present.first(), bucket, present.mid(1)});
         }
         if (!changed)
             continue;

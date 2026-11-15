@@ -95,9 +95,12 @@ Tabs drag to reorder (welcome stays first).
 `Open ▸` (folder picker), `Browse Downloads`, `Import LoliSnatcher
 backup…` (favourite and downloaded flags are independent: import favs,
 download/download-as-favourite/skip downloaded rows, optionally cross
-them; files land in the same host folders as the regular downloader,
-e.g. `gelbooru.com/` not `Gelbooru/`, and already-downloaded media is
-matched by md5 anywhere under the download folder), `Download/Add Stray…` (paste direct media or booru post links;
+them; imports only add favourites, and the opt-in `Sync` checkbox asks
+for confirmation before removing anything and never touches sites absent
+from the backup; files land in the same host folders as the regular
+downloader, e.g. `gelbooru.com/` not `Gelbooru/`, and already-downloaded
+media is matched by md5 anywhere under the download folder),
+`Download/Add Stray…` (paste direct media or booru post links;
 see 20-stray-dialog), `Update downloaded sidecars…`,
 `Redownload missing files…`, `Quit`. Media downloads tolerate
 empty/misleading `Content-Type` headers (Shimmie2 serves real JPEGs with
@@ -269,7 +272,11 @@ Every `Favourites` action opens a fresh tab; keep several with different
 tags/filters side by side (titles show their filters). Same chrome over
 `store.db` rows (no files): star posts to fill it, then
 mass-download; non-empty rows render identical cards, dead files relink
-by md5. `Delete from disk…` also removes kept favourites left with no
+by md5. Tags classify like browse tabs: cached verdicts apply immediately,
+new ones fetch once and persist to `store.db`, so the left categories and
+the viewer's right-hand tag groups show the same buckets and counts. A
+tag appears in exactly one bucket; still-unclassified tags stay under
+General instead of disappearing. `Delete from disk…` also removes kept favourites left with no
 renderable source (no file, no remote media/post link) instead of leaving
 empty cards; post-linked rows stay (viewer refresh can heal them). Files
 removed outside the app hide from the grid the same way (never marked
@@ -281,10 +288,14 @@ deleted behind the app's back.
 
 ## 19-badge-closeup - origin badge detail
 16px site favicon (auto-fetched to `favicons/auto/`, overridable in the
-Booru manager) + short name on the entry's badge color; `G` rating chip,
-score, `#id`, file name below (synthesized `id - host - tags.ext` when the file URL has no name, e.g. Nuuru `/file`; downloads keep `site_md5` names).
+Booru manager) + short name on the entry's badge color. Favourites rows
+store only a display label, so the entry resolves by case-insensitive
+label/short name first, then by the post/file URL host (CDN subdomains
+match their booru); `G` rating chip, score, `#id`, file name below (synthesized `id - host - tags.ext` when the file URL has no name, e.g. Nuuru `/file`; downloads keep `site_md5` names).
 
 ## 20-stray-dialog - Download/Add Stray (`StrayDialog`)
+A Booru Explorer feature (not a LoliSnatcher import mode): random URLs
+and paid/exclusive uploads that never reach a booru, e.g. Patreon posts.
 Big link box (one URL per line) plus `Auto-favourite downloaded/imported
 strays`, and four buttons: `Download` (fetches media into `_Stray/` and,
 for recognised booru post pages, also resolves the post so its JSON

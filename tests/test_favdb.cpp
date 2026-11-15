@@ -366,6 +366,32 @@ private slots:
         }
     }
 
+    void flatRemoteRowOffersGeneralForClassification() {
+        // Old LOSN imports have no untyped column value: the flat general
+        // blob must still reach the cached classifier, or lucky_star stays
+        // under General while downloaded siblings show Copyright.
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        FavDb db;
+        QVERIFY(db.open(tmp.path()));
+        QVERIFY(db.add(samplePost()));
+        const Post p = db.list().first();
+        QCOMPARE(p.untyped, p.tagsGeneral);
+        // A row with real bucket splits keeps its stored untyped list.
+        Post split = samplePost();
+        split.id = 2;
+        split.tagsGeneral = QStringLiteral("1girl");
+        split.tagsCopyright = QStringLiteral("lucky_star");
+        split.untyped = QString();
+        QVERIFY(db.add(split));
+        for (const Post &row : db.list()) {
+            if (row.id != 2)
+                continue;
+            QCOMPARE(row.tagsCopyright, QStringLiteral("lucky_star"));
+            QVERIFY(row.untyped.isEmpty());
+        }
+    }
+
     void untypedRoundTrips() {
         QTemporaryDir tmp;
         QVERIFY(tmp.isValid());

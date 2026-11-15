@@ -1065,7 +1065,10 @@ private slots:
                  QStringLiteral("konachan"));
         QCOMPARE(RemotePosts::keyForLabel(QStringLiteral("Shimmie")),
                  QStringLiteral("shimmie"));
-        QVERIFY(RemotePosts::keyForLabel(QStringLiteral("Rule34")).isEmpty());
+        // Popular aliases resolve even before an entry exists; callers
+        // still need siteFor(key) for the actual entry.
+        QCOMPARE(RemotePosts::keyForLabel(QStringLiteral("Rule34")),
+                 QStringLiteral("rule34"));
     }
 
     void urlHelpers() {
@@ -1511,6 +1514,51 @@ private slots:
         unknown.siteKey = QString();
         unknown.siteName = QStringLiteral("Legacy Label");
         QCOMPARE(RemotePosts::fsTagForPost(unknown), QStringLiteral("Legacy Label"));
+
+        RemoteSource::setConfiguredBoorus(RemoteSource::presetBoorus());
+    }
+
+    void labelAndHostFallbacks() {
+        // Favourites rows persist only a display label; a renamed/odd label
+        // ("Yande.re") must still resolve, and a label the entry no longer
+        // uses resolves through the post/file URL host.
+        BooruSite y;
+        y.key = QStringLiteral("yandere");
+        y.label = QStringLiteral("Yande.re");
+        y.shortName = QStringLiteral("YAN");
+        y.baseUrl = QStringLiteral("https://yande.re");
+        y.engine = BooruEngine::Moebooru;
+        RemoteSource::setConfiguredBoorus({y});
+
+        QCOMPARE(RemotePosts::keyForLabel(QStringLiteral("Yande.re")),
+                 QStringLiteral("yandere"));
+        QCOMPARE(RemotePosts::keyForLabel(QStringLiteral("yandere")),
+                 QStringLiteral("yandere"));
+        QCOMPARE(RemotePosts::keyForLabel(QStringLiteral("Yandere")),
+                 QStringLiteral("yandere"));
+        QCOMPARE(RemotePosts::entryForHost(QStringLiteral("files.yande.re"))
+                     ->key,
+                 QStringLiteral("yandere"));
+
+        Post p; // label-stamped favourite with its URLs
+        p.isRemote = true;
+        p.siteName = QStringLiteral("Yandere");
+        p.fileUrl = QStringLiteral("https://files.yande.re/image/x.jpg");
+        p.postUrl = QStringLiteral("https://yande.re/post/show/123");
+        const BooruSite *e = RemotePosts::entryForPost(p);
+        QVERIFY(e != nullptr);
+        QCOMPARE(e->key, QStringLiteral("yandere"));
+        QCOMPARE(RemotePosts::fsTagForPost(p), QStringLiteral("yande.re"));
+
+        // Unknown label, no configured entry: the host still wins over a
+        // legacy display label, so files never land in "Yandere/".
+        RemoteSource::setConfiguredBoorus({});
+        Post q;
+        q.isRemote = true;
+        q.siteName = QStringLiteral("Yandere");
+        q.postUrl = QStringLiteral("https://yande.re/post/show/9");
+        QCOMPARE(RemotePosts::fsTagForPost(q), QStringLiteral("yande.re"));
+        QVERIFY(RemotePosts::entryForPost(q) == nullptr);
 
         RemoteSource::setConfiguredBoorus(RemoteSource::presetBoorus());
     }

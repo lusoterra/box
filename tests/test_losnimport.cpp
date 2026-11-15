@@ -184,6 +184,30 @@ private slots:
         QCOMPARE(LosnImport::md5sOnDisk(tmp.path()), QSet<QString>{md5});
     }
 
+    void syncOnlyTouchesBackupSites() {
+        // Sync is opt-in and scoped: a Gelbooru backup may drop stale
+        // Gelbooru favourites but never a stray or a Danbooru row.
+        Post gel, gelKeep, dan, stray;
+        gel.siteName = QStringLiteral("Gelbooru");
+        gel.id = 1;
+        gelKeep.siteName = QStringLiteral("Gelbooru");
+        gelKeep.id = 2;
+        dan.siteName = QStringLiteral("Danbooru");
+        dan.id = 3;
+        stray.siteName = QStringLiteral("_Stray");
+        stray.id = 0;
+        const QSet<QString> keep{QStringLiteral("Gelbooru#2")};
+        const QSet<QString> sites{QStringLiteral("Gelbooru")};
+        const QVector<LosnImport::FavKey> stale =
+            LosnImport::staleFavourites({gel, gelKeep, dan, stray}, keep,
+                                        sites);
+        QCOMPARE(stale.size(), 1);
+        QCOMPARE(stale.first().site, QStringLiteral("Gelbooru"));
+        QCOMPARE(stale.first().id, 1LL);
+        // No sync sites -> nothing can be removed.
+        QVERIFY(LosnImport::staleFavourites({gel}, {}, {}).isEmpty());
+    }
+
     void pathsForRowPrefersSidecarMd5() {
         // Refreshed rows carry a real md5 in the sidecar while the row
         // itself has none: naming must use it, not the losn fallback.

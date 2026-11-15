@@ -165,7 +165,15 @@ void MainWindow::rebuildBrowseSidebar() {
                          ? first.siteKey
                          : RemotePosts::keyForLabel(first.siteName);
     }
+    // One post contributes a tag once: imported rows could carry the same
+    // tag in two buckets, which painted it bold in both sections (and
+    // split its count). Unbucketed `untyped` tags fall through to General
+    // below so nothing disappears while classification is still running.
+    QSet<QString> seenTag;
     auto addBucketed = [&](const QString &target, const QString &tag) {
+        if (seenTag.contains(tag))
+            return;
+        seenTag.insert(tag);
         const auto custom =
             m_settings.tagCustomCategories.constFind(tag.toLower());
         if (custom != m_settings.tagCustomCategories.constEnd()) {
@@ -186,6 +194,7 @@ void MainWindow::rebuildBrowseSidebar() {
         customLabels.insert(key, TagCategories::displayTarget(target));
     };
     for (const Post &p : m_current) {
+        seenTag.clear();
         const QString siteKey =
             !p.siteKey.isEmpty() ? p.siteKey
                                  : RemotePosts::keyForLabel(p.siteName);
@@ -202,6 +211,12 @@ void MainWindow::rebuildBrowseSidebar() {
         addBlob(p.tagsCopyright, QStringLiteral("copyright"));
         addBlob(p.tagsMeta, QStringLiteral("meta"));
         addBlob(p.tagsGeneral, QStringLiteral("general"));
+        // Category-less tags with no bucket yet (classification pending or
+        // the API had no verdict): show them under General instead of
+        // silently hiding them.
+        for (const QString &t :
+             p.untyped.split(QChar::Space, Qt::SkipEmptyParts))
+            addBucketed(QStringLiteral("general"), t);
         // Native custom categories (Nuuru flags, Szuru categories…): user
         // merges win, then legacy customBucketMap, then their own section.
         for (auto it = p.customTags.begin(); it != p.customTags.end();

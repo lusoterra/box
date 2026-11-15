@@ -84,8 +84,13 @@
 #include <utility>
 #include <algorithm>
 
-void MainWindow::maybeClassifyBrowse(BrowserTab *t) {    if (!t || t->isFavourites || !m_settings.classifyTags)
+void MainWindow::maybeClassifyBrowse(BrowserTab *t) {
+    // Same cached pass for remote grids and ♥ Favourites: both carry
+    // category-less tags (LOSN rows, flat API blobs) that live in
+    // `untyped` until a verdict exists.
+    if (!t || (!t->isRemote && !t->isFavourites) || !m_settings.classifyTags)
         return;
+    QVector<Post> &target = t->isFavourites ? t->localPosts : t->browseMerged;
     // Manual overrides are explicit user intent: they apply to every post,
     // opted-out entries included. Fetched/cached verdicts do not.
     QHash<QString, QString> knownManual;
@@ -93,15 +98,18 @@ void MainWindow::maybeClassifyBrowse(BrowserTab *t) {    if (!t || t->isFavourit
          it != m_settings.manualTagTypes.end(); ++it)
         knownManual.insert(it.key(), it.value());
     int manualMoved = 0;
-    if (!knownManual.isEmpty())
-        manualMoved = applyTagBuckets(t->browseMerged, knownManual).size();
+    if (!knownManual.isEmpty()) {
+        manualMoved = applyTagBuckets(target, knownManual).size();
+        if (manualMoved > 0 && t->isFavourites)
+            persistFavBuckets(target);
+    }
     // Entries that opt out keep their tags as they arrive: collect and
     // apply verdicts for the rest only, preserving post order.
     QVector<Post> work;
     QVector<int> workIndex;
-    for (int i = 0; i < t->browseMerged.size(); ++i) {
-        if (!RemotePosts::skipAutoClassify(t->browseMerged.at(i))) {
-            work.append(t->browseMerged.at(i));
+    for (int i = 0; i < target.size(); ++i) {
+        if (!RemotePosts::skipAutoClassify(target.at(i))) {
+            work.append(target.at(i));
             workIndex.append(i);
         }
     }
@@ -141,13 +149,19 @@ void MainWindow::maybeClassifyBrowse(BrowserTab *t) {    if (!t || t->isFavourit
         const int moved =
             manualMoved + applyHostBuckets(work, known);
         for (int j = 0; j < work.size(); ++j)
-            t->browseMerged[workIndex.at(j)] = work.at(j);
+            target[workIndex.at(j)] = work.at(j);
+        if (moved > 0 && t->isFavourites)
+            persistFavBuckets(target);
         if (t == currentTab()) {
-            m_browseMerged = t->browseMerged;
-            applyBrowseFilter();
-            rebuildBrowseSidebar();
-            rebuildCombos();
-            updateResultLabel();
+            if (t->isFavourites) {
+                applyFilter(); // favourites filter straight from localPosts
+            } else {
+                m_browseMerged = t->browseMerged;
+                applyBrowseFilter();
+                rebuildBrowseSidebar();
+                rebuildCombos();
+                updateResultLabel();
+            }
             if (moved > 0)
                 statusBar()->showMessage(
                     tr("Categorized %1 tags from cache").arg(moved), 8000);
@@ -185,24 +199,31 @@ void MainWindow::onBrowseClassifyFinished(
     }
     // Fetched verdicts skip opted-out entries (manual overrides were
     // already applied up front and are unaffected).
+    QVector<Post> &target = t->isFavourites ? t->localPosts : t->browseMerged;
     QVector<Post> work;
     QVector<int> workIndex;
-    for (int i = 0; i < t->browseMerged.size(); ++i) {
-        if (!RemotePosts::skipAutoClassify(t->browseMerged.at(i))) {
-            work.append(t->browseMerged.at(i));
+    for (int i = 0; i < target.size(); ++i) {
+        if (!RemotePosts::skipAutoClassify(target.at(i))) {
+            work.append(target.at(i));
             workIndex.append(i);
         }
     }
     int moved = applyHostBuckets(work, buckets);
     for (int j = 0; j < work.size(); ++j)
-        t->browseMerged[workIndex.at(j)] = work.at(j);
+        target[workIndex.at(j)] = work.at(j);
+    if (moved > 0 && t->isFavourites)
+        persistFavBuckets(target);
     if (t != currentTab())
         return; // stashed; shows classified when activated
-    m_browseMerged = t->browseMerged;
-    applyBrowseFilter();
-    rebuildBrowseSidebar();
-    rebuildCombos();
-    updateResultLabel();
+    if (t->isFavourites) {
+        applyFilter();
+    } else {
+        m_browseMerged = t->browseMerged;
+        applyBrowseFilter();
+        rebuildBrowseSidebar();
+        rebuildCombos();
+        updateResultLabel();
+    }
     QString msg = tr("Categorized %1 tags (%2 resolved)")
                       .arg(moved)
                       .arg(buckets.size());
@@ -263,21 +284,29 @@ void MainWindow::flushClassifyPartials() {
         BrowserTab *t = m_classifyTab;
         if (!t || !m_tabs.contains(t))
             return; // tab closed mid-fetch; finished() drops it too
+        QVector<Post> &target =
+            t->isFavourites ? t->localPosts : t->browseMerged;
         QVector<Post> work;
         QVector<int> workIndex;
-        for (int i = 0; i < t->browseMerged.size(); ++i) {
-            if (!RemotePosts::skipAutoClassify(t->browseMerged.at(i))) {
-                work.append(t->browseMerged.at(i));
+        for (int i = 0; i < target.size(); ++i) {
+            if (!RemotePosts::skipAutoClassify(target.at(i))) {
+                work.append(target.at(i));
                 workIndex.append(i);
             }
         }
         if (!work.isEmpty()) {
-            applyHostBuckets(work, batch);
+            const int moved = applyHostBuckets(work, batch);
             for (int j = 0; j < work.size(); ++j)
-                t->browseMerged[workIndex.at(j)] = work.at(j);
+                target[workIndex.at(j)] = work.at(j);
+            if (moved > 0 && t->isFavourites)
+                persistFavBuckets(target);
             if (t == currentTab()) {
-                m_browseMerged = t->browseMerged;
-                rebuildBrowseSidebar();
+                if (t->isFavourites) {
+                    applyFilter();
+                } else {
+                    m_browseMerged = t->browseMerged;
+                    rebuildBrowseSidebar();
+                }
             }
         }
     }
