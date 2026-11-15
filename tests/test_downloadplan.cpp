@@ -241,6 +241,29 @@ private slots:
         QCOMPARE(jobs.at(1).fileName, QStringLiteral("Gelbooru_0_2.jpg"));
     }
 
+    void dedupeJobsKeepsFirstTarget() {
+        // Two backup rows can resolve to one content hash/path: only the
+        // first job may fetch, the rest are reported as skipped.
+        DownloadJob a;
+        a.fileName = QStringLiteral("Gelbooru_abc.jpg");
+        a.filePath = QStringLiteral("/d/Gelbooru/Gelbooru_abc.jpg");
+        a.post.fileUrl = QStringLiteral("https://x/a.jpg");
+        DownloadJob b = a;
+        b.post.fileUrl = QStringLiteral("https://x/b.jpg"); // same bytes/path
+        DownloadJob c = a;
+        c.fileName = QStringLiteral("Gelbooru_def.jpg");
+        c.filePath = QStringLiteral("/d/Gelbooru/Gelbooru_def.jpg");
+        QList<DownloadJob> skipped;
+        const QList<DownloadJob> unique =
+            DownloadManager::dedupeJobs({a, b, c}, &skipped);
+        QCOMPARE(unique.size(), 2);
+        QCOMPARE(unique.at(0).filePath, a.filePath);
+        QCOMPARE(unique.at(1).filePath, c.filePath);
+        QCOMPARE(skipped.size(), 1);
+        QCOMPARE(skipped.first().post.fileUrl,
+                 QStringLiteral("https://x/b.jpg"));
+    }
+
     void cancelUrlsDropsQueued() {
         // Explicit unfavourite mid-batch: queued jobs vanish silently
         // (no file, no fileFinished); flying jobs fail on their own.

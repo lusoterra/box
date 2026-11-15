@@ -206,9 +206,35 @@ QList<DownloadJob> DownloadManager::plan(const QVector<Post> &posts,
     return jobs;
 }
 
-void DownloadManager::enqueue(const QList<DownloadJob> &jobs) {
+QList<DownloadJob> DownloadManager::dedupeJobs(const QList<DownloadJob> &jobs,
+                                               QList<DownloadJob> *skipped) {
+    QList<DownloadJob> unique;
+    QSet<QString> used;
+    for (const DownloadJob &j : jobs) {
+        if (used.contains(j.filePath)) {
+            if (skipped)
+                skipped->append(j);
+            continue;
+        }
+        used.insert(j.filePath);
+        unique.append(j);
+    }
+    return unique;
+}
+
+void DownloadManager::enqueue(const QList<DownloadJob> &jobsIn) {
     cancel();
     QList<DownloadJob> skipped;
+    QList<DownloadJob> duplicates;
+    const QList<DownloadJob> jobs = dedupeJobs(jobsIn, &duplicates);
+    for (const DownloadJob &j : duplicates) {
+        // Same bytes, same target from a duplicate DB row: one fetch is
+        // enough. Record the path so callers linking rows still see it.
+        m_summary.skipped++;
+        m_summary.downloaded.append(j.post);
+        m_summary.finalPaths.append({j.post.fileUrl, j.filePath});
+        skipped.append(j);
+    }
     for (const DownloadJob &j : jobs) {
         if (QFile::exists(j.filePath)) {
             m_summary.skipped++;

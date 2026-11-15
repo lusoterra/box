@@ -53,6 +53,11 @@ public:
 
     // Build target paths for posts under destDir (one subfolder per site).
     static QList<DownloadJob> plan(const QVector<Post> &posts, const QString &destDir);
+    // Drop later jobs that target the same file path as an earlier one
+    // (two backup rows can share a content hash/path). Skipped jobs are
+    // appended to `skipped` when given. Pure.
+    static QList<DownloadJob> dedupeJobs(const QList<DownloadJob> &jobs,
+                                         QList<DownloadJob> *skipped = nullptr);
 
     // Sidecar candidate paths for a media file (stem form + flat form,
     // deduped): the downloads write the stem form (Site_md5.json),

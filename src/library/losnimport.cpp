@@ -889,6 +889,9 @@ void LosnImportDialog::startDownloads() {
     const QHash<QString, QString> haveMd5 =
         LosnImport::md5PathsOnDisk(dest);
     int skippedMd5 = 0;
+    int skippedDuplicate = 0;
+    QHash<QString, QString> batchMd5; // md5 -> first planned path
+    QSet<QString> batchPaths;         // first planned path per file
     for (const LosnRow &r : m_downloadRows) {
         if (r.fileUrl.isEmpty())
             continue;
@@ -921,6 +924,22 @@ void LosnImportDialog::startDownloads() {
             skippedMd5++;
             continue; // same bytes elsewhere: nothing to fetch
         }
+        // Duplicate rows inside this backup: same content hash, or two
+        // rows resolving to one path. Queue a single fetch; both
+        // favourites link to the one file afterwards.
+        if (!md5.isEmpty() && batchMd5.contains(md5)) {
+            m_diskPaths.insert(r.fileUrl, batchMd5.value(md5));
+            skippedDuplicate++;
+            continue;
+        }
+        if (batchPaths.contains(paths.filePath)) {
+            m_diskPaths.insert(r.fileUrl, paths.filePath);
+            skippedDuplicate++;
+            continue;
+        }
+        if (!md5.isEmpty())
+            batchMd5.insert(md5, paths.filePath);
+        batchPaths.insert(paths.filePath);
         DownloadJob job;
         job.fileName = paths.fileName;
         job.filePath = paths.filePath;
@@ -949,6 +968,9 @@ void LosnImportDialog::startDownloads() {
     log(tr("Downloading %1 files…").arg(jobs.size()));
     if (skippedMd5 > 0)
         log(tr("%1 already on disk (matched by content, skipped).").arg(skippedMd5));
+    if (skippedDuplicate > 0)
+        log(tr("%1 duplicate row(s) in this backup sharing a file (skipped).")
+                .arg(skippedDuplicate));
     m_expectingDownloads = true;
     m_downloads->enqueue(jobs);
 }

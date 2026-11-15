@@ -1,5 +1,16 @@
 # Pending tasks (from user goal)
 
+## 12. Duplicate checking on LoliSnatcher import - DONE
+- Favourites are already deduped by `(site, post_id)` (`FavDb::addMany`,
+  `INSERT OR IGNORE`); media is skipped when its md5 exists anywhere under
+  the download root (`md5PathsOnDisk`).
+- New: duplicate rows inside one backup (same md5 or same target path) now
+  queue a single fetch instead of writing the same file twice
+  (`LosnImport::startDownloads`); `DownloadManager::dedupeJobs` is the
+  last-resort guard and records skipped duplicates in the summary
+  (`src/remote/downloadmanager.cpp`).
+- Verify: `test_downloadplan` (`dedupeJobsKeepsFirstTarget`).
+
 ## 11. Download badge follows the filesystem - DONE
 - Grid/viewer `↓` no longer trusts `FavDb.local_path`: remote posts resolve
   a content md5 (post/raw sidecar, then file URL) against a download-folder
