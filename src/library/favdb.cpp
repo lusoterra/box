@@ -541,7 +541,27 @@ static Post rowToPost(const QSqlQuery &q) {
         p.rating = rating;
         p.ratingInferred = inferred;
     }
-    p.category = p.isRemote ? p.siteName : QStringLiteral("Favourites");
+    if (p.isRemote)
+        p.category = p.siteName;
+    else if (!p.siteName.isEmpty())
+        p.category = p.siteName;
+    else {
+        // Local favourite with no recorded source: derive one from the
+        // on-disk path/filename so the source filter can group it like
+        // downloads instead of lumping everything under "Favourites".
+        const QFileInfo fi(p.absFile);
+        const QStringList parts = fi.absolutePath().split(u'/', Qt::SkipEmptyParts);
+        // Drop the downloads root's last? Use first meaningful parent like scanner.
+        if (!parts.isEmpty() && parts.last() != QStringLiteral("Favourites"))
+            p.category = parts.last();
+        else {
+            const QString stem = fi.completeBaseName();
+            const int us = stem.indexOf(u'_');
+            p.category = (us > 0) ? stem.left(us) : QStringLiteral("Favourites");
+        }
+        if (p.category.isEmpty())
+            p.category = QStringLiteral("Favourites");
+    }
     // Old/imported rows sometimes lack ext (empty string): derive it from
     // the file URL or path so media routing (video vs image), grid badges
     // and download naming keep working without a DB migration.
