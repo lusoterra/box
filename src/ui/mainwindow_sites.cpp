@@ -271,6 +271,10 @@ void MainWindow::runSidecarJobs(const QString &dest, const QSet<QString> &scope,
                     if (covered)
                         startScan(m_root);
                 }
+                // Favourites linked to these files may carry stale tags:
+                // re-list so the fav tabs pick up refreshed sidecars.
+                if (updated > 0)
+                    refreshFavTabs();
             });
     connect(prog, &QProgressDialog::canceled, batch, &SidecarBatch::cancel);
     connect(batch, &SidecarBatch::finished, batch, &SidecarBatch::deleteLater);
