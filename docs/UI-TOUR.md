@@ -30,7 +30,9 @@ categories) seen on the page - or folded into a classic bucket when
 mapped under Preferences → Tags. Category labels read as words
 (`ENTITY TYPE`, not `entity_type`); empty categories hide entirely until
 tags show up, and tiny ones (≤3 tags) shrink so many fit at once;
-click toggles filter pills, right-click stars/un-stars favourite tags. The
+click toggles filter pills, right-click stars/un-stars favourite tags or
+recategorises one (the pane reloads in place, so a source category left
+empty after moving its last tag disappears immediately). The
 omnibar keeps only the ★ favourite-tags button. A captcha/PoW wall failure pops the solve browser open (opt out in Preferences → Browse, back to a small menu: solve the challenge in the capture browser, or drop the booru (deselect in multibooru, close a solo tab)). Center: post grid. Bottom-left: `40 results · page 1` and infinite scroll (more loads at the bottom); a failed query leaves its one-liner there (click = full server response) plus a `Solve … in browser…` button while walls are reported. The browser
 opens AT the failing URL (failed search request, failed file URL) instead of
 the homepage, since file/media hosts challenge while `/` lets you through.
@@ -53,7 +55,7 @@ where live-verified, `filetype:` elsewhere; typing `animated` /
 too) → sort dropdown (`Recently added`/`Newest`/`Oldest`/`Top
 Rated`/`Low Rated`/`Random` - server-side via translated tags where the
 engine supports it (options that would only re-sort client-side disable
-themselves per tab; `Recently added`/`Newest` never reorder) → aspect dropdown (`1:1`, grid cell shape) →
+themselves per tab; `Recently added`/`Newest` never reorder) →
 `Boorus…` (per-tab source picker, multibooru merge) → `AI` (one-click
 filter hiding AI-generated posts) → `Download (N)`
 (batch-downloads the selection) → `Clear` (resets pills/query) → reload
@@ -78,7 +80,9 @@ blue speech bubble = has comments, amber note = has annotations
 mark the grid too);
 bottom-left origin badge = site favicon + short name (`DAN`/`SFW`/…)
 - downloaded rows resolve their folder back to the entry, so they
-keep the badge; below, info card with rating chip (`G`), score
+keep the badge; single-booru tabs omit it (the tab already names the
+source), while favourites, downloads and multibooru tabs always show it;
+below, info card with rating chip (`G`), score
 (`+12`), `#postid`, and the file name. The tooltip and the viewer
 link stay on the booru post page after a download (strays keep the
 local file). Right-click menu resolves the on-disk file behind downloaded
@@ -291,7 +295,11 @@ deleted behind the app's back.
 Booru manager) + short name on the entry's badge color. Favourites rows
 store only a display label, so the entry resolves by case-insensitive
 label/short name first, then by the post/file URL host (CDN subdomains
-match their booru); `G` rating chip, score, `#id`, file name below (synthesized `id - host - tags.ext` when the file URL has no name, e.g. Nuuru `/file`; downloads keep `site_md5` names).
+match their booru); rows linked to a downloaded copy lose their remote
+flag, so the same URL fallback runs for them too (generic engine labels
+such as a self-hosted Szuru imported as `Szurubooru` keep their badge).
+Badges are hidden on plain single-booru tabs and shown on favourites,
+downloads, and multibooru tabs; `G` rating chip, score, `#id`, file name below (synthesized `id - host - tags.ext` when the file URL has no name, e.g. Nuuru `/file`; downloads keep `site_md5` names).
 
 ## 20-stray-dialog - Download/Add Stray (`StrayDialog`)
 A Booru Explorer feature (not a LoliSnatcher import mode): random URLs

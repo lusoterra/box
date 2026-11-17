@@ -128,26 +128,6 @@ void MainWindow::setAspect(int num, int den) {
     m_cacheOrder.clear();
     m_placeholder = QPixmap(kBoxW, (kBoxW * m_aspectDen) / m_aspectNum);
     m_placeholder.fill(QColor(0x1e, 0x21, 0x30));
-    // Reflect a custom ratio in the combo's Custom entry.
-    m_aspectBox->blockSignals(true);
-    bool matched = false;
-    for (int i = 0; i < m_aspectBox->count(); ++i) {
-        const QVariantList v = m_aspectBox->itemData(i).toList();
-        if (v.size() == 2 && v.value(0).toInt() == m_aspectNum &&
-            v.value(1).toInt() == m_aspectDen) {
-            m_aspectBox->setCurrentIndex(i);
-            matched = true;
-            break;
-        }
-    }
-    if (!matched) {
-        const int last = m_aspectBox->count() - 1; // Custom… entry
-        m_aspectBox->setItemText(
-            last, tr("Custom %1:%2").arg(m_aspectNum).arg(m_aspectDen));
-        m_aspectBox->setItemData(last, QVariantList{m_aspectNum, m_aspectDen});
-        m_aspectBox->setCurrentIndex(last);
-    }
-    m_aspectBox->blockSignals(false);
 }
 
 void MainWindow::applyThemeFromSettings() {

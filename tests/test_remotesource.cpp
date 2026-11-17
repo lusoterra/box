@@ -1603,6 +1603,18 @@ private slots:
         QVERIFY(ge != nullptr);
         QCOMPARE(ge->key, QStringLiteral("glegle"));
 
+        // Same favourite after its download links the row to disk: the row
+        // is local now and keeps only the generic engine label, but the
+        // post URL must still resolve the origin badge.
+        Post gl = gp;
+        gl.isRemote = false;
+        gl.category = QStringLiteral("Szurubooru");
+        gl.postUrl = QStringLiteral("https://glegle.gallery/42");
+        gl.fileUrl = QStringLiteral("https://glegle.gallery/storage/42.jpg");
+        const BooruSite *gle = RemotePosts::entryForPost(gl);
+        QVERIFY(gle != nullptr);
+        QCOMPARE(gle->key, QStringLiteral("glegle"));
+
         RemoteSource::setConfiguredBoorus(RemoteSource::presetBoorus());
     }
 

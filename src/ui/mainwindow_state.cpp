@@ -203,32 +203,6 @@ void MainWindow::normalizeTypedFiletype() {
     syncMediaBox();
 }
 
-void MainWindow::onAspectChanged() {
-    const QVariantList v = m_aspectBox->currentData().toList();
-    if (v.isEmpty()) {
-        // Custom…
-        bool ok = false;
-        const QString s = QInputDialog::getText(
-            this, tr("Custom thumbnail ratio"),
-            tr("Aspect as W:H (e.g. 4:3):"), QLineEdit::Normal,
-            QStringLiteral("%1:%2").arg(m_aspectNum).arg(m_aspectDen), &ok);
-        if (ok) {
-            const QStringList parts = s.split(u':');
-            const int w = parts.value(0).toInt();
-            const int h = parts.value(1).toInt();
-            if (w > 0 && h > 0)
-                setAspect(w, h);
-            else
-                setAspect(m_aspectNum, m_aspectDen); // restore box label
-        } else {
-            setAspect(m_aspectNum, m_aspectDen); // restore box label
-        }
-    } else {
-        setAspect(v.value(0).toInt(), v.value(1).toInt());
-    }
-    fillModel();
-}
-
 void MainWindow::setBoxW(int w) {
     if (!m_delegate || !m_grid)
         return;

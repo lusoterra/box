@@ -122,6 +122,18 @@ void MainWindow::fillModel() {
     // must carry the same flag.
     for (Post &p : m_current)
         p.downloaded = isPostDownloaded(p);
+    // Origin badges only earn their space when the tab does not already
+    // answer "where from?": a single-booru tab omits them, while
+    // favourites, downloads/library tabs and multibooru tabs keep them.
+    bool showOrigin = true;
+    if (const BrowserTab *tab = currentTab();
+        tab && tab->isRemote && !tab->isFavourites) {
+        // Exactly one site and no merged virtual source = plain
+        // single-booru browsing. Anything else (multibooru, or a booru
+        // merged with favourites/downloads) keeps the badges.
+        if (tab->sites.size() == 1 && !tab->sites.first().startsWith(u'@'))
+            showOrigin = false;
+    }
     for (const Post &p : m_current) {
         auto *item = new QStandardItem();
         QString key;
@@ -179,7 +191,8 @@ void MainWindow::fillModel() {
         // instead.
         QString badge, badgeColor, badgeKey;
         QPixmap badgeFav;
-        if (const BooruSite *entry = RemotePosts::entryForPost(p)) {
+        if (showOrigin) {
+            if (const BooruSite *entry = RemotePosts::entryForPost(p)) {
                 badge = entry->shortName.isEmpty() ? p.siteShort
                                                    : entry->shortName;
                 badgeColor = entry->badgeColor;
@@ -191,6 +204,7 @@ void MainWindow::fillModel() {
             } else if (p.isRemote) {
                 badge = p.siteShort;
             }
+        }
         item->setData(badge, Qt::UserRole + 7);
         item->setData(badgeColor, Qt::UserRole + 8);
         if (!badgeFav.isNull())

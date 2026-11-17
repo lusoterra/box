@@ -913,13 +913,9 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     m_sortBox->addItem(tr("Top Rated"), QStringLiteral("score-desc"));
     m_sortBox->addItem(tr("Low Rated"), QStringLiteral("score-asc"));
     m_sortBox->addItem(tr("Random"), QStringLiteral("random"));
-    m_aspectBox = new QComboBox(this);
-    m_aspectBox->addItem(QStringLiteral("1:1"), QVariantList{1, 1});
-    m_aspectBox->addItem(QStringLiteral("4:3"), QVariantList{4, 3});
-    m_aspectBox->addItem(QStringLiteral("3:2"), QVariantList{3, 2});
-    m_aspectBox->addItem(QStringLiteral("16:9"), QVariantList{16, 9});
-    m_aspectBox->addItem(QStringLiteral("3:4"), QVariantList{3, 4});
-    m_aspectBox->addItem(tr("Custom…"), QVariantList{});
+    // Thumbnail ratio lives in Preferences -> Grid only. A second combo
+    // here was orphaned (never added to a layout) and floated over the
+    // tab bar at (0,0), reading as "3:4" in the top-left corner.
     connect(m_sortBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
             [this] {
                 m_sort = m_sortBox->currentData().toString();
@@ -932,8 +928,6 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
             &MainWindow::onRatingChanged);
     connect(m_categoryBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
             &MainWindow::onCategoryChanged);
-    connect(m_aspectBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
-            &MainWindow::onAspectChanged);
     m_sizeSlider = new QSlider(Qt::Horizontal, this);
     m_sizeSlider->setRange(96, 384);
     m_sizeSlider->setSingleStep(8);

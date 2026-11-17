@@ -6,6 +6,7 @@
 #include "mainwindow.h"
 
 #include <QApplication>
+#include <QComboBox>
 #include <QImage>
 #include <QPainter>
 #include <QPixmap>
@@ -63,6 +64,38 @@ void decorationStats(GridView *grid, int &distinctOut, int &topCountOut,
 class TestGridWindow : public QObject {
     Q_OBJECT
 private slots:
+    void noFloatingAspectCombo() {
+        QTemporaryDir xdg;
+        QVERIFY(xdg.isValid());
+        qputenv("XDG_CONFIG_HOME", xdg.filePath("config").toUtf8());
+        qputenv("XDG_DATA_HOME", xdg.filePath("data").toUtf8());
+        qputenv("XDG_CACHE_HOME", xdg.filePath("cache").toUtf8());
+        bool ok = false;
+        const QString root = makeArchive(3, ok);
+        QVERIFY(ok);
+        MainWindow w(root, true);
+        w.show();
+        QTest::qWait(200);
+        // Thumbnail ratio is a Preferences setting only. A second combo used
+        // to be parented to the window without joining a layout, so it
+        // floated over the tab bar at (0,0) showing the current "3:4".
+        for (QComboBox *cb : w.findChildren<QComboBox *>()) {
+            for (int i = 0; i < cb->count(); ++i) {
+                const QString text = cb->itemText(i);
+                QVERIFY2(!text.contains(QStringLiteral("3:4")),
+                         qPrintable(QStringLiteral("stray aspect combo at %1,%2: %3")
+                                        .arg(cb->x())
+                                        .arg(cb->y())
+                                        .arg(text)));
+                QVERIFY2(!text.startsWith(QStringLiteral("Custom")),
+                         qPrintable(QStringLiteral("stray aspect combo at %1,%2: %3")
+                                        .arg(cb->x())
+                                        .arg(cb->y())
+                                        .arg(text)));
+            }
+        }
+    }
+
     void pixmapsStayWindowed() {
         QTemporaryDir xdg;
         QVERIFY(xdg.isValid());

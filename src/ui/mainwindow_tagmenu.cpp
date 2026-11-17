@@ -213,7 +213,12 @@ void MainWindow::onTagContextMenu(const QPoint &pos) {
             m_settings.tagCategoryMerges.append(m);
             saveSettings(m_settings);
             m_viewer->setCategoryMerges(m_settings.tagCategoryMerges);
-            rebuildBrowseSidebar();
+            // Rebuild in place, not just the section: the grid, pill colours
+            // and status counts all read the merges now. A source category
+            // left with no tags disappears with this same reload.
+            applyFilter();
+            if (!isBrowse())
+                rebuildBrowseSidebar();
             statusBar()->showMessage(
                 tr("Recategorised %1 → %2").arg(tag, choice), 3000);
         });

@@ -1071,8 +1071,22 @@ const BooruSite *entryForPost(const Post &post) {
     }
     if (const BooruSite *e = entryForHost(post.category))
         return e;
-    return RemoteSource::siteFor(
-        hostKeys().value(post.category.toLower()));
+    if (const BooruSite *e = RemoteSource::siteFor(
+            hostKeys().value(post.category.toLower())))
+        return e;
+    // Favourites linked to a downloaded copy lose isRemote but keep the
+    // post page. Their stored label can be a generic engine name (e.g. a
+    // self-hosted Szuru imported as "Szurubooru") that no configured entry
+    // answers to, so resolve the origin from the URL host exactly like the
+    // remote branch above - otherwise those rows silently lose the badge.
+    for (const QString &url : {post.postUrl, post.fileUrl}) {
+        const QString host = QUrl(url).host().toLower();
+        if (host.isEmpty() || !isHttpUrl(url))
+            continue;
+        if (const BooruSite *e = entryForHost(host))
+            return e;
+    }
+    return nullptr;
 }
 
 QString postPageUrlFor(const BooruSite &site, qint64 id) {

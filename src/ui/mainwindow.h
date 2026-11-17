@@ -260,7 +260,6 @@ private slots:
     // shortcut like the rating box): exact token match selects, else All.
     void syncMediaBox();
     void normalizeTypedFiletype();
-    void onAspectChanged();
     void onTagClicked();
     void onTagContextMenu(const QPoint &pos); // sidebar right-click: fav toggle
     // Starred tags (lowercased) for suggestion priority + the ★ menu.
@@ -413,7 +412,6 @@ private:
     QComboBox *m_categoryBox = nullptr;
     QComboBox *m_mediaBox = nullptr; // stills/GIF/animated/video/sound filter
     QComboBox *m_sortBox = nullptr;
-    QComboBox *m_aspectBox = nullptr;
     QSlider *m_sizeSlider = nullptr;
     QLabel *m_countLabel = nullptr;
     QLabel *m_resultLabel = nullptr;

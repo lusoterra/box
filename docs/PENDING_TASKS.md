@@ -1,5 +1,33 @@
 # Pending tasks (from user goal)
 
+## 21. Sidebar recategorise reloads the pane - DONE
+- Right-click → `Recategorise…` now re-runs the active filter
+  (`applyFilter`, which refills the grid, pills and browse sidebar) and
+  rescopes the local sidebar too (`rebuildBrowseSidebar`), so a source
+  category left with no tags disappears in the same action
+  (`src/ui/mainwindow_tagmenu.cpp`).
+- Verify: full `ctest` 38/38; GUI section hiding follows the existing
+  empty-section rule (`src/ui/mainwindow_sidebar.cpp:283`).
+
+## 20. Origin badges: favourites + single-booru rule - DONE
+- Favourite rows linked to a downloaded copy (`isRemote=false`) resolve
+  their origin through the post/file URL host when the stored label is a
+  generic engine name no entry answers to (e.g. self-hosted Szuru
+  imported as `Szurubooru`), so glegle.gallery keeps its badge
+  (`src/remote/remotesource.cpp:1066`).
+- Badges are omitted on a plain single-booru tab; favourites, downloads
+  and multibooru tabs keep them (`src/ui/mainwindow_fill.cpp`).
+- Verify: `test_remotesource` (`badgeHostFallbacks` downloaded-row case);
+  full `ctest` 38/38.
+
+## 19. Thumbnail ratio lives only in Preferences - DONE
+- The omnibar aspect combo was orphaned (parented to the window, never
+  added to a layout) and floated at (0,0) showing the current `3:4`.
+  Removed it and its handler; the Preferences → Appearance `Grid` ratio
+  remains the single control (`src/ui/mainwindow.cpp`, `mainwindow_misc.cpp`,
+  `mainwindow_state.cpp`).
+- Verify: `test_gridwindow` (`noFloatingAspectCombo`).
+
 ## 18. Host folders for favourites and unconfigured sources - DONE
 - `fsTagForPost` (`src/remote/remotesource.cpp:1141`) resolves the entry
   by key/label first, then falls back to the post URL host (and the file
@@ -165,6 +193,9 @@
 [rest omitted]
 
 ## Fixed in this session
+- Removed the orphaned omnibar aspect combo that floated at the top-left as `3:4`; ratio stays in Preferences.
+- Origin badges resolve downloaded-favourite rows via post/file URL host fallback (glegle.gallery etc.) and are hidden on single-booru tabs, kept on favourites/downloads/multibooru.
+- Sidebar right-click recategorise reloads the pane and grid; emptied categories disappear immediately.
 - glegle.gallery post URLs use root-id shape (/{id}); stray parsing updated.
 - Origin badge text contrast on light backgrounds.
 - Omnibar filters restricted to online browsing; aspect button moved to settings; counts removed from age rating dropdown.
