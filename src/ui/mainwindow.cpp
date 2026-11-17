@@ -465,7 +465,17 @@ void GalleryDelegate::paint(QPainter *painter, const QStyleOptionViewItem &optio
                                 fav);
             textLeft = iconW;
         }
-        painter->setPen(Qt::white);
+        // Keep the badge legible on light (white) or dark backgrounds:
+        // pick the text colour with the higher contrast against the fill.
+        {
+            const QColor fill(index.data(Qt::UserRole + 8).toString());
+            const QColor bgc = fill.isValid()
+                                   ? fill
+                                   : QColor(0x3a, 0x7e, 0xc2);
+            const int lum = bgc.red() * 299 + bgc.green() * 587 +
+                            bgc.blue() * 114;
+            painter->setPen(lum > 128000 ? Qt::black : Qt::white);
+        }
         painter->drawText(ob.adjusted(textLeft, 0, 0, 0), Qt::AlignCenter,
                           origin);
     }
@@ -978,7 +988,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     // Filter combos ignore the wheel until clicked (same as Preferences),
     // and size to their content: translated labels must never elide.
     auto *wheelGuard = new WheelGuard(this);
-    for (QComboBox *cb : {m_ratingBox, m_categoryBox, m_sortBox, m_aspectBox}) {
+    for (QComboBox *cb : {m_ratingBox, m_categoryBox, m_sortBox}) {
         cb->installEventFilter(wheelGuard);
         cb->setSizeAdjustPolicy(QComboBox::AdjustToContents);
     }
@@ -1023,7 +1033,6 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
             commitFilter();
     });
     omniLay->addWidget(m_sortBox);
-    omniLay->addWidget(m_aspectBox);
     omniLay->addWidget(m_sitesBtn);
     omniLay->addWidget(aiBtn);
     omniLay->addWidget(m_downloadSelBtn);
