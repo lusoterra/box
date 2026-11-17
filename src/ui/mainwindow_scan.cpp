@@ -11,6 +11,7 @@
 #include "metaparser.h"
 #include "prefsdlg.h"
 #include "progressbar.h"
+#include "gridloadingoverlay.h"
 #include "queryor.h"
 #include "remotesource.h"
 #include "scanner.h"
@@ -218,6 +219,11 @@ void MainWindow::onScanFinished() {
     updateDots();
     m_scanBar->setVisible(false);
     statusBar()->showMessage(tr("Found %1 posts").arg(s.total), 5000);
+    // Tab content landed: drop the activation veil (unless the user has
+    // already switched to another tab whose own veil is still up).
+    if (BrowserTab *t = currentTab();
+        t && !t->isRemote && t->root == m_root)
+        hideTabLoading(t);
     // Local archives are never modified: no history, no last-root, no
     // session writes (tabs are for browsing; the library stays untouched).
     if (BrowserTab *t = currentTab(); t && !t->isRemote && t->root == m_root)

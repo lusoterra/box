@@ -11,6 +11,7 @@
 #include "metaparser.h"
 #include "prefsdlg.h"
 #include "progressbar.h"
+#include "gridloadingoverlay.h"
 #include "queryor.h"
 #include "remotesource.h"
 #include "scanner.h"
@@ -1128,6 +1129,9 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     m_grid->setItemDelegate(m_delegate);
     m_model = new QStandardItemModel(this);
     m_grid->setModel(m_model);
+    // Tab-activation veil: painted over the (empty) grid the moment a tab
+    // is clicked, before the deferred DB/scan/search work runs.
+    m_gridLoading = new GridLoadingOverlay(m_grid->viewport());
     // Double-click always opens; single-click opens unless Select mode.
     connect(m_grid, &QListView::doubleClicked, this,
             [this](const QModelIndex &i) {

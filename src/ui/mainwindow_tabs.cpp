@@ -11,6 +11,7 @@
 #include "metaparser.h"
 #include "prefsdlg.h"
 #include "progressbar.h"
+#include "gridloadingoverlay.h"
 #include "queryor.h"
 #include "remotesource.h"
 #include "scanner.h"
@@ -518,11 +519,30 @@ void MainWindow::activateTab(int tabIdx) {
     m_model->clear();
     m_scanBar->setRange(0, 0);
     m_scanBar->setVisible(true);
+    // Name the target in the grid area and paint it synchronously, so
+    // the click is visibly honoured before the deferred work starts.
+    QString busy;
+    if (t->isFavourites)
+        busy = tr("Loading favourites…");
+    else if (t->isRemote)
+        busy = tr("Loading %1…")
+                   .arg(t->title.isEmpty() ? tr("browse") : t->title);
+    else
+        busy = tr("Loading %1…").arg(QDir(t->root).dirName());
+    m_gridLoading->showFor(busy);
     QTimer::singleShot(0, this, [this, tabIdx] {
         if (tabIdx != m_curTab)
             return; // a newer switch already took over
         finishActivateTab(tabIdx);
     });
+}
+
+void MainWindow::hideTabLoading(const BrowserTab *owner) {
+    if (!m_gridLoading || !m_gridLoading->isVisible())
+        return;
+    if (owner && owner != currentTab())
+        return; // a stale job from a tab the user already left
+    m_gridLoading->hide();
 }
 
 void MainWindow::finishActivateTab(int tabIdx) {
@@ -551,6 +571,7 @@ void MainWindow::finishActivateTab(int tabIdx) {
         // persist their splits so the next open starts categorised.
         maybeClassifyBrowse(t);
         m_scanBar->setVisible(false); // skeleton done (no async work here)
+        hideTabLoading(t);
         return;
     }
     if (t->isRemote) {
@@ -562,6 +583,7 @@ void MainWindow::finishActivateTab(int tabIdx) {
             m_browseMerged = t->browseMerged;
             applyBrowseFilter();
             m_scanBar->setVisible(false); // skeleton done
+            hideTabLoading(t);
         }
     } else {
         m_root = t->root;
@@ -589,6 +611,7 @@ void MainWindow::finishActivateTab(int tabIdx) {
             rebuildSidebar();
             applyFilter();
             m_scanBar->setVisible(false); // skeleton done
+            hideTabLoading(t);
         }
     }
     updateSortBox();

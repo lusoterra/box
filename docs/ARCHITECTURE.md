@@ -222,6 +222,13 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     (`m_favRelinked`). `keyForLabel` memoises normalised labels per
     configured-registry generation, and `fillModel` caches entry/badge
     pixmap per fill, so a 2000-row favourites tab switches in ~120ms.
+  - Activation is skeleton-first (`activateTab`,
+    `mainwindow_tabs.cpp:474`): the tab bar/title/stage switch and a
+    `GridLoadingOverlay` busy bar paint synchronously, while the DB
+    decode, scan or search runs on the next event-loop turn
+    (`finishActivateTab`). `hideTabLoading` only drops the veil for the
+    owning tab, so a stale scan/search finishing after the user left
+    cannot clear the new tab's busy state.
   - Origin badges resolve favourite labels case-insensitively
     (`keyForLabel`, `remotesource.cpp:940`) and fall back to the post/file
     URL host (`entryForHost`), so a renamed entry keeps its favicon and

@@ -37,6 +37,7 @@ class QStringListModel;
 class QStandardItemModel;
 class QSplitter;
 class QTimer;
+class GridLoadingOverlay;
 class TagTypeFetcher;
 class MarqueeTabBar;
 class RemoteSource;
@@ -182,6 +183,10 @@ private slots:
     // Skeleton-first activation: activateTab paints the switch now,
     // finishActivateTab rebuilds content on the next event-loop turn.
     void finishActivateTab(int tabIdx);
+    // Drop the activation veil once content lands. `owner` is the tab the
+    // finishing work belongs to: a stale scan/search from a tab the user
+    // already left must not clear the new tab's busy state.
+    void hideTabLoading(const BrowserTab *owner);
     bool restoreTabs(); // "last session" startup; false when nothing saved
     void clearStatusProbe(); // drop the clickable error diagnostics
     void setStatusProbe(const QString &title, const QString &text);
@@ -421,6 +426,7 @@ private:
     QWidget *m_sideBar = nullptr; // sidebar column (hidden in fullscreen)
     FlowLayout *m_pills = nullptr;
     QProgressBar *m_scanBar = nullptr;
+    GridLoadingOverlay *m_gridLoading = nullptr; // tab-activation busy veil
     QListWidget *m_copyList = nullptr;
     QListWidget *m_charList = nullptr;
     QListWidget *m_artistList = nullptr;

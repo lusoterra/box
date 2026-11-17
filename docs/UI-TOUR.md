@@ -19,6 +19,10 @@ picker) for mouse-driven reopening.
 
 ## 02-browse-grid - booru tab (browse mode, `MainWindow`, `src/ui/mainwindow.cpp`)
 One tab per archive/site set. Tab bar button shows favicon + label + ✕.
+Clicking a tab switches at once: the tab bar, title and toolbar follow the
+click immediately, and the grid shows a centred busy bar with `Loading
+<tab>…` until that tab's rows are ready (DB decode, archive scan or site
+search); the veil drops as soon as the cards land.
 HyBooru tabs hydrate in the background: summaries arrive tagless, so each
 loaded row is detail-fetched through a dedicated queue and the sidebar
 fills without opening posts one by one.

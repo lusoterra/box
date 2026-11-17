@@ -1,5 +1,23 @@
 # Pending tasks (from user goal)
 
+## 26. Tab click: instant switch with a loading veil - DONE
+- `activateTab` already switched the tab bar/title/stage and deferred
+  the heavy work, but the only busy cue was the status-bar bar, outside
+  the area the click changes. Added `GridLoadingOverlay`
+  (`src/ui/gridloadingoverlay.{h,cpp}`): a centred indeterminate
+  progress bar + `Loading <tab>…` label over the grid viewport.
+- It is shown and painted synchronously at the end of `activateTab`
+  (`showFor` sets geometry, raises, repaints) so the click is visibly
+  honoured before the queued `finishActivateTab`/scan/search runs.
+- The veil drops when rows actually land: favourites/sync paths and
+  cached local/browse paths in `finishActivateTab`, `onScanFinished`,
+  and both remote-search completion paths. `hideTabLoading(owner)`
+  ignores stale jobs from a tab the user already left.
+- Verify: `test_gridwindow` (`tabClickShowsLoadingStateImmediately`)
+  asserts the veil is visible the moment `openFavTab`/`onTabChanged`
+  returns and hidden once the model has rows; favourites perf test still
+  passes.
+
 ## 25. Keyboard shortcuts dialog renders newlines - DONE
 - The Help → `Keyboard shortcuts…` text had escaped `\\n` in the source,
   so the box showed literal `\n`. Now a real multi-line cheatsheet split

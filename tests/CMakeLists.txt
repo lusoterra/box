@@ -124,6 +124,7 @@ add_unit_test(test_gridwindow test_gridwindow.cpp
               ../src/ui/theme.cpp ../src/ui/flowlayout.cpp
               ../src/ui/prefsdlg.cpp ../src/ui/prefsdlg_booru.cpp ../src/remote/cookiegrab.cpp
               ../src/ui/straydialog.cpp ../src/ui/progressbar.cpp
+              ../src/ui/gridloadingoverlay.cpp
               ../src/remote/imagecache.cpp ../src/remote/postmeta.cpp
               ../src/remote/downloadmanager.cpp ../src/library/losnimport.cpp
               ../src/remote/strayresolve.cpp

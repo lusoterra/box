@@ -246,6 +246,95 @@ private slots:
                  qPrintable(QStringLiteral("third visit %1ms").arg(third)));
     }
 
+    // The click must be honoured before any DB/scan work runs: activateTab
+    // shows and paints the grid loading veil synchronously, then queues
+    // the content rebuild; the veil only drops when the rows land.
+    void tabClickShowsLoadingStateImmediately() {
+        QTemporaryDir xdg;
+        QVERIFY(xdg.isValid());
+        qputenv("XDG_CONFIG_HOME", xdg.filePath("config").toUtf8());
+        qputenv("XDG_DATA_HOME", xdg.filePath("data").toUtf8());
+        qputenv("XDG_CACHE_HOME", xdg.filePath("cache").toUtf8());
+        QDir().mkpath(xdg.filePath("config/box"));
+        const QString dl = xdg.filePath("downloads");
+        QDir().mkpath(dl + QStringLiteral("/danbooru"));
+        {
+            QSettings ini(xdg.filePath("config/box/settings.ini"),
+                          QSettings::IniFormat);
+            ini.setValue(QStringLiteral("classify/enabled"), false);
+            ini.setValue(QStringLiteral("downloads/dir"), dl);
+            ini.sync();
+        }
+        const QString archive = xdg.filePath("archive");
+        QDir().mkpath(archive);
+        const int N = 60;
+        FavDb db;
+        QVERIFY(db.open());
+        QVector<Post> posts;
+        for (int i = 0; i < N; ++i) {
+            const QString name = QStringLiteral("%1.jpg").arg(i);
+            const QString path = dl + QStringLiteral("/danbooru/") + name;
+            QImage img(32, 32, QImage::Format_RGB32);
+            img.fill(QColor::fromHsv((i * 13) % 360, 180, 200));
+            QVERIFY(img.save(path));
+            Post p;
+            p.isRemote = true;
+            p.siteName = QStringLiteral("danbooru");
+            p.siteKey = QStringLiteral("danbooru");
+            p.id = 200000 + i;
+            p.ext = QStringLiteral("jpg");
+            p.rating = QStringLiteral("general");
+            p.fileUrl = QStringLiteral("https://example.com/%1.jpg").arg(i);
+            p.previewUrl = p.fileUrl;
+            p.postUrl = QStringLiteral("https://danbooru.donmai.us/posts/%1")
+                            .arg(200000 + i);
+            p.tags = QStringLiteral("solo general_tag");
+            p.tagsGeneral = p.tags;
+            posts << p;
+        }
+        QVERIFY(db.addMany(posts) == N);
+        QHash<QPair<QString, qint64>, QString> links;
+        for (int i = 0; i < N; ++i)
+            links.insert({QStringLiteral("danbooru"), 200000 + i},
+                         dl + QStringLiteral("/danbooru/%1.jpg").arg(i));
+        QVERIFY(db.setLocalPaths(links) == N);
+        db.close();
+
+        MainWindow w(archive, true);
+        w.show();
+        QTest::qWait(200);
+        GridView *grid = w.findChild<GridView *>();
+        QVERIFY(grid);
+        auto *veil = w.findChild<QWidget *>(QStringLiteral("gridLoadingOverlay"));
+        QVERIFY(veil);
+        auto waitRows = [&]() {
+            for (int i = 0; i < 400; ++i) {
+                if (grid->model() && grid->model()->rowCount() >= N)
+                    return true;
+                QTest::qWait(5);
+            }
+            return false;
+        };
+        // New favourites tab: veil visible the instant activateTab returns,
+        // before the queued finishActivateTab has run.
+        QVERIFY(QMetaObject::invokeMethod(&w, "openFavTab"));
+        QVERIFY2(veil->isVisible(), "no loading veil right after opening a tab");
+        QVERIFY(waitRows());
+        QTest::qWait(20);
+        QVERIFY2(!veil->isVisible(), "loading veil stayed after rows landed");
+
+        // Switch away and back through the tab bar: same immediate feedback,
+        // even though this tab's rows are already cached.
+        QVERIFY(QMetaObject::invokeMethod(&w, "onTabChanged", Q_ARG(int, 1)));
+        QTest::qWait(100);
+        QVERIFY(!veil->isVisible());
+        QVERIFY(QMetaObject::invokeMethod(&w, "onTabChanged", Q_ARG(int, 2)));
+        QVERIFY2(veil->isVisible(), "no loading veil right after a tab click");
+        QVERIFY(waitRows());
+        QTest::qWait(20);
+        QVERIFY2(!veil->isVisible(), "loading veil outlived the tab switch");
+    }
+
     void noFloatingAspectCombo() {
         QTemporaryDir xdg;
         QVERIFY(xdg.isValid());

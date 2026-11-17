@@ -11,6 +11,7 @@
 #include "metaparser.h"
 #include "prefsdlg.h"
 #include "progressbar.h"
+#include "gridloadingoverlay.h"
 #include "queryor.h"
 #include "remotesource.h"
 #include "scanner.h"
@@ -257,6 +258,7 @@ void MainWindow::doBrowseSearch(bool append) {
     if (m_pendingSearches == 0) {
         m_loadingPage = false;
         m_scanBar->setVisible(false);
+        hideTabLoading(m_searchTab);
         if (!skipped.isEmpty())
             errors << tr("%1 skipped (no instance URL)")
                            .arg(siteDisplayNames(skipped).join(", "));
@@ -453,6 +455,7 @@ void MainWindow::onRemoteFinished() {
     m_pendingSites.clear();
     m_loadingPage = false;
     m_scanBar->setVisible(false); // page landed (classify re-shows if needed)
+    hideTabLoading(t); // m_searchTab was cleared above; guard on the owner
     // Dedupe across OR-alternatives (and, on append, against
     // the posts already showing). Remote/local twins share a key
     // via dedupeKeyFor, so a downloaded gif never cards twice.
