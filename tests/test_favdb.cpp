@@ -558,7 +558,7 @@ private slots:
         QCOMPARE(posts.size(), 1);
         QVERIFY(!posts.first().isRemote);
         QCOMPARE(posts.first().absFile, QStringLiteral("/pics/a.jpg"));
-        QCOMPARE(posts.first().category, QStringLiteral("Favourites"));
+        QCOMPARE(posts.first().category, QStringLiteral("pics"));
     }
 
     void pidForGaps() {

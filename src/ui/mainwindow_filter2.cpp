@@ -86,12 +86,15 @@
 
 void MainWindow::rebuildTagTab(QListWidget *list,
                                const QVector<QPair<QString, int>> &entries,
-                               const QString &bucket) {
+                               const QString &bucket,
+                               const QString &sourceCategory) {
     list->clear();
     const QColor color = UiIcons::tagBucketColor(bucket);
+    const QString src = sourceCategory.isEmpty() ? bucket : sourceCategory;
     for (const auto &[tag, n] : entries) {
         auto *it = new QListWidgetItem(QStringLiteral("%1  (%2)").arg(tag).arg(n));
         it->setData(Qt::UserRole, tag);
+        it->setData(Qt::UserRole + 1, src);
         it->setForeground(color);
         if (m_activeTags.contains(tag)) {
             QFont f = it->font();

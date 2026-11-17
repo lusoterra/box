@@ -342,7 +342,8 @@ void MainWindow::rebuildBrowseSidebar() {
         }
         sec->title->setText(
             sidebarLabel(customLabels.value(it.key(), it.key())));
-        rebuildTagTab(sec->list, top(it.value()), QStringLiteral("custom"));
+        rebuildTagTab(sec->list, top(it.value()), QStringLiteral("custom"),
+                      it.key());
         sec->box->setVisible(true);
         // Tiny custom categories shrink like the fixed five.
         const int n = qMin<int>(it.value().size(), 30);

@@ -1,4 +1,5 @@
 #include "mainwindow.h"
+#include "tagcategories.h"
 #include "appinfo.h"
 #include "cache.h"
 #include "cachejanitor.h"
@@ -143,6 +144,7 @@ void MainWindow::onTagContextMenu(const QPoint &pos) {
     const QString tag = it->data(Qt::UserRole).toString();
     if (tag.isEmpty())
         return;
+    const QString sourceCategory = it->data(Qt::UserRole + 1).toString();
     QMenu menu;
     QAction *addAct = menu.addAction(tr("Add to search"));
     connect(addAct, &QAction::triggered, this, [this, tag] {
@@ -156,6 +158,66 @@ void MainWindow::onTagContextMenu(const QPoint &pos) {
             : tr("★ Add to favourite tags"));
     connect(favAct, &QAction::triggered, this,
             [this, tag] { toggleFavTag(tag); });
+    if (!sourceCategory.isEmpty()) {
+        QAction *recatAct = menu.addAction(tr("Recategorise…"));
+        connect(recatAct, &QAction::triggered, this, [this, tag, sourceCategory] {
+            const QStringList targets = {tr("Artist"), tr("Character"),
+                                         tr("Copyright"), tr("Meta"),
+                                         tr("General")};
+            bool ok = false;
+            const QString choice = QInputDialog::getItem(
+                this, tr("Recategorise tag"), tr("Move \"%1\" to:").arg(tag),
+                targets, 1, false, &ok);
+            if (!ok || choice.isEmpty())
+                return;
+            QString bucket = choice.toLower();
+            // Map translated labels back to canonical buckets.
+            if (bucket == tr("artist").toLower())
+                bucket = QStringLiteral("artist");
+            else if (bucket == tr("character").toLower())
+                bucket = QStringLiteral("character");
+            else if (bucket == tr("copyright").toLower())
+                bucket = QStringLiteral("copyright");
+            else if (bucket == tr("meta").toLower())
+                bucket = QStringLiteral("meta");
+            else if (bucket == tr("general").toLower())
+                bucket = QStringLiteral("general");
+            // canonical fallback already lower
+            QString siteKey;
+            if (BrowserTab *t = currentTab()) {
+                for (const QString &key : t->sites) {
+                    if (isVirtualSource(key))
+                        continue;
+                    siteKey = key;
+                    break;
+                }
+            }
+            if (siteKey.isEmpty() && !m_current.isEmpty()) {
+                const Post &first = m_current.first();
+                siteKey = !first.siteKey.isEmpty()
+                              ? first.siteKey
+                              : RemotePosts::keyForLabel(first.siteName);
+            }
+            TagCategoryMerge m;
+            m.siteKey = siteKey;
+            m.sources = {sourceCategory};
+            m.target = bucket;
+            // Replace any existing rule for the same scope/source.
+            for (int i = m_settings.tagCategoryMerges.size() - 1; i >= 0; --i) {
+                const TagCategoryMerge &r = m_settings.tagCategoryMerges.at(i);
+                if (r.siteKey.compare(siteKey, Qt::CaseInsensitive) == 0 &&
+                    r.sources.contains(sourceCategory,
+                                       Qt::CaseInsensitive))
+                    m_settings.tagCategoryMerges.removeAt(i);
+            }
+            m_settings.tagCategoryMerges.append(m);
+            saveSettings(m_settings);
+            m_viewer->setCategoryMerges(m_settings.tagCategoryMerges);
+            rebuildBrowseSidebar();
+            statusBar()->showMessage(
+                tr("Recategorised %1 → %2").arg(tag, choice), 3000);
+        });
+    }
     menu.exec(list->mapToGlobal(pos));
 }
 

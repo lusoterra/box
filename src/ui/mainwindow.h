@@ -363,7 +363,8 @@ private:
     // Sidebar section fill: entries render in the section's bucket colour
     // (same palette as the filter pills and the suggest popup).
     void rebuildTagTab(QListWidget *list, const QVector<QPair<QString, int>> &entries,
-                       const QString &bucket);
+                       const QString &bucket,
+                       const QString &sourceCategory = QString());
     void commitSearch();
     void commitFilter();
     // Typed rating:/safety: tags own the filter (the rating box is only a
