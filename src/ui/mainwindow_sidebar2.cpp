@@ -127,16 +127,24 @@ void MainWindow::rebuildSidebar() {
                 v.end());
         return v;
     };
-    rebuildTagTab(m_copyList, withoutAssigned(s.topCopyrights),
-                  QStringLiteral("copyright"));
-    rebuildTagTab(m_charList, withoutAssigned(s.topCharacters),
-                  QStringLiteral("character"));
-    rebuildTagTab(m_artistList, withoutAssigned(s.topArtists),
-                  QStringLiteral("artist"));
-    rebuildTagTab(m_tagList, withoutAssigned(s.topGeneral),
-                  QStringLiteral("general"));
-    rebuildTagTab(m_metaList, withoutAssigned(s.topMeta),
-                  QStringLiteral("meta"));
+    auto fillLocal = [&](QListWidget *list,
+                         const QVector<QPair<QString, int>> &entries,
+                         const QString &bucket) {
+        rebuildTagTab(list, entries, bucket);
+        // One tag is not worth a section header (same rule as browse):
+        // a category emptied by recategorising disappears immediately.
+        list->parentWidget()->setVisible(list->count() > 1);
+    };
+    fillLocal(m_copyList, withoutAssigned(s.topCopyrights),
+              QStringLiteral("copyright"));
+    fillLocal(m_charList, withoutAssigned(s.topCharacters),
+              QStringLiteral("character"));
+    fillLocal(m_artistList, withoutAssigned(s.topArtists),
+              QStringLiteral("artist"));
+    fillLocal(m_tagList, withoutAssigned(s.topGeneral),
+              QStringLiteral("general"));
+    fillLocal(m_metaList, withoutAssigned(s.topMeta),
+              QStringLiteral("meta"));
     for (auto it = customCounts.begin(); it != customCounts.end(); ++it) {
         auto sec = m_customSections.find(it.key());
         if (sec == m_customSections.end()) {
@@ -175,7 +183,7 @@ void MainWindow::rebuildSidebar() {
         if (entries.size() > 30)
             entries.resize(30);
         rebuildTagTab(sec->list, entries, QStringLiteral("custom"));
-        sec->box->setVisible(true);
+        sec->box->setVisible(entries.size() > 1);
     }
     applySidebarScrollMode();
 }

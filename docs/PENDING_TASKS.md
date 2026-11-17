@@ -3,11 +3,14 @@
 ## 21. Sidebar recategorise reloads the pane - DONE
 - Right-click → `Recategorise…` now re-runs the active filter
   (`applyFilter`, which refills the grid, pills and browse sidebar) and
-  rescopes the local sidebar too (`rebuildBrowseSidebar`), so a source
-  category left with no tags disappears in the same action
-  (`src/ui/mainwindow_tagmenu.cpp`).
-- Verify: full `ctest` 38/38; GUI section hiding follows the existing
-  empty-section rule (`src/ui/mainwindow_sidebar.cpp:283`).
+  rescopes the local sidebar too (`rebuildBrowseSidebar`), so the moved
+  tag lands in its target section in the same action.
+- Categories holding zero or one tag are hidden (classic + custom, browse
+  and local sidebars), so moving a tag out of a two-tag category leaves a
+  singleton and the section disappears immediately
+  (`src/ui/mainwindow_sidebar.cpp`, `mainwindow_sidebar2.cpp`).
+- Verify: full `ctest` 38/38; hiding follows the existing section
+  visibility rule used for empty buckets.
 
 ## 20. Origin badges: favourites + single-booru rule - DONE
 - Favourite rows linked to a downloaded copy (`isRemote=false`) resolve

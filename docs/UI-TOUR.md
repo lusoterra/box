@@ -28,11 +28,12 @@ bucket colour like the filter pills, plus
 extra sections for native custom categories (Nuuru flags, Szuru
 categories) seen on the page - or folded into a classic bucket when
 mapped under Preferences → Tags. Category labels read as words
-(`ENTITY TYPE`, not `entity_type`); empty categories hide entirely until
-tags show up, and tiny ones (≤3 tags) shrink so many fit at once;
+(`ENTITY TYPE`, not `entity_type`); empty or single-tag categories hide
+entirely until they hold two tags, and tiny ones (2-3 tags) shrink so many
+fit at once;
 click toggles filter pills, right-click stars/un-stars favourite tags or
 recategorises one (the pane reloads in place, so a source category left
-empty after moving its last tag disappears immediately). The
+with its last tag moved away disappears immediately). The
 omnibar keeps only the ★ favourite-tags button. A captcha/PoW wall failure pops the solve browser open (opt out in Preferences → Browse, back to a small menu: solve the challenge in the capture browser, or drop the booru (deselect in multibooru, close a solo tab)). Center: post grid. Bottom-left: `40 results · page 1` and infinite scroll (more loads at the bottom); a failed query leaves its one-liner there (click = full server response) plus a `Solve … in browser…` button while walls are reported. The browser
 opens AT the failing URL (failed search request, failed file URL) instead of
 the homepage, since file/media hosts challenge while `/` lets you through.

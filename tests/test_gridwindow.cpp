@@ -7,7 +7,12 @@
 
 #include <QApplication>
 #include <QComboBox>
+#include <QDir>
+#include <QFile>
 #include <QImage>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QLabel>
 #include <QPainter>
 #include <QPixmap>
 #include <QScrollBar>
@@ -35,6 +40,60 @@ QString makeArchive(int n, bool &ok) {
 
 int rowCount(GridView *grid) {
     return grid && grid->model() ? grid->model()->rowCount() : 0;
+}
+
+// Two-image archive with sidecar tags: a two-tag ARTISTS section, a
+// single-tag CHARACTERS section, and none for META/COPYRIGHT.
+QString makeTaggedArchive(bool &ok) {
+    static QTemporaryDir dir;
+    ok = dir.isValid();
+    if (!ok)
+        return {};
+    QDir().mkpath(dir.filePath(QStringLiteral("Site")));
+    struct Row {
+        const char *name;
+        const char *artist;
+        const char *character;
+    };
+    const Row rows[] = {
+        {"a", "one two", "solo"}, // two artists, one character
+        {"b", "", ""},            // no tags at all
+    };
+    for (const Row &row : rows) {
+        const QString base = QStringLiteral("Site_") + row.name;
+        QImage img(32, 32, QImage::Format_RGB32);
+        img.fill(QColor(200, 120, 60));
+        if (!img.save(dir.filePath(QStringLiteral("Site/%1.jpg").arg(base))))
+            ok = false;
+        QJsonObject o;
+        o[QStringLiteral("id")] = QString::fromLatin1(row.name);
+        o[QStringLiteral("tag_string")] = QString::fromLatin1(row.artist) +
+                                          u' ' +
+                                          QString::fromLatin1(row.character);
+        o[QStringLiteral("tag_string_artist")] =
+            QString::fromLatin1(row.artist);
+        o[QStringLiteral("tag_string_character")] =
+            QString::fromLatin1(row.character);
+        o[QStringLiteral("rating")] = QStringLiteral("g");
+        o[QStringLiteral("file_url")] =
+            QStringLiteral("https://example.com/x.jpg");
+        o[QStringLiteral("file_ext")] = QStringLiteral("jpg");
+        QFile f(dir.filePath(QStringLiteral("Site/%1.json").arg(base)));
+        if (!f.open(QIODevice::WriteOnly))
+            ok = false;
+        f.write(QJsonDocument(o).toJson(QJsonDocument::Compact));
+        f.close();
+    }
+    return ok ? dir.path() : QString();
+}
+
+QVariant sectionVisibility(MainWindow &w, const QString &header) {
+    for (QLabel *label : w.findChildren<QLabel *>()) {
+        if (label->text().compare(header, Qt::CaseInsensitive) == 0 &&
+            label->parentWidget())
+            return label->parentWidget()->isVisible();
+    }
+    return {};
 }
 
 // Distinct decoration-pixmap identities + the most common one.
@@ -94,6 +153,35 @@ private slots:
                                         .arg(text)));
             }
         }
+    }
+
+    void singleTagCategoriesHide() {
+        QTemporaryDir xdg;
+        QVERIFY(xdg.isValid());
+        qputenv("XDG_CONFIG_HOME", xdg.filePath("config").toUtf8());
+        qputenv("XDG_DATA_HOME", xdg.filePath("data").toUtf8());
+        qputenv("XDG_CACHE_HOME", xdg.filePath("cache").toUtf8());
+        bool ok = false;
+        const QString root = makeTaggedArchive(ok);
+        QVERIFY(ok);
+        MainWindow w(root, true);
+        w.show();
+        GridView *grid = w.findChild<GridView *>();
+        QVERIFY(grid);
+        bool filled = false;
+        for (int i = 0; i < 100 && !filled; ++i) {
+            QTest::qWait(50);
+            filled = rowCount(grid) >= 2;
+        }
+        QVERIFY(filled);
+        QTest::qWait(300); // let the sidebar rebuild land
+        // Two artists -> section stays. One character -> a header alone is
+        // not worth the space, so the section hides (same rule recategorise
+        // relies on when a move leaves a category with a single tag).
+        QCOMPARE(sectionVisibility(w, QStringLiteral("ARTISTS")).toBool(), true);
+        QCOMPARE(sectionVisibility(w, QStringLiteral("CHARACTERS")).toBool(),
+                 false);
+        QCOMPARE(sectionVisibility(w, QStringLiteral("META")).toBool(), false);
     }
 
     void pixmapsStayWindowed() {

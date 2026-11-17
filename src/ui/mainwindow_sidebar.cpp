@@ -277,13 +277,13 @@ void MainWindow::rebuildBrowseSidebar() {
         return v;
     };
     // Section visibility + fill in one pass: a bucket hidden in every
-    // host, or simply empty on this page, stops rendering entirely -
-    // it comes back the moment tags show up. Tiny categories shrink so
-    // many sections fit at once.
+    // host, empty on this page, or reduced to a single tag stops
+    // rendering entirely - it comes back once it holds two or more.
+    // Tiny categories shrink so many sections fit at once.
     auto fillSection = [&](int idx, QListWidget *list, const QString &bucket,
                            const QVector<QPair<QString, int>> &entries) {
         QWidget *box = m_sideSplit->widget(idx);
-        const bool show = !hidden.contains(bucket) && !entries.isEmpty();
+        const bool show = !hidden.contains(bucket) && entries.size() > 1;
         box->setVisible(show);
         box->setMaximumHeight(
             show && entries.size() <= 3 ? 18 + int(entries.size()) * 22 + 6
@@ -344,7 +344,8 @@ void MainWindow::rebuildBrowseSidebar() {
             sidebarLabel(customLabels.value(it.key(), it.key())));
         rebuildTagTab(sec->list, top(it.value()), QStringLiteral("custom"),
                       it.key());
-        sec->box->setVisible(true);
+        // Same rule as the fixed five: a single tag is not worth a header.
+        sec->box->setVisible(it.value().size() > 1);
         // Tiny custom categories shrink like the fixed five.
         const int n = qMin<int>(it.value().size(), 30);
         sec->box->setMaximumHeight(n <= 3 && n > 0
