@@ -63,6 +63,12 @@ QMap<QString, QString> &labelKeyMap() {
     static QMap<QString, QString> map;
     return map;
 }
+// Bumped whenever the configured registry changes, so memoised label
+// normalisations (keyForLabel) rebuild instead of going stale.
+int &labelIndexGeneration() {
+    static int gen = 0;
+    return gen;
+}
 } // namespace
 
 QMap<QString, QString> RemoteSource::labelKeys() {
@@ -79,6 +85,7 @@ void RemoteSource::setConfiguredBoorus(const QList<BooruSite> &boorus) {
     labelKeyMap().clear();
     for (const BooruSite &b : boorus)
         labelKeyMap().insert(b.label, b.key);
+    ++labelIndexGeneration();
 }
 
 namespace RemotePosts {
@@ -922,11 +929,32 @@ namespace RemotePosts {
 namespace {
 // Case/format-insensitive site label: "Yande.re", "yande_re" and "Yandere"
 // all normalise to "yandere", so renamed entries keep resolving.
-QString normalizedLabel(QString s) {
-    s = s.trimmed().toLower();
-    s.remove(QRegularExpression(QStringLiteral("[^a-z0-9]")));
-    return s;
+// Hand-rolled (no QRegularExpression): this runs once per grid row and per
+// sidebar post, and constructing a regex there cost hundreds of ms on big
+// favourite lists (tab switches read as freezes).
+QString normalizedLabel(const QString &in) {
+    const QString s = in.trimmed().toLower();
+    QString out;
+    out.reserve(s.size());
+    for (const QChar &c : s) {
+        if ((c >= u'a' && c <= u'z') || (c >= u'0' && c <= u'9'))
+            out += c;
+    }
+    return out;
 }
+namespace {
+// Memo for keyForLabel: configured labels normalise to a key once, not
+// once per lookup (thousands of rows per grid fill).
+struct LabelKeyIndex {
+    int generation = -1;
+    QHash<QString, QString> byNormalized;
+    QHash<QString, QString> byLower;
+};
+LabelKeyIndex &labelKeyIndex() {
+    static LabelKeyIndex idx;
+    return idx;
+}
+} // namespace
 } // namespace
 
 const BooruSite *entryForHost(const QString &hostIn) {
@@ -987,18 +1015,36 @@ QString keyForLabel(const QString &siteLabel) {
     const QString wanted = normalizedLabel(siteLabel);
     if (wanted.isEmpty())
         return {};
-    for (auto it = labelKeyMap().begin(); it != labelKeyMap().end(); ++it) {
-        if (it.key().compare(siteLabel, Qt::CaseInsensitive) == 0 ||
-            normalizedLabel(it.key()) == wanted)
-            return it.value();
+    LabelKeyIndex &idx = labelKeyIndex();
+    if (idx.generation != labelIndexGeneration()) {
+        idx.generation = labelIndexGeneration();
+        idx.byNormalized.clear();
+        idx.byLower.clear();
+        auto add = [&idx](const QString &s, const QString &key) {
+            if (key.isEmpty() || s.isEmpty())
+                return;
+            const QString lower = s.trimmed().toLower();
+            if (!idx.byLower.contains(lower))
+                idx.byLower.insert(lower, key);
+            const QString norm = normalizedLabel(s);
+            if (!norm.isEmpty() && !idx.byNormalized.contains(norm))
+                idx.byNormalized.insert(norm, key);
+        };
+        for (auto it = labelKeyMap().begin(); it != labelKeyMap().end(); ++it)
+            add(it.key(), it.value());
+        for (const BooruSite &b : configuredBoorus()) {
+            add(b.label, b.key);
+            add(b.shortName, b.key);
+            add(b.key, b.key);
+        }
     }
-    // Configured entries whose label differs only in punctuation/case.
-    for (const BooruSite &b : configuredBoorus()) {
-        if (normalizedLabel(b.label) == wanted ||
-            normalizedLabel(b.shortName) == wanted ||
-            normalizedLabel(b.key) == wanted)
-            return b.key;
-    }
+    const QString lower = siteLabel.trimmed().toLower();
+    if (const auto hit = idx.byLower.constFind(lower);
+        hit != idx.byLower.constEnd())
+        return hit.value();
+    if (const auto hit = idx.byNormalized.constFind(wanted);
+        hit != idx.byNormalized.constEnd())
+        return hit.value();
     static const QMap<QString, QString> aliases = {
         {QStringLiteral("danbooru"), QStringLiteral("danbooru")},
         {QStringLiteral("gelbooru"), QStringLiteral("gelbooru")},

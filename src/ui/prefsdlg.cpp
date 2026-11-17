@@ -1620,10 +1620,15 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     m_aspect = new QComboBox(this);
     const QList<QPair<QString, QVariantList>> ratios = {
         {tr("Square 1:1"), {1, 1}},
+        {tr("Classic 5:4"), {5, 4}},
         {tr("Standard 4:3"), {4, 3}},
         {tr("Photo 3:2"), {3, 2}},
         {tr("Wide 16:9"), {16, 9}},
+        {tr("Ultrawide 21:9"), {21, 9}},
+        {tr("Portrait 4:5"), {4, 5}},
+        {tr("Portrait 2:3"), {2, 3}},
         {tr("Portrait 3:4"), {3, 4}},
+        {tr("Tall 9:16"), {9, 16}},
     };
     int aspectIdx = -1;
     for (int i = 0; i < ratios.size(); ++i) {

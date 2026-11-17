@@ -120,9 +120,132 @@ void decorationStats(GridView *grid, int &distinctOut, int &topCountOut,
 }
 } // namespace
 
+#include "favdb.h"
+#include "settings.h"
+#include <QElapsedTimer>
+#include <QSettings>
+
 class TestGridWindow : public QObject {
     Q_OBJECT
 private slots:
+    // A favourites tab with thousands of rows must switch like a browser
+// tab: no full DB decode per visit, no per-row regex construction, no
+// per-card favicon scaling. The old path took ~1.5s per switch here.
+    void favouriteTabSwitchStaysFast() {
+        QTemporaryDir xdg;
+        QVERIFY(xdg.isValid());
+        qputenv("XDG_CONFIG_HOME", xdg.filePath("config").toUtf8());
+        qputenv("XDG_DATA_HOME", xdg.filePath("data").toUtf8());
+        qputenv("XDG_CACHE_HOME", xdg.filePath("cache").toUtf8());
+        QDir().mkpath(xdg.filePath("config/box"));
+        const QString dl = xdg.filePath("downloads");
+        QDir().mkpath(dl + QStringLiteral("/danbooru"));
+        {
+            QSettings ini(xdg.filePath("config/box/settings.ini"),
+                          QSettings::IniFormat);
+            ini.setValue(QStringLiteral("classify/enabled"), false);
+            ini.setValue(QStringLiteral("downloads/dir"), dl);
+            ini.sync();
+        }
+        const QString archive = xdg.filePath("archive");
+        QDir().mkpath(archive);
+        const int N = 2000;
+        FavDb db;
+        QVERIFY(db.open());
+        QVector<Post> posts;
+        posts.reserve(N);
+        for (int i = 0; i < N; ++i) {
+            const QString name = QStringLiteral("%1_%2")
+                                     .arg(i, 4, 10, QLatin1Char('0'))
+                                     .arg(i * 7 % 9999, 4, 10, QLatin1Char('0'));
+            const QString path =
+                dl + QStringLiteral("/danbooru/") + name + QStringLiteral(".jpg");
+            QImage img(48, 48, QImage::Format_RGB32);
+            img.fill(QColor::fromHsv((i * 13) % 360, 180, 200));
+            if (!img.save(path))
+                qWarning("save failed %s", qPrintable(path));
+            Post p;
+            p.isRemote = true;
+            p.siteName = QStringLiteral("danbooru");
+            p.siteKey = QStringLiteral("danbooru");
+            p.id = 100000 + i;
+            p.ext = QStringLiteral("jpg");
+            p.rating = QStringLiteral("general");
+            p.fileUrl = QStringLiteral("https://example.com/%1.jpg").arg(i);
+            p.previewUrl = p.fileUrl;
+            p.postUrl = QStringLiteral("https://danbooru.donmai.us/posts/%1")
+                            .arg(100000 + i);
+            // Realistic tag load: 25 tags across buckets.
+            QStringList g, a, c;
+            for (int t = 0; t < 20; ++t)
+                g << QStringLiteral("general_tag_%1").arg((i + t) % 500);
+            for (int t = 0; t < 3; ++t)
+                a << QStringLiteral("artist_%1").arg((i + t) % 100);
+            for (int t = 0; t < 2; ++t)
+                c << QStringLiteral("copy_%1").arg(t);
+            p.tags = (g + a + c).join(u' ');
+            p.tagsGeneral = g.join(u' ');
+            p.tagsArtist = a.join(u' ');
+            p.tagsCopyright = c.join(u' ');
+            posts << p;
+        }
+        QVERIFY(db.addMany(posts) == N);
+        // Simulate downloaded favourites linked to disk.
+        QHash<QPair<QString, qint64>, QString> links;
+        for (int i = 0; i < N; ++i) {
+            links.insert({QStringLiteral("danbooru"), 100000 + i},
+                         dl + QStringLiteral("/danbooru/%1_%2.jpg")
+                                  .arg(i, 4, 10, QLatin1Char('0'))
+                                  .arg(i * 7 % 9999, 4, 10, QLatin1Char('0')));
+        }
+        QVERIFY(db.setLocalPaths(links) == N);
+        db.close();
+
+        MainWindow w(archive, true);
+        w.show();
+        QTest::qWait(300);
+        GridView *grid = w.findChild<GridView *>();
+        QVERIFY(grid);
+        auto waitRows = [&](int n) {
+            for (int i = 0; i < 400; ++i) {
+                if (grid->model() && grid->model()->rowCount() >= n)
+                    return true;
+                QTest::qWait(5);
+            }
+            return false;
+        };
+        QElapsedTimer timer;
+        timer.start();
+        QVERIFY(QMetaObject::invokeMethod(&w, "openFavTab"));
+        QVERIFY(waitRows(N));
+        const qint64 first = timer.elapsed();
+        // Bar index 1 = the archive tab, 2 = the favourites tab.
+        QVERIFY(QMetaObject::invokeMethod(&w, "onTabChanged",
+                                          Q_ARG(int, 0)));
+        QTest::qWait(50);
+        timer.restart();
+        QVERIFY(QMetaObject::invokeMethod(&w, "onTabChanged",
+                                          Q_ARG(int, 2)));
+        QVERIFY(waitRows(N));
+        const qint64 second = timer.elapsed();
+        QVERIFY(QMetaObject::invokeMethod(&w, "onTabChanged",
+                                          Q_ARG(int, 0)));
+        QTest::qWait(50);
+        timer.restart();
+        QVERIFY(QMetaObject::invokeMethod(&w, "onTabChanged",
+                                          Q_ARG(int, 2)));
+        QVERIFY(waitRows(N));
+        const qint64 third = timer.elapsed();
+        qInfo("favtab N=%d first=%lldms second=%lldms third=%lldms", N,
+              (long long)first, (long long)second, (long long)third);
+        QVERIFY2(first < 1200,
+                 qPrintable(QStringLiteral("first open %1ms").arg(first)));
+        QVERIFY2(second < 700,
+                 qPrintable(QStringLiteral("revisit %1ms").arg(second)));
+        QVERIFY2(third < 700,
+                 qPrintable(QStringLiteral("third visit %1ms").arg(third)));
+    }
+
     void noFloatingAspectCombo() {
         QTemporaryDir xdg;
         QVERIFY(xdg.isValid());

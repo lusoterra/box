@@ -533,7 +533,12 @@ void MainWindow::finishActivateTab(int tabIdx) {
         maybeClassifyBrowse(t);
     if (t->isFavourites) {
         relinkFavourites(); // point rows at files already on disk (once)
-        t->localPosts = m_favDb.list();
+        // Re-use the rows this tab already holds: refreshFavTabs() re-lists
+        // the DB whenever it actually changes (favourite from the
+        // grid/viewer, download auto-fav, import, restore), so a plain
+        // tab switch must not pay a full decode of every row.
+        if (t->localPosts.isEmpty())
+            t->localPosts = m_favDb.list();
         setWindowTitle(QStringLiteral("Box - ♥ Favourites"));
         m_rating = t->rating;
         m_category = t->category;

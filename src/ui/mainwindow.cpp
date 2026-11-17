@@ -829,11 +829,25 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     auto *helpMenu = menuBar()->addMenu(tr("&Help"));
     helpMenu->addAction(tr("&About Box"), this, &MainWindow::showAbout);
     helpMenu->addAction(tr("&Keyboard shortcuts…"), this, [this] {
-        QMessageBox::information(this, tr("Keyboard shortcuts"),
-            tr("Enter: open post\\n"
-               "/: focus search\\n"
-               "Esc: clear filters / leave viewer\\n"
-               "Arrows: navigate grid"));
+        QMessageBox::information(
+            this, tr("Keyboard shortcuts"),
+            tr("Grid\n"
+               "  Enter: open post\n"
+               "  /: focus search\n"
+               "  Esc: clear filters\n"
+               "  Arrows: move through posts\n"
+               "  F5: reload\n"
+               "\n"
+               "Viewer\n"
+               "  Left / Right: previous / next post\n"
+               "  Backspace: back to grid\n"
+               "  F: favourite\n"
+               "  Esc: leave viewer\n"
+               "  F11: fullscreen\n"
+               "  Mouse wheel: zoom\n"
+               "\n"
+               "Window\n"
+               "  Ctrl+,: Preferences"));
     });
     helpMenu->addAction(tr("&Documentation…"), this, [this] {
         QDesktopServices::openUrl(QUrl("https://github.com/lusoterra/box"));

@@ -216,6 +216,12 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     `setTagSplits`. `applyTagBuckets` removes a moved tag from every
     bucket first (`index.cpp:338`), so imported duplicate rows cannot
     leave one tag counted in two sections.
+  - Tab switches re-use the rows already held by the tab; only
+    `refreshFavTabs()` re-lists `store.db` (every fav/download/import
+    path calls it), and `relinkFavourites()` runs once per launch
+    (`m_favRelinked`). `keyForLabel` memoises normalised labels per
+    configured-registry generation, and `fillModel` caches entry/badge
+    pixmap per fill, so a 2000-row favourites tab switches in ~120ms.
   - Origin badges resolve favourite labels case-insensitively
     (`keyForLabel`, `remotesource.cpp:940`) and fall back to the post/file
     URL host (`entryForHost`), so a renamed entry keeps its favicon and

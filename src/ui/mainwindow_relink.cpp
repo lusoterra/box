@@ -85,8 +85,9 @@
 #include <algorithm>
 
 void MainWindow::relinkFavourites() {
-    if (!m_favDb.isOpen())
+    if (!m_favDb.isOpen() || m_favRelinked)
         return;
+    m_favRelinked = true;
     const QVector<FavDb::Unlinked> missing = m_favDb.unlinked();
     if (missing.isEmpty())
         return;

@@ -461,6 +461,10 @@ private:
     // Regeneration attempts this session (site#id): favourited strays
     // with a source URL re-download once, then never nag again.
     QSet<QString> m_regenTried;
+    // relinkFavourites stats every linked file and can walk the whole
+    // download tree: once per launch is enough (downloads/strays store
+    // their new paths directly, imports link their own rows).
+    bool m_favRelinked = false;
     // Download-folder inventory for the ↓ badge (see downloadDiskIndex).
     DownloadedIndex m_dlIndex;
     // Explicit-unfavourite vetoes (site#pid): an in-flight or future

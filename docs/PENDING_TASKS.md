@@ -1,5 +1,46 @@
 # Pending tasks (from user goal)
 
+## 25. Keyboard shortcuts dialog renders newlines - DONE
+- The Help → `Keyboard shortcuts…` text had escaped `\\n` in the source,
+  so the box showed literal `\n`. Now a real multi-line cheatsheet split
+  into Grid / Viewer / Window groups (`src/ui/mainwindow.cpp`).
+- Verify: `test_gridwindow` still builds/runs the GUI path; dialog text
+  is static, `check_translations` counts the new string as untranslated
+  like every new source string.
+
+## 24. About: contact email + PGP fingerprint - DONE
+- `showAbout` adds `lev@lusosterone.net` (mailto link) and the PGP
+  fingerprint `13EA3CFB9ABC093823509BD668C62637ED987692`
+  (`src/ui/mainwindow_prefs.cpp`).
+- Verify: `docs/UI-TOUR.md` 07/08 updated; dialog-only change.
+
+## 23. More thumbnail grid ratios - DONE
+- Preferences → Appearance → Grid `Thumbnail ratio` now offers 5:4,
+  21:9, 4:5, 2:3 and 9:16 alongside 1:1, 4:3, 3:2, 16:9 and 3:4; any
+  other value still falls back to the `Custom` entry
+  (`src/ui/prefsdlg.cpp`).
+- Verify: existing aspect plumbing unchanged (`setAspect`); grid rebuild
+  path exercised by `test_gridwindow` (`noFloatingAspectCombo`).
+
+## 22. Favourites tab switch cost - DONE
+- Root causes on a 2000-row favourites tab: every visit re-decoded the
+  whole DB (`FavDb::list`), `relinkFavourites` stat'ed every linked file
+  again, `keyForLabel` compiled a `QRegularExpression` per grid row /
+  sidebar post, each card re-resolved its entry + favicon pixmap, and
+  the model emitted one layout pass per `appendRow`.
+- Fixes: `finishActivateTab` re-uses a tab's already-loaded rows
+  (`refreshFavTabs` still re-lists on every DB change); relink runs once
+  per launch (`m_favRelinked`); `normalizedLabel` is hand-rolled and
+  `keyForLabel` memoises per configured registry generation; fillModel
+  skips dedupe keys for favourites rows (PK-unique), caches entry and
+  badge pixmap per fill, and blocks model signals into one
+  `layoutChanged` (`src/ui/mainwindow_tabs.cpp`, `mainwindow_fill.cpp`,
+  `mainwindow_relink.cpp`, `src/remote/remotesource.cpp`).
+- Measured (offscreen, 2000 linked favourites): first open 1490 -> ~210ms,
+  revisit 1686 -> ~120-145ms.
+- Verify: `test_gridwindow` (`favouriteTabSwitchStaysFast`) asserts the
+  first open < 1200ms and revisits < 700ms with 2000 favourites.
+
 ## 21. Sidebar recategorise reloads the pane - DONE
 - Right-click → `Recategorise…` now re-runs the active filter
   (`applyFilter`, which refills the grid, pills and browse sidebar) and

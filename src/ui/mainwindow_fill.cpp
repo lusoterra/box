@@ -88,10 +88,11 @@ void MainWindow::fillModel() {
     // Twins (remote/local copies of one post) card twice and make
     // viewer stepping stutter on "the same post", so collapse them
     // here at the single funnel every grid rebuild passes through.
-    // Local rows whose file is gone can render nothing (the thumb
-    // loader skips missing files below): drop them instead of leaving
-    // blank cards. Remote rows always stay: they fall back to their
-    // URLs (or a viewer refresh when only the post link is left).
+    // Favourites come from a PK-unique table (one row per identity), so
+    // the dedupe key work is skipped there - only blank rows whose file
+    // vanished are dropped.
+    const BrowserTab *fillTab = currentTab();
+    const bool favRows = fillTab && fillTab->isFavourites;
     {
         QSet<QString> seen;
         QVector<Post> unique;
@@ -100,6 +101,10 @@ void MainWindow::fillModel() {
             if (!post.isRemote &&
                 (post.absFile.isEmpty() || !QFileInfo::exists(post.absFile)))
                 continue;
+            if (favRows) {
+                unique.append(post);
+                continue;
+            }
             const QString k = dedupeKeyFor(post);
             if (k.isEmpty() || !seen.contains(k)) {
                 if (!k.isEmpty())
@@ -109,7 +114,9 @@ void MainWindow::fillModel() {
         }
         m_current.swap(unique);
     }
+
     m_model->clear();
+    m_model->blockSignals(true); // one relayout at the end, not per append
     // One query per refill (not per row): favourite links back the
     // downloaded/favourited marks below.
     const QHash<QPair<QString, qint64>, QString> favLocal =
@@ -134,6 +141,10 @@ void MainWindow::fillModel() {
         if (tab->sites.size() == 1 && !tab->sites.first().startsWith(u'@'))
             showOrigin = false;
     }
+    // Badge icons repeat per entry: resolve/scale each one once per fill
+    // instead of paying a QIcon -> QPixmap conversion on every card.
+    QHash<QString, QPixmap> badgePix;
+    QHash<QString, const BooruSite *> entryCache;
     for (const Post &p : m_current) {
         auto *item = new QStandardItem();
         QString key;
@@ -192,7 +203,22 @@ void MainWindow::fillModel() {
         QString badge, badgeColor, badgeKey;
         QPixmap badgeFav;
         if (showOrigin) {
-            if (const BooruSite *entry = RemotePosts::entryForPost(p)) {
+            const BooruSite *entry = nullptr;
+            // Rows sharing a label but not an origin (self-hosted Szuru
+            // vs a configured one) resolve through their URL host, so the
+            // memo key includes both hosts.
+            const QString entryKey =
+                (p.isRemote ? (p.siteKey.isEmpty() ? p.siteName : p.siteKey)
+                            : p.category) +
+                u'|' + p.siteName + u'|' +
+                QUrl(p.postUrl).host().toLower() + u'|' +
+                QUrl(p.fileUrl).host().toLower();
+            auto cachedEntry = entryCache.constFind(entryKey);
+            if (cachedEntry == entryCache.constEnd())
+                cachedEntry = entryCache.insert(
+                    entryKey, RemotePosts::entryForPost(p));
+            entry = cachedEntry.value();
+            if (entry) {
                 badge = entry->shortName.isEmpty() ? p.siteShort
                                                    : entry->shortName;
                 // A blank short name must not erase the badge: derive one
@@ -205,8 +231,14 @@ void MainWindow::fillModel() {
                 badgeKey = entry->key;
                 // Sync hit from memory/disk; a miss queues a fetch and
                 // lands via onFaviconReady (rows update in place).
-                badgeFav = m_favicons->iconFor(entry->key, entry->baseUrl)
-                               .pixmap(16, 16);
+                auto cached = badgePix.constFind(entry->key);
+                if (cached == badgePix.constEnd()) {
+                    cached = badgePix.insert(
+                        entry->key,
+                        m_favicons->iconFor(entry->key, entry->baseUrl)
+                            .pixmap(16, 16));
+                }
+                badgeFav = cached.value();
             } else if (p.isRemote) {
                 badge = p.siteShort;
             }
@@ -232,6 +264,8 @@ void MainWindow::fillModel() {
         item->setToolTip(!p.postUrl.isEmpty() ? p.postUrl : p.file);
         m_model->appendRow(item);
     }
+    m_model->blockSignals(false);
+    emit m_model->layoutChanged();
     syncViewerToGrid();
     requestVisibleThumbs();
 }

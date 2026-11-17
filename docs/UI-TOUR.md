@@ -124,9 +124,12 @@ download dir (Syncthing-safe).
 Stylesheet…` (`.qss` overlay).
 
 ## 07-help-menu / 08-about - Help
-Single item `About Box`; the dialog shows version, tagline, repo URL,
-copyright, license (AGPLv3 or later), Qt version plus third-party credits
-(miniz, Lucide icons, FFmpeg via Qt Multimedia).
+`About Box` (version, tagline, repo URL, copyright, license AGPLv3 or
+later, contact email `lev@lusosterone.net`, PGP fingerprint
+`13EA3CFB9ABC093823509BD668C62637ED987692`, Qt version plus third-party
+credits: miniz, Lucide icons, FFmpeg via Qt Multimedia), `Keyboard
+shortcuts…` (multi-line grid/viewer/window cheatsheet), `Documentation…`
+(opens the repository).
 
 Grid cards follow the default category order Artists, Character,
 Copyright, General, Meta, then native categories from unusual boorus.
@@ -259,7 +262,8 @@ Catppuccin Latte/Frappé/Macchiato/Mocha, Dracula, Atom One Dark, Tokyo
 Night, Steam Classic, System native), `Accent`, `Custom .qss`, `Sidebar: one scrollbar for all
 tag categories` (default off), `Show local folder browser in the quick +
 menu` (default off), `Home mascot` Browse/Remove/Reset-to-default +
-opacity slider + margin, `Grid` ratio/scroll, `Snap grid post size to fill the window` (on by
+opacity slider + margin, `Grid` ratio (1:1, 5:4, 4:3, 3:2, 16:9, 21:9,
+4:5, 2:3, 3:4, 9:16 or Custom)/scroll, `Snap grid post size to fill the window` (on by
 default; off keeps the exact zoom-slider width and its right gap),
 `Staggered grid rows (brick layout)` (off by default; odd columns sit half
 a card lower), `Video playback`

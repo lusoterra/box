@@ -92,6 +92,10 @@ void MainWindow::showAbout() {
                        "<p><a href=\"%3\">%3</a><br>"
                        "Copyright (C) 2026 Lev<br>"
                        "AGPLv3 or later</p>"
+                       "<p>Contact: <a href=\"mailto:lev@lusosterone.net\">"
+                       "lev@lusosterone.net</a><br>"
+                       "PGP: <code>13EA3CFB9ABC093823509BD6"
+                       "68C62637ED987692</code></p>"
                        "<p>Built with Qt %4, miniz, Lucide icons and FFmpeg "
                        "(via Qt Multimedia)</p>")
             .arg(appVersion(), appTagline(), appRepoUrl(),
