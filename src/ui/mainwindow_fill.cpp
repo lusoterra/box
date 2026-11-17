@@ -195,6 +195,12 @@ void MainWindow::fillModel() {
             if (const BooruSite *entry = RemotePosts::entryForPost(p)) {
                 badge = entry->shortName.isEmpty() ? p.siteShort
                                                    : entry->shortName;
+                // A blank short name must not erase the badge: derive one
+                // from the entry label like browse rows do.
+                if (badge.isEmpty())
+                    badge = RemotePosts::shortFor(entry->label);
+                if (badge.isEmpty())
+                    badge = entry->label.left(3).toUpper();
                 badgeColor = entry->badgeColor;
                 badgeKey = entry->key;
                 // Sync hit from memory/disk; a miss queues a fetch and
