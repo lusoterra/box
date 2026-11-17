@@ -251,8 +251,8 @@ void MainWindow::rebuildBrowseSidebar() {
             {0, QStringLiteral("artist")},
             {1, QStringLiteral("character")},
             {2, QStringLiteral("copyright")},
-            {3, QStringLiteral("meta")},
-            {4, QStringLiteral("general")},
+            {3, QStringLiteral("general")}, // section order: TAGS before META
+            {4, QStringLiteral("meta")},
         };
         for (const auto &[idx, bucket] : defaults) {
             QString label = TagCategories::labelFor(mergeRules, activeSite,
@@ -302,12 +302,15 @@ void MainWindow::rebuildBrowseSidebar() {
                 hidden.contains(QStringLiteral("copyright"))
                     ? QVector<QPair<QString, int>>()
                     : top(counts[QStringLiteral("copyright")]));
-    fillSection(3, m_metaList, QStringLiteral("meta"),
+    // Sidebar order is ARTISTS, CHARACTERS, COPYRIGHT, TAGS, META
+    // (see the section widgets built in mainwindow.cpp): keep the widget
+    // index in step with its list or hiding one bucket hides another.
+    fillSection(3, m_tagList, QStringLiteral("general"),
+                top(counts[QStringLiteral("general")]));
+    fillSection(4, m_metaList, QStringLiteral("meta"),
                 hidden.contains(QStringLiteral("meta"))
                     ? QVector<QPair<QString, int>>()
                     : top(counts[QStringLiteral("meta")]));
-    fillSection(4, m_tagList, QStringLiteral("general"),
-                top(counts[QStringLiteral("general")]));
     // Unmapped custom categories render as their own sections (same list
     // behaviour as the fixed five: click filters, right-click stars).
     static constexpr int kMaxCustomSections = 8;
