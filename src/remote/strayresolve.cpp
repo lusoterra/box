@@ -366,6 +366,25 @@ BooruPostUrl parseBooruPostUrl(const QString &url) {
         out.engines = {BooruEngine::Szurubooru};
         return out;
     }
+    // Szuru root-id hosts (yosho.io, jej.lol, glegle.gallery, …) put the
+    // post at the origin root: /<id> with no /post/ segment.
+    {
+        static const QRegularExpression rootId(
+            QStringLiteral("^/(\\d+)(?:/.*)?$"));
+        const auto m = rootId.match(path);
+        if (m.hasMatch()) {
+            QString host = u.host().toLower();
+            if (host.startsWith(QStringLiteral("www.")))
+                host = host.mid(4);
+            if (RemotePosts::isSzuruRootIdHost(host)) {
+                withPrefix(QString());
+                out.id = m.captured(1).toLongLong();
+                out.engines = {BooruEngine::Szurubooru};
+                if (out.id > 0)
+                    return out;
+            }
+        }
+    }
     out = BooruPostUrl();
     return out;
 }

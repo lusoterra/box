@@ -80,6 +80,7 @@ Post fromShimmie(const QMap<QString, QString> &attrs, const QString &baseUrl);
 // Shimmie XML search response -> posts (same shape as the danbooru_api ext).
 SearchResult parseShimmieXml(const BooruSite &site, const QByteArray &body);
 QString postPageUrl(const QString &siteKey, const QString &baseUrl, qint64 id);
+bool isSzuruRootIdHost(const QString &host);
 QString downloadFileName(const QString &siteLabel, const QJsonObject &raw);
 // Display name for grid cards: the URL filename when it has an extension,
 // else a synthesized `<id> - <host> - <tags>.<ext>` (tags capped). Pure.

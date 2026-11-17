@@ -947,6 +947,9 @@ private slots:
         QCOMPARE(RemotePosts::postPageUrl(QStringLiteral("szurubooru"),
                                           QStringLiteral("https://jej.lol"), 13),
                  QStringLiteral("https://jej.lol/13"));
+        QCOMPARE(RemotePosts::postPageUrl(QStringLiteral("szurubooru"),
+                                          QStringLiteral("https://glegle.gallery"), 36712),
+                 QStringLiteral("https://glegle.gallery/36712"));
         // Generic Szuru: /post/<id>, subpath bases keep their path.
         QCOMPARE(RemotePosts::postPageUrl(QStringLiteral("szurubooru"),
                                           QStringLiteral("https://szuru.libre.moe"), 6556),
