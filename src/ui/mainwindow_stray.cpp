@@ -174,6 +174,11 @@ void MainWindow::openStrayDialog() {
             });
     connect(dlg, &StrayDialog::importRequested, this,
             &MainWindow::importStrayFiles);
+    connect(dlg, &QDialog::finished, this, [this] {
+        refreshFavTabs();
+        invalidateDownloadIndex();
+        repaintFavMarks();
+    });
     dlg->show();
     dlg->raise();
 }

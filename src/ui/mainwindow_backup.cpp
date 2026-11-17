@@ -98,6 +98,13 @@ void MainWindow::importLosnBackup() {
             [this](const QString &siteKey, const QUrl &url) {
                 solveWallInBrowser(siteKey, m_wallKinds.value(siteKey), url);
             });
+    // Auto-refresh on close: importing touches the favourites DB and
+    // the download folder, so the grid/fav tabs must not stay stale.
+    connect(dlg, &QDialog::finished, this, [this] {
+        refreshFavTabs();
+        invalidateDownloadIndex();
+        repaintFavMarks();
+    });
     dlg->show();
     dlg->raise();
 }

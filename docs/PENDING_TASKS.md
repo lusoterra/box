@@ -1,5 +1,15 @@
 # Pending tasks (from user goal)
 
+## 27. Auto-refresh on popup close - DONE
+- Popups that mutate favourites/downloads (LoliSnatcher import, Download/Add
+  Stray) now re-list favourites, invalidate the download index and repaint
+  fav marks when they close, instead of leaving the grid stale until F5.
+- `importLosnBackup` connects `QDialog::finished` to `refreshFavTabs()` +
+  `invalidateDownloadIndex()` + `repaintFavMarks()` (`src/ui/mainwindow_backup.cpp`).
+- `openStrayDialog` does the same on close (`src/ui/mainwindow_stray.cpp`).
+- Verify: `make`/`ctest` (38/38); GUI eyes for the fav tab populating after
+  closing the import dialog.
+
 ## 26. Tab click: instant switch with a loading veil - DONE
 - `activateTab` already switched the tab bar/title/stage and deferred
   the heavy work, but the only busy cue was the status-bar bar, outside
