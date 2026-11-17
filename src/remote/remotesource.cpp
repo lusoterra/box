@@ -930,15 +930,25 @@ QString normalizedLabel(QString s) {
 } // namespace
 
 const BooruSite *entryForHost(const QString &hostIn) {
-    const QString host = hostIn.trimmed().toLower();
+    auto canonicalHost = [](QString h) {
+        h = h.trimmed().toLower();
+        if (h.startsWith(QStringLiteral("www.")))
+            h = h.mid(4);
+        // Konachan mirrors share one configured entry.
+        if (h == QStringLiteral("konachan.com") ||
+            h == QStringLiteral("konachan.net"))
+            return QStringLiteral("konachan");
+        return h;
+    };
+    const QString host = canonicalHost(hostIn);
     if (host.isEmpty())
         return nullptr;
     auto match = [&](const BooruSite &b) -> bool {
         if (b.baseUrl.isEmpty())
             return false;
-        const QString bh = QUrl(b.baseUrl).host().toLower();
-        return !bh.isEmpty() &&
-               (host == bh || host.endsWith(u'.' + bh));
+        const QString bh = canonicalHost(QUrl(b.baseUrl).host());
+        return !bh.isEmpty() && (host == bh || host.endsWith(u'.' + bh) ||
+                                bh.endsWith(u'.' + host));
     };
     for (const BooruSite &b : configuredBoorus()) {
         if (match(b))
@@ -1076,8 +1086,10 @@ QString postPageUrlFor(const BooruSite &site, qint64 id) {
     case Moebooru:
         return base + QStringLiteral("/post/show/") + QString::number(id);
     case Szurubooru:
-        // Delegated: per-host shape (/post/ vs root /<id>).
-        return postPageUrl(QStringLiteral("szurubooru"), base, id);
+        // Delegated: per-host shape (/post/ vs root /<id>), using the
+        // cached per-booru verdict when available.
+        return postPageUrl(QStringLiteral("szurubooru"), base, id,
+                           site.rootIdPosts);
     case Shimmie:
         return base + QStringLiteral("/post/view/") + QString::number(id);
     case Hybooru:

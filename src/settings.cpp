@@ -579,6 +579,12 @@ QList<BooruSite> loadBoorus(QSettings &c) {
                     b.proxy = o.value(QStringLiteral("proxy")).toString();
                     b.localBlacklist =
                         o.value(QStringLiteral("localBlacklist")).toBool(false);
+                    if (o.contains(QStringLiteral("rootIdPosts")))
+                        b.rootIdPosts =
+                            o.value(QStringLiteral("rootIdPosts")).toBool();
+                    else if (b.engine == BooruEngine::Szurubooru)
+                        b.rootIdPosts = RemotePosts::isSzuruRootIdHost(
+                            QUrl(b.baseUrl).host());
                     b.cacheMode = MediaCache::modeFromKey(
                         o.value(QStringLiteral("cacheMode")).toString(),
                         CacheMode::Inherit);
@@ -634,6 +640,11 @@ QList<BooruSite> loadBoorus(QSettings &c) {
         b.dragLinkMode = dragModeFromKey(
             c.value(QStringLiteral("dragMode")).toString(),
             DragLinkMode::Inherit);
+        if (c.contains(QStringLiteral("rootIdPosts")))
+            b.rootIdPosts = c.value(QStringLiteral("rootIdPosts")).toBool();
+        else if (b.engine == BooruEngine::Szurubooru)
+            b.rootIdPosts = RemotePosts::isSzuruRootIdHost(
+                QUrl(b.baseUrl).host());
         c.endGroup();
         out.append(b);
     }
@@ -715,6 +726,7 @@ void saveBoorus(QSettings &c, const QList<BooruSite> &boorus) {
         c.setValue(QStringLiteral("cacheMode"),
                    MediaCache::modeKey(b.cacheMode));
         c.setValue(QStringLiteral("dragMode"), dragModeKey(b.dragLinkMode));
+        c.setValue(QStringLiteral("rootIdPosts"), b.rootIdPosts);
         c.endGroup();
     }
     c.setValue(QStringLiteral("boorus/order"), order);
@@ -745,6 +757,7 @@ void saveBoorus(QSettings &c, const QList<BooruSite> &boorus) {
         o[QStringLiteral("defaultTags")] = b.defaultTags;
         o[QStringLiteral("proxy")] = b.proxy;
         o[QStringLiteral("localBlacklist")] = b.localBlacklist;
+    o[QStringLiteral("rootIdPosts")] = b.rootIdPosts;
         o[QStringLiteral("cacheMode")] = MediaCache::modeKey(b.cacheMode);
         o[QStringLiteral("dragMode")] = dragModeKey(b.dragLinkMode);
         arr.append(o);

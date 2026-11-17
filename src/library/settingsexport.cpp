@@ -44,6 +44,7 @@ QJsonObject booruToJson(const BooruSite &b) {
     o[QStringLiteral("defaultTags")] = b.defaultTags;
     o[QStringLiteral("proxy")] = b.proxy;
     o[QStringLiteral("localBlacklist")] = b.localBlacklist;
+    o[QStringLiteral("rootIdPosts")] = b.rootIdPosts;
     o[QStringLiteral("cacheMode")] = MediaCache::modeKey(b.cacheMode);
     o[QStringLiteral("dragMode")] =
         b.dragLinkMode == DragLinkMode::DirectMedia
@@ -79,6 +80,10 @@ BooruSite booruFromJson(const QJsonObject &o) {
     b.defaultTags = o.value(QStringLiteral("defaultTags")).toString();
     b.proxy = o.value(QStringLiteral("proxy")).toString();
     b.localBlacklist = o.value(QStringLiteral("localBlacklist")).toBool();
+    if (o.contains(QStringLiteral("rootIdPosts")))
+        b.rootIdPosts = o.value(QStringLiteral("rootIdPosts")).toBool();
+    else if (b.engine == BooruEngine::Szurubooru)
+        b.rootIdPosts = RemotePosts::isSzuruRootIdHost(QUrl(b.baseUrl).host());
     b.cacheMode = MediaCache::modeFromKey(
         o.value(QStringLiteral("cacheMode")).toString(), CacheMode::Inherit);
     const QString drag = o.value(QStringLiteral("dragMode")).toString();

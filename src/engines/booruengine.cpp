@@ -694,7 +694,7 @@ bool isSzuruRootIdHost(const QString &hostIn) {
     return rootId.contains(host);
 }
 
-QString postPageUrl(const QString &siteKey, const QString &baseUrl, qint64 id) {
+QString postPageUrl(const QString &siteKey, const QString &baseUrl, qint64 id, bool rootIdPosts) {
     if (siteKey == QStringLiteral("danbooru") || siteKey == QStringLiteral("hybooru"))
         return baseUrl + QStringLiteral("/posts/") + QString::number(id);
     if (siteKey == QStringLiteral("twibooru"))
@@ -705,7 +705,7 @@ QString postPageUrl(const QString &siteKey, const QString &baseUrl, qint64 id) {
         QString host = QUrl(baseUrl).host().toLower();
         if (host.startsWith(QStringLiteral("www.")))
             host = host.mid(4);
-        if (isSzuruRootIdHost(host)) {
+        if (rootIdPosts || isSzuruRootIdHost(host)) {
             QString b = baseUrl;
             while (b.endsWith(u'/') && b.size() > 7) b.chop(1);
             return b + u'/' + QString::number(id);

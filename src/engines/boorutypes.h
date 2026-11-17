@@ -73,6 +73,10 @@ struct BooruSite {
     // the server exclusions and rely on the client-side blacklist net.
     // Off by default; meant for *donmai.us entries.
     bool localBlacklist = false;
+    // Szurubooru post pages live at the origin root (/<id>) instead of
+    // /post/<id> for some instances (yosho.io, jej.lol, glegle.gallery, …).
+    // Detected once and cached per configured booru.
+    bool rootIdPosts = false;
     // All fields compare (needsCreds included: nothing in-app sets it,
     // so this matches the old hand-rolled equality exactly).
     bool operator==(const BooruSite &) const = default;

@@ -1566,6 +1566,46 @@ private slots:
         RemoteSource::setConfiguredBoorus(RemoteSource::presetBoorus());
     }
 
+    void badgeHostFallbacks() {
+        // Konachan mirrors and a self-hosted Szuru (glegle.gallery) must
+        // still resolve their origin badge through host fallbacks, even when
+        // the configured entry key/label differs from the shipped alias.
+        BooruSite kon;
+        kon.key = QStringLiteral("mykon");
+        kon.label = QStringLiteral("My Konachan");
+        kon.shortName = QStringLiteral("MKN");
+        kon.baseUrl = QStringLiteral("https://konachan.net");
+        kon.engine = BooruEngine::Moebooru;
+
+        BooruSite glegle;
+        glegle.key = QStringLiteral("glegle");
+        glegle.label = QStringLiteral("Glegle");
+        glegle.shortName = QStringLiteral("GLE");
+        glegle.baseUrl = QStringLiteral("https://www.glegle.gallery");
+        glegle.engine = BooruEngine::Szurubooru;
+        glegle.rootIdPosts = true;
+
+        RemoteSource::setConfiguredBoorus({kon, glegle});
+
+        Post kp;
+        kp.isRemote = true;
+        kp.siteName = QStringLiteral("Szurubooru");
+        kp.postUrl = QStringLiteral("https://konachan.com/post/show/1");
+        const BooruSite *ke = RemotePosts::entryForPost(kp);
+        QVERIFY(ke != nullptr);
+        QCOMPARE(ke->key, QStringLiteral("mykon"));
+
+        Post gp;
+        gp.isRemote = true;
+        gp.siteName = QStringLiteral("Szurubooru");
+        gp.postUrl = QStringLiteral("https://glegle.gallery/42");
+        const BooruSite *ge = RemotePosts::entryForPost(gp);
+        QVERIFY(ge != nullptr);
+        QCOMPARE(ge->key, QStringLiteral("glegle"));
+
+        RemoteSource::setConfiguredBoorus(RemoteSource::presetBoorus());
+    }
+
     void engineHelperGaps() {
         // src/engines/booruengine.cpp
         // isTransientSearchError:552
