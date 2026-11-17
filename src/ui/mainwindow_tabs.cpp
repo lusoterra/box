@@ -617,7 +617,11 @@ void MainWindow::finishActivateTab(int tabIdx) {
 void MainWindow::setBrowseUi(bool browse) {
     const BrowserTab *t = currentTab();
     const bool favs = t && t->isFavourites;
-    m_categoryBox->setVisible(!browse);
+    // Rating/source/sort filters are online-browsing controls. Favourites and
+    // downloads keep the search box only; source filtering there was unreliable.
+    m_ratingBox->setVisible(browse);
+    m_categoryBox->setVisible(false);
+    m_sortBox->setVisible(browse);
     m_sitesBtn->setVisible(browse);
     m_pageLabel->setVisible(browse);
     m_countLabel->setVisible(!browse && !favs);

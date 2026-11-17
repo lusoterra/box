@@ -257,11 +257,7 @@ void MainWindow::rebuildCombos() {
         {QStringLiteral("explicit"), tr("Explicit")},
     };
     for (const auto &[key, label] : ratings) {
-        const int n = isBrowse() ? (key == QStringLiteral("all") ? browseTotal
-                                                                 : browseRatings.value(key))
-                                 : (key == QStringLiteral("all") ? s.total
-                                                                 : s.ratings.value(key));
-        m_ratingBox->addItem(QStringLiteral("%1 (%2)").arg(label).arg(n), key);
+        m_ratingBox->addItem(label, key);
     }
     const int ri = m_ratingBox->findData(m_rating);
     m_ratingBox->setCurrentIndex(qMax(0, ri));
