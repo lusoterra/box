@@ -163,3 +163,9 @@
 - Verify: Xvfb `BOX_CONFIG_DIR=/nonexistent-…` showed the warning with
   `Config:` details, Use defaults reached the window; 37/37.
 [rest omitted]
+
+## Fixed in this session
+- glegle.gallery post URLs use root-id shape (/{id}); stray parsing updated.
+- Origin badge text contrast on light backgrounds.
+- Omnibar filters restricted to online browsing; aspect button moved to settings; counts removed from age rating dropdown.
+- Sidebar right-click recategorise (category+booru scoped).
