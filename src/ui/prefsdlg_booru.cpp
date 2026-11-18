@@ -110,8 +110,13 @@ void PrefsDialog::commitBooruEditor(const QString &key) {
         // the stored list, so they stay visible - and removable - in the
         // cookie manager. Keyed on the host transition so a deliberate
         // removal is never re-added behind your back.
-        if (oldHost != newHost)
+        if (oldHost != newHost) {
             b.cookies << RemotePosts::seedQuirkCookies(b.cookies, newHost);
+            // The root-id verdict is host-derived (persisted only so it
+            // survives restarts): retargeting the entry must recompute it,
+            // or heal/refresh links keep the old host's URL shape.
+            b.rootIdPosts = RemotePosts::isSzuruRootIdHost(newHost);
+        }
         // Fresh "newbooru" entries get a descriptive key the first time
         // they are named or pointed at a host ("Rule34" -> rule34,
         // https://rule34.xxx -> rule34). After that the key is frozen:

@@ -179,7 +179,7 @@ void MainWindow::startScan(const QString &root) {
     connect(scanner, &Scanner::progress, this, &MainWindow::onScanProgress);
     connect(scanner, &Scanner::cacheStats, this, &MainWindow::onCacheStats);
     connect(watcher, &QFutureWatcher<QVector<Post>>::finished, this,
-            [this, watcher, scanner] {
+            [this, watcher, scanner, root] {
                 if (watcher != m_scanWatcher) {
                     // Superseded by a newer scan (or quit): drop the result.
                     watcher->deleteLater();
@@ -191,10 +191,9 @@ void MainWindow::startScan(const QString &root) {
                 m_scanner = nullptr;
                 QVector<Post> scanned = watcher->result();
                 healLocalPosts(scanned);
-                m_index.setPosts(scanned);
                 watcher->deleteLater();
                 scanner->deleteLater();
-                onScanFinished();
+                onScanFinished(root, scanned);
             });
     watcher->setFuture(QtConcurrent::run(
         &Scanner::scan, root, scanner, m_settings.indexCache,
@@ -213,7 +212,21 @@ void MainWindow::onCacheStats(int hits, int misses) {
         tr("Index cache: %1 reused, %2 parsed").arg(hits).arg(misses), 8000);
 }
 
-void MainWindow::onScanFinished() {
+void MainWindow::onScanFinished(const QString &scannedRoot,
+                               const QVector<Post> &scanned) {
+    // The user may have switched tabs while the scan ran - in particular
+    // to a cached tab that starts no scan of its own. A stale result must
+    // never repaint the current tab: stash it on the tab that owns the
+    // root and leave the display alone.
+    BrowserTab *t = currentTab();
+    if (!t || t->isRemote || t->root != scannedRoot) {
+        for (BrowserTab *o : m_tabs) {
+            if (!o->isRemote && !o->isFavourites && o->root == scannedRoot)
+                o->localPosts = scanned;
+        }
+        return;
+    }
+    m_index.setPosts(scanned);
     const Stats s = m_index.stats();
     m_countLabel->setText(tr("%1 posts").arg(s.total));
     updateDots();
@@ -221,13 +234,11 @@ void MainWindow::onScanFinished() {
     statusBar()->showMessage(tr("Found %1 posts").arg(s.total), 5000);
     // Tab content landed: drop the activation veil (unless the user has
     // already switched to another tab whose own veil is still up).
-    if (BrowserTab *t = currentTab();
-        t && !t->isRemote && t->root == m_root)
-        hideTabLoading(t);
+    // (Ownership was verified above: t is current and t->root matches.)
+    hideTabLoading(t);
     // Local archives are never modified: no history, no last-root, no
     // session writes (tabs are for browsing; the library stays untouched).
-    if (BrowserTab *t = currentTab(); t && !t->isRemote && t->root == m_root)
-        t->localPosts = m_index.posts();
+    t->localPosts = m_index.posts();
     rebuildCombos();
     rebuildSidebar();
     applyFilter();

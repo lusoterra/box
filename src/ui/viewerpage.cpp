@@ -118,21 +118,33 @@ ViewerPage::ViewerPage(QWidget *parent) : QWidget(parent) {
         const QString url = p.fileUrl.isEmpty() ? p.sampleUrl : p.fileUrl;
         const bool isVideo = (target + url).contains(QRegularExpression(QStringLiteral("\\.(mp4|webm|mkv|avi)$"), QRegularExpression::CaseInsensitiveOption));
         const QString extHint = isVideo ? QStringLiteral("mp4") : QStringLiteral("jpg");
-        auto launch = [this, isVideo, &p](const QString &path) {
+        auto launch = [this, isVideo](const QString &path) {
             QSettings c(settingsFilePath(), QSettings::IniFormat);
             const QString cmd = isVideo ? c.value(QStringLiteral("app/defaultVideoPlayer")).toString()
                                         : c.value(QStringLiteral("app/defaultImageViewer")).toString();
             if (!cmd.isEmpty()) {
-                QString line = cmd;
-                if (line.contains(QStringLiteral("{file}")))
-                    line.replace(QStringLiteral("{file}"), path);
-                else if (line.contains(QStringLiteral("{url}")))
-                    line.replace(QStringLiteral("{url}"), path);
-                else
-                    line += QStringLiteral(" ") + path;
-                const QStringList parts = QProcess::splitCommand(line);
-                if (!parts.isEmpty())
-                    QProcess::startDetached(parts.first(), parts.mid(1));
+                // Split the template first, then substitute the path as a
+                // single argv element: appending raw text and re-splitting
+                // would break on spaces and let a crafted filename smuggle
+                // extra flags into the player command line.
+                QStringList parts = QProcess::splitCommand(cmd);
+                if (parts.isEmpty())
+                    return;
+                QStringList args = parts.mid(1);
+                bool placed = false;
+                for (QString &a : args) {
+                    if (a.contains(QStringLiteral("{file}"))) {
+                        a.replace(QStringLiteral("{file}"), path);
+                        placed = true;
+                    }
+                    if (a.contains(QStringLiteral("{url}"))) {
+                        a.replace(QStringLiteral("{url}"), path);
+                        placed = true;
+                    }
+                }
+                if (!placed)
+                    args << path;
+                QProcess::startDetached(parts.first(), args);
                 return;
             }
             if (path.startsWith(QStringLiteral("http")))

@@ -1,5 +1,39 @@
 # Pending tasks (from user goal)
 
+## 28. Code review: warnings, bugs, security hardening - DONE
+- Warning sweep (`-Wall -Wextra -Wpedantic`, syntax-only over all 85
+  `src` TUs + every `tests` TU): exactly 3 warnings, all fixed by
+  changing code, none suppressed. `src/main.cpp` unused `chgBtn`
+  (now the dismiss path is explicit: closing the storage dialog
+  proceeds instead of re-opening a folder chooser); `tempmedia.cpp`
+  vestigial `namFor(url)` parameter removed; `mainwindow_misc2.cpp`
+  dead `browseTotal` counter removed.
+- Stale scan no longer repaints the wrong tab: `onScanFinished` takes
+  the scanned root + posts and stashes into the owning tab when the
+  user has moved on (cached tabs start no scan of their own), instead
+  of overwriting the displayed tab's rows (`mainwindow_scan.cpp`).
+- Tab-close search UAF: `onTabClosed` cancels sources and clears
+  `m_searchTab`/`m_pendingSites`/`m_pendingSearches`/`m_loadingPage`
+  when the closed tab owns the in-flight search (`mainwindow_tabs.cpp`).
+- Deferred `finishActivateTab` captures the tab pointer (verified via
+  `indexOf`) instead of the numeric index, so closing a tab first
+  can't misdirect activation.
+- Szuru `rootIdPosts` is recomputed when the entry's host changes
+  (`prefsdlg_booru.cpp`); trailing-slash base URLs no longer produce
+  `//post/` / `//api/post/` links (`booruengine.cpp`,
+  `engine_szurubooru.cpp`); `relinkFavourites` indexes stems by md5
+  suffix (O(1) lookup, same matches) instead of O(unlinked x stems).
+- Hardening: external-player command substitutes the path as one argv
+  element (spaces/flags can't smuggle); `source` links are http(s)-gated
+  like post/file links; cache/temp writes stage via `QTemporaryFile` +
+  rename instead of predictable-path Truncate; `Index::query` page math
+  is 64-bit (huge page = empty, `INT_MAX` perPage still means all).
+- Checked and clear (no change): path traversal/zip-slip, SQL
+  (bound values), XXE, SSRF gating, XSS escaping, TLS, secrets in logs,
+  PoW budget cap, symlink handling.
+- Verify: full rebuild `BUILD:0`; `ctest` 38/38 (incl. new
+  `TestIndex::hugePageNeverWraps`).
+
 ## 27. Auto-refresh on popup close - DONE
 - Popups that mutate favourites/downloads (LoliSnatcher import, Download/Add
   Stray) now re-list favourites, invalidate the download index and repaint

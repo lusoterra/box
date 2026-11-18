@@ -39,7 +39,10 @@ public:
         return result;
     }
     QUrl refreshUrl(const Context &ctx, qint64 id) const override {
-        return QUrl(ctx.baseUrl + QStringLiteral("/api/post/") + QString::number(id));
+        QString b = ctx.baseUrl;
+        while (b.endsWith(u'/') && b.size() > 7)
+            b.chop(1);
+        return QUrl(b + QStringLiteral("/api/post/") + QString::number(id));
     }
     QJsonObject parseSingle(const QByteArray &body, bool &ok) const override {
         ok = false;

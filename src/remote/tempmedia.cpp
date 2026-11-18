@@ -11,6 +11,7 @@
 #include <QNetworkRequest>
 #include <QStandardPaths>
 #include <QString>
+#include <QTemporaryFile>
 #include <QUrl>
 #include <functional>
 
@@ -48,7 +49,7 @@ QString tempPathFor(const QString &url, const QString &extHint) {
            extOf(url, extHint);
 }
 
-QNetworkAccessManager *namFor(const QString &url) {
+QNetworkAccessManager *namFor() {
     static QNetworkAccessManager nam;
     return &nam;
 }
@@ -80,15 +81,23 @@ void TempMedia::ensureTemp(const QString &url, const QString &extHint,
                   QStringLiteral("box/0.1 (external media)"));
     req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                      QNetworkRequest::NoLessSafeRedirectPolicy);
-    QNetworkReply *reply = namFor(url)->get(req);
+    QNetworkReply *reply = namFor()->get(req);
     QObject::connect(reply, &QNetworkReply::finished, reply, [reply, path, onReady]() {
         if (reply->error() == QNetworkReply::NoError) {
-            QFile f(path + QStringLiteral(".part"));
-            if (f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-                f.write(reply->readAll());
-                f.close();
+            // Staged write: a pre-planted symlink at path/.part (shared
+            // /tmp dir, predictable sha1 name) must never redirect the
+            // download bytes elsewhere. QTemporaryFile is O_EXCL-created
+            // and rename() replaces a link instead of following it.
+            QTemporaryFile staged(QFileInfo(path).absolutePath() +
+                                  QStringLiteral("/.box-part-XXXXXX"));
+            staged.setAutoRemove(false);
+            if (staged.open()) {
+                staged.write(reply->readAll());
+                const QString stagedName = staged.fileName();
+                staged.close();
                 QFile::remove(path);
-                QFile::rename(path + QStringLiteral(".part"), path);
+                if (!QFile::rename(stagedName, path))
+                    QFile::remove(stagedName);
             }
         }
         const QString result =

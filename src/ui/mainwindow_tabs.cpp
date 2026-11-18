@@ -404,6 +404,17 @@ void MainWindow::onTabClosed(int index) {
     if (tabIdx < 0 || tabIdx >= m_tabs.size())
         return;
     const bool wasCurrent = (tabIdx == m_curTab);
+    if (m_searchTab == m_tabs[tabIdx]) {
+        // The closed tab owned the in-flight search: its completion
+        // handler derefs m_searchTab, so cancel the sources and clear
+        // the ownership first (otherwise a late reply is a UAF).
+        for (auto *src : m_sources)
+            src->cancel();
+        m_pendingSites.clear();
+        m_searchTab = nullptr;
+        m_pendingSearches = 0;
+        m_loadingPage = false;
+    }
     delete m_tabs.takeAt(tabIdx);
     m_tabBar->blockSignals(true);
     m_tabBar->removeTab(index);
@@ -530,10 +541,16 @@ void MainWindow::activateTab(int tabIdx) {
     else
         busy = tr("Loading %1…").arg(QDir(t->root).dirName());
     m_gridLoading->showFor(busy);
-    QTimer::singleShot(0, this, [this, tabIdx] {
-        if (tabIdx != m_curTab)
-            return; // a newer switch already took over
-        finishActivateTab(tabIdx);
+    // Capture the tab pointer, not the numeric index: closing an
+    // unrelated tab before this fires shifts every index after it, and
+    // the stale index would finish-activate the wrong tab (or none).
+    // indexOf on a closed tab simply misses (pointer compare, no deref).
+    BrowserTab *activated = t;
+    QTimer::singleShot(0, this, [this, activated] {
+        const int idx = m_tabs.indexOf(activated);
+        if (idx < 0 || idx != m_curTab)
+            return; // closed, or a newer switch already took over
+        finishActivateTab(idx);
     });
 }
 

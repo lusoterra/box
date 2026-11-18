@@ -110,7 +110,10 @@ void MainWindow::relinkFavourites() {
     // from <Label> to <host> over versions (and label renames orphan
     // old folders), so match the _<md5> suffix in ANY site folder.
     // Same bytes = same md5, so cross-folder hits are still correct.
-    QHash<QString, QString> byStem; // stem -> abs path (first wins)
+    // Suffix index: stems look like <tag>_<md5>, and tags themselves may
+    // contain underscores, so the md5 is whatever follows the LAST one.
+    // (Old code endswith-scanned every stem per missing row: O(n*m).)
+    QHash<QString, QString> byMd5; // md5 suffix -> abs path (first wins)
     for (const QString &root : roots) {
         const QDir rootDir(root);
         if (!rootDir.exists())
@@ -120,11 +123,10 @@ void MainWindow::relinkFavourites() {
             const QDir dir(rootDir.absoluteFilePath(siteDir));
             for (const QFileInfo &fi : dir.entryInfoList(QDir::Files)) {
                 const QString stem = fi.completeBaseName();
-                // Any prefixed stem qualifies (<host>_<md5>, legacy
-                // <Label>_<md5> and the underscore-leading _Stray_<md5>
-                // alike).
-                if (stem.contains(u'_') && !byStem.contains(stem))
-                    byStem.insert(stem, fi.absoluteFilePath());
+                const int cut = stem.lastIndexOf(u'_');
+                if (cut > 0 && cut + 1 < stem.size() &&
+                    !byMd5.contains(stem.mid(cut + 1)))
+                    byMd5.insert(stem.mid(cut + 1), fi.absoluteFilePath());
             }
         }
     }
@@ -134,12 +136,8 @@ void MainWindow::relinkFavourites() {
         if (md5.isEmpty())
             continue;
         // <tag>_<md5>.<any ext>, in any folder
-        for (auto s = byStem.begin(); s != byStem.end(); ++s) {
-            if (s.key().endsWith(u'_' + md5)) {
-                found.insert({u.site, u.id}, s.value());
-                break;
-            }
-        }
+        if (byMd5.contains(md5))
+            found.insert({u.site, u.id}, byMd5.value(md5));
     }
     const int n = m_favDb.setLocalPaths(found);
     // Regeneration: favourited strays whose file is gone but whose source

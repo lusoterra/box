@@ -220,6 +220,8 @@ int main(int argc, char *argv[]) {
             if (!settings.downloadDir.isEmpty() && !QDir(settings.downloadDir).exists())
                 settings.downloadDir.clear();
             saveSettings(settings);
+        } else if (mb.clickedButton() != chgBtn) {
+            break; // dismissed (X Esc): proceed with startup as-is
         } else if (configMissing) {
             // Config (env/stub pointer) is the thing missing: let the user
             // point it at an existing folder, persist the pointer stub,

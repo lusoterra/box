@@ -240,11 +240,9 @@ void MainWindow::rebuildCombos() {
     // Browse tabs filter the merged results: counts come from them, not
     // from whatever local archive was scanned last.
     QHash<QString, int> browseRatings;
-    int browseTotal = 0;
     if (isBrowse()) {
         for (const Post &p : m_browseMerged) {
             browseRatings[p.rating]++;
-            browseTotal++;
         }
     }
     m_ratingBox->blockSignals(true);

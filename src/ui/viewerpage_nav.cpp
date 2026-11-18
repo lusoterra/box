@@ -340,10 +340,16 @@ void ViewerPage::showCurrent() {
                              ? QStringLiteral("%1×%2").arg(p.width).arg(p.height)
                              : QStringLiteral("-"));
     m_extLabel->setText(p.ext.toUpper());
-    m_srcLabel->setText(p.source.isEmpty()
-                            ? QString()
-                            : QStringLiteral("<a href=\"%1\">%1</a>")
-                                  .arg(p.source.toHtmlEscaped()));
+    // The source field is remote-API-controlled: only link http(s) like
+    // the post/file links above, so a hostile file:// (or other local
+    // scheme) value renders as inert text instead of opening locally.
+    if (p.source.isEmpty())
+        m_srcLabel->setText(QString());
+    else if (RemotePosts::isHttpUrl(p.source))
+        m_srcLabel->setText(QStringLiteral("<a href=\"%1\">%1</a>")
+                                .arg(p.source.toHtmlEscaped()));
+    else
+        m_srcLabel->setText(p.source.toHtmlEscaped());
 
     renderTags();
 }

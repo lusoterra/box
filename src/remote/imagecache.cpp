@@ -13,6 +13,7 @@
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QStandardPaths>
+#include <QTemporaryFile>
 #include <QUrl>
 #include <QUuid>
 #include <QtConcurrent>
@@ -220,10 +221,24 @@ void ImageCache::request(const QString &url, const QString &referer,
                 emit failed(url, RemotePosts::wallAwareMediaError(
                                      QUrl(url).host(), bytes, ct));
             } else {
-                QFile f(dest);
-                if (f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-                    f.write(bytes);
-                    f.close();
+                // Staged write (see TempMedia): the cache name is a
+                // predictable hash, so never Truncate-open the final path
+                // (a planted symlink would redirect the bytes). Write a
+                // uniquely-named temp file and rename over it instead.
+                QTemporaryFile staged(QFileInfo(dest).absolutePath() +
+                                      QStringLiteral("/.box-part-XXXXXX"));
+                staged.setAutoRemove(false);
+                bool ok = false;
+                if (staged.open()) {
+                    staged.write(bytes);
+                    const QString stagedName = staged.fileName();
+                    staged.close();
+                    QFile::remove(dest);
+                    ok = QFile::rename(stagedName, dest);
+                    if (!ok)
+                        QFile::remove(stagedName);
+                }
+                if (ok) {
                     if (!persist)
                         storeRam(url, bytes); // session-only memory copy
                     if (persist) {

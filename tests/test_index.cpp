@@ -7,6 +7,7 @@
 #include <QFile>
 #include <QTemporaryDir>
 #include <QtTest>
+#include <climits>
 
 namespace {
 Post untypedPost(const QString &general, const QString &untyped) {
@@ -203,6 +204,24 @@ private slots:
         const auto def =
             idx.query({}, QStringLiteral("all"), QString(), QStringLiteral("bogus"), 1, 30);
         QCOMPARE(def.posts.size(), 2);
+    }
+
+    void hugePageNeverWraps() {
+        // int page arithmetic used to overflow and return the wrong slice;
+        // huge page/perPage must land past the end (empty), while INT_MAX
+        // perPage still means "all".
+        Post p;
+        p.tags = p.tagsGeneral = QStringLiteral("sky");
+        p.hasMeta = true;
+        Index idx;
+        idx.setPosts({p});
+        QVERIFY(idx.query({}, QStringLiteral("all"), QString(),
+                          QStringLiteral("id-desc"), INT_MAX, INT_MAX)
+                    .posts.isEmpty());
+        QCOMPARE(idx.query({}, QStringLiteral("all"), QString(),
+                           QStringLiteral("id-desc"), 1, INT_MAX)
+                     .posts.size(),
+                 1);
     }
 
     void hygieneDropsGarbage() {

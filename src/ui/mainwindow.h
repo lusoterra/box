@@ -278,7 +278,8 @@ private slots:
     void pumpHybooruHydration(); // omnibar ★: starred tags, click adds to search
     void onGridActivated(const QModelIndex &index);
     void onThumbnailReady(const QString &key, const QImage &image);
-    void onScanFinished();
+    void onScanFinished(const QString &scannedRoot,
+                        const QVector<Post> &scanned);
     void onScanProgress(int n, int total);
     void onCacheStats(int hits, int misses);
     void requestVisibleThumbs();

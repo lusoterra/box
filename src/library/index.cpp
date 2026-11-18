@@ -215,9 +215,12 @@ QueryResult Index::query(const QStringList &tags, const QString &rating,
     out.total = results.size();
     out.page = qMax(1, page);
     out.perPage = qMax(1, perPage);
-    const int start = (out.page - 1) * out.perPage;
+    // 64-bit page math: a huge page/perPage pair must land past the end
+    // (empty page), never wrap negative and return the wrong slice.
+    // perPage stays unclamped: callers pass INT_MAX to mean "all".
+    const qint64 start = qint64(out.page - 1) * qint64(out.perPage);
     if (start < results.size())
-        out.posts = results.mid(start, out.perPage);
+        out.posts = results.mid(int(start), out.perPage);
     return out;
 }
 
