@@ -181,7 +181,15 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
 - Post drag/copy (`MainWindow::showGridMenu`, `showViewerContextMenu`,
   `RemotePosts::dragUrlFor`): grid cards carry their drag URL in a model
   role; viewer media starts a `QDrag` at fit zoom. Copy actions cover
-  post page, media URL and resolved local path for stills/GIFs/videos.
+  post page, media URL, resolved local path and file-for-clipboard for
+  stills/GIFs/videos. `copyPostFilesToClipboard` uses disk/cache copies
+  first and pulls remote/favourite-only media into `TempMedia`
+  (`/tmp/box-ext`) before setting file URLs on the clipboard.
+- Keyboard: window `QShortcut`s (`Ctrl+T/W/Shift+T/D/L/O/Shift+O`,
+  `F5`/`Ctrl+R`, F1) live in `MainWindow` (`mainwindow.cpp`); closed tabs
+  pile up in `m_closedTabs` for browser-style reopen. Grid `Space`
+  toggles selection in `GridView::keyPressEvent`; Enter opens only a
+  single selection (`onGridActivated`).
 - Fullscreen viewer (`MainWindow::setViewerFullscreen`): hides shell
   chrome and the viewer toolbar/sidebar; F11/Esc/double-click/right-click
   toggle it while arrow navigation keeps working.

@@ -125,6 +125,7 @@ protected:
     void startDrag(Qt::DropActions supportedActions) override;
     void wheelEvent(QWheelEvent *e) override;
     void resizeEvent(QResizeEvent *e) override;
+    void keyPressEvent(QKeyEvent *e) override; // Space toggles selection
 
 private:
     double m_scrollRows = 0.5; // grid rows per wheel notch (0.1-3.0)
@@ -174,6 +175,14 @@ private slots:
     void onBrowseClassifyFinished(const QHash<QString, QString> &buckets);
     void onTabChanged(int index);
     void onTabClosed(int index);
+    void closeCurrentTab();   // Ctrl+W
+    void openDefaultTab();    // Ctrl+T: Default tab booru / default boorus
+    void reopenClosedTab();   // Ctrl+Shift+T (LIFO closed-tab stack)
+    void downloadCurrentOrSelection(); // Ctrl+D
+    void focusOmniBar();      // Ctrl+L (leaves the viewer first)
+    void openCurrentPostInBrowser();    // Ctrl+O
+    void openCurrentPostExternally();   // Ctrl+Shift+O
+    void showKeyboardHelp();  // F1 / Help menu
     void showViewerTagMenu(const QString &tag, const QPoint &globalPos);
     void onTabMoved(int from, int to); // drag-reorder: keep m_tabs parallel
     void saveTabs();   // persist open tabs (coalesced; for switches/edits)
@@ -362,6 +371,12 @@ private:
     void addTagToSearch(const QString &tag); // viewer tag click/menu
     void searchVariants(const Post &post); // parent/child family search
     void downloadSelected();
+    // Keyboard targets: viewer post when open, else the grid selection,
+    // else the current grid row (empty when nothing is available).
+    QVector<Post> keyboardTargets() const;
+    // Files for a menu action: local copies straight from disk, remote
+    // rows fetched into the shared temp folder (TempMedia) first.
+    void copyPostFilesToClipboard(const QVector<Post> &posts);
     void showDlDialog();
     void updateDownloadButton();
     void rebuildCombos();
@@ -527,6 +542,9 @@ private:
     // Tabs (tabbar index 0 = welcome, m_tabs[i] <-> tabbar i+1)
     MarqueeTabBar *m_tabBar = nullptr;
     QList<BrowserTab *> m_tabs;
+    // Ctrl+Shift+T history: newest first, capped (browser-like reopen).
+    // Heavy rows are dropped on close; activation rescans/re-searches.
+    QList<BrowserTab *> m_closedTabs;
     int m_curTab = -1;
     // Browse state
     QHash<QString, RemoteSource *> m_sources;

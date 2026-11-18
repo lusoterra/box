@@ -22,6 +22,7 @@
 #include "faviconcache.h"
 #include "sidecarrefresh.h"
 #include "tagsuggest.h"
+#include "tempmedia.h"
 #include "theme.h"
 #include "uicons.h"
 #include "tagtypes.h"
@@ -53,10 +54,97 @@
 #include <QListWidget>
 #include <QMenu>
 #include <QWidgetAction>
+#include <QMimeData>
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QProcess>
 #include <QStatusBar>
+#include <QUrl>
+#include <memory>
+
+void MainWindow::copyPostFilesToClipboard(const QVector<Post> &posts) {
+    if (posts.isEmpty())
+        return;
+    const auto linked = m_favDb.localPaths();
+    QStringList ready;
+    QVector<Post> remote;
+    for (const Post &p : posts) {
+        QString path;
+        if (!p.absFile.isEmpty()) {
+            const QString c = QFileInfo(p.absFile).canonicalFilePath();
+            if (!c.isEmpty() && QFileInfo::exists(c))
+                path = c;
+        }
+        if (path.isEmpty() && p.isRemote) {
+            const auto it = linked.find(favIdentity(p));
+            if (it != linked.end() && !it.value().isEmpty()) {
+                const QString c = QFileInfo(it.value()).canonicalFilePath();
+                if (!c.isEmpty() && QFileInfo::exists(c))
+                    path = c;
+            }
+        }
+        if (path.isEmpty() && p.isRemote && m_imgCache) {
+            const QString url = p.fileUrl.isEmpty() ? p.sampleUrl : p.fileUrl;
+            if (RemotePosts::isHttpUrl(url)) {
+                const QString cached = m_imgCache->localPath(url, &p);
+                if (!cached.isEmpty() && QFileInfo::exists(cached))
+                    path = cached;
+            }
+        }
+        if (!path.isEmpty())
+            ready << path;
+        else if (RemotePosts::isHttpUrl(p.fileUrl))
+            remote << p;
+        else if (RemotePosts::isHttpUrl(p.sampleUrl))
+            remote << p;
+    }
+    ready.removeDuplicates();
+    QPointer<MainWindow> self(this);
+    const auto finish = [self](QStringList paths) {
+        if (!self)
+            return;
+        paths.removeDuplicates();
+        if (paths.isEmpty()) {
+            self->statusBar()->showMessage(
+                tr("Could not fetch the media for the clipboard"), 5000);
+            return;
+        }
+        auto *md = new QMimeData();
+        QList<QUrl> urls;
+        urls.reserve(paths.size());
+        for (const QString &p : paths)
+            urls << QUrl::fromLocalFile(p);
+        md->setUrls(urls);
+        QApplication::clipboard()->setMimeData(md);
+        self->statusBar()->showMessage(
+            tr("Copied %1 file(s) to clipboard").arg(paths.size()), 4000);
+    };
+    if (remote.isEmpty()) {
+        finish(ready);
+        return;
+    }
+    statusBar()->showMessage(tr("Fetching media for clipboard…"), 4000);
+    auto remaining = std::make_shared<int>(remote.size());
+    auto collected = std::make_shared<QStringList>(ready);
+    for (const Post &p : remote) {
+        const QString url = p.fileUrl.isEmpty() ? p.sampleUrl : p.fileUrl;
+        QString hint = p.ext;
+        if (hint.isEmpty()) {
+            const QString path = QUrl(url).path();
+            const int dot = path.lastIndexOf(u'.');
+            if (dot >= 0 && dot + 1 < path.size())
+                hint = path.mid(dot + 1);
+        }
+        TempMedia::ensureTemp(url, hint, [collected, remaining, finish](
+                                              const QString &path) {
+            if (!path.isEmpty())
+                collected->append(path);
+            if (--(*remaining) > 0)
+                return;
+            finish(*collected);
+        });
+    }
+}
 
 void MainWindow::showGridMenu(const QPoint &pos) {
     const QModelIndex clicked = m_grid->indexAt(pos);
@@ -258,6 +346,25 @@ void MainWindow::showGridMenu(const QPoint &pos) {
             connect(a, &QAction::triggered, this, [localPaths] {
                 QApplication::clipboard()->setText(
                     localPaths.join(u'\n'));
+            });
+        }
+        // Favourite-only/remote cards keep the downloaded-card clipboard
+        // action: missing bytes are pulled into the temp folder first.
+        bool anyMedia = false;
+        for (const Post &p : targets) {
+            const QString res = resolvedFile(p);
+            if (!res.isEmpty() || RemotePosts::isHttpUrl(p.fileUrl) ||
+                RemotePosts::isHttpUrl(p.sampleUrl)) {
+                anyMedia = true;
+                break;
+            }
+        }
+        if (anyMedia) {
+            QAction *a = menu.addAction(
+                targets.size() == 1 ? tr("Copy file (clipboard)")
+                                    : tr("Copy files (clipboard)"));
+            connect(a, &QAction::triggered, this, [this, targets] {
+                copyPostFilesToClipboard(targets);
             });
         }
     }

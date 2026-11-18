@@ -41,6 +41,12 @@ with its last tag moved away disappears immediately). The
 omnibar keeps only the ★ favourite-tags button. A captcha/PoW wall failure pops the solve browser open (opt out in Preferences → Browse, back to a small menu: solve the challenge in the capture browser, or drop the booru (deselect in multibooru, close a solo tab)). Center: post grid. Bottom-left: `40 results · page 1` and infinite scroll (more loads at the bottom); a failed query leaves its one-liner there (click = full server response) plus a `Solve … in browser…` button while walls are reported. The browser
 opens AT the failing URL (failed search request, failed file URL) instead of
 the homepage, since file/media hosts challenge while `/` lets you through.
+Grid keyboard: `Enter` opens the focused card only when exactly one is
+selected, `Space` selects/deselects it, arrows move through the grid,
+`Ctrl+D` downloads the selection (or the focused card), `/` or `Ctrl+L`
+focuses the tag search, `Ctrl+O` opens the post page and `Ctrl+Shift+O`
+opens the media in the default viewer. `Esc` clears filters; `F5`/`Ctrl+R`
+reload.
 API-gated sites (soybooru) answer HTTP 449 `pow_required`/`captcha_required`
 JSON instead of HTML: proof-of-work solves itself in-app (same stack, one
 retry, clearance saved to the entry); only captchas open the solve browser -
@@ -93,8 +99,11 @@ link stay on the booru post page after a download (strays keep the
 local file). Right-click menu resolves the on-disk file behind downloaded
 remote rows too: `⭳ Download` disables once everything selected is on
 disk, `Delete from disk…` enables, `Set as mascot` shows, and `Copy post
-link` / `Copy media link` / `Copy file path` put the selected rows on the
-clipboard (stills, GIFs and videos alike). Dragging cards exports linked
+link` / `Copy media link` / `Copy file path` / `Copy file (clipboard)`
+put the selected rows on the clipboard (stills, GIFs and videos alike).
+Favourite-only remote cards keep `Copy file (clipboard)`: missing bytes are
+fetched into the shared temp folder (`/tmp/box-ext` on Linux) before the
+clipboard gets the file URL. Dragging cards exports linked
 stills/GIFs as a URL (post page or direct media, per Preferences → Browse)
 and local/downloaded stills/GIFs as the file itself; videos are excluded
 from drag-out on purpose (too heavy for a drop target).
@@ -118,7 +127,11 @@ none): magic bytes decide, wall pages still fail with a named error.
 ## 05-tabs-menu - Tabs
 `Close Folder`, `Start fresh session` (closes every tab, forgets the
 saved session, shows home), `♥ Favourites` (database-only tab),
-`Reload` (`F5` - rescan locally, re-search remotely). Library archive
+`Reload` (`F5` / `Ctrl+R` - rescan locally, re-search remotely). Tab keys:
+`Ctrl+T` opens a new default tab (Default tab booru, else the default
+boorus), `Ctrl+W` closes the current tab, `Ctrl+Shift+T` reopens closed
+tabs newest-first (a 20-tab LIFO stack; the tab's kind, filters and open
+post return, content rescans/re-searches). Library archive
 roots are read-only: no Delete there, tag refresh is disabled, and a
 hard `refuseArchiveWrite` guard refuses any file write outside the
 download dir (Syncthing-safe).
@@ -132,7 +145,8 @@ Stylesheet…` (`.qss` overlay).
 later, contact email `lev@lusosterone.net`, PGP fingerprint
 `13EA3CFB9ABC093823509BD668C62637ED987692`, Qt version plus third-party
 credits: miniz, Lucide icons, FFmpeg via Qt Multimedia), `Keyboard
-shortcuts…` (multi-line grid/viewer/window cheatsheet), `Documentation…`
+shortcuts…` (`F1`; multi-line grid/post-view/tabs/window cheatsheet with a
+`Documentation…` button that opens the repository), `Documentation…`
 (opens the repository).
 
 Grid cards follow the default category order Artists, Character,
@@ -168,10 +182,15 @@ ARTIST COMMENTARY
 fit zoom, same URL/file payload as grid drag; videos excluded). Double-click the media for
 fullscreen post view (`MainWindow::setViewerFullscreen`: menubar, tab bar,
 omnibar, sidebar, pills and status bar hide while the viewer goes immersive;
-`ViewerPage::setImmersive`); right-click offers `Fullscreen`, link clippings,
-download/delete and favourite. Esc leaves fullscreen first, then the
+`ViewerPage::setImmersive`); right-click offers `Fullscreen`, link
+clippings, `Copy file (clipboard)` / `Open file` (favourite-only remote
+rows fetch the media into the temp folder first), download/delete and
+favourite. Esc leaves fullscreen first, then the
 viewer; F11 toggles it; arrow keys keep stepping posts while fullscreen.
-The omnibar and filter pills
+`Ctrl+D` downloads the post, `Ctrl+O` opens its page, `Ctrl+Shift+O` opens
+the media in the default viewer, `F` favourites and `Ctrl+L` jumps back to
+the grid omni
+bar. The omnibar and filter pills
 hide in post view (grid tools would
 misclick); they return with the grid. A failed comments/notes fetch shows
 a clickable warning (`click for details`) opening the same diagnostics
@@ -293,7 +312,10 @@ General instead of disappearing. `Delete from disk…` also removes kept favouri
 renderable source (no file, no remote media/post link) instead of leaving
 empty cards; post-linked rows stay (viewer refresh can heal them). Files
 removed outside the app hide from the grid the same way (never marked
-downloaded) until they return. File -> `Redownload missing files…`
+downloaded) until they return. Right-click keeps the downloaded-card
+actions on favourite-only rows too: `Copy file (clipboard)` (temp fetch
+when no local copy) and `Copy media link` work before any download. File ->
+`Redownload missing files…`
 re-pulls missing favourites with a download source on demand;
 sourceless ones just stay hidden. GUI deletes
 also forget the download link, so the action only ever covers files

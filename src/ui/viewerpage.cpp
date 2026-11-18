@@ -104,64 +104,7 @@ ViewerPage::ViewerPage(QWidget *parent) : QWidget(parent) {
     connect(m_openExtBtn, &QPushButton::clicked, this, [this] {
         if (m_posts.isEmpty() || m_row < 0 || m_row >= m_posts.size())
             return;
-        const Post &p = m_posts.at(m_row);
-        QString target;
-        if (!p.absFile.isEmpty() && QFile::exists(p.absFile))
-            target = p.absFile;
-        else if (m_imgCache) {
-            const QString cached = m_imgCache->localPath(p.fileUrl.isEmpty() ? p.sampleUrl : p.fileUrl, &p);
-            if (!cached.isEmpty() && QFile::exists(cached))
-                target = cached;
-        }
-        const bool remote = target.isEmpty() &&
-                            (!p.fileUrl.isEmpty() || !p.sampleUrl.isEmpty());
-        const QString url = p.fileUrl.isEmpty() ? p.sampleUrl : p.fileUrl;
-        const bool isVideo = (target + url).contains(QRegularExpression(QStringLiteral("\\.(mp4|webm|mkv|avi)$"), QRegularExpression::CaseInsensitiveOption));
-        const QString extHint = isVideo ? QStringLiteral("mp4") : QStringLiteral("jpg");
-        auto launch = [this, isVideo](const QString &path) {
-            QSettings c(settingsFilePath(), QSettings::IniFormat);
-            const QString cmd = isVideo ? c.value(QStringLiteral("app/defaultVideoPlayer")).toString()
-                                        : c.value(QStringLiteral("app/defaultImageViewer")).toString();
-            if (!cmd.isEmpty()) {
-                // Split the template first, then substitute the path as a
-                // single argv element: appending raw text and re-splitting
-                // would break on spaces and let a crafted filename smuggle
-                // extra flags into the player command line.
-                QStringList parts = QProcess::splitCommand(cmd);
-                if (parts.isEmpty())
-                    return;
-                QStringList args = parts.mid(1);
-                bool placed = false;
-                for (QString &a : args) {
-                    if (a.contains(QStringLiteral("{file}"))) {
-                        a.replace(QStringLiteral("{file}"), path);
-                        placed = true;
-                    }
-                    if (a.contains(QStringLiteral("{url}"))) {
-                        a.replace(QStringLiteral("{url}"), path);
-                        placed = true;
-                    }
-                }
-                if (!placed)
-                    args << path;
-                QProcess::startDetached(parts.first(), args);
-                return;
-            }
-            if (path.startsWith(QStringLiteral("http")))
-                QDesktopServices::openUrl(QUrl(path));
-            else
-                QDesktopServices::openUrl(QUrl::fromLocalFile(path));
-        };
-        if (target.isEmpty()) {
-            if (remote) {
-                TempMedia::ensureTemp(url, extHint, [this, launch](const QString &path) {
-                    if (!path.isEmpty())
-                        launch(path);
-                });
-            }
-            return;
-        }
-        launch(target);
+        openExternally(m_posts.at(m_row));
     });
     m_variantsBtn = new QPushButton(tr("Variants"), this);
     m_variantsBtn->setToolTip(
@@ -440,6 +383,76 @@ ViewerPage::ViewerPage(QWidget *parent) : QWidget(parent) {
     m_image->viewport()->installEventFilter(this);
     m_gif->viewport()->installEventFilter(this);
     m_video->installEventFilter(this);
+}
+
+void ViewerPage::openExternally(const Post &post) {
+    QString target;
+    if (!post.absFile.isEmpty() && QFile::exists(post.absFile))
+        target = post.absFile;
+    else if (m_imgCache) {
+        const QString cached = m_imgCache->localPath(
+            post.fileUrl.isEmpty() ? post.sampleUrl : post.fileUrl, &post);
+        if (!cached.isEmpty() && QFile::exists(cached))
+            target = cached;
+    }
+    const bool remote =
+        target.isEmpty() && (!post.fileUrl.isEmpty() || !post.sampleUrl.isEmpty());
+    const QString url = post.fileUrl.isEmpty() ? post.sampleUrl : post.fileUrl;
+    const bool isVideo =
+        isVideoExt(post.ext) ||
+        (target + url).contains(QRegularExpression(
+            QStringLiteral("\\.(mp4|webm|mkv|avi)$"),
+            QRegularExpression::CaseInsensitiveOption));
+    const QString extHint = post.ext.isEmpty()
+                                ? (isVideo ? QStringLiteral("mp4")
+                                           : QStringLiteral("jpg"))
+                                : post.ext;
+    auto launch = [isVideo](const QString &path) {
+        QSettings c(settingsFilePath(), QSettings::IniFormat);
+        const QString cmd = isVideo
+                                ? c.value(QStringLiteral("app/defaultVideoPlayer"))
+                                      .toString()
+                                : c.value(QStringLiteral("app/defaultImageViewer"))
+                                      .toString();
+        if (!cmd.isEmpty()) {
+            // Split the template first, then substitute the path as a
+            // single argv element: appending raw text and re-splitting
+            // would break on spaces and let a crafted filename smuggle
+            // extra flags into the player command line.
+            QStringList parts = QProcess::splitCommand(cmd);
+            if (parts.isEmpty())
+                return;
+            QStringList args = parts.mid(1);
+            bool placed = false;
+            for (QString &a : args) {
+                if (a.contains(QStringLiteral("{file}"))) {
+                    a.replace(QStringLiteral("{file}"), path);
+                    placed = true;
+                }
+                if (a.contains(QStringLiteral("{url}"))) {
+                    a.replace(QStringLiteral("{url}"), path);
+                    placed = true;
+                }
+            }
+            if (!placed)
+                args << path;
+            QProcess::startDetached(parts.first(), args);
+            return;
+        }
+        if (path.startsWith(QStringLiteral("http")))
+            QDesktopServices::openUrl(QUrl(path));
+        else
+            QDesktopServices::openUrl(QUrl::fromLocalFile(path));
+    };
+    if (target.isEmpty()) {
+        if (remote)
+            TempMedia::ensureTemp(url, extHint, [launch](const QString &path) {
+                if (!path.isEmpty())
+                    launch(path);
+            });
+        return;
+    }
+    launch(target);
 }
 
 bool ViewerPage::eventFilter(QObject *watched, QEvent *e) {

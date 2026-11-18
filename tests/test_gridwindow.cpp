@@ -122,8 +122,12 @@ void decorationStats(GridView *grid, int &distinctOut, int &topCountOut,
 
 #include "favdb.h"
 #include "settings.h"
+#include "tabbar.h"
+#include "viewerpage.h"
 #include <QElapsedTimer>
+#include <QItemSelectionModel>
 #include <QSettings>
+#include <QShortcut>
 
 class TestGridWindow : public QObject {
     Q_OBJECT
@@ -394,6 +398,86 @@ private slots:
         QCOMPARE(sectionVisibility(w, QStringLiteral("CHARACTERS")).toBool(),
                  false);
         QCOMPARE(sectionVisibility(w, QStringLiteral("META")).toBool(), false);
+    }
+
+    // Ctrl+W / Ctrl+Shift+T: the closed tab lands on a LIFO stack and a
+    // reopen restores its kind/filters (heavy rows are re-fetched).
+    void tabShortcutsCloseReopenTabs() {
+        QTemporaryDir xdg;
+        QVERIFY(xdg.isValid());
+        qputenv("XDG_CONFIG_HOME", xdg.filePath("config").toUtf8());
+        qputenv("XDG_DATA_HOME", xdg.filePath("data").toUtf8());
+        qputenv("XDG_CACHE_HOME", xdg.filePath("cache").toUtf8());
+        bool ok = false;
+        const QString root = makeArchive(2, ok);
+        QVERIFY(ok);
+        MainWindow w(root, true);
+        w.show();
+        QTest::qWait(150);
+        auto *bar = w.findChild<MarqueeTabBar *>();
+        QVERIFY(bar);
+        QCOMPARE(bar->count(), 2); // welcome + archive
+        QVERIFY(QMetaObject::invokeMethod(&w, "openFavTab"));
+        QTest::qWait(100);
+        QCOMPARE(bar->count(), 3);
+        QVERIFY(bar->tabText(2).contains(QStringLiteral("Favourites")));
+        QVERIFY(QMetaObject::invokeMethod(&w, "closeCurrentTab"));
+        QTest::qWait(100);
+        QCOMPARE(bar->count(), 2);
+        QCOMPARE(bar->currentIndex(), 1);
+        QVERIFY(QMetaObject::invokeMethod(&w, "reopenClosedTab"));
+        QTest::qWait(100);
+        QCOMPARE(bar->count(), 3);
+        QVERIFY(bar->tabText(2).contains(QStringLiteral("Favourites")));
+    }
+
+    // Space toggles the current card; Enter opens only a single selection
+    // (a multi-selection is still being assembled for a batch action).
+    void spaceTogglesGridSelection() {
+        QTemporaryDir xdg;
+        QVERIFY(xdg.isValid());
+        qputenv("XDG_CONFIG_HOME", xdg.filePath("config").toUtf8());
+        qputenv("XDG_DATA_HOME", xdg.filePath("data").toUtf8());
+        qputenv("XDG_CACHE_HOME", xdg.filePath("cache").toUtf8());
+        bool ok = false;
+        const QString root = makeArchive(3, ok);
+        QVERIFY(ok);
+        MainWindow w(root, true);
+        w.show();
+        GridView *grid = w.findChild<GridView *>();
+        auto *viewer = w.findChild<ViewerPage *>();
+        QVERIFY(grid);
+        QVERIFY(viewer);
+        bool filled = false;
+        for (int i = 0; i < 200 && !filled; ++i) {
+            QTest::qWait(20);
+            filled = rowCount(grid) >= 3;
+        }
+        QVERIFY(filled);
+        QItemSelectionModel *sel = grid->selectionModel();
+        QVERIFY(sel);
+        grid->setCurrentIndex(grid->model()->index(0, 0));
+        sel->clearSelection();
+        QTest::keyClick(grid, Qt::Key_Space);
+        QCOMPARE(sel->selectedRows().size(), 1);
+        QTest::keyClick(grid, Qt::Key_Space);
+        QCOMPARE(sel->selectedRows().size(), 0);
+        // Two selected: Enter must stay on the grid.
+        sel->select(grid->model()->index(0, 0), QItemSelectionModel::Select);
+        sel->select(grid->model()->index(1, 0), QItemSelectionModel::Select);
+        QVERIFY(QMetaObject::invokeMethod(
+            &w, "onGridActivated",
+            Q_ARG(QModelIndex, grid->model()->index(0, 0))));
+        QTest::qWait(30);
+        QVERIFY(!viewer->isVisible());
+        // One selected: Enter opens it.
+        sel->clearSelection();
+        sel->select(grid->model()->index(2, 0), QItemSelectionModel::Select);
+        QVERIFY(QMetaObject::invokeMethod(
+            &w, "onGridActivated",
+            Q_ARG(QModelIndex, grid->model()->index(2, 0))));
+        QTest::qWait(30);
+        QVERIFY(viewer->isVisible());
     }
 
     void pixmapsStayWindowed() {

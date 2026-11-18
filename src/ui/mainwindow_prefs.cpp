@@ -102,6 +102,50 @@ void MainWindow::showAbout() {
                  QString::fromLatin1(qVersion())));
 }
 
+void MainWindow::showKeyboardHelp() {
+    QMessageBox box(this);
+    box.setWindowTitle(tr("Keyboard shortcuts"));
+    box.setTextFormat(Qt::PlainText);
+    box.setText(
+        tr("Grid\n"
+           "  Enter: open post (single selection only)\n"
+           "  Space: select / deselect post\n"
+           "  Arrows: move through posts\n"
+           "  Ctrl+D: download current / selected posts\n"
+           "  Ctrl+O: open post in browser\n"
+           "  Ctrl+Shift+O: open media in default viewer\n"
+           "  / or Ctrl+L: focus search\n"
+           "  Esc: clear filters\n"
+           "  F5 / Ctrl+R: reload\n"
+           "\n"
+           "Post view\n"
+           "  Left / Right: previous / next post\n"
+           "  Backspace / Esc: back to grid\n"
+           "  F: favourite\n"
+           "  Ctrl+D: download post\n"
+           "  Ctrl+O: open post in browser\n"
+           "  Ctrl+Shift+O: open media in default viewer\n"
+           "  F11: fullscreen\n"
+           "  Mouse wheel: zoom\n"
+           "\n"
+           "Tabs\n"
+           "  Ctrl+T: new default tab\n"
+           "  Ctrl+W: close tab\n"
+           "  Ctrl+Shift+T: reopen last closed tab\n"
+           "\n"
+           "Window\n"
+           "  Ctrl+,: Preferences\n"
+           "  F1: this help"));
+    box.setInformativeText(tr("More help and documentation: %1")
+                               .arg(appRepoUrl()));
+    QPushButton *docs =
+        box.addButton(tr("Documentation…"), QMessageBox::ActionRole);
+    box.addButton(QMessageBox::Close);
+    box.exec();
+    if (box.clickedButton() == docs)
+        QDesktopServices::openUrl(QUrl(appRepoUrl()));
+}
+
 void MainWindow::openPreferences() {
     PrefsDialog dlg(m_settings, m_favicons, this);
     connect(&dlg, &PrefsDialog::classifyNowRequested, this,

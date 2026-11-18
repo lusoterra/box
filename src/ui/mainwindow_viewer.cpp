@@ -181,6 +181,9 @@ void MainWindow::showViewerContextMenu(const Post &post,
         !post.postUrl.isEmpty() && RemotePosts::isHttpUrl(post.postUrl);
     const bool hasFileLink =
         !post.fileUrl.isEmpty() && RemotePosts::isHttpUrl(post.fileUrl);
+    const bool hasMediaLink =
+        hasFileLink ||
+        (!post.sampleUrl.isEmpty() && RemotePosts::isHttpUrl(post.sampleUrl));
     if (hasPostLink) {
         QAction *a = menu.addAction(tr("Open post page"));
         connect(a, &QAction::triggered, this, [url = post.postUrl] {
@@ -202,36 +205,30 @@ void MainWindow::showViewerContextMenu(const Post &post,
     const QString local =
         !post.absFile.isEmpty() ? post.absFile
                                 : m_favDb.localPaths().value(favIdentity(post));
-    if (!local.isEmpty() && QFileInfo::exists(local)) {
+    const bool hasLocal = !local.isEmpty() && QFileInfo::exists(local);
+    if (hasLocal) {
         QAction *copyPath = menu.addAction(tr("Copy file path"));
         connect(copyPath, &QAction::triggered, this, [local] {
             QApplication::clipboard()->setText(local);
         });
+    }
+    if (hasLocal || hasMediaLink) {
+        // Favourite-only rows behave like downloaded ones: the media is
+        // fetched into the temp folder if no local copy exists.
         QAction *copyFile = menu.addAction(tr("Copy file (clipboard)"));
-        connect(copyFile, &QAction::triggered, this, [this, post, local] {
-            QString path = local;
-            if (path.isEmpty()) {
-                const QString url = post.fileUrl.isEmpty() ? post.sampleUrl : post.fileUrl;
-                if (url.isEmpty())
-                    return;
-                TempMedia::ensureTemp(url, QStringLiteral("jpg"),
-                                     [this](const QString &p) {
-                                         if (p.isEmpty())
-                                             return;
-                                         auto *md = new QMimeData();
-                                         md->setUrls({QUrl::fromLocalFile(p)});
-                                         QApplication::clipboard()->setMimeData(md);
-                                     });
-                return;
-            }
-            auto *md = new QMimeData();
-            md->setUrls({QUrl::fromLocalFile(path)});
-            QApplication::clipboard()->setMimeData(md);
+        connect(copyFile, &QAction::triggered, this, [this, post] {
+            copyPostFilesToClipboard({post});
         });
         QAction *open = menu.addAction(tr("Open file"));
-        connect(open, &QAction::triggered, this, [local] {
-            QDesktopServices::openUrl(QUrl::fromLocalFile(local));
-        });
+        if (hasLocal) {
+            connect(open, &QAction::triggered, this, [local] {
+                QDesktopServices::openUrl(QUrl::fromLocalFile(local));
+            });
+        } else {
+            connect(open, &QAction::triggered, this, [this, post] {
+                m_viewer->openExternally(post);
+            });
+        }
     }
     if (post.isRemote && hasFileLink) {
         const bool downloaded =

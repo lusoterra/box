@@ -133,6 +133,9 @@ void MainWindow::startFreshSession() {
     // session, and the last place is cleared so resume stays hidden.
     while (m_tabBar->count() > 1)
         onTabClosed(1);
+    // A fresh session also forgets the Ctrl+Shift+T history.
+    while (!m_closedTabs.isEmpty())
+        delete m_closedTabs.takeFirst();
     m_settings.hasLastPlace = false;
     m_settings.lastPlace = AppSettings::SavedTab();
     m_settings.savedTabs.clear();

@@ -303,6 +303,10 @@ public:
     Post currentPost() const;
     bool hasCurrent() const;
     int currentRow() const;
+    // Launch the post's media in the configured default viewer. Local
+    // files/disk cache go straight through; remote-only rows are fetched
+    // into the shared temp folder first.
+    void openExternally(const Post &post);
     void setFaved(bool faved);
     void setDownloaded(bool downloaded); // green toggle when on disk
     // Status marks next to the title: AI-generated / favourited /

@@ -143,9 +143,85 @@ void MainWindow::setStatusProbe(const QString &title, const QString &text) {
 }
 
 void MainWindow::onGridActivated(const QModelIndex &index) {
-    if (!index.isValid())
+    // Enter opens a single post. With a multi-selection the user is still
+    // assembling a batch, so the key must not navigate away.
+    const QModelIndexList sel = m_grid->selectionModel()->selectedRows();
+    if (sel.size() > 1)
         return;
-    showViewer(index.row());
+    int row = sel.size() == 1 ? sel.first().row() : -1;
+    if (row < 0 && index.isValid())
+        row = index.row();
+    if (row < 0)
+        row = m_grid->currentIndex().row();
+    if (row < 0 || row >= m_current.size())
+        return;
+    showViewer(row);
+}
+
+QVector<Post> MainWindow::keyboardTargets() const {
+    QVector<Post> posts;
+    if (m_pages && m_pages->currentIndex() == 1 && m_viewer &&
+        m_viewer->hasCurrent()) {
+        posts << m_viewer->currentPost();
+        return posts;
+    }
+    if (!m_grid || !m_grid->selectionModel())
+        return posts;
+    const QModelIndexList sel = m_grid->selectionModel()->selectedRows();
+    if (!sel.isEmpty()) {
+        for (const QModelIndex &i : sel) {
+            if (i.row() >= 0 && i.row() < m_current.size())
+                posts << m_current.at(i.row());
+        }
+        return posts;
+    }
+    const int row = m_grid->currentIndex().row();
+    if (row >= 0 && row < m_current.size())
+        posts << m_current.at(row);
+    return posts;
+}
+
+void MainWindow::downloadCurrentOrSelection() {
+    const QVector<Post> posts = keyboardTargets();
+    if (posts.isEmpty()) {
+        statusBar()->showMessage(tr("Select a post to download first"), 3000);
+        return;
+    }
+    for (const Post &p : posts) {
+        const auto [site, pid] = favIdentity(p);
+        m_unfavVeto.remove(favVetoKey(site, pid));
+    }
+    downloadPosts(posts);
+}
+
+void MainWindow::focusOmniBar() {
+    if (m_pages && m_pages->currentIndex() == 1)
+        backToGrid(); // the omnibar only exists on the grid
+    m_searchEdit->setFocus();
+    m_searchEdit->selectAll();
+}
+
+void MainWindow::openCurrentPostInBrowser() {
+    const QVector<Post> posts = keyboardTargets();
+    if (posts.isEmpty()) {
+        statusBar()->showMessage(tr("No post selected"), 3000);
+        return;
+    }
+    const QString url = posts.first().postUrl;
+    if (!RemotePosts::isHttpUrl(url)) {
+        statusBar()->showMessage(tr("This post has no web page link"), 4000);
+        return;
+    }
+    QDesktopServices::openUrl(QUrl(url));
+}
+
+void MainWindow::openCurrentPostExternally() {
+    const QVector<Post> posts = keyboardTargets();
+    if (posts.isEmpty()) {
+        statusBar()->showMessage(tr("No post selected"), 3000);
+        return;
+    }
+    m_viewer->openExternally(posts.first());
 }
 
 void MainWindow::downloadSelected() {

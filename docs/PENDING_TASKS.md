@@ -1,5 +1,30 @@
 # Pending tasks (from user goal)
 
+## 29. Browser shortcuts + favourite clipboard parity - DONE
+- Window shortcuts (`src/ui/mainwindow.cpp`): `Ctrl+T` new default tab
+  (Default tab booru, else default boorus), `Ctrl+W` close tab,
+  `Ctrl+Shift+T` reopen through a LIFO stack of closed tabs,
+  `Ctrl+D` download the viewer post / grid selection / current post,
+  `Ctrl+L` focus the omnibar, `Ctrl+O` open the post page,
+  `Ctrl+Shift+O` open the media in the configured default viewer,
+  `F5`/`Ctrl+R` reload, `F1` help.
+- Grid keys (`GridView::keyPressEvent`, `onGridActivated`): Space toggles
+  the current card selection; Enter opens only a single-selection post and
+  does nothing with several selected.
+- Closed-tab stack (`MainWindow::onTabClosed/reopenClosedTab`): clones the
+  `BrowserTab` state (kind, root, sites, filters, viewer key), drops the
+  heavy result vectors (rescan/re-search on reopen), cap 20.
+- Help dialog lists every new key; F1 opens it with a `Documentation…`
+  button that launches the repository.
+- Grid and viewer right-click menus add `Copy file (clipboard)` for
+  remote/favourite-only posts: local files go straight to the clipboard,
+  missing media is fetched to `TempLocation/box-ext` first
+  (`TempMedia::ensureTemp`, `/tmp` on Linux). Viewer also gains `Open file`
+  for remote-only rows through the same temp path.
+- Verify: `ctest -R gridwindow` (new `tabShortcutsCloseReopenTabs`,
+  `spaceTogglesGridSelection`), `check_translations`; GUI eyes for the
+  async clipboard download and external viewer launch.
+
 ## 28. Code review: warnings, bugs, security hardening - DONE
 - Warning sweep (`-Wall -Wextra -Wpedantic`, syntax-only over all 85
   `src` TUs + every `tests` TU): exactly 3 warnings, all fixed by

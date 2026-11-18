@@ -51,6 +51,7 @@
 #include <QHBoxLayout>
 #include <QInputDialog>
 #include <QJsonDocument>
+#include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
@@ -594,6 +595,24 @@ void GridView::resizeEvent(QResizeEvent *e) {
     emit viewportResized();
 }
 
+void GridView::keyPressEvent(QKeyEvent *e) {
+    // Space toggles the current card in the multi-selection. Arrows keep
+    // their native icon-grid navigation; Enter rides `activated` and is
+    // filtered by MainWindow::onGridActivated.
+    if (e->key() == Qt::Key_Space) {
+        const QModelIndex idx = currentIndex();
+        if (idx.isValid() && selectionModel()) {
+            const bool on = selectionModel()->isSelected(idx);
+            selectionModel()->select(
+                idx, on ? QItemSelectionModel::Deselect
+                        : QItemSelectionModel::Select);
+            e->accept();
+            return;
+        }
+    }
+    QListView::keyPressEvent(e);
+}
+
 void GridView::startDrag(Qt::DropActions) {
     // Drag requires Shift (otherwise it fights panning / the wheel scroll).
     if (!(QApplication::keyboardModifiers() & Qt::ShiftModifier))
@@ -803,7 +822,8 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     favAct->setIcon(UiIcons::heart(UiIcons::favRed(), true));
     auto *reloadAct =
         tabsMenu->addAction(QStringLiteral("&Reload"), this, &MainWindow::reload);
-    reloadAct->setShortcut(QKeySequence::Refresh); // F5
+    reloadAct->setShortcuts({QKeySequence(Qt::Key_F5),
+                             QKeySequence(QStringLiteral("Ctrl+R"))});
 
     auto *editMenu = menuBar()->addMenu(tr("&Edit"));
     auto *prefsAct = editMenu->addAction(tr("&Preferences…"), this,
@@ -829,27 +849,9 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
 
     auto *helpMenu = menuBar()->addMenu(tr("&Help"));
     helpMenu->addAction(tr("&About Box"), this, &MainWindow::showAbout);
-    helpMenu->addAction(tr("&Keyboard shortcuts…"), this, [this] {
-        QMessageBox::information(
-            this, tr("Keyboard shortcuts"),
-            tr("Grid\n"
-               "  Enter: open post\n"
-               "  /: focus search\n"
-               "  Esc: clear filters\n"
-               "  Arrows: move through posts\n"
-               "  F5: reload\n"
-               "\n"
-               "Viewer\n"
-               "  Left / Right: previous / next post\n"
-               "  Backspace: back to grid\n"
-               "  F: favourite\n"
-               "  Esc: leave viewer\n"
-               "  F11: fullscreen\n"
-               "  Mouse wheel: zoom\n"
-               "\n"
-               "Window\n"
-               "  Ctrl+,: Preferences"));
-    });
+    QAction *helpAct = helpMenu->addAction(tr("&Keyboard shortcuts…"), this,
+                                           &MainWindow::showKeyboardHelp);
+    helpAct->setShortcut(QKeySequence(Qt::Key_F1));
     helpMenu->addAction(tr("&Documentation…"), this, [this] {
         QDesktopServices::openUrl(QUrl("https://github.com/lusoterra/box"));
     });
@@ -882,6 +884,21 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
             applyFilter();
         }
     });
+    // Browser-style window keys. WindowShortcut (the default) keeps them
+    // from firing inside modal dialogs (Preferences, About, importers).
+    const auto bindKey = [this](const QString &seq, void (MainWindow::*fn)()) {
+        auto *sc = new QShortcut(QKeySequence(seq), this);
+        sc->setContext(Qt::WindowShortcut);
+        connect(sc, &QShortcut::activated, this, fn);
+    };
+    bindKey(QStringLiteral("Ctrl+T"), &MainWindow::openDefaultTab);
+    bindKey(QStringLiteral("Ctrl+W"), &MainWindow::closeCurrentTab);
+    bindKey(QStringLiteral("Ctrl+Shift+T"), &MainWindow::reopenClosedTab);
+    bindKey(QStringLiteral("Ctrl+D"), &MainWindow::downloadCurrentOrSelection);
+    bindKey(QStringLiteral("Ctrl+L"), &MainWindow::focusOmniBar);
+    bindKey(QStringLiteral("Ctrl+O"), &MainWindow::openCurrentPostInBrowser);
+    bindKey(QStringLiteral("Ctrl+Shift+O"),
+            &MainWindow::openCurrentPostExternally);
 
     // ── Omnibar: search + rating + source + sort + ratio + reload ──
     m_omniBar = new QWidget(this);
@@ -1551,14 +1568,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     connect(m_welcome, &WelcomePage::browseTabRequested, this, [this] {
         if (m_tabs.isEmpty())
             restoreTabs(); // last session first, then the new tab on top
-        // Explicit default booru (Default tab setting) wins; otherwise
-        // the default-boorus checklist.
-        QStringList sites = m_settings.browseSites;
-        if (RemoteSource::siteFor(m_settings.tabsDefault) != nullptr)
-            sites = {m_settings.tabsDefault};
-        if (sites.isEmpty())
-            sites = m_settings.browseSites;
-        addRemoteTab(sites, {});
+        openDefaultTab();
     });
     connect(m_welcome, &WelcomePage::favTabRequested, this, &MainWindow::openFavTab);
     connect(m_welcome, &WelcomePage::resumeRequested, this,

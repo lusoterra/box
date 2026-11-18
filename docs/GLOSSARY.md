@@ -88,6 +88,12 @@
   (blacklist beats the downloaded exception).
 - localBlacklist = per-entry flag: skip server-side `-blacklist`
   exclusions, filter locally (`BooruSite::localBlacklist`).
+- closed-tab stack = `MainWindow::m_closedTabs` (`src/ui/mainwindow.h`):
+  LIFO copies of closed `BrowserTab`s for `Ctrl+Shift+T`, capped at 20,
+  result rows dropped so reopen rescans/re-searches.
+- copy file (clipboard) = `MainWindow::copyPostFilesToClipboard`: local
+  paths are pasted directly; remote/favourite-only rows download into
+  `TempMedia` (`/tmp/box-ext`) first, then the clipboard gets file URLs.
 - relink = `relinkFavourites()`: match unlinked fav rows to files on disk
   (`src/ui/mainwindow.cpp:2642`).
 - refresh-tags / update sidecars = `PostRefresher` single-post re-fetch

@@ -404,6 +404,17 @@ void MainWindow::onTabClosed(int index) {
     if (tabIdx < 0 || tabIdx >= m_tabs.size())
         return;
     const bool wasCurrent = (tabIdx == m_curTab);
+    if (wasCurrent)
+        saveCurrentTab(); // newest filters/open post land in the reopened copy
+    // Browser-style reopen history (Ctrl+Shift+T). Keep the tab's shape and
+    // filters; the result rows are dropped so activation rescans/re-searches
+    // instead of pinning old copies of the archive/fetched pages.
+    BrowserTab *closed = new BrowserTab(*m_tabs[tabIdx]);
+    closed->localPosts.clear();
+    closed->browseMerged.clear();
+    m_closedTabs.prepend(closed);
+    while (m_closedTabs.size() > 20)
+        delete m_closedTabs.takeLast();
     if (m_searchTab == m_tabs[tabIdx]) {
         // The closed tab owned the in-flight search: its completion
         // handler derefs m_searchTab, so cancel the sources and clear
@@ -440,6 +451,51 @@ void MainWindow::onTabClosed(int index) {
         m_curTab--;
     }
     saveTabsNow();
+}
+
+void MainWindow::closeCurrentTab() {
+    if (m_curTab < 0)
+        return; // home/welcome: nothing to close
+    if (m_viewerFullscreen)
+        setViewerFullscreen(false);
+    onTabClosed(m_curTab + 1); // tab-bar index 0 is welcome
+}
+
+void MainWindow::openDefaultTab() {
+    // Same source choice as the home "New browse tab": the explicit
+    // Default tab booru wins, else the default-boorus checklist.
+    QStringList sites = m_settings.browseSites;
+    if (RemoteSource::siteFor(m_settings.tabsDefault) != nullptr)
+        sites = {m_settings.tabsDefault};
+    if (sites.isEmpty()) {
+        statusBar()->showMessage(
+            tr("No boorus configured - pick one in Preferences → Browse"),
+            5000);
+        return;
+    }
+    addRemoteTab(sites, {});
+}
+
+void MainWindow::reopenClosedTab() {
+    while (!m_closedTabs.isEmpty()) {
+        BrowserTab *t = m_closedTabs.takeFirst();
+        if (!t->isRemote && !t->isFavourites &&
+            (t->root.isEmpty() || !QDir(t->root).exists())) {
+            const QString root = t->root;
+            delete t; // folder vanished while the tab sat in history
+            statusBar()->showMessage(
+                tr("Cannot reopen %1 - folder no longer exists").arg(root),
+                5000);
+            continue;
+        }
+        m_tabs.append(t);
+        m_tabBar->addTab(QString());
+        updateTabTitle(m_tabs.size() - 1);
+        m_tabBar->setCurrentIndex(m_tabs.size()); // +1: tab 0 is welcome
+        saveTabsNow();
+        return;
+    }
+    statusBar()->showMessage(tr("No recently closed tabs"), 3000);
 }
 
 void MainWindow::onTabMoved(int from, int to) {
