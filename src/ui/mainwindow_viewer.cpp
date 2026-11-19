@@ -4,6 +4,7 @@
 #include "cachejanitor.h"
 #include "cachepolicy.h"
 #include "cookiegrab.h"
+#include "desktopfiles.h"
 #include "downloadmanager.h"
 #include "filehash.h"
 #include "imagecache.h"
@@ -229,6 +230,15 @@ void MainWindow::showViewerContextMenu(const Post &post,
                 m_viewer->openExternally(post);
             });
         }
+    }
+    QAction *meta = menu.addAction(tr("View metadata…"));
+    connect(meta, &QAction::triggered, this,
+            [this, post] { showPostMetadata(post); });
+    if (hasLocal) {
+        QAction *showFolder = menu.addAction(tr("Show in folder"));
+        connect(showFolder, &QAction::triggered, this, [local] {
+            DesktopFiles::showInFolder(local);
+        });
     }
     if (post.isRemote && hasFileLink) {
         const bool downloaded =

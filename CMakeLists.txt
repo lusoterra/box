@@ -100,6 +100,8 @@ add_executable(box
     src/ui/mainwindow_prefs.cpp
     src/ui/mainwindow_close.cpp
     src/ui/mainwindow_misc2.cpp
+    src/ui/mainwindow_metadata.cpp
+    src/ui/metadatadialog.cpp
     src/ui/mainwindow_back.cpp
     src/ui/mainwindow_viewer.cpp
     src/ui/mainwindow_sidebar2.cpp

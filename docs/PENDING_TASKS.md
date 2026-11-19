@@ -1,5 +1,22 @@
 # Pending tasks (from user goal)
 
+## 36. JSON sidecar healing + metadata viewer + show in folder - DONE
+- [x] Favourites relink no longer indexes sidecars: both
+      `Site_md5.json` and `Site_md5.png` share a stem, and the JSON used
+      to win the first-wins map (local_path became the sidecar, so cards
+      stayed black and "Open file" launched the text editor). Sidecars
+      are skipped; stale sidecar links heal in memory to the sibling
+      media (`FavDb::mediaPathForSidecar`) and are re-linked on startup.
+- [x] `View metadata…` on grid and viewer context menus: summary fields
+      + tag buckets + raw JSON tree, with `Open JSON in editor…` (new
+      `app/defaultTextEditor` preference, ask before using the system
+      default when unset) and `Show in folder`.
+- [x] `Show in folder` uses the freedesktop FileManager1 D-Bus interface
+      (Dolphin/KDE, Nautilus/GNOME), then per-file-manager `--select`,
+      then opens the plain folder.
+- Verify: `test_favdb` (new: sidecar link heals to media, flat sidecar
+      path), `test_gridwindow`; full `ctest`.
+
 ## 35. Favourites walls: grid thumbs, capture pass, external open - DONE
 - [x] `ThumbLoader` plain GETs that answer a challenge (HTML/JSON,
       401/403/429/449/503) retry through the browser backend even on

@@ -236,6 +236,16 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     `setTagSplits`. `applyTagBuckets` removes a moved tag from every
     bucket first (`index.cpp:338`), so imported duplicate rows cannot
     leave one tag counted in two sections.
+  - Sidecar links heal: a `local_path` ending in `.json` is never served
+    as media (`FavDb::isSidecarPath` / `mediaPathForSidecar` resolve the
+    sibling image/video, stem or flat layout). Startup relink skips
+    `.json` files when indexing md5 stems, so the old first-wins bug
+    (JSON sorted before PNG, cards black, open-externally launched the
+    text editor) cannot recreate itself.
+  - `View metadata…` (`mainwindow_metadata.cpp`, `metadatadialog.cpp`)
+    reads the sidecar (or in-memory API object) into a summary/tag page
+    plus a raw JSON tree; `Show in folder` uses FileManager1 D-Bus with
+    per-file-manager `--select` fallbacks (`desktopfiles.h`).
   - Tab switches re-use the rows already held by the tab; only
     `refreshFavTabs()` re-lists `store.db` (every fav/download/import
     path calls it), and `relinkFavourites()` runs once per launch

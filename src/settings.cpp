@@ -322,6 +322,8 @@ AppSettings loadSettings() {
         c.value(QStringLiteral("app/defaultGifViewer")).toString();
     s.defaultVideoPlayer =
         c.value(QStringLiteral("app/defaultVideoPlayer")).toString();
+    s.defaultTextEditor =
+        c.value(QStringLiteral("app/defaultTextEditor")).toString();
     s.loopGif = c.value(QStringLiteral("app/loopGif"), true).toBool();
     s.loopVideo = c.value(QStringLiteral("app/loopVideo"), true).toBool();
     s.mascotPath = c.value(QStringLiteral("home/mascot")).toString();
@@ -463,6 +465,7 @@ void writeSettingsTo(QSettings &c, const AppSettings &s) {
     c.setValue(QStringLiteral("app/defaultImageViewer"), s.defaultImageViewer);
     c.setValue(QStringLiteral("app/defaultGifViewer"), s.defaultGifViewer);
     c.setValue(QStringLiteral("app/defaultVideoPlayer"), s.defaultVideoPlayer);
+    c.setValue(QStringLiteral("app/defaultTextEditor"), s.defaultTextEditor);
     c.setValue(QStringLiteral("app/loopGif"), s.loopGif);
     c.setValue(QStringLiteral("app/loopVideo"), s.loopVideo);
     c.setValue(QStringLiteral("home/mascot"), s.mascotPath);

@@ -105,9 +105,11 @@ remote rows too: `⭳ Download` disables once everything selected is on
 disk, `Delete from disk…` enables, `Set as mascot` shows, and `Copy post
 link` / `Copy media link` / `Copy file path` / `Copy file (clipboard)`
 put the selected rows on the clipboard (stills, GIFs and videos alike).
-Favourite-only remote cards keep `Copy file (clipboard)`: missing bytes are
-fetched into the shared temp folder (`/tmp/box-ext` on Linux) before the
-clipboard gets the file URL. Dragging cards exports linked
+A single selected row also has `View metadata…` (summary + tags + raw
+JSON tree) and `Show in folder` (file manager opens with the file
+selected). Favourite-only remote cards keep `Copy file (clipboard)`:
+missing bytes are fetched into the shared temp folder (`/tmp/box-ext` on
+Linux) before the clipboard gets the file URL. Dragging cards exports linked
 stills/GIFs as a URL (post page or direct media, per Preferences → Browse)
 and local/downloaded stills/GIFs as the file itself; videos are excluded
 from drag-out on purpose (too heavy for a drop target).
@@ -199,7 +201,9 @@ omnibar, sidebar, pills and status bar hide while the viewer goes immersive;
 clippings, `Copy file (clipboard)` / `Open file` (favourite-only remote
 rows fetch the media into the temp folder first; challenge/login pages
 are rejected and retried through the browser, never opened as if they
-were the picture), download/delete and favourite. Esc leaves fullscreen first, then the
+were the picture), `View metadata…` (readable summary/tags + raw JSON
+tree, with `Open JSON in editor…` and `Show in folder`), `Show in folder`
+for local files, download/delete and favourite. Esc leaves fullscreen first, then the
 viewer; F11 toggles it; arrow keys keep stepping posts while fullscreen.
 `Ctrl+D` downloads the post, `Ctrl+O` opens its page, `Ctrl+Shift+O` opens
 the media in the default viewer, `F` favourites and `Ctrl+L` jumps back to
@@ -246,9 +250,11 @@ threads collapse behind a show-all toggle).
 `settings.ini` + `boorus.json` there, leaves a `[app] configDir` pointer
 stub at the default folder; takes effect next launch),
 `Archive history` (+ `Clear history`), Favourites toggles
-(auto-download/auto-favourite/unfavourite-deletes-file), blacklist box.
-Bottom: `Defaults` (reset page), `OK` / `Apply` (greys out when clean -
-`updateApplyState`) / `Cancel`.
+(auto-download/auto-favourite/unfavourite-deletes-file), blacklist box,
+and the external handler commands (`External image viewer`, `GIF viewer`,
+`video player`, `text editor`; empty = system default, `{file}`/`{url}`
+substitution). Bottom: `Defaults` (reset page), `OK` / `Apply` (greys out
+when clean - `updateApplyState`) / `Cancel`.
 
 ## 13-prefs-library - Preferences → Library
 Scan index cache, `Media cache` radios (`Cache everything` /
@@ -334,9 +340,13 @@ removed outside the app hide from the grid the same way (never marked
 downloaded) until they return. Remote favourite thumbnails that answer
 with a Cloudflare/captcha page retry through the browser backend like the
 viewer does, so opening a post is not required to make its card appear;
-one capture pass per walled site covers the whole grid. Right-click keeps the downloaded-card
+one capture pass per walled site covers the whole grid. Older relink
+passes could store the JSON sidecar as the local file (both share the
+stem, and the JSON sorted first): such rows heal to the sibling media on
+load/relink instead of opening the JSON in a text editor. Right-click keeps the downloaded-card
 actions on favourite-only rows too: `Copy file (clipboard)` (temp fetch
-when no local copy) and `Copy media link` work before any download. File ->
+when no local copy), `Copy media link`, `View metadata…` and
+`Show in folder` work before any download. File ->
 `Redownload missing files…`
 re-pulls missing favourites with a download source on demand;
 sourceless ones just stay hidden. GUI deletes

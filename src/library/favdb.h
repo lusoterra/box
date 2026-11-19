@@ -22,6 +22,11 @@ public:
     // guarantee qHash stability across versions) so identities survive
     // restarts and upgrades.
     static qint64 pidFor(const Post &post);
+    // Metadata sidecars (`<stem>.json`, gallery-dl's `<media>.json`) are
+    // not media: a local_path pointing at one is a broken link from older
+    // relink passes and must be healed to the sibling image/video.
+    static bool isSidecarPath(const QString &path);
+    static QString mediaPathForSidecar(const QString &path);
     static QString siteFor(const Post &post) {
         if (post.siteName.isEmpty() && !post.isRemote)
             return QStringLiteral("local");

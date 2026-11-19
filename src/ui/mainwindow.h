@@ -308,6 +308,11 @@ private slots:
     bool viewerFullscreen() const { return m_viewerFullscreen; }
     // Right-click menu for one post (grid card or media surface).
     void showViewerContextMenu(const Post &post, const QPoint &globalPos);
+    // Metadata sidecar for a post (local media, downloaded favourite) or
+    // empty when only the in-memory API object exists.
+    QString postJsonSidecar(const Post &post);
+    // Summary + raw JSON dialog (grid/viewer context menu).
+    void showPostMetadata(const Post &post);
 
 private:
     void startScan(const QString &root);

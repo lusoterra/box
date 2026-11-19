@@ -122,6 +122,11 @@ void MainWindow::relinkFavourites() {
              rootDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot)) {
             const QDir dir(rootDir.absoluteFilePath(siteDir));
             for (const QFileInfo &fi : dir.entryInfoList(QDir::Files)) {
+                // A sidecar shares the media's stem, and QDir lists
+                // `_md5.json` before `_md5.png`: indexing it linked
+                // favourites to JSON (text editor instead of the image).
+                if (FavDb::isSidecarPath(fi.absoluteFilePath()))
+                    continue;
                 const QString stem = fi.completeBaseName();
                 const int cut = stem.lastIndexOf(u'_');
                 if (cut > 0 && cut + 1 < stem.size() &&

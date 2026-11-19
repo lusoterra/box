@@ -4,6 +4,7 @@
 #include "cachejanitor.h"
 #include "cachepolicy.h"
 #include "cookiegrab.h"
+#include "desktopfiles.h"
 #include "downloadmanager.h"
 #include "filehash.h"
 #include "imagecache.h"
@@ -365,6 +366,19 @@ void MainWindow::showGridMenu(const QPoint &pos) {
                                     : tr("Copy files (clipboard)"));
             connect(a, &QAction::triggered, this, [this, targets] {
                 copyPostFilesToClipboard(targets);
+            });
+        }
+    }
+    if (targets.size() == 1) {
+        const Post one = targets.first();
+        QAction *meta = menu.addAction(tr("View metadata…"));
+        connect(meta, &QAction::triggered, this,
+                [this, one] { showPostMetadata(one); });
+        const QString res = resolvedFile(one);
+        if (!res.isEmpty()) {
+            QAction *show = menu.addAction(tr("Show in folder"));
+            connect(show, &QAction::triggered, this, [res] {
+                DesktopFiles::showInFolder(res);
             });
         }
     }

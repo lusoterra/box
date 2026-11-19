@@ -323,13 +323,16 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
         genLay->addLayout(row);
         *out = edit;
     };
-    QLineEdit *ivEdit = nullptr, *gvEdit = nullptr, *vpEdit = nullptr;
+    QLineEdit *ivEdit = nullptr, *gvEdit = nullptr, *vpEdit = nullptr,
+              *teEdit = nullptr;
     extRow(tr("External image viewer:"), &ivEdit, current.defaultImageViewer);
     extRow(tr("External GIF viewer:"), &gvEdit, current.defaultGifViewer);
     extRow(tr("External video player:"), &vpEdit, current.defaultVideoPlayer);
+    extRow(tr("External text editor:"), &teEdit, current.defaultTextEditor);
     m_defaultImageViewer = ivEdit;
     m_defaultGifViewer = gvEdit;
     m_defaultVideoPlayer = vpEdit;
+    m_defaultTextEditor = teEdit;
     auto *loopRow = new QHBoxLayout();
     auto *loopGif = new QCheckBox(tr("Loop GIFs"), this);
     loopGif->setChecked(current.loopGif);

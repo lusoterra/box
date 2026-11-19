@@ -740,6 +740,8 @@ void PrefsDialog::harvestInto(AppSettings &out) {
         out.defaultGifViewer = m_defaultGifViewer->text().trimmed();
     if (m_defaultVideoPlayer)
         out.defaultVideoPlayer = m_defaultVideoPlayer->text().trimmed();
+    if (m_defaultTextEditor)
+        out.defaultTextEditor = m_defaultTextEditor->text().trimmed();
     if (m_loopGif)
         out.loopGif = m_loopGif->isChecked();
     if (m_loopVideo)

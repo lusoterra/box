@@ -153,6 +153,7 @@ struct AppSettings {
     QString defaultImageViewer;
     QString defaultGifViewer;
     QString defaultVideoPlayer;
+    QString defaultTextEditor; // JSON sidecars / "View metadata"
     bool loopGif = true;
     bool loopVideo = true;
     // Home mascot: empty path = shipped default (マニフェスト.jpg);
@@ -302,6 +303,7 @@ inline bool operator==(const AppSettings &a, const AppSettings &b) {
            a.defaultImageViewer == b.defaultImageViewer &&
            a.defaultGifViewer == b.defaultGifViewer &&
            a.defaultVideoPlayer == b.defaultVideoPlayer &&
+           a.defaultTextEditor == b.defaultTextEditor &&
            a.loopGif == b.loopGif && a.loopVideo == b.loopVideo &&
            a.mascotPath == b.mascotPath && a.mascotHidden == b.mascotHidden &&
            qFuzzyCompare(a.mascotOpacity + 1.0, b.mascotOpacity + 1.0) &&

@@ -200,6 +200,54 @@ private slots:
         QCOMPARE(listed.first().absFile, p.absFile);
     }
 
+    void sidecarLocalPathHealsToMedia() {
+        // Older relink indexed the JSON sidecar first (same stem as the
+        // image) and stored it as local_path: favourites then opened the
+        // JSON in a text editor while the image sat next to it.
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        FavDb db;
+        QVERIFY(db.open(tmp.path()));
+        QVERIFY(db.add(samplePost()));
+        const QString media =
+            tmp.filePath(QStringLiteral("Gelbooru_0123456789abcdef.png"));
+        const QString side = tmp.filePath(
+            QStringLiteral("Gelbooru_0123456789abcdef.json"));
+        QFile mf(media);
+        QVERIFY(mf.open(QIODevice::WriteOnly));
+        mf.write("png");
+        mf.close();
+        QFile sf(side);
+        QVERIFY(sf.open(QIODevice::WriteOnly));
+        sf.write("{}");
+        sf.close();
+        QVERIFY(db.setLocalPath(QStringLiteral("Gelbooru"), 7103104, side));
+        // Listing heals in memory; the startup relink persists it.
+        const QVector<Post> rows = db.list();
+        QCOMPARE(rows.size(), 1);
+        QVERIFY(!rows.first().isRemote);
+        QCOMPARE(rows.first().absFile, media);
+        QCOMPARE(rows.first().ext, QStringLiteral("png"));
+        QCOMPARE(db.localPaths().value({QStringLiteral("Gelbooru"), 7103104}),
+                 media);
+        // Still reported as unlinked so relinkFavourites can rewrite the
+        // DB row to the media path.
+        const auto missing = db.unlinked();
+        QCOMPARE(missing.size(), 1);
+        // Flat gallery-dl sidecars resolve too (image.jpg.json).
+        const QString flat = tmp.filePath(QStringLiteral("pic.jpg.json"));
+        QFile ff(flat);
+        QVERIFY(ff.open(QIODevice::WriteOnly));
+        ff.write("{}");
+        ff.close();
+        QFile jf(tmp.filePath(QStringLiteral("pic.jpg")));
+        QVERIFY(jf.open(QIODevice::WriteOnly));
+        jf.write("jpg");
+        jf.close();
+        QCOMPARE(FavDb::mediaPathForSidecar(flat),
+                 tmp.filePath(QStringLiteral("pic.jpg")));
+    }
+
     void addManyBatchesOneTransaction() {
         QTemporaryDir tmp;
         QVERIFY(tmp.isValid());

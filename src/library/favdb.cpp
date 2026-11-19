@@ -27,6 +27,17 @@ bool isHttpLike(const QString &s) {
            head.startsWith(QStringLiteral("https://"));
 }
 
+bool mediaSuffix(const QString &suffix) {
+    static const QStringList exts = {
+        QStringLiteral("png"),  QStringLiteral("jpg"),
+        QStringLiteral("jpeg"), QStringLiteral("gif"),
+        QStringLiteral("webp"), QStringLiteral("avif"),
+        QStringLiteral("jxl"),  QStringLiteral("mp4"),
+        QStringLiteral("webm"), QStringLiteral("bmp"),
+        QStringLiteral("tif"),  QStringLiteral("tiff")};
+    return exts.contains(suffix.toLower());
+}
+
 // Stable 63-bit id from a string (SHA1 prefix): unlike qHash, identical
 // across processes and Qt versions, so hash-based favourite identities
 // survive restarts and upgrades.
@@ -77,6 +88,34 @@ QMap<QString, QStringList> decodeCustom(const QString &s) {
     return out;
 }
 } // namespace
+
+bool FavDb::isSidecarPath(const QString &path) {
+    return QFileInfo(path).suffix().compare(QStringLiteral("json"),
+                                            Qt::CaseInsensitive) == 0;
+}
+
+QString FavDb::mediaPathForSidecar(const QString &path) {
+    const QFileInfo fi(path);
+    if (fi.suffix().compare(QStringLiteral("json"), Qt::CaseInsensitive) != 0)
+        return {};
+    // gallery-dl flat sidecar: image.jpg.json -> image.jpg
+    const QString flat = path.left(path.size() - 5);
+    if (!flat.isEmpty() && QFileInfo::exists(flat) &&
+        !isSidecarPath(flat))
+        return flat;
+    // Our stem sidecar: Site_md5.json -> Site_md5.<media ext>. Directory
+    // listing keeps case-insensitive extensions working on Linux.
+    const QString dir = fi.absolutePath();
+    const QString stem = fi.completeBaseName();
+    const QFileInfoList files =
+        QDir(dir).entryInfoList(QDir::Files | QDir::NoDotAndDotDot);
+    for (const QFileInfo &cand : files) {
+        if (cand.completeBaseName() == stem &&
+            mediaSuffix(cand.suffix()) && !isSidecarPath(cand.fileName()))
+            return cand.absoluteFilePath();
+    }
+    return {};
+}
 
 qint64 FavDb::pidFor(const Post &post) {
     if (post.siteName.isEmpty() && !post.isRemote)
@@ -287,7 +326,10 @@ QVector<FavDb::Unlinked> FavDb::unlinked() {
         return out;
     while (q.next()) {
         const QString local = q.value(3).toString();
-        if (!local.isEmpty() && QFileInfo::exists(local))
+        // Sidecar links are always re-resolved: even when the JSON exists,
+        // the row must point at the sibling media instead.
+        if (!local.isEmpty() && !isSidecarPath(local) &&
+            QFileInfo::exists(local))
             continue;
         Unlinked u;
         u.site = q.value(0).toString();
@@ -330,9 +372,16 @@ QHash<QPair<QString, qint64>, QString> FavDb::localPaths() {
     QSqlQuery q(QSqlDatabase::database(m_conn));
     if (!q.exec(QStringLiteral("SELECT site, post_id, local_path FROM favourites")))
         return out;
-    while (q.next())
-        out.insert({q.value(0).toString(), q.value(1).toLongLong()},
-                   q.value(2).toString());
+    while (q.next()) {
+        QString local = q.value(2).toString();
+        // Broken older link: a sidecar was chosen over its media sibling
+        // (QDir ordered image.json before image.png). Heal in memory; the
+        // startup relink pass persists the media path. A sidecar without
+        // media maps to empty, so the row is not treated as downloaded.
+        if (isSidecarPath(local))
+            local = mediaPathForSidecar(local);
+        out.insert({q.value(0).toString(), q.value(1).toLongLong()}, local);
+    }
     return out;
 }
 
@@ -583,7 +632,12 @@ static Post rowToPost(const QSqlQuery &q) {
     }
     // A downloaded copy always wins: favourites open (and thumbnail) from
     // disk instead of re-streaming the remote URL.
-    const QString local = q.value(17).toString();
+    QString local = q.value(17).toString();
+    if (!local.isEmpty() && FavDb::isSidecarPath(local)) {
+        // Heal the old relink bug: `Site_md5.json` won over `Site_md5.png`
+        // because both share the stem. Never serve the sidecar as media.
+        local = FavDb::mediaPathForSidecar(local);
+    }
     if (!local.isEmpty() && QFileInfo::exists(local)) {
         p.isRemote = false;
         p.absFile = local;

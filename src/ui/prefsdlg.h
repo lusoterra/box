@@ -81,6 +81,7 @@ private:
     QLineEdit *m_defaultImageViewer = nullptr;
     QLineEdit *m_defaultGifViewer = nullptr;
     QLineEdit *m_defaultVideoPlayer = nullptr;
+    QLineEdit *m_defaultTextEditor = nullptr;
     QCheckBox *m_loopGif = nullptr;
     QCheckBox *m_loopVideo = nullptr;
     QComboBox *m_browseLimit;
