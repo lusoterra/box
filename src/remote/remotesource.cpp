@@ -977,8 +977,10 @@ const BooruSite *entryForHost(const QString &hostIn) {
         if (b.baseUrl.isEmpty())
             return false;
         const QString bh = canonicalHost(QUrl(b.baseUrl).host());
-        return !bh.isEmpty() && (host == bh || host.endsWith(u'.' + bh) ||
-                                bh.endsWith(u'.' + host));
+        return !bh.isEmpty() &&
+               (host == bh || host.endsWith(u'.' + bh) ||
+                bh.endsWith(u'.' + host) ||
+                RemotePosts::isKnownMediaHost(bh, host));
     };
     for (const BooruSite &b : configuredBoorus()) {
         if (match(b))

@@ -347,13 +347,10 @@ void DownloadManager::pump() {
             // Fingerprint-walled media: the browser stack downloads
             // with the profile's session (plain requests get wall
             // pages instead of bytes).
-            auto *flight = new Flight{job, nullptr, nullptr};
-            flight->webId = m_webNextId++;
-            m_flights.append(flight);
+            job.webTried = true;
             emit fileStarted(job.fileName);
             emit progress(m_done, m_total, job.fileName);
-            m_webBackend->start(flight->webId, job.post.fileUrl,
-                                job.filePath);
+            startWebFlight(job);
             continue;
         }
         auto *file = new QFile(job.filePath);
@@ -395,6 +392,13 @@ void DownloadManager::pump() {
     }
 }
 
+void DownloadManager::startWebFlight(const DownloadJob &job) {
+    auto *flight = new Flight{job, nullptr, nullptr};
+    flight->webId = m_webNextId++;
+    m_flights.append(flight);
+    m_webBackend->start(flight->webId, job.post.fileUrl, job.filePath);
+}
+
 void DownloadManager::onFileReply() {
     QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
     Flight *flight = nullptr;
@@ -415,6 +419,25 @@ void DownloadManager::onFileReply() {
     // Final paths: the sidecar + media may be renamed below (md5 fixup),
     // so the job copy - not the queued original - is what finishes.
     DownloadJob job = flight->job;
+    // Cloudflare/captcha CDNs reject QNAM even with a valid clearance
+    // (TLS/UA fingerprint). Instead of failing the download, re-run it
+    // once through the capture browser that minted the clearance.
+    auto retryInBrowser = [&]() -> bool {
+        if (!m_webBackend || job.webTried || job.post.fileUrl.isEmpty())
+            return false;
+        job.webTried = true;
+        if (flight->file) {
+            flight->file->close();
+            flight->file->remove();
+            delete flight->file;
+            flight->file = nullptr;
+        }
+        QFile::remove(job.filePath);
+        reply->deleteLater();
+        delete flight;
+        startWebFlight(job);
+        return true;
+    };
     if (ok && flight->file) {
         const QString ct = reply
                                ->header(QNetworkRequest::ContentTypeHeader)
@@ -453,6 +476,8 @@ void DownloadManager::onFileReply() {
                 reply->header(QNetworkRequest::ContentTypeHeader).toString());
             if (isWall) {
                 QFile::remove(job.filePath);
+                if (retryInBrowser())
+                    return;
                 reply->deleteLater();
                 finishJob(job, false, error, true);
                 delete flight;
@@ -463,6 +488,8 @@ void DownloadManager::onFileReply() {
             if (!completeJob(job, &error, &walled))
                 ok = false;
             if (walled) {
+                if (retryInBrowser())
+                    return;
                 reply->deleteLater();
                 finishJob(job, ok, error, true);
                 delete flight;
@@ -474,6 +501,14 @@ void DownloadManager::onFileReply() {
             reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         error = http > 0 ? tr("HTTP %1").arg(http)
                          : reply->errorString();
+        // Empty 403/449/503 bodies (CDN challenge without markup) look
+        // like plain HTTP errors here, but the browser can still pass.
+        if (http == 403 || http == 449 || http == 503 ||
+            (http <= 0 &&
+             reply->error() == QNetworkReply::ContentAccessDenied)) {
+            if (retryInBrowser())
+                return;
+        }
     }
     if (flight->file) {
         if (!ok) {

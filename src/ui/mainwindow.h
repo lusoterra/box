@@ -290,6 +290,9 @@ private slots:
     void pumpHybooruHydration(); // omnibar ★: starred tags, click adds to search
     void onGridActivated(const QModelIndex &index);
     void onThumbnailReady(const QString &key, const QImage &image);
+    // A grid thumbnail hit a challenge wall: register the media wall and
+    // start one capture pass per site (not one dialog per black card).
+    void onThumbWall(const QString &siteKey, const QString &url);
     void onScanFinished(const QString &scannedRoot,
                         const QVector<Post> &scanned);
     void onScanProgress(int n, int total);

@@ -1,5 +1,29 @@
 # Pending tasks (from user goal)
 
+## 35. Favourites walls: grid thumbs, capture pass, external open - DONE
+- [x] `ThumbLoader` plain GETs that answer a challenge (HTML/JSON,
+      401/403/429/449/503) retry through the browser backend even on
+      hosts without a `powWall` quirk (Danbooru/cdn.donmai.us), so a
+      card no longer waits for a click to appear.
+- [x] The first walled thumb per site opens one capture pass
+      (`thumbnailWall` -> `onThumbWall`, 5-minute loop breaker); the
+      pass starts at the site root, not a CDN URL that may serve the
+      image without minting cookies.
+- [x] Capturing a clearance in Preferences or the Solve dialog retries
+      the visible grid and open viewer immediately.
+- [x] `TempMedia` validates magic bytes/content type before writing:
+      challenge/login pages are never saved as `.jpg` and opened as
+      "the JSON"; `Open externally` retries walled media through the
+      browser backend.
+- [x] Explicit downloads re-run a walled QNAM job once through the
+      browser backend (`DownloadJob::webTried`) instead of failing on
+      a Cloudflare CDN.
+- [x] Favourites rows resolve their site key from the label before
+      stamping thumb requests, so wall detection names the entry.
+- Verify: `test_thumbloader` (new: browser fallback on a plain 403,
+      wall signal when the browser cannot pass, challenge page rejected
+      by `TempMedia`), full `ctest`.
+
 ## 34. Hover tooltips on the omnibar dropdowns - DONE
 - Rating, source/category, downloads media and sort combos now carry
   `setToolTip` text explaining what they filter/sort and where it runs

@@ -123,7 +123,8 @@ bool requestUnderHost(const QString &request, const QString &host) {
 bool isKnownMediaHost(const QString &siteHost, const QString &requestHost) {
     if (siteHost.isEmpty() || requestHost.isEmpty())
         return false;
-    if (requestHost == QStringLiteral("cdn.donmai.us") &&
+    if ((requestHost == QStringLiteral("cdn.donmai.us") ||
+         requestHost.endsWith(QStringLiteral(".donmai.us"))) &&
         (siteHost == QStringLiteral("danbooru.donmai.us") ||
          siteHost == QStringLiteral("safebooru.donmai.us") ||
          siteHost == QStringLiteral("donmai.us") ||

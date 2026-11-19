@@ -48,9 +48,12 @@ void ViewerPage::setWebBackend(WebDownloadBackend *backend) {
     if (m_stillWeb == backend)
         return;
     m_stillWeb = backend;
-    if (m_stillWeb)
+    if (m_stillWeb) {
         connect(m_stillWeb, &WebDownloadBackend::finished, this,
                 &ViewerPage::onStillWebFinished);
+        connect(m_stillWeb, &WebDownloadBackend::finished, this,
+                &ViewerPage::onOpenWebFinished);
+    }
 }
 
 void ViewerPage::setCategoryMerges(

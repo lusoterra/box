@@ -47,6 +47,11 @@ public:
 
 signals:
     void thumbnailReady(const QString &key, const QImage &image);
+    // Plain fetch hit a challenge (HTML/JSON instead of bytes) and the
+    // browser fallback either was not tried or could not pass it either.
+    // The site key is whatever the caller stamped on the request (may be
+    // empty for favourites; the receiver can resolve it from the URL).
+    void thumbnailWall(const QString &siteKey, const QString &url);
 
 private:
     friend class ThumbTask;

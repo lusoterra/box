@@ -31,6 +31,10 @@ struct DownloadJob {
     QString fileName; // <host>_<md5>.<ext>
     QString filePath; // dest/<host>/<fileName>
     QString jsonPath; // dest/<host>/<stem>.json
+    // QNAM answered a challenge/login page, so this job was re-run through
+    // the capture browser. One retry only: a browser that also walls ends
+    // as a normal error instead of looping.
+    bool webTried = false;
 };
 
 struct DownloadSummary {
@@ -107,6 +111,7 @@ private:
         qint64 webId = -1; // >= 0 while a browser-backend flight runs
     };
     void pump();
+    void startWebFlight(const DownloadJob &job);
     void onFileReply();
     void finishJob(const DownloadJob &job, bool ok, const QString &error,
                    bool walled = false, bool repump = true);

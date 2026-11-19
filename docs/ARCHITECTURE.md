@@ -324,9 +324,17 @@ Never a group named `General` (QSettings reserves it; see
   session). CDN-specific captures are host-scoped (`host!name=value`,
   `harvestScopedCookies`) so they cannot clobber the site value; scoped
   entries only apply under their own host, narrower scope wins. A walled
-  viewer image registers the failing URL in `m_mediaWalls` (Solve button
-  opens the CDN) and the silent clearance refresh loads that media URL,
-  not just the site root; `proxyForUrl` follows the same CDN matching.
+  viewer image registers the failing URL in `m_mediaWalls`; grid
+  thumbnails do the same without being opened (`ThumbLoader::thumbnailWall`)
+  and retry a walled plain GET through the browser backend. The first
+  thumbnail wall per site opens one capture pass at the site root (not
+  the CDN URL, which can serve bytes without minting cookies), then the
+  visible grid and open viewer retry. Explicit downloads do the same:
+  a QNAM HTML/403 result re-runs the job once via the browser backend
+  (`DownloadJob::webTried`). `TempMedia` (open externally/clipboard)
+  rejects challenge pages instead of saving them as media. The silent
+  clearance refresh loads the failing media URL, not just the site root;
+  `proxyForUrl` follows the same CDN matching.
 - Transient retry: `isTransientSearchError` = rate-limit/timeout/5xx, never
   auth/wall/bad-filter (`booruengine.h:42`); one delayed auto-retry per fresh
   search (`m_searchRetried`, `mainwindow.h:363`; `mainwindow.cpp:2151-2159`);

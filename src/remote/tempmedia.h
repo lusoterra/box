@@ -14,10 +14,21 @@
 #include <functional>
 
 namespace TempMedia {
+// Outcome of one fetch. Challenge/login pages (HTML/JSON instead of media)
+// are rejected and never written: opening one looks like "the image is
+// the JSON". walled=true names that case so callers can retry through the
+// browser backend.
+struct Result {
+    QString path;        // empty on failure
+    QString error;       // human-readable reason (empty on success)
+    bool walled = false; // server answered with a challenge/login page
+};
 // Fetch url to a stable temp path (extHint picks the extension when the
 // URL has none or is unusable); onReady runs on the caller's thread with
-// the path, or with an empty path on error. Repeated calls for the same
-// URL share one flight and one file.
+// the outcome. Repeated calls for the same URL share one file.
+void ensureTemp(const QString &url, const QString &extHint,
+                const std::function<void(const Result &)> &onReady);
+// Path-only convenience wrapper for callers that only need "got it".
 void ensureTemp(const QString &url, const QString &extHint,
                 const std::function<void(const QString &)> &onReady);
 // Temp folder used above (TempLocation/box-ext), created on demand.

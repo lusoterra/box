@@ -141,14 +141,28 @@ void MainWindow::solveWallInBrowser(const QString &siteKey,
         return;
     }
     QUrl start = startUrl;
+    const QString siteHost = QUrl(entry.baseUrl).host().toLower();
     // PoW/captcha challenges only fire where site JS runs: an API JSON
     // URL (ATF 449s, soybooru pow_required) loads bare data with no
     // worker and no challenge, so start at the entry root instead and
     // let the guidance send the user searching in-page. Media/file URLs
-    // keep the failing address (the wall lives on that host).
-    if ((wallKind == QStringLiteral("pow") ||
-         wallKind == QStringLiteral("captcha")) &&
-        start.isValid()) {
+    // keep the failing address when they live on the entry host (the
+    // wall lives there), but a sibling CDN (cdn.donmai.us) can serve the
+    // image with no challenge at all - no cookies would be minted - so
+    // those start on the site root instead: one site clearance unlocks
+    // its media CDN.
+    const bool challengeKind =
+        wallKind.isEmpty() || wallKind == QStringLiteral("pow") ||
+        wallKind == QStringLiteral("captcha") ||
+        wallKind == QStringLiteral("challenge");
+    if (!start.isValid())
+        start = QUrl(entry.baseUrl);
+    const QString startHost = start.host().toLower();
+    if (challengeKind && !startHost.isEmpty() && startHost != siteHost) {
+        start = QUrl(entry.baseUrl);
+    } else if ((wallKind == QStringLiteral("pow") ||
+                wallKind == QStringLiteral("captcha")) &&
+               start.isValid()) {
         const QString path = start.path().toLower();
         if (path.contains(QStringLiteral("/api/")) ||
             path.endsWith(QStringLiteral(".json")))
@@ -180,6 +194,11 @@ void MainWindow::solveWallInBrowser(const QString &siteKey,
             6000);
         if (BrowserTab *t = currentTab(); t && t->isRemote)
             doBrowseSearch(false);
+        // Favourites tabs run no search: retry every grid thumbnail now
+        // (failed cards were never cached, so the same keys re-request and
+        // ride the fresh clearance through the browser backend).
+        if (m_thumbTimer)
+            m_thumbTimer->start(0);
         // If the wall was hit by the open viewer, reload its media too.
         if (m_pages && m_pages->currentIndex() == 1 && m_viewer &&
             m_viewer->hasCurrent()) {

@@ -38,9 +38,12 @@ fit at once;
 click toggles filter pills, right-click stars/un-stars favourite tags or
 recategorises one (the pane reloads in place, so a source category left
 with its last tag moved away disappears immediately). The
-omnibar keeps only the ★ favourite-tags button. A captcha/PoW wall failure pops the solve browser open (opt out in Preferences → Browse, back to a small menu: solve the challenge in the capture browser, or drop the booru (deselect in multibooru, close a solo tab)). Center: post grid. Bottom-left: `40 results · page 1` and infinite scroll (more loads at the bottom); a failed query leaves its one-liner there (click = full server response) plus a `Solve … in browser…` button while walls are reported. The browser
-opens AT the failing URL (failed search request, failed file URL) instead of
-the homepage, since file/media hosts challenge while `/` lets you through.
+omnibar keeps only the ★ favourite-tags button. A captcha/PoW wall failure pops the solve browser open (opt out in Preferences → Browse, back to a small menu: solve the challenge in the capture browser, or drop the booru (deselect in multibooru, close a solo tab)). Grid thumbnails hit the same walls: a failed preview retries through the capture browser on its own, and the first failure per site opens one capture pass (never one browser per black card), including on Favourites tabs. Center: post grid. Bottom-left: `40 results · page 1` and infinite scroll (more loads at the bottom); a failed query leaves its one-liner there (click = full server response) plus a `Solve … in browser…` button while walls are reported. The browser
+opens AT the failing search request. Media walls on a sibling CDN
+(`cdn.donmai.us`) open the site root instead: that CDN page can serve the
+image with no challenge (and mint no cookies), while one site clearance
+unlocks its media host. After a successful capture the visible grid
+thumbnails and the open viewer retry immediately.
 Grid keyboard: `Enter` opens the focused card only when exactly one is
 selected, `Space` selects/deselects it, arrows move through the grid,
 `Ctrl+D` downloads the selection (or the focused card), `/` or `Ctrl+L`
@@ -194,8 +197,9 @@ fullscreen post view (`MainWindow::setViewerFullscreen`: menubar, tab bar,
 omnibar, sidebar, pills and status bar hide while the viewer goes immersive;
 `ViewerPage::setImmersive`); right-click offers `Fullscreen`, link
 clippings, `Copy file (clipboard)` / `Open file` (favourite-only remote
-rows fetch the media into the temp folder first), download/delete and
-favourite. Esc leaves fullscreen first, then the
+rows fetch the media into the temp folder first; challenge/login pages
+are rejected and retried through the browser, never opened as if they
+were the picture), download/delete and favourite. Esc leaves fullscreen first, then the
 viewer; F11 toggles it; arrow keys keep stepping posts while fullscreen.
 `Ctrl+D` downloads the post, `Ctrl+O` opens its page, `Ctrl+Shift+O` opens
 the media in the default viewer, `F` favourites and `Ctrl+L` jumps back to
@@ -327,7 +331,10 @@ General instead of disappearing. `Delete from disk…` also removes kept favouri
 renderable source (no file, no remote media/post link) instead of leaving
 empty cards; post-linked rows stay (viewer refresh can heal them). Files
 removed outside the app hide from the grid the same way (never marked
-downloaded) until they return. Right-click keeps the downloaded-card
+downloaded) until they return. Remote favourite thumbnails that answer
+with a Cloudflare/captcha page retry through the browser backend like the
+viewer does, so opening a post is not required to make its card appear;
+one capture pass per walled site covers the whole grid. Right-click keeps the downloaded-card
 actions on favourite-only rows too: `Copy file (clipboard)` (temp fetch
 when no local copy) and `Copy media link` work before any download. File ->
 `Redownload missing files…`

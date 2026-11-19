@@ -127,22 +127,37 @@ void ThumbTask::run() {
     if (m_path.startsWith(QStringLiteral("http"))) {
         // Fingerprint-walled hosts ride the browser stack (plain
         // requests get wall pages instead of bytes there).
-        const RemotePosts::SiteQuirk *wq = RemotePosts::quirkForHost(
-            QUrl(m_path).host().toLower());
+        const QString host = QUrl(m_path).host().toLower();
+        const RemotePosts::SiteQuirk *wq = RemotePosts::quirkForHost(host);
+        const bool browserFirst =
+            m_loader->m_webBackend && wq && wq->powWall;
         QByteArray bytes;
-        if (m_loader->m_webBackend && wq && wq->powWall) {
+        bool wallSeen = false;
+        auto browserFetch = [&]() -> QByteArray {
+            if (!m_loader->m_webBackend)
+                return {};
             QTemporaryFile tmp;
-            if (tmp.open()) {
-                const QString tmpPath = tmp.fileName();
-                tmp.close();
-                QString error;
-                if (m_loader->m_webBackend->fetchBlocking(
-                        m_path, tmpPath, &error, 90000)) {
-                    QFile f(tmpPath);
-                    if (f.open(QIODevice::ReadOnly))
-                        bytes = f.readAll();
-                }
+            if (!tmp.open())
+                return {};
+            const QString tmpPath = tmp.fileName();
+            tmp.close();
+            QString error;
+            // 45s: long enough for the capture dialog to be solved while
+            // this flight is already navigating, short enough that a
+            // cancelled wall does not pin the whole thumbnail pool.
+            if (m_loader->m_webBackend->fetchBlocking(
+                    m_path, tmpPath, &error, 45000)) {
+                QFile f(tmpPath);
+                if (f.open(QIODevice::ReadOnly))
+                    return f.readAll();
             }
+            // A failed browser download means the profile could not pass
+            // the wall either: either a challenge page or a human captcha.
+            wallSeen = true;
+            return {};
+        };
+        if (browserFirst) {
+            bytes = browserFetch();
         } else {
             // Remote preview/sample URL: plain GET into memory.
             QNetworkAccessManager nam;
@@ -170,12 +185,56 @@ void ThumbTask::run() {
             const int httpStatus = reply->attribute(
                                        QNetworkRequest::HttpStatusCodeAttribute)
                                        .toInt();
-            if (reply->error() == QNetworkReply::NoError)
-                bytes = reply->readAll();
+            const QByteArray body = reply->readAll();
+            const QString contentType =
+                reply->header(QNetworkRequest::ContentTypeHeader).toString();
+            const QString ctl = contentType.trimmed().toLower();
+            const bool httpError = reply->error() != QNetworkReply::NoError ||
+                                   httpStatus >= 400;
+            // Challenge pages answer HTML/JSON with a 200 or a 403. Some
+            // walled CDNs answer with an empty 403, so the status alone
+            // counts too.
+            const bool challenge =
+                RemotePosts::looksLikeCloudflareWall(body) ||
+                RemotePosts::looksLikeChallengePage(body) ||
+                ctl.startsWith(QStringLiteral("text/")) ||
+                ctl.contains(QStringLiteral("json")) ||
+                ctl.contains(QStringLiteral("xml"));
+            if (!httpError)
+                bytes = body;
+            if (httpError) {
+                wallSeen = httpStatus == 401 || httpStatus == 403 ||
+                           httpStatus == 429 || httpStatus == 449 ||
+                           httpStatus == 503 || challenge;
+            } else if (!body.isEmpty() &&
+                       !RemotePosts::looksLikeMediaBytes(body.left(512)) &&
+                       (challenge ||
+                        !ctl.startsWith(QStringLiteral("image/")))) {
+                // 200 but markup/JSON instead of bytes (Cloudflare JS
+                // interstitial): never let it decode as a black card.
+                bytes.clear();
+                wallSeen = true;
+            }
             if (httpStatus == 429 || httpStatus >= 500 ||
                 reply->error() != QNetworkReply::NoError)
                 m_loader->lowerConcurrency();
             reply->deleteLater();
+            // Cloudflare/captcha hosts get one browser ride too (Danbooru
+            // & co. have no powWall quirk but still reject QNAM's TLS
+            // fingerprint even with live clearance). Tell the shell right
+            // away so the capture pass can start while the browser tries
+            // (waiting for its timeout before opening the dialog felt
+            // like a frozen grid); MainWindow dedupes per site.
+            if (bytes.isEmpty() && wallSeen) {
+                emit m_loader->thumbnailWall(m_siteKey, m_path);
+                bytes = browserFetch();
+            }
+        }
+        if (bytes.isEmpty()) {
+            if (wallSeen && browserFirst)
+                emit m_loader->thumbnailWall(m_siteKey, m_path);
+            m_loader->releaseKey(m_key);
+            return;
         }
         // Bounded decode: hostile dimensions must not balloon memory.
         // QImageReader downscales while decoding, like local files below.

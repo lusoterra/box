@@ -185,6 +185,14 @@ void MainWindow::offerRestartForLanguage(const QString &previous) {
 void MainWindow::applyPreferences(const AppSettings &app) {
     const QString oldDataDir = effectiveDataDir(m_settings);
     const AppSettings old = m_settings;
+    auto mediaAuthOf = [](const QList<BooruSite> &boorus) {
+        QStringList out;
+        for (const BooruSite &b : boorus)
+            out << b.key + u'=' + b.cookies.join(u';') + u'|' + b.user +
+                       u'|' + b.secret + u'|' + b.proxy + u'|' + b.baseUrl;
+        return out;
+    };
+    const QStringList oldMediaAuth = mediaAuthOf(old.boorus);
     m_settings = app;
     setAppCacheDirOverride(m_settings.cacheDir);
     saveSettings(m_settings);
@@ -270,6 +278,17 @@ void MainWindow::applyPreferences(const AppSettings &app) {
             updateTabTitle(i);
     }
     applyBooruCreds();
+    // Capturing a captcha/clearance in Preferences must revive the cards
+    // that already failed: failures are never cached, so re-requesting the
+    // visible keys rides the new cookies/browser profile immediately.
+    if (mediaAuthOf(m_settings.boorus) != oldMediaAuth &&
+        m_stage && m_stage->currentIndex() == 1) {
+        if (m_thumbTimer)
+            m_thumbTimer->start(0);
+        if (m_pages && m_pages->currentIndex() == 1 && m_viewer &&
+            m_viewer->hasCurrent())
+            m_viewer->showRow(m_viewer->currentRow());
+    }
     applyThemeFromSettings();
     applySidebarScrollMode();
     setAspect(m_settings.aspectNum, m_settings.aspectDen);

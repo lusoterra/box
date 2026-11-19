@@ -325,6 +325,7 @@ public:
     // feed it back as the pending thumb so the media never blanks.
     QPixmap currentPixmap() const;
     void onStillWebFinished(qint64 id, bool ok, const QString &error);
+    void onOpenWebFinished(qint64 id, bool ok, const QString &error);
     void dropStillWeb(); // cancel a browser-backed still/gif fetch
     void setPlaybackDefaults(bool muted, bool loop, int volume);
     // Hide toolbar/sidebar so the media fills the window (fullscreen).
@@ -418,6 +419,7 @@ private:
     void showErrorNote(const QString &url, const QString &text);
     void showNotePopup(const QString &body, const QPoint &globalPos);
     void loadLocalImage(const QString &path, int row);
+    void launchExternalPath(const Post &post, const QString &path);
     void addTagGroup(QBoxLayout *lay, const QString &name, const QString &tags,
                      const QString &color);
 
@@ -466,6 +468,11 @@ private:
     QString m_stillTmp;
     int m_stillRow = -1;
     bool m_webRetried = false; // one browser retry per post max
+    // "Open externally" browser fallback (separate from the on-screen
+    // media fetch so it never blanks the viewer).
+    qint64 m_openWebId = -1;
+    QString m_openWebTmp;
+    Post m_openWebPost;
     PostMetaFetcher *m_meta = nullptr;
     // (site#id) -> notes+comments, so back/forth never refetches.
     QHash<QString, ViewerMeta> m_metaCache;

@@ -1194,6 +1194,8 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     connect(m_grid, &QListView::customContextMenuRequested, this,
             &MainWindow::showGridMenu);
     connect(m_thumbs, &ThumbLoader::thumbnailReady, this, &MainWindow::onThumbnailReady);
+    connect(m_thumbs, &ThumbLoader::thumbnailWall, this,
+            &MainWindow::onThumbWall);
     connect(m_videoThumbs, &VideoThumbGrabber::thumbnailReady, this,
             &MainWindow::onThumbnailReady);
     connect(m_fetcher, &TagTypeFetcher::progress, this,
@@ -1422,6 +1424,11 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
                     }
                     if (!found)
                         m_mediaWalls.append({key, url});
+                    // The Solve button must open the site root for this
+                    // (a CDN page can load its bytes without a challenge,
+                    // so harvesting there yields nothing).
+                    if (!m_wallKinds.contains(key))
+                        m_wallKinds.insert(key, QStringLiteral("challenge"));
                     updateWallButton();
                 }
                 const QString tag =

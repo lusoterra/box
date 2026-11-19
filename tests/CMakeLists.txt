@@ -86,6 +86,7 @@ add_unit_test(test_favicon test_favicon.cpp ../src/remote/faviconcache.cpp
 add_unit_test(test_sidecarrefresh test_sidecarrefresh.cpp ../src/library/sidecarrefresh.cpp
               ${REMOTE_SOURCES})
 add_unit_test(test_thumbloader test_thumbloader.cpp ../src/remote/thumbloader.cpp
+              ../src/remote/webdlbackend.h
               ../src/library/cachejanitor.cpp ${REMOTE_SOURCES} ../src/settings.cpp ../src/remote/tempmedia.cpp)
 target_compile_definitions(test_thumbloader PRIVATE
     TESTFILES_DIR="${CMAKE_SOURCE_DIR}/tests/files")

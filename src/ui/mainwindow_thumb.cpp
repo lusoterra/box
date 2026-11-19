@@ -118,7 +118,13 @@ void MainWindow::requestVisibleThumbs() {
         const bool nsfwThumb =
             MediaCache::isNsfwRating(p.rating) ||
             MediaCache::postHasBlacklistedTag(p);
-        const QString siteKey = p.isRemote ? p.siteKey : QString();
+        // Favourites rows carry no stamped key (it is never persisted):
+        // resolve through the label so wall-detection can name the site.
+        const QString siteKey =
+            p.isRemote ? (p.siteKey.isEmpty()
+                              ? RemotePosts::keyForLabel(p.siteName)
+                              : p.siteKey)
+                       : QString();
         if (p.isRemote) {
             const QString thumb = RemotePosts::thumbUrlFor(p);
             if (thumb.isEmpty())
@@ -188,6 +194,20 @@ void MainWindow::onThumbnailReady(const QString &key, const QImage &image) {
     QPixmap pm = QPixmap::fromImage(image);
     if (pm.isNull())
         return;
+    // That exact preview no longer needs a Solve button: the wall cleared
+    // for it (browser fallback, captured clearance, or a plain retry).
+    if (key.startsWith(QStringLiteral("url|"))) {
+        const QString url = key.mid(4);
+        bool changed = false;
+        for (int i = m_mediaWalls.size() - 1; i >= 0; --i) {
+            if (m_mediaWalls.at(i).second == url) {
+                m_mediaWalls.removeAt(i);
+                changed = true;
+            }
+        }
+        if (changed)
+            updateWallButton();
+    }
     if (!m_thumbCache.contains(key)) {
         m_cacheOrder.append(key);
         if (m_cacheOrder.size() > 256)
@@ -211,5 +231,43 @@ void MainWindow::onThumbnailReady(const QString &key, const QImage &image) {
         m_model->setData(idx, pm, Qt::DecorationRole);
         m_model->setData(idx, true, Qt::UserRole + 16); // pixmap-loaded flag
     }
+}
+
+void MainWindow::onThumbWall(const QString &siteKey, const QString &url) {
+    // Favourites rows may not carry a key: resolve the media host back to
+    // the configured entry (cdn.donmai.us -> danbooru).
+    QString key = siteKey;
+    if (key.isEmpty() || !RemoteSource::siteFor(key)) {
+        if (const BooruSite *entry = RemotePosts::entryForHost(QUrl(url).host()))
+            key = entry->key;
+    }
+    const BooruSite *cfg = RemoteSource::siteFor(key);
+    if (!cfg || cfg->baseUrl.isEmpty())
+        return; // unknown host: nothing the capture browser could solve
+    bool known = false;
+    for (auto &wt : m_mediaWalls) {
+        if (wt.first == key) {
+            wt.second = url;
+            known = true;
+            break;
+        }
+    }
+    if (!known)
+        m_mediaWalls.append({key, url});
+    if (!m_wallKinds.contains(key))
+        m_wallKinds.insert(key, QStringLiteral("challenge"));
+    updateWallButton();
+    if (!m_settings.wallAutoPopup)
+        return;
+    // One capture pass per site, not one per black card: twenty walled
+    // thumbnails must summon a single browser. The Solve button stays
+    // available for a manual retry later.
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    if (now - m_lastWallPopup.value(key, 0) <= 5 * 60 * 1000)
+        return;
+    m_lastWallPopup.insert(key, now);
+    // Root, not the failing CDN URL: the CDN page can load fine (no
+    // challenge, no cookies); the clearance comes from the site itself.
+    solveWallInBrowser(key, m_wallKinds.value(key));
 }
 
