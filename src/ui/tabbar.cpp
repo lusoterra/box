@@ -46,7 +46,9 @@ void MarqueeTabBar::tabRemoved(int index) {
 }
 
 void MarqueeTabBar::onTabMoved(int from, int to) {
-    m_dragging = false;
+    // Do NOT clear m_dragging here: tabMoved also fires mid-drag as tabs
+    // slide past each other, and dropping out of the native paint path
+    // there made the dragged tab flicker between styles/positions.
     if (from < 0 || to < 0 || from >= m_fullTitles.size() ||
         to >= m_fullTitles.size() || from == to)
         return;
@@ -74,11 +76,21 @@ void MarqueeTabBar::mouseMoveEvent(QMouseEvent *e) {
 
 void MarqueeTabBar::mouseReleaseEvent(QMouseEvent *e) {
     m_pressed = false;
-    if (m_dragging) {
+    if (!m_dragging) {
+        QTabBar::mouseReleaseEvent(e);
+        return;
+    }
+    // Let the base class start its drop animation first, then keep the
+    // native paint (which applies Tab::dragOffset) until it settles. The
+    // custom paint below has no offset, so switching immediately made the
+    // tab snap to its final rect for a frame - the "flash" after a move.
+    QTabBar::mouseReleaseEvent(e);
+    QTimer::singleShot(300, this, [this] {
+        if (m_pressed)
+            return; // a new press/drag owns the state now
         m_dragging = false;
         update();
-    }
-    QTabBar::mouseReleaseEvent(e);
+    });
 }
 
 namespace {

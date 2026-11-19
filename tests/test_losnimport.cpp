@@ -10,6 +10,8 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QtTest>
 
 namespace {
@@ -90,8 +92,106 @@ private slots:
                      QStringLiteral("https://img4.gelbooru.com/images/51/6e/"
                                     "516e1f01a05ea895b33316bd28bfd27f.jpg")),
                  QStringLiteral("516e1f01a05ea895b33316bd28bfd27f"));
+        // Moebooru keeps the hash in a path segment, not the file name.
+        QCOMPARE(LosnImport::md5FromFileUrl(
+                     QStringLiteral("https://files.yande.re/image/"
+                                    "6eefea0ac79c8e3d01d0b7dabe4389eb/"
+                                    "yande.re%201215079%20tags.png")),
+                 QStringLiteral("6eefea0ac79c8e3d01d0b7dabe4389eb"));
+        // Uppercase hashes normalise to lowercase (disk index is lower).
+        QCOMPARE(LosnImport::md5FromFileUrl(
+                     QStringLiteral("https://x.test/images/"
+                                    "516E1F01A05EA895B33316BD28BFD27F.JPG")),
+                 QStringLiteral("516e1f01a05ea895b33316bd28bfd27f"));
         QVERIFY(LosnImport::md5FromFileUrl(QStringLiteral("https://example.com/x.png")).isEmpty());
         QVERIFY(LosnImport::md5FromFileUrl(QString()).isEmpty());
+    }
+
+    void diskIndexMatchesSidecarUrls() {
+        // A file renamed after hashing (no hash in the backup URL) is
+        // still "already downloaded" through its sidecar's file/post URL.
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        QDir(tmp.path()).mkpath(QStringLiteral("yande.re"));
+        const QString media =
+            tmp.filePath(QStringLiteral("yande.re/yandere_deadbeef.png"));
+        QFile f(media);
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write("x");
+        f.close();
+        QJsonObject sc;
+        sc[QStringLiteral("file_url")] =
+            QStringLiteral("https://files.yande.re/image/abc/"
+                           "yande.re%20123%20tags.png?token=1");
+        sc[QStringLiteral("post_url")] =
+            QStringLiteral("https://yande.re/post/show/123");
+        QFile jf(tmp.filePath(QStringLiteral("yande.re/yandere_deadbeef.json")));
+        QVERIFY(jf.open(QIODevice::WriteOnly));
+        jf.write(QJsonDocument(sc).toJson());
+        jf.close();
+        // gallery-dl flat sidecar form: <media>.json.
+        const QString flat = tmp.filePath(
+            QStringLiteral("yande.re/other.jpg"));
+        QFile mf(flat);
+        QVERIFY(mf.open(QIODevice::WriteOnly));
+        mf.write("y");
+        mf.close();
+        QJsonObject flatSc;
+        flatSc[QStringLiteral("file_url")] =
+            QStringLiteral("https://files.yande.re/image/def/other.jpg");
+        QFile ff(flat + QStringLiteral(".json"));
+        QVERIFY(ff.open(QIODevice::WriteOnly));
+        ff.write(QJsonDocument(flatSc).toJson());
+        ff.close();
+
+        const LosnImport::DiskIndex idx = LosnImport::diskIndex(tmp.path());
+        // Scheme and query do not matter for the URL identity.
+        QCOMPARE(idx.byUrl.value(LosnImport::diskUrlKey(
+                     QStringLiteral("http://files.yande.re/image/abc/"
+                                    "yande.re%20123%20tags.png"))),
+                 media);
+        QCOMPARE(idx.byUrl.value(LosnImport::diskUrlKey(
+                     QStringLiteral("https://yande.re/post/show/123/"))),
+                 media);
+        QCOMPARE(idx.byUrl.value(LosnImport::diskUrlKey(
+                     QStringLiteral("https://files.yande.re/image/def/other.jpg"))),
+                 flat);
+        // A JSON with no sibling media is not a download sidecar.
+        QJsonObject orphanSc;
+        orphanSc[QStringLiteral("file_url")] =
+            QStringLiteral("https://files.yande.re/image/999/orphan.png");
+        orphanSc[QStringLiteral("post_url")] =
+            QStringLiteral("https://yande.re/post/show/999");
+        QFile orphan(tmp.filePath(QStringLiteral("yande.re/orphan.json")));
+        QVERIFY(orphan.open(QIODevice::WriteOnly));
+        orphan.write(QJsonDocument(orphanSc).toJson());
+        orphan.close();
+        QVERIFY(!LosnImport::diskIndex(tmp.path())
+                     .byUrl.contains(LosnImport::diskUrlKey(
+                         QStringLiteral("https://yande.re/post/show/999"))));
+    }
+
+    void diskUrlKeyIgnoresSchemeQueryFragment() {
+        const QString a = LosnImport::diskUrlKey(
+            QStringLiteral("http://Example.com/a/b.png?x=1#frag"));
+        const QString b = LosnImport::diskUrlKey(
+            QStringLiteral("https://example.com/a/b.png"));
+        QCOMPARE(a, b);
+        QCOMPARE(a, QStringLiteral("example.com/a/b.png"));
+        QVERIFY(LosnImport::diskUrlKey(QString()).isEmpty());
+        QVERIFY(LosnImport::diskUrlKey(QStringLiteral("not a url")).isEmpty());
+        // Post URLs keep the query (Gelbooru post id), order-insensitive.
+        const QString g1 = LosnImport::diskUrlKey(
+            QStringLiteral("https://gelbooru.com/index.php?page=post&s=view&id=1"),
+            true);
+        const QString g2 = LosnImport::diskUrlKey(
+            QStringLiteral("http://gelbooru.com/index.php?id=1&s=view&page=post"),
+            true);
+        const QString g3 = LosnImport::diskUrlKey(
+            QStringLiteral("https://gelbooru.com/index.php?page=post&s=view&id=2"),
+            true);
+        QCOMPARE(g1, g2);
+        QVERIFY(g1 != g3);
     }
 
     void nativeSidecarShape() {
@@ -311,13 +411,14 @@ private slots:
         QCOMPARE(LosnImport::pathsForRow(row, upper, QStringLiteral("/d")).fileName,
                  QStringLiteral("Gelbooru_d41d8cd98f00b204e9800998ecf8427e.png"));
 
-        // md5FromFileUrl: hex32 regex is lowercase-only, no normalization.
+        // md5FromFileUrl: hex32 is case-insensitive and normalizes to
+        // lowercase (the disk index is lowercase too).
         QCOMPARE(LosnImport::md5FromFileUrl(
                      QStringLiteral("https://x/y/d41d8cd98f00b204e9800998ecf8427e.jpg")),
                  QStringLiteral("d41d8cd98f00b204e9800998ecf8427e"));
-        QVERIFY(LosnImport::md5FromFileUrl(
-                    QStringLiteral("https://x/y/D41D8CD98F00B204E9800998ECF8427E.jpg"))
-                    .isEmpty()); // current behavior: uppercase not matched
+        QCOMPARE(LosnImport::md5FromFileUrl(
+                     QStringLiteral("https://x/y/D41D8CD98F00B204E9800998ECF8427E.jpg")),
+                 QStringLiteral("d41d8cd98f00b204e9800998ecf8427e"));
         QVERIFY(LosnImport::md5FromFileUrl(QStringLiteral("https://x/y/nope.jpg"))
                     .isEmpty());
     }

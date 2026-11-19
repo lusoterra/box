@@ -52,6 +52,20 @@ QSet<QString> md5sOnDisk(const QString &destDir);
 // sidecars next to the file wherever it already lives instead of
 // re-downloading a host-folder duplicate.
 QHash<QString, QString> md5PathsOnDisk(const QString &destDir);
+// One disk pass for imports: media by content md5 AND by the file/post
+// URLs recorded in their sidecars. The URL side covers rows the backup
+// cannot hash (Moebooru/CDN names) and files renamed after an earlier
+// import, so "already on disk" is not limited to md5-stem names.
+struct DiskIndex {
+    QHash<QString, QString> byMd5; // lowercase md5 -> absolute media path
+    QHash<QString, QString> byUrl; // normalised file/post URL -> media path
+};
+DiskIndex diskIndex(const QString &destDir);
+// Normalised lookup key used by DiskIndex::byUrl (scheme/fragment ignored,
+// host+port+path kept; query only when keepQuery, sorted). Post URLs need
+// keepQuery: Gelbooru puts the post id in the query. Pure; shared by the
+// import dialog's row checks.
+QString diskUrlKey(const QString &url, bool keepQuery = false);
 // One favourite row selected by the opt-in sync pass.
 struct FavKey {
     QString site;
@@ -171,6 +185,10 @@ private:
     // to classify rows as already downloaded, write refreshed sidecars
     // next to the real file and link favourites without re-downloading.
     QHash<QString, QString> m_diskByMd5;
+    // Normalised file/post URL -> media path from on-disk sidecars:
+    // catches rows whose backup URL carries no hash and re-imports of
+    // files the manager renamed after hashing.
+    QHash<QString, QString> m_diskByUrl;
     // fileUrl -> real media path for rows skipped this run.
     QHash<QString, QString> m_diskPaths;
     void onFileRenamed(const QString &oldName, const QString &newName);

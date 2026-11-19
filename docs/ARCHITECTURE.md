@@ -179,9 +179,11 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     to a full gallery-dl-style record: urls, buckets, dims, ids);
     summary carries `downloaded` for auto-favourite (`downloadmanager.h:35`).
     LoliSnatcher imports reuse the same folder/name shape via
-    `LosnImport::targetPaths` (`src/library/losnimport.cpp:188`) and skip
-    media already on disk by md5 anywhere below the download root
-    (`md5PathsOnDisk`), migrating old app-made `<Label>/` files once.
+    `LosnImport::targetPaths` and skip media already on disk by md5
+    anywhere below the download root (`LosnImport::diskIndex`) or by the
+    file/post URLs recorded in existing sidecars (rows the backup cannot
+    hash, hashed-renamed imports), migrating old app-made `<Label>/` files
+    once.
     Grid/viewer `↓` marks are filesystem-only (`mainwindow_heal.cpp:102`
     `downloadDiskIndex` + `isPostDownloaded`, md5 then planned filename).
   - Download/Add Stray (`strayresolve.h`): direct media passes through;

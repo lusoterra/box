@@ -2,6 +2,25 @@
 
 # Completed tasks
 
+## 147. Import "also download" skips favourites already on disk by URL - DONE
+- `LosnImport::diskIndex` (`src/library/losnimport.cpp`) indexes media by
+  md5 and by `file_url`/`post_url` from existing sidecars (stem and
+  gallery-dl flat forms, scheme/query-insensitive `diskUrlKey`); the
+  import reuses it for favourite linking, refresh classification and the
+  final download queue, so hashed-renamed imports and hash-less backup
+  URLs (Moebooru/CDN) no longer re-download. `md5FromFileUrl` now also
+  reads the Moebooru `/image/<md5>/` path segment.
+- Verify: `test_losnimport` (`diskIndexMatchesSidecarUrls`,
+  `diskUrlKeyIgnoresSchemeQueryFragment`, extended `md5FromFileUrls`).
+
+## 146. Tab drag no longer flashes mid-move - DONE
+- `MarqueeTabBar::onTabMoved` no longer clears `m_dragging` (tabMoved
+  fires mid-drag as tabs slide, dropping the bar out of the native paint
+  path and snapping the dragged tab); release keeps the native paint for
+  the base class's 300 ms drop animation before returning to the custom
+  paint (`src/ui/tabbar.cpp`).
+- Verify: `test_tabbar`; drag paint needs Xvfb eyes.
+
 ## 145. New engines: Philomena (Derpibooru v1 + Twibooru v3) - DONE
 ##    (live APIs probed: Derpi /api/v1/json/images, Twibooru /api/v3/posts -
 ##    different shapes, so two engines; build + 33/33 ctest green)

@@ -1,5 +1,21 @@
 # Pending tasks (from user goal)
 
+## 40. Import "also download" skips favourites already on disk - DONE
+- `LosnImport::diskIndex` (`src/library/losnimport.cpp`) indexes media by
+  md5 AND by `file_url`/`post_url` from existing sidecars (stem + flat
+  forms, scheme/query-insensitive); import linking, refresh classification
+  and the download queue use it, so hash-less backup URLs and
+  hashed-renamed imports are not fetched again. `md5FromFileUrl` also reads
+  Moebooru `/image/<md5>/` path hashes.
+- Verify: `test_losnimport` (`diskIndexMatchesSidecarUrls`,
+  `diskUrlKeyIgnoresSchemeQueryFragment`, `md5FromFileUrls`).
+
+## 39. Tab drag no longer flashes mid-move - DONE
+- `MarqueeTabBar::onTabMoved` no longer clears `m_dragging` (tabMoved
+  fires mid-drag while tabs slide); release keeps the native paint for the
+  base drop animation (`src/ui/tabbar.cpp`).
+- Verify: `test_tabbar`; drag paint needs Xvfb eyes.
+
 ## 38. Confirmation for mass actions - DONE
 - [x] Multi-post `Download` (context menu, Ctrl+D, Download button,
       stray link lists) asks for a count + destination confirmation
