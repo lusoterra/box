@@ -84,7 +84,7 @@
 #include <utility>
 #include <algorithm>
 
-void MainWindow::downloadPosts(const QVector<Post> &posts) {
+void MainWindow::downloadPosts(const QVector<Post> &posts, bool confirmBulk) {
     QVector<Post> remote;
     for (const Post &p : posts) {
         if (p.isRemote && !p.fileUrl.isEmpty())
@@ -101,6 +101,19 @@ void MainWindow::downloadPosts(const QVector<Post> &posts) {
     if (jobs.isEmpty()) {
         statusBar()->showMessage(tr("Nothing to download"), 4000);
         return;
+    }
+    // A multi-post batch is easy to trigger by accident (Ctrl+D, a
+    // selection, a stray link list) and can be large: name the count and
+    // destination before starting. Single posts stay one-click.
+    if (confirmBulk && jobs.size() > 1) {
+        const QString question =
+            tr("Download %1 posts to:\n%2\n\nStart the batch?")
+                .arg(jobs.size())
+                .arg(QDir::toNativeSeparators(dest));
+        if (QMessageBox::question(this, tr("Mass download"), question,
+                                  QMessageBox::Yes | QMessageBox::No,
+                                  QMessageBox::No) != QMessageBox::Yes)
+            return;
     }
     m_downloads->enqueue(jobs); // no popup: progress lives in the feedbar
 }

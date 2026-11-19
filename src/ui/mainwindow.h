@@ -382,7 +382,9 @@ private:
     void setBrowseUi(bool browse);
     RemoteSource *sourceFor(const QString &key);
     struct SiteCreds credsFor(const QString &key) const;
-    void downloadPosts(const QVector<Post> &posts);
+    // confirmBulk=false for callers that already asked (e.g. redownload
+    // missing files); every multi-post request otherwise gets a warning.
+    void downloadPosts(const QVector<Post> &posts, bool confirmBulk = true);
     void addTagToSearch(const QString &tag); // viewer tag click/menu
     void searchVariants(const Post &post); // parent/child family search
     void downloadSelected();

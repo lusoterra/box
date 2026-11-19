@@ -1,5 +1,16 @@
 # Pending tasks (from user goal)
 
+## 38. Confirmation for mass actions - DONE
+- [x] Multi-post `Download` (context menu, Ctrl+D, Download button,
+      stray link lists) asks for a count + destination confirmation
+      centrally in `downloadPosts`; paths that already prompted
+      (`Redownload missing files…`) pass `confirmBulk=false`.
+- [x] Multi-row `Unfavourite` asks before dropping the rows and warns
+      when the settings also delete the downloaded files.
+- [x] Multi-file `Delete from disk…` already had its permanent-delete
+      warning (count + unrecoverable rows), kept as-is.
+- Verify: full `ctest` + GUI eyes; confirmations are modal QMessageBoxes.
+
 ## 37. Tab labels clipped by the selected bold font - DONE
 - [x] `MarqueeTabBar::tabSizeHint` adds the bold-vs-normal title width
       (plus 2px slack) to every tab, so selecting one does not cut its

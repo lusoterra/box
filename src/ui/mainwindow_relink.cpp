@@ -260,7 +260,7 @@ void MainWindow::redownloadMissingFiles() {
                               QMessageBox::Yes | QMessageBox::No,
                               QMessageBox::Yes) != QMessageBox::Yes)
         return;
-    downloadPosts(redl);
+    downloadPosts(redl, false); // the prompt above already covers it
     statusBar()->showMessage(
         tr("Re-downloading %1 missing file(s)…").arg(redl.size()), 8000);
 }

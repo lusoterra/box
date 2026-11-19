@@ -219,6 +219,18 @@ void MainWindow::showGridMenu(const QPoint &pos) {
     if (allFav) {
         QAction *unfav = menu.addAction(tr("♡ Unfavourite"));
         connect(unfav, &QAction::triggered, this, [this, targets, byPath] {
+            if (targets.size() > 1) {
+                QString question = tr("Remove %1 posts from favourites?")
+                                       .arg(targets.size());
+                if (m_settings.unfavDeletesFile)
+                    question += tr("\n\nYour settings also delete their "
+                                   "downloaded files.");
+                if (QMessageBox::question(this, tr("Mass unfavourite"),
+                                          question, QMessageBox::Yes |
+                                                       QMessageBox::No,
+                                          QMessageBox::No) != QMessageBox::Yes)
+                    return;
+            }
             QSet<QString> urls;
             int removed = 0;
             // DB rows for path-linked keys (fileUrl for download cancels).

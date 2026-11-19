@@ -107,9 +107,12 @@ link` / `Copy media link` / `Copy file path` / `Copy file (clipboard)`
 put the selected rows on the clipboard (stills, GIFs and videos alike).
 A single selected row also has `View metadata…` (summary + tags + raw
 JSON tree) and `Show in folder` (file manager opens with the file
-selected). Favourite-only remote cards keep `Copy file (clipboard)`:
-missing bytes are fetched into the shared temp folder (`/tmp/box-ext` on
-Linux) before the clipboard gets the file URL. Dragging cards exports linked
+selected). Multi-row `Unfavourite` and any multi-post `Download` ask for
+confirmation first (count + destination; unfavourite also warns when
+the settings delete files); `Delete from disk…` always confirms.
+Favourite-only remote cards keep `Copy file (clipboard)`: missing bytes
+are fetched into the shared temp folder (`/tmp/box-ext` on Linux) before
+the clipboard gets the file URL. Dragging cards exports linked
 stills/GIFs as a URL (post page or direct media, per Preferences → Browse)
 and local/downloaded stills/GIFs as the file itself; videos are excluded
 from drag-out on purpose (too heavy for a drop target).
