@@ -117,7 +117,8 @@ QString proxyForUrl(const QString &url) {
         const QString siteHost = QUrl(s.baseUrl).host().toLower();
         if (siteHost.isEmpty())
             continue;
-        if (host == siteHost || host.endsWith(u'.' + siteHost))
+        if (host == siteHost || host.endsWith(u'.' + siteHost) ||
+            RemotePosts::isKnownMediaHost(siteHost, host))
             return s.proxy.trimmed();
     }
     return {};
@@ -246,12 +247,12 @@ bool RemoteSource::applyCookies(QNetworkRequest &req) {
         const QString siteHost = QUrl(s.baseUrl).host().toLower();
         if (siteHost.isEmpty())
             continue;
-        // Exact host or a subdomain of it (media CDNs live next door).
-        if (host != siteHost && !host.endsWith(u'.' + siteHost))
-            continue;
-        const QString header = RemotePosts::cookieHeaderValue(s.cookies);
+        // The header helper owns host matching: exact host, subdomains,
+        // known same-operator media CDNs, and host-scoped entries.
+        const QString header = RemotePosts::cookieHeaderValueForHost(
+            s.cookies, host, siteHost);
         if (header.isEmpty())
-            return false;
+            continue;
         req.setRawHeader("Cookie", header.toUtf8());
         return true; // first matching site wins
     }
@@ -271,9 +272,10 @@ void attachSiteCookies(QNetworkRequest &req, const QString &baseUrl,
     const QString siteHost = QUrl(baseUrl).host().toLower();
     if (host.isEmpty() || siteHost.isEmpty())
         return;
-    if (host != siteHost && !host.endsWith(u'.' + siteHost))
-        return;
-    const QString header = RemotePosts::cookieHeaderValue(cookies);
+    // Same host/subdomain plus known same-operator media CDNs; scoped
+    // cookies (host!name=value) only apply under their own host.
+    const QString header =
+        RemotePosts::cookieHeaderValueForHost(cookies, host, siteHost);
     if (!header.isEmpty())
         req.setRawHeader("Cookie", header.toUtf8());
 }
@@ -372,9 +374,9 @@ QString wallAwareMediaError(const QString &host, const QByteArray &body,
                       .arg(host);
         return QCoreApplication::translate(
                    "RemotePosts",
-"%1 instead of media (captcha/wall still active \u2014 "
-                  "solve it once in the Booru manager \u2192 Capture in "
-                  "browser\u2026, Apply, then retry).")
+"%1 instead of media (captcha/wall still active \u2014 use Solve \u2026 in "
+"browser\u2026 so the capture opens this exact media host, or Booru "
+"manager \u2192 Capture in browser\u2026, then retry).")
             .arg(where);
     }
     return QCoreApplication::translate("RemotePosts",

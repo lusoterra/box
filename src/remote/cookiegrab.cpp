@@ -35,7 +35,9 @@ CookieEditorDialog::CookieEditorDialog(const QStringList &cookies,
     auto *note = new QLabel(
         tr("One <b>name=value</b> per line. Pasting a whole "
            "<b>a=1; b=2</b> header (or Set-Cookie lines) works too - "
-           "attributes are dropped, garbage is ignored."),
+           "attributes are dropped, garbage is ignored. A "
+           "<b>host!name=value</b> line scopes one cookie to a media "
+           "host (e.g. <b>cdn.donmai.us!cf_clearance=…</b>)."),
         this);
     note->setWordWrap(true);
     lay->addWidget(note);
@@ -103,7 +105,8 @@ CookieGrabDialog::CookieGrabDialog(const QString &siteLabel,
                                    QWidget *parent,
                                    const QString &wallKind,
                                    const QUrl &startUrl)
-    : QDialog(parent), m_host(QUrl(baseUrl).host().toLower()) {
+    : QDialog(parent), m_host(QUrl(baseUrl).host().toLower()),
+      m_siteHost(QUrl(baseUrl).host().toLower()) {
     // A failing URL opens AT the wall (media/file hosts challenge while
     // the homepage lets you through); cookies still harvest for the
     // entry's host, the profile jar keeps the rest for browser fetches.
@@ -293,7 +296,8 @@ void CookieGrabDialog::finishHarvest() {
     m_flushing = false;
     if (m_useBtn)
         m_useBtn->setEnabled(true);
-    m_cookies = RemotePosts::harvestCookies(m_seen, m_host);
+    m_cookies =
+        RemotePosts::harvestScopedCookies(m_seen, m_host, m_siteHost);
     if (m_cookies.isEmpty()) {
         setStatus(tr("No cookies for this site yet - log in (or solve the "
                      "challenge) first, then try again."));
@@ -316,9 +320,11 @@ void CookieGrabDialog::finishHarvest() {
 // No Q_OBJECT: signal hooks are lambdas bound to the worker's lifetime.
 class SilentRefresher : public QObject {
 public:
-    SilentRefresher(const QString &baseUrl, const QString &profilePath,
+    SilentRefresher(const QString &startUrl, const QString &siteHost,
+                    const QString &profilePath,
                     std::function<void(const QStringList &)> done)
-        : m_host(QUrl(baseUrl).host().toLower()), m_done(std::move(done)) {
+        : m_host(QUrl(startUrl).host().toLower()),
+          m_siteHost(siteHost.trimmed().toLower()), m_done(std::move(done)) {
         m_profile = sharedCaptureProfile(profilePath);
         connect(m_profile->cookieStore(),
                 &QWebEngineCookieStore::cookieAdded, this,
@@ -341,7 +347,7 @@ public:
                                        [this] { harvestAndFinish(); });
                 });
         m_view->setPage(m_page);
-        m_view->load(QUrl(baseUrl));
+        m_view->load(QUrl(startUrl));
         // Hard ceiling: report whatever the jar holds by then.
         QTimer::singleShot(30000, this, [this] { harvestAndFinish(); });
     }
@@ -357,7 +363,8 @@ private:
         QTimer::singleShot(1500, this, [this] {
             auto done = std::move(m_done);
             const QStringList fresh =
-                RemotePosts::harvestCookies(m_seen, m_host);
+                RemotePosts::harvestScopedCookies(m_seen, m_host,
+                                                  m_siteHost);
             // View-first teardown (same rule as the dialog destructor).
             m_page = nullptr; // parented to the view
             m_view->stop();
@@ -370,6 +377,7 @@ private:
     }
 
     QString m_host;
+    QString m_siteHost;
     std::function<void(const QStringList &)> m_done;
     bool m_finished = false;
     QWebEngineProfile *m_profile = nullptr;
@@ -379,10 +387,11 @@ private:
 };
 
 void CookieGrabDialog::refreshSilent(
-    const QString &baseUrl, const QString &profilePath,
+    const QString &startUrl, const QString &siteHost,
+    const QString &profilePath,
     std::function<void(const QStringList &)> done) {
     // Parent to the application: outlives whatever dialog triggered it.
-    new SilentRefresher(baseUrl, profilePath, std::move(done));
+    new SilentRefresher(startUrl, siteHost, profilePath, std::move(done));
 }
 
 WebEngineDownloadBackend::WebEngineDownloadBackend(QObject *parent)

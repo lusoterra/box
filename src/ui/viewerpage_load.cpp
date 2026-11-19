@@ -109,8 +109,23 @@ void ViewerPage::onCacheFailed(const QString &url, const QString &error) {
         const Post &p = m_posts.at(m_row);
         const QString target =
             !p.fileUrl.isEmpty() ? p.fileUrl : RemotePosts::viewerUrlFor(p);
-        if (p.isRemote && RemotePosts::needsWebDownload(p) &&
-            isWallError(error) && !target.isEmpty()) {
+        // Fingerprint/Cloudflare walls: the browser stack carries the
+        // exact UA + profile cookies (one site captcha also unlocks the
+        // media CDN), so retry there when QNAM gets a challenge page.
+        bool browserCanHelp = RemotePosts::needsWebDownload(p);
+        if (!browserCanHelp) {
+            const BooruSite *site = RemotePosts::entryForPost(p);
+            const QString siteHost =
+                site ? QUrl(site->baseUrl).host().toLower() : QString();
+            const QString failHost = QUrl(target).host().toLower();
+            browserCanHelp =
+                !siteHost.isEmpty() &&
+                (failHost == siteHost ||
+                 failHost.endsWith(u'.' + siteHost) ||
+                 RemotePosts::isKnownMediaHost(siteHost, failHost));
+        }
+        if (p.isRemote && browserCanHelp && isWallError(error) &&
+            !target.isEmpty()) {
             m_webRetried = true;
             const QString ext =
                 QFileInfo(QUrl(target).path()).suffix().toLower();

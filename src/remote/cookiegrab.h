@@ -147,9 +147,13 @@ public:
     // Silent clearance renewal: loads the page in a hidden view on the
     // persistent capture profile - its JS re-runs proof-of-work and
     // refreshes short-lived cookies with no puzzle to solve - then
-    // harvests the jar. done() gets normalized host cookies (empty when
-    // the page is still challenged). GUI thread only.
-    static void refreshSilent(const QString &baseUrl,
+    // harvests the jar. `startUrl` may be the failing media URL;
+    // `siteHost` is the entry base host so a site clearance can stay
+    // entry-level and unlock its known media CDN too. done() gets
+    // normalized host-scoped cookies (empty when the page is still
+    // challenged). GUI thread only.
+    static void refreshSilent(const QString &startUrl,
+                              const QString &siteHost,
                               const QString &profilePath,
                               std::function<void(const QStringList &)> done);
     // Idle-time primer: first WebEngine use initializes Chromium on the
@@ -175,6 +179,7 @@ private slots:
 private:
     void setStatus(const QString &text);
     QString m_host;
+    QString m_siteHost; // entry base host (m_host may be a media URL)
     QUrl m_first;      // loaded on first show, not in the ctor
     bool m_loaded = false;
     QWebEngineView *m_view = nullptr;

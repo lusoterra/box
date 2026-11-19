@@ -1393,7 +1393,9 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
                     low.contains(QStringLiteral("hallenge")) ||
                     low.contains(QStringLiteral("captcha")) ||
                     low.contains(QStringLiteral("clearance")) ||
-                    low.contains(QStringLiteral("wall"));
+                    low.contains(QStringLiteral("wall")) ||
+                    low.contains(QStringLiteral("403")) ||
+                    low.contains(QStringLiteral("forbidden"));
                 if (!walled || !m_viewer->hasCurrent())
                     return;
                 const Post cur = m_viewer->currentPost();
@@ -1403,9 +1405,28 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
                     !cur.siteKey.isEmpty()
                         ? cur.siteKey
                         : RemotePosts::keyForLabel(cur.siteName);
+                if (key.isEmpty())
+                    return;
+                // Surface the failing media host in the Solve button too:
+                // cdn.donmai.us challenges independently of the site, and
+                // the capture browser must open the media URL to mint its
+                // clearance.
+                if (RemotePosts::isHttpUrl(url)) {
+                    bool found = false;
+                    for (auto &wt : m_mediaWalls) {
+                        if (wt.first == key) {
+                            wt.second = url;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found)
+                        m_mediaWalls.append({key, url});
+                    updateWallButton();
+                }
                 const QString tag =
                     key + u'#' + QString::number(cur.id);
-                if (key.isEmpty() || m_wallRefreshed.contains(tag))
+                if (m_wallRefreshed.contains(tag))
                     return;
                 const BooruSite *cfg = RemoteSource::siteFor(key);
                 if (!cfg || cfg->baseUrl.isEmpty())
@@ -1413,8 +1434,12 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
                 m_wallRefreshed.insert(tag);
                 statusBar()->showMessage(
                     tr("Wall hit - refreshing clearance…"), 6000);
+                // Load the failing media URL (CDN clearance is per host),
+                // not just the site root.
+                const QString start =
+                    RemotePosts::isHttpUrl(url) ? url : cfg->baseUrl;
                 CookieGrabDialog::refreshSilent(
-                    cfg->baseUrl,
+                    start, QUrl(cfg->baseUrl).host(),
                     effectiveDataDir(m_settings) +
                         QStringLiteral("/webprofile"),
                     [this, key](const QStringList &fresh) {

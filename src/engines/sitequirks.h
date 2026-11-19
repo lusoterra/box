@@ -34,8 +34,30 @@ QString apiBaseUrl(BooruEngine engine, const QString &baseUrl);
 // or Set-Cookie attributes are tolerated) -> cleaned list, later wins,
 // garbage dropped.
 QStringList normalizeCookies(const QStringList &lines);
-// Cleaned list -> "a=1; b=2" header value (empty when none).
+// Cleaned list -> "a=1; b=2" header value (empty when none). Legacy
+// unscoped form for tests/simple callers; requests must use
+// cookieHeaderValueForHost so scoped entries land on the right host.
 QString cookieHeaderValue(const QStringList &cookies);
+// Request-specific header (empty when none). Entries may be unscoped
+// ("cf_clearance=x", belongs to the entry base host) or host-scoped
+// ("cdn.donmai.us!cf_clearance=x"). Unscoped entries follow the base host
+// (exact/subdomain/known media CDN); scoped entries only apply under
+// their own host. Scoped values win when a name collides.
+QString cookieHeaderValueForHost(const QStringList &cookies,
+                                 const QString &requestHost,
+                                 const QString &siteHost);
+// Known same-operator media CDNs that are siblings (not subdomains) of
+// a booru host: Danbooru/Safebooru -> cdn.donmai.us, Derpibooru ->
+// derpicdn.net. Used by cookie routing and per-entry proxies.
+bool isKnownMediaHost(const QString &siteHost, const QString &requestHost);
+// Scope harvested cookies for the entry whose base host is `siteHost`.
+// Cookies valid for the site itself (host-only/eq-site clearances) stay
+// unscoped so known same-operator CDNs inherit them (one browser captcha
+// unlocks both); CDN-specific captures are scoped to `host`. Domain
+// cookies keep their domain. Pure.
+QStringList harvestScopedCookies(const QList<QNetworkCookie> &seen,
+                                 const QString &host,
+                                 const QString &siteHost = {});
 // Fetchable URL schemes: only http(s) ever leaves the machine. Anything
 // else (file:///, javascript:, data:, custom schemes from a rogue API
 // object) is refused before any request, read, or download.

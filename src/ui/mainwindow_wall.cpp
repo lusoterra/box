@@ -165,17 +165,32 @@ void MainWindow::solveWallInBrowser(const QString &siteKey,
                 m_mediaWalls.removeAt(i);
         }
         updateWallButton();
-        entry.cookies = dlg.cookies();
+        // Merge, never replace: a media-host capture must not drop the
+        // site login/clearance (and vice versa). Scoped entries keep the
+        // two cf_clearance values apart.
+        entry.cookies = RemotePosts::normalizeCookies(
+            entry.cookies + dlg.cookies());
         saveSettings(m_settings);
         RemoteSource::setConfiguredBoorus(m_settings.boorus);
         applyBooruCreds();
         statusBar()->showMessage(
-            tr("✓ %1: %2 cookie(s) captured - retrying search")
+            tr("✓ %1: %2 cookie(s) captured - retrying")
                 .arg(entry.label)
                 .arg(entry.cookies.size()),
             6000);
         if (BrowserTab *t = currentTab(); t && t->isRemote)
             doBrowseSearch(false);
+        // If the wall was hit by the open viewer, reload its media too.
+        if (m_pages && m_pages->currentIndex() == 1 && m_viewer &&
+            m_viewer->hasCurrent()) {
+            const Post cur = m_viewer->currentPost();
+            const QString curKey =
+                !cur.siteKey.isEmpty()
+                    ? cur.siteKey
+                    : RemotePosts::keyForLabel(cur.siteName);
+            if (curKey == siteKey)
+                m_viewer->showRow(m_viewer->currentRow());
+        }
     }
 }
 

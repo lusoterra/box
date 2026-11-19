@@ -553,8 +553,9 @@ private slots:
                      QStringLiteral("text/html")),
                  QString::fromUtf8(
                      "Challenge page from booru.example instead of media "
-                     "(captcha/wall still active \u2014 solve it once in the "
-                     "Booru manager \u2192 Capture in browser\u2026, Apply, "
+                     "(captcha/wall still active \u2014 use Solve \u2026 in "
+                     "browser\u2026 so the capture opens this exact media "
+                     "host, or Booru manager \u2192 Capture in browser\u2026, "
                      "then retry)."));
     }
 
@@ -1239,6 +1240,27 @@ private slots:
         QNetworkRequest other(QUrl(QStringLiteral("https://other.example/x")));
         RemoteSource::applyCookies(other);
         QVERIFY(!other.hasRawHeader("Cookie"));
+        // Danbooru CDN: the CDN-scoped clearance reaches cdn.donmai.us
+        // (the 403 fix), while the site keeps its own clearance and
+        // session. Sibling CDNs never get the session cookie.
+        BooruSite dan;
+        dan.key = QStringLiteral("dan");
+        dan.label = QStringLiteral("Dan");
+        dan.baseUrl = QStringLiteral("https://danbooru.donmai.us");
+        dan.engine = BooruEngine::Danbooru;
+        dan.cookies = {QStringLiteral("cf_clearance=site"),
+                       QStringLiteral("sess=site"),
+                       QStringLiteral("cdn.donmai.us!cf_clearance=cdn")};
+        RemoteSource::setConfiguredBoorus({dan});
+        QNetworkRequest site(QUrl(
+            QStringLiteral("https://danbooru.donmai.us/posts.json")));
+        RemoteSource::applyCookies(site);
+        QCOMPARE(site.rawHeader("Cookie"),
+                 QByteArray("cf_clearance=site; sess=site"));
+        QNetworkRequest danCdn(
+            QUrl(QStringLiteral("https://cdn.donmai.us/original/a.jpg")));
+        RemoteSource::applyCookies(danCdn);
+        QCOMPARE(danCdn.rawHeader("Cookie"), QByteArray("cf_clearance=cdn"));
         QNetworkRequest bare(QUrl(QStringLiteral("https://booru.example/x")));
         RemoteSource::setConfiguredBoorus({});
         RemoteSource::applyCookies(bare);
@@ -1437,6 +1459,26 @@ private slots:
                     QStringLiteral("https://other.example/x")).isEmpty());
         QVERIFY(RemotePosts::proxyForUrl(
                     QStringLiteral("https://unknown.example/x")).isEmpty());
+        // Known sibling media CDNs inherit the entry proxy too.
+        BooruSite dan;
+        dan.key = QStringLiteral("dan");
+        dan.label = QStringLiteral("Dan");
+        dan.baseUrl = QStringLiteral("https://danbooru.donmai.us");
+        dan.engine = BooruEngine::Danbooru;
+        dan.proxy = QStringLiteral("http://127.0.0.1:8081");
+        BooruSite derp;
+        derp.key = QStringLiteral("derp");
+        derp.label = QStringLiteral("Derp");
+        derp.baseUrl = QStringLiteral("https://derpibooru.org");
+        derp.engine = BooruEngine::Derpibooru;
+        derp.proxy = QStringLiteral("http://127.0.0.1:8082");
+        RemoteSource::setConfiguredBoorus({proxied, plain, dan, derp});
+        QCOMPARE(RemotePosts::proxyForUrl(
+                     QStringLiteral("https://cdn.donmai.us/a.jpg")),
+                 QStringLiteral("http://127.0.0.1:8081"));
+        QCOMPARE(RemotePosts::proxyForUrl(
+                     QStringLiteral("https://derpicdn.net/img/a.jpg")),
+                 QStringLiteral("http://127.0.0.1:8082"));
         RemoteSource::setConfiguredBoorus(RemoteSource::presetBoorus());
     }
 
@@ -1480,6 +1522,102 @@ private slots:
                     .contains(QStringLiteral("h=1")));
         QVERIFY(harvestCookies({}, QStringLiteral("booru.example")).isEmpty());
         QVERIFY(harvestCookies(jar, QString()).isEmpty());
+    }
+
+    void cookieHostScoping() {
+        using RemotePosts::cookieHeaderValueForHost;
+        const QStringList jar = {
+            QStringLiteral("site=1"),
+            QStringLiteral("cf_clearance=site"),
+            QStringLiteral("cdn.donmai.us!cf_clearance=cdn"),
+            QStringLiteral("donmai.us!__cf_bm=dom"),
+        };
+        // Site request: unscoped + its own domain cookie, never the CDN's.
+        const QString site = cookieHeaderValueForHost(
+            jar, QStringLiteral("danbooru.donmai.us"),
+            QStringLiteral("danbooru.donmai.us"));
+        QVERIFY(site.contains(QStringLiteral("cf_clearance=site")));
+        QVERIFY(site.contains(QStringLiteral("__cf_bm=dom")));
+        QVERIFY(!site.contains(QStringLiteral("cf_clearance=cdn")));
+        // The sibling CDN gets clearance cookies only (never the site
+        // session), and its own scoped clearance overrides the site one
+        // (the actual 403 fix).
+        const QString cdn = cookieHeaderValueForHost(
+            jar, QStringLiteral("cdn.donmai.us"),
+            QStringLiteral("danbooru.donmai.us"));
+        QVERIFY(!cdn.contains(QStringLiteral("site=1")));
+        QVERIFY(cdn.contains(QStringLiteral("cf_clearance=cdn")));
+        QVERIFY(!cdn.contains(QStringLiteral("cf_clearance=site")));
+        QVERIFY(cdn.contains(QStringLiteral("__cf_bm=dom")));
+        // Known same-operator CDN for Philomena too.
+        const QString derpi = cookieHeaderValueForHost(
+            jar, QStringLiteral("derpicdn.net"),
+            QStringLiteral("derpibooru.org"));
+        QVERIFY(!derpi.contains(QStringLiteral("site=1")));
+        QVERIFY(!derpi.contains(QStringLiteral("cf_clearance=cdn")));
+        QVERIFY(!derpi.contains(QStringLiteral("__cf_bm=dom")));
+        const QStringList derpiJar = {
+            QStringLiteral("site=2"),
+            QStringLiteral("derpicdn.net!cf_clearance=derpi"),
+        };
+        const QString derpiCdn = cookieHeaderValueForHost(
+            derpiJar, QStringLiteral("derpicdn.net"),
+            QStringLiteral("derpibooru.org"));
+        QVERIFY(!derpiCdn.contains(QStringLiteral("site=2")));
+        QVERIFY(derpiCdn.contains(QStringLiteral("cf_clearance=derpi")));
+        QVERIFY(cookieHeaderValueForHost(
+                    jar, QStringLiteral("unrelated.example"),
+                    QStringLiteral("danbooru.donmai.us"))
+                    .isEmpty());
+    }
+
+    void harvestScopedCookies() {
+        using RemotePosts::harvestScopedCookies;
+        QList<QNetworkCookie> jar;
+        QNetworkCookie cf(QStringLiteral("cf_clearance").toUtf8(), "cdn123");
+        cf.setDomain(QStringLiteral("cdn.donmai.us"));
+        jar << cf;
+        QNetworkCookie dom(QStringLiteral("__cf_bm").toUtf8(), "dom123");
+        dom.setDomain(QStringLiteral(".donmai.us"));
+        jar << dom;
+        QNetworkCookie hostOnly(QStringLiteral("h").toUtf8(), "1");
+        jar << hostOnly;
+        QNetworkCookie other(QStringLiteral("x").toUtf8(), "1");
+        other.setDomain(QStringLiteral("other.example"));
+        jar << other;
+        const QStringList out = harvestScopedCookies(
+            jar, QStringLiteral("cdn.donmai.us"));
+        QVERIFY(out.contains(
+            QStringLiteral("cdn.donmai.us!cf_clearance=cdn123")));
+        QVERIFY(out.contains(QStringLiteral("donmai.us!__cf_bm=dom123")));
+        QVERIFY(out.contains(QStringLiteral("cdn.donmai.us!h=1")));
+        QVERIFY(!out.join(u';').contains(QStringLiteral("x=1")));
+        QVERIFY(harvestScopedCookies(jar, QString()).isEmpty());
+        // Capturing on the site keeps its clearance entry-level: one
+        // browser captcha unlocks the CDN, so the app must forward it.
+        QList<QNetworkCookie> siteJar;
+        QNetworkCookie siteCf(QStringLiteral("cf_clearance").toUtf8(),
+                              "site123");
+        siteJar << siteCf;
+        QNetworkCookie sess(QStringLiteral("sess").toUtf8(), "s");
+        siteJar << sess;
+        QNetworkCookie siteDom(QStringLiteral("__cf_bm").toUtf8(), "dom");
+        siteDom.setDomain(QStringLiteral(".donmai.us"));
+        siteJar << siteDom;
+        const QStringList siteOut = harvestScopedCookies(
+            siteJar, QStringLiteral("danbooru.donmai.us"),
+            QStringLiteral("danbooru.donmai.us"));
+        QVERIFY(siteOut.contains(QStringLiteral("cf_clearance=site123")));
+        QVERIFY(siteOut.contains(
+            QStringLiteral("danbooru.donmai.us!sess=s")));
+        QVERIFY(siteOut.contains(QStringLiteral("donmai.us!__cf_bm=dom")));
+        // A CDN capture stays scoped so it cannot clobber the site value.
+        const QStringList cdnOut = harvestScopedCookies(
+            siteJar, QStringLiteral("cdn.donmai.us"),
+            QStringLiteral("danbooru.donmai.us"));
+        QVERIFY(cdnOut.contains(
+            QStringLiteral("cdn.donmai.us!cf_clearance=site123")));
+        QVERIFY(!cdnOut.join(u';').contains(QStringLiteral("sess=")));
     }
 
     void fsTagForPostCases() {

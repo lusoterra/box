@@ -1298,7 +1298,8 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
         CookieGrabDialog dlg(e->label, e->baseUrl,
                              dataDir + QStringLiteral("/webprofile"), this);
         if (dlg.exec() == QDialog::Accepted && !dlg.cookies().isEmpty()) {
-            e->cookies = dlg.cookies();
+            e->cookies = RemotePosts::normalizeCookies(e->cookies +
+                                                       dlg.cookies());
             updateCookieLabel();
             updateApplyState();
             m_accStatus->setText(
@@ -1333,7 +1334,8 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
         cookieRefresh->setEnabled(false);
         m_accStatus->setText(tr("↻ %1: reloading session…").arg(label));
         CookieGrabDialog::refreshSilent(
-            baseUrl, dataDir + QStringLiteral("/webprofile"),
+            baseUrl, QUrl(baseUrl).host(),
+            dataDir + QStringLiteral("/webprofile"),
             [self, btn, entryKey, label](const QStringList &fresh) {
                 if (self.isNull())
                     return;
@@ -1354,7 +1356,8 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
                 }
                 if (!live)
                     return;
-                live->cookies = fresh;
+                live->cookies = RemotePosts::normalizeCookies(live->cookies +
+                                                             fresh);
                 self->updateCookieLabel();
                 self->updateApplyState();
                 self->m_accStatus->setText(

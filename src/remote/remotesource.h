@@ -221,8 +221,8 @@ void setCaptureUserAgent(const QString &ua);
 // Unknown sites fall back to the file host (same as before).
 bool needsWebDownload(const Post &post);
 // Proxy for one request URL: the matching configured entry's proxy
-// spec (empty = direct). Host match mirrors applyCookies (subdomains
-// included).
+// spec (empty = direct). Host match mirrors applyCookies (subdomains and
+// known same-operator media CDNs included).
 QString proxyForUrl(const QString &url);
 // Global fallback for every proxy consumer below (QNAM stacks,
 // tag suggest, post meta, favicons, thumbs, downloads, refreshes).
