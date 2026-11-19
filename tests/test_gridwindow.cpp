@@ -421,6 +421,26 @@ private slots:
         QTest::qWait(100);
         QCOMPARE(bar->count(), 3);
         QVERIFY(bar->tabText(2).contains(QStringLiteral("Favourites")));
+        // Rating + sort are back on favourites (client-side filtering and
+        // sorting over the DB list). Every sort order is enabled because
+        // nothing is appended page-by-page.
+        QComboBox *rating = nullptr;
+        QComboBox *sort = nullptr;
+        for (QComboBox *cb : w.findChildren<QComboBox *>()) {
+            for (int i = 0; i < cb->count(); ++i) {
+                if (cb->itemText(i) == QStringLiteral("Explicit"))
+                    rating = cb;
+            }
+            if (cb->findData(QStringLiteral("id-desc")) >= 0)
+                sort = cb;
+        }
+        QVERIFY(rating && rating->isVisible());
+        QVERIFY(sort && sort->isVisible());
+        auto *sortModel = qobject_cast<QStandardItemModel *>(sort->model());
+        QVERIFY(sortModel);
+        for (int i = 0; i < sort->count(); ++i)
+            QVERIFY2(sortModel->item(i)->isEnabled(),
+                     qPrintable(sort->itemText(i)));
         QVERIFY(QMetaObject::invokeMethod(&w, "closeCurrentTab"));
         QTest::qWait(100);
         QCOMPARE(bar->count(), 2);

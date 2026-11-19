@@ -638,10 +638,15 @@ void MainWindow::finishActivateTab(int tabIdx) {
         m_rating = t->rating;
         m_category = t->category;
         m_sort = t->sort;
+        // Favourites have no scan of their own: populate the rating items
+        // (and the hidden category box) here, otherwise a restored
+        // favourites tab only offers "All".
+        rebuildCombos();
         m_sortBox->blockSignals(true);
         m_sortBox->setCurrentIndex(qMax(0, m_sortBox->findData(m_sort)));
         m_sortBox->blockSignals(false);
         commitFilter(); // rebuilds rating/category combos, filters, titles
+        updateSortBox(); // every order is client-side on the favourites list
         // Cached verdicts apply now; misses fetch in the background and
         // persist their splits so the next open starts categorised.
         maybeClassifyBrowse(t);

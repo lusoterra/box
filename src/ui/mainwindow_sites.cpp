@@ -93,12 +93,16 @@ void MainWindow::updateSortBox() {
     QStringList sites;
     if (const BrowserTab *t = currentTab(); t && t->isRemote)
         sites = t->sites.isEmpty() ? m_settings.browseSites : t->sites;
+    // Local tabs (archives, favourites, Browse Downloads) sort client-side
+    // over the whole list: every order is safe there.
+    const BrowserTab *tab = currentTab();
+    const bool local = !tab || !tab->isRemote;
     auto *model = qobject_cast<QStandardItemModel *>(m_sortBox->model());
     if (!model)
         return;
     for (int i = 0; i < m_sortBox->count(); ++i) {
         const QString v = m_sortBox->itemData(i).toString();
-        bool ok = kStable.contains(v);
+        bool ok = local || kStable.contains(v);
         if (!ok && !sites.isEmpty()) {
             ok = true;
             for (const QString &key : sites) {
