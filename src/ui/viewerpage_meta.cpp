@@ -2,12 +2,41 @@
 
 #include "flowlayout.h"
 #include "imagecache.h"
+#include "metatext.h"
 #include "remotesource.h"
 #include "uicons.h"
 
+#include <QDialogButtonBox>
 #include <QLabel>
 #include <QPushButton>
 #include <QSize>
+#include <QTextBrowser>
+
+namespace {
+// Markup family + base URL for a post's text fields. Danbooru DText,
+// Philomena Markdown, HyBooru plain Hydrus notes; the base resolves their
+// relative links.
+struct MetaTextContext {
+    QUrl base;
+    MetaText::Flavor flavor = MetaText::Flavor::DText;
+};
+
+MetaTextContext metaTextContextFor(const Post &p) {
+    MetaTextContext ctx;
+    if (!p.isRemote)
+        return ctx;
+    const BooruSite *site = RemotePosts::entryForPost(p);
+    if (!site)
+        return ctx;
+    ctx.base = QUrl(site->baseUrl);
+    if (site->engine == BooruEngine::Derpibooru ||
+        site->engine == BooruEngine::Twibooru)
+        ctx.flavor = MetaText::Flavor::Markdown;
+    else if (site->engine == BooruEngine::Hybooru)
+        ctx.flavor = MetaText::Flavor::Plain;
+    return ctx;
+}
+} // namespace
 
 void ViewerPage::rebuildMetaTail() {
     if (!m_tagLayout)
@@ -39,9 +68,9 @@ void ViewerPage::renderMetaSections() {
             l->setTextFormat(Qt::RichText);
             l->setText(
                 why.isEmpty()
-                    ? tr("Notes/comments failed to load - <a href=\"#\">click "
+                    ? tr("Post details failed to load - <a href=\"#\">click "
                          "for details</a> or reload.")
-                    : tr("Notes/comments failed to load (%1) - "
+                    : tr("Post details failed to load (%1) - "
                          "<a href=\"#\">click for details</a>.")
                           .arg(why.toHtmlEscaped()));
             l->setWordWrap(true);
@@ -50,13 +79,16 @@ void ViewerPage::renderMetaSections() {
                 QStringLiteral("color:#e0a055;font-size:11px;"));
             l->setTextInteractionFlags(Qt::TextBrowserInteraction);
             connect(l, &QLabel::linkActivated, this, [this] {
-                emit probeRequested(tr("Notes/comments load failed"),
+                emit probeRequested(tr("Post details load failed"),
                                     metaProbeText());
             });
             m_tagLayout->addWidget(l);
         }
         return; // still fetching (or failed, noted above)
     }
+    const Post &post =
+        (m_row >= 0 && m_row < m_posts.size()) ? m_posts.at(m_row) : Post();
+    const MetaTextContext ctx = metaTextContextFor(post);
     const QVector<PostNote> &notes = it->notes;
     const QVector<PostComment> &comments = it->comments;
     const QVector<PostComment> &commentary = it->commentary;
@@ -85,19 +117,6 @@ void ViewerPage::renderMetaSections() {
             m_tagLayout->addWidget(l);
         }
     }
-    if (!commentary.isEmpty()) {
-        auto *hl = new QLabel(tr("ARTIST COMMENTARY"), this);
-        hl->setStyleSheet(QStringLiteral("color:#4a5068;font-size:10px;"));
-        m_tagLayout->addWidget(hl);
-        for (const PostComment &c : commentary) {
-            auto *l = new QLabel(c.body.toHtmlEscaped(), this);
-            l->setWordWrap(true);
-            l->setTextFormat(Qt::RichText);
-            l->setStyleSheet(QStringLiteral("font-size:11px;"));
-            l->setTextInteractionFlags(Qt::TextSelectableByMouse);
-            m_tagLayout->addWidget(l);
-        }
-    }
     if (!comments.isEmpty()) {
         auto *hl = new QLabel(tr("COMMENTS (%1)").arg(comments.size()), this);
         hl->setStyleSheet(QStringLiteral("color:#4a5068;font-size:10px;"));
@@ -114,12 +133,14 @@ void ViewerPage::renderMetaSections() {
             auto *l = new QLabel(
                 QStringLiteral("<b>%1</b><br>%2")
                     .arg(head.toHtmlEscaped(),
-                         c.body.toHtmlEscaped().left(2000)),
+                         MetaText::toHtml(c.body, ctx.base, 2000,
+                                          ctx.flavor)),
                 this);
+            l->setTextFormat(Qt::RichText);
             l->setWordWrap(true);
             l->setStyleSheet(QStringLiteral("font-size:11px;"));
-            l->setTextInteractionFlags(Qt::TextSelectableByMouse);
-            l->setOpenExternalLinks(false);
+            l->setTextInteractionFlags(Qt::TextBrowserInteraction);
+            l->setOpenExternalLinks(true);
             m_tagLayout->addWidget(l);
             if (shown > kInitialComments) {
                 l->setVisible(m_commentsExpanded);
@@ -155,6 +176,48 @@ void ViewerPage::renderMetaSections() {
                     });
             m_tagLayout->addWidget(more);
         }
+    }
+    if (!commentary.isEmpty()) {
+        // Bottom of the tail: a compact clickable preview. Full text (and
+        // its links) lives in the popup where it has room to breathe.
+        auto *hl = new QLabel(tr("ARTIST COMMENTARY"), this);
+        hl->setStyleSheet(QStringLiteral("color:#4a5068;font-size:10px;"));
+        m_tagLayout->addWidget(hl);
+        QString plain;
+        for (const PostComment &c : commentary) {
+            const QString t = MetaText::toPlain(c.body, ctx.flavor).simplified();
+            if (t.isEmpty())
+                continue;
+            if (!plain.isEmpty())
+                plain += QStringLiteral("  ");
+            plain += t;
+        }
+        static constexpr int kPreviewChars = 280;
+        const bool truncated = plain.size() > kPreviewChars;
+        if (truncated)
+            plain = plain.left(kPreviewChars).trimmed() + QStringLiteral("…");
+        if (plain.isEmpty())
+            plain = tr("(no text)");
+        auto *l = new QLabel(this);
+        l->setTextFormat(Qt::RichText);
+        l->setWordWrap(true);
+        l->setCursor(Qt::PointingHandCursor);
+        l->setToolTip(tr("Open the full artist commentary"));
+        l->setStyleSheet(QStringLiteral("font-size:11px;"));
+        l->setText(
+            QStringLiteral("<a href=\"box://commentary\" "
+                           "style=\"color:#c8cede;text-decoration:none;\">%1"
+                           "<br><span style=\"color:#7c9ef8;font-size:10px;\">"
+                           "%2</span></a>")
+                .arg(plain.toHtmlEscaped().replace(u'\n',
+                                                   QStringLiteral("<br>")),
+                     tr("Click to read the full commentary")));
+        l->setOpenExternalLinks(false);
+        connect(l, &QLabel::linkActivated, this, [this](const QString &href) {
+            if (href == QStringLiteral("box://commentary"))
+                showCommentaryPopup();
+        });
+        m_tagLayout->addWidget(l);
     }
 }
 
@@ -254,6 +317,9 @@ void ViewerPage::reloadCurrent() {
 // Comment card: avatar circle (initial; no engine exposes photo URLs
 // yet - avatarUrl is reserved), bold name · date, selectable body.
 QWidget *ViewerPage::commentCard(const PostComment &c, QWidget *parent) {
+    const Post p = (m_row >= 0 && m_row < m_posts.size()) ? m_posts.at(m_row)
+                                                          : Post();
+    const MetaTextContext ctx = metaTextContextFor(p);
     auto *card = new QWidget(parent);
     auto *lay = new QHBoxLayout(card);
     lay->setContentsMargins(6, 6, 6, 6);
@@ -280,10 +346,13 @@ QWidget *ViewerPage::commentCard(const PostComment &c, QWidget *parent) {
     name->setStyleSheet(QStringLiteral("font-size:12px;"));
     name->setTextInteractionFlags(Qt::TextSelectableByMouse);
     tlay->addWidget(name);
-    auto *body = new QLabel(c.body.toHtmlEscaped().left(2000), text);
+    auto *body =
+        new QLabel(MetaText::toHtml(c.body, ctx.base, 2000, ctx.flavor), text);
+    body->setTextFormat(Qt::RichText);
     body->setWordWrap(true);
     body->setStyleSheet(QStringLiteral("font-size:12px;color:#c8cede;"));
-    body->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    body->setTextInteractionFlags(Qt::TextBrowserInteraction);
+    body->setOpenExternalLinks(true);
     tlay->addWidget(body);
     lay->addWidget(text, 1);
     if (!c.avatarUrl.isEmpty()) {
@@ -348,7 +417,7 @@ void ViewerPage::showCommentsPopup() {
                 connect(l, &QLabel::linkActivated, this,
                         [this] {
                             emit probeRequested(
-                                tr("Notes/comments load failed"),
+                                tr("Post details load failed"),
                                 metaProbeText());
                         });
                 vl->addWidget(l);
@@ -361,26 +430,12 @@ void ViewerPage::showCommentsPopup() {
                 l->setWordWrap(true);
                 l->setStyleSheet(QStringLiteral("color:#4a5068;"));
                 vl->addWidget(l);
-            } else if (it->comments.isEmpty() && it->commentary.isEmpty()) {
+            } else if (it->comments.isEmpty()) {
                 auto *l = new QLabel(tr("No comments yet."), host);
                 l->setWordWrap(true);
                 l->setStyleSheet(QStringLiteral("color:#4a5068;"));
                 vl->addWidget(l);
             } else {
-                if (!it->commentary.isEmpty()) {
-                    auto *hl = new QLabel(tr("ARTIST COMMENTARY"), host);
-                    hl->setStyleSheet(
-                        QStringLiteral("color:#4a5068;font-size:10px;"));
-                    vl->addWidget(hl);
-                    for (const PostComment &c : it->commentary) {
-                        auto *l = new QLabel(c.body.toHtmlEscaped(), host);
-                        l->setWordWrap(true);
-                        l->setTextFormat(Qt::RichText);
-                        l->setTextInteractionFlags(
-                            Qt::TextSelectableByMouse);
-                        vl->addWidget(l);
-                    }
-                }
                 int shown = 0;
                 for (const PostComment &c : it->comments) {
                     if (++shown > 200)
@@ -423,6 +478,77 @@ void ViewerPage::showCommentsPopup() {
                 }
                 fill();
             });
+    dlg->show();
+    dlg->raise();
+}
+
+void ViewerPage::showCommentaryPopup() {
+    if (m_row < 0 || m_row >= m_posts.size())
+        return;
+    const Post &p = m_posts[m_row];
+    const QString key = metaKey();
+    const MetaTextContext ctx = metaTextContextFor(p);
+    auto *dlg = new QDialog(this);
+    dlg->setAttribute(Qt::WA_DeleteOnClose);
+    dlg->setWindowTitle(p.isRemote ? tr("Artist commentary - %1 #%2")
+                                             .arg(p.siteName)
+                                             .arg(p.id)
+                                   : tr("Artist commentary"));
+    dlg->resize(720, 600);
+    auto *lay = new QVBoxLayout(dlg);
+    auto *browser = new QTextBrowser(dlg);
+    browser->setOpenExternalLinks(true);
+    browser->setOpenLinks(true);
+    browser->setFrameShape(QFrame::NoFrame);
+    browser->setStyleSheet(QStringLiteral(
+        "QTextBrowser{background:#141824;color:#c8cede;"
+        "border:1px solid #2a2f45;border-radius:6px;padding:12px;}"));
+    auto fill = [this, browser, key, ctx] {
+        const auto it = m_metaCache.constFind(key);
+        if (it == m_metaCache.constEnd()) {
+            browser->setHtml(
+                QStringLiteral("<div style=\"color:#4a5068;\">%1</div>")
+                    .arg(tr("Loading artist commentary…").toHtmlEscaped()));
+            return;
+        }
+        if (it->commentary.isEmpty()) {
+            browser->setHtml(
+                QStringLiteral("<div style=\"color:#4a5068;\">%1</div>")
+                    .arg(tr("No artist commentary yet.").toHtmlEscaped()));
+            return;
+        }
+        QString html;
+        for (const PostComment &c : it->commentary) {
+            if (!html.isEmpty())
+                html += QStringLiteral(
+                    "<hr style=\"border:none;border-top:1px solid "
+                    "#2a2f45;\">");
+            html += MetaText::toHtml(c.body, ctx.base, 0, ctx.flavor);
+        }
+        browser->setHtml(
+            QStringLiteral(
+                "<div style=\"color:#c8cede;font-size:13px;\">%1</div>")
+                .arg(html));
+    };
+    fill();
+    lay->addWidget(browser, 1);
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, dlg);
+    connect(buttons, &QDialogButtonBox::rejected, dlg, &QDialog::reject);
+    lay->addWidget(buttons);
+    // A fetch already in flight (or a reload) refills the open dialog.
+    if (m_meta) {
+        connect(m_meta, &PostMetaFetcher::done, dlg,
+                [key, fill](const QString &site, qint64 postId,
+                            const QVector<PostNote> &,
+                            const QVector<PostComment> &,
+                            const QVector<PostComment> &, bool,
+                            const QString &) {
+                    if (key.isEmpty() ||
+                        key != site + u'#' + QString::number(postId))
+                        return;
+                    fill();
+                });
+    }
     dlg->show();
     dlg->raise();
 }

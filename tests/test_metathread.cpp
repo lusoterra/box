@@ -7,6 +7,8 @@
 #include <QApplication>
 #include <QLabel>
 #include <QPushButton>
+#include <QTextBrowser>
+#include <QTextDocument>
 #include <QtTest>
 
 namespace {
@@ -130,6 +132,52 @@ private slots:
         QCOMPARE(visibleCommentRows(&page), 5);
         QVERIFY(!anyOverlap(&page));
         QVERIFY(more->text().startsWith(QStringLiteral("Show all")));
+    }
+
+    void commentaryPreviewAndPopup() {
+        ViewerPage page;
+        page.resize(1100, 760);
+        const Post p = remotePost();
+        page.setPosts({p});
+        page.showRow(0);
+        page.show();
+        QCoreApplication::processEvents();
+
+        PostComment c;
+        c.body = QStringLiteral("[b]bold[/b] [url=https://e.com/x]link[/url]");
+        const bool invoked = QMetaObject::invokeMethod(
+            &page, "onMetaDone", Qt::DirectConnection,
+            Q_ARG(QString, p.siteKey), Q_ARG(qint64, p.id),
+            Q_ARG(QVector<PostNote>, QVector<PostNote>()),
+            Q_ARG(QVector<PostComment>, QVector<PostComment>()),
+            Q_ARG(QVector<PostComment>, QVector<PostComment>{c}),
+            Q_ARG(bool, true), Q_ARG(QString, QString()));
+        QVERIFY(invoked);
+        QCoreApplication::processEvents();
+
+        // Compact preview: clickable, markup stripped in the small card.
+        QLabel *preview = nullptr;
+        for (QLabel *l : page.findChildren<QLabel *>()) {
+            if (l->text().contains(QStringLiteral("Click to read")))
+                preview = l;
+        }
+        QVERIFY(preview);
+        QVERIFY(preview->text().contains(QStringLiteral("bold")));
+        QVERIFY(!preview->text().contains(QStringLiteral("**")));
+
+        // Click opens the large popup with the formatted body.
+        QVERIFY(QMetaObject::invokeMethod(&page, "showCommentaryPopup"));
+        QCoreApplication::processEvents();
+        QTextBrowser *browser = nullptr;
+        for (QTextBrowser *b : page.findChildren<QTextBrowser *>()) {
+            if (b->isVisible())
+                browser = b;
+        }
+        QVERIFY(browser);
+        QVERIFY(browser->toPlainText().contains(QStringLiteral("bold")));
+        QVERIFY(browser->toPlainText().contains(QStringLiteral("link")));
+        QVERIFY(browser->document()->toHtml().contains(
+            QStringLiteral("https://e.com/x")));
     }
 };
 

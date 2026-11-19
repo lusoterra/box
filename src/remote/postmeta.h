@@ -4,6 +4,12 @@
 //   Danbooru:  /notes.json, /comments.json, /artist_commentary.json
 //   Gelbooru:  dapi s=note|s=comment, post_id= (creds attached when set)
 //   Moebooru:  /note.json?post_id=, /comment.json?post_id=
+// Artist commentary has no universal endpoint:
+//   Danbooru:  /artist_commentary.json (original + translated text)
+//   Derpibooru: single image, Markdown `description`
+//   Twibooru:   single post, Markdown `description`
+//   HyBooru:    single post, Hydrus notes with rect=null (translated
+//               commentary label preferred; rect notes are annotations)
 // Failures are silent (sections just stay hidden); results are cached per
 // session so back/forth doesn't refetch.
 #include <QObject>
@@ -82,7 +88,7 @@ QUrl notesUrl(BooruEngine engine, const QString &baseUrl, qint64 postId,
               const QString &gelUser = {}, const QString &gelKey = {});
 QUrl commentsUrl(BooruEngine engine, const QString &baseUrl, qint64 postId,
                  const QString &gelUser = {}, const QString &gelKey = {});
-// Artist commentary (Danbooru only; empty elsewhere).
+// Artist commentary (Danbooru/Derpibooru/Twibooru/HyBooru; empty elsewhere).
 QUrl commentaryUrl(BooruEngine engine, const QString &baseUrl, qint64 postId);
 // postId > 0 scopes the result: some engines ignore the post filter and
 // dump the site-wide note/comment feed, so rows stamped with a different
@@ -91,5 +97,10 @@ QVector<PostNote> parseNotes(const QByteArray &body, bool *ok = nullptr,
                              qint64 postId = 0);
 QVector<PostComment> parseComments(const QByteArray &body, bool *ok = nullptr,
                                    qint64 postId = 0);
-QVector<PostComment> parseCommentary(const QByteArray &body, bool *ok = nullptr);
+// Engine shape matters (Danbooru array vs Philomena/HyBooru detail objects).
+QVector<PostComment> parseCommentary(BooruEngine engine, const QByteArray &body,
+                                     bool *ok = nullptr);
+// Back-compat: Danbooru's artist_commentary shape.
+QVector<PostComment> parseCommentary(const QByteArray &body,
+                                     bool *ok = nullptr);
 } // namespace PostMeta

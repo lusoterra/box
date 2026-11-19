@@ -93,6 +93,7 @@ add_unit_test(test_gifview test_gifview.cpp ../src/ui/viewerpage.cpp ../src/ui/v
               ../src/remote/imagecache.cpp ../src/remote/postmeta.cpp
               ../src/remote/webdlbackend.h ../src/library/cachejanitor.cpp
               ../src/ui/progressbar.cpp ../src/ui/flowlayout.cpp
+              ../src/ui/metatext.cpp
               ${REMOTE_SOURCES} ../src/settings.cpp ../src/remote/tempmedia.cpp)
 target_compile_definitions(test_gifview PRIVATE
     TESTFILES_DIR="${CMAKE_SOURCE_DIR}/tests/files")
@@ -102,6 +103,7 @@ add_unit_test(test_metathread test_metathread.cpp ../src/ui/viewerpage.cpp ../sr
               ../src/remote/imagecache.cpp ../src/remote/postmeta.cpp
               ../src/remote/webdlbackend.h ../src/library/cachejanitor.cpp
               ../src/ui/progressbar.cpp ../src/ui/flowlayout.cpp
+              ../src/ui/metatext.cpp
               ${REMOTE_SOURCES} ../src/settings.cpp ../src/remote/tempmedia.cpp)
 set_tests_properties(test_metathread PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
@@ -109,6 +111,7 @@ add_unit_test(test_videopane test_videopane.cpp ../src/ui/viewerpage.cpp ../src/
               ../src/remote/imagecache.cpp ../src/remote/postmeta.cpp
               ../src/remote/webdlbackend.h ../src/library/cachejanitor.cpp
               ../src/ui/progressbar.cpp ../src/ui/flowlayout.cpp
+              ../src/ui/metatext.cpp
               ${REMOTE_SOURCES} ../src/settings.cpp ../src/remote/tempmedia.cpp)
 target_compile_definitions(test_videopane PRIVATE
     TESTFILES_DIR="${CMAKE_SOURCE_DIR}/tests/files")
@@ -122,6 +125,7 @@ add_unit_test(test_gridwindow test_gridwindow.cpp
               ../src/ui/mainwindow.cpp ../src/ui/mainwindow_gridmenu.cpp ../src/ui/mainwindow_tabs.cpp ../src/ui/mainwindow_downloads.cpp ../src/ui/mainwindow_sidebar.cpp ../src/ui/mainwindow_wall.cpp ../src/ui/mainwindow_search.cpp ../src/ui/mainwindow_filter.cpp ../src/ui/mainwindow_stray.cpp ../src/ui/mainwindow_backup.cpp ../src/ui/mainwindow_favtab.cpp ../src/ui/mainwindow_sites.cpp ../src/ui/mainwindow_refresh.cpp ../src/ui/mainwindow_classify.cpp ../src/ui/mainwindow_scan.cpp ../src/ui/mainwindow_fill.cpp ../src/ui/mainwindow_sidebar2.cpp ../src/ui/mainwindow_thumb.cpp ../src/ui/mainwindow_suggest.cpp ../src/ui/mainwindow_heal.cpp ../src/ui/mainwindow_state.cpp ../src/ui/mainwindow_filter2.cpp ../src/ui/mainwindow_result.cpp ../src/ui/mainwindow_tagmenu.cpp ../src/ui/mainwindow_misc.cpp ../src/ui/mainwindow_relink.cpp ../src/ui/mainwindow_viewer.cpp ../src/ui/mainwindow_prefs.cpp ../src/ui/mainwindow_close.cpp ../src/ui/mainwindow_misc2.cpp ../src/ui/mainwindow_back.cpp ../src/ui/viewerpage.cpp ../src/ui/viewerpage_mediaviews.cpp ../src/ui/viewerpage_meta.cpp ../src/ui/viewerpage_tags.cpp ../src/ui/viewerpage_load.cpp ../src/ui/viewerpage_setters.cpp ../src/ui/viewerpage_detail.cpp ../src/ui/viewerpage_nav.cpp
               ../src/ui/welcomepage.cpp ../src/ui/tabbar.cpp
               ../src/ui/theme.cpp ../src/ui/flowlayout.cpp
+              ../src/ui/metatext.cpp
               ../src/ui/prefsdlg.cpp ../src/ui/prefsdlg_booru.cpp ../src/remote/cookiegrab.cpp
               ../src/ui/straydialog.cpp ../src/ui/progressbar.cpp
               ../src/ui/gridloadingoverlay.cpp
@@ -159,6 +163,8 @@ add_unit_test(test_hybooru test_hybooru.cpp ${REMOTE_SOURCES}
               ../src/library/cache.cpp ../src/settings.cpp)
 add_unit_test(test_postmeta test_postmeta.cpp ../src/remote/postmeta.cpp
               ${REMOTE_SOURCES})
+add_unit_test(test_metatext test_metatext.cpp ../src/ui/metatext.cpp)
+add_unit_test(test_mediafilter test_mediafilter.cpp)
 add_unit_test(test_powsolver test_powsolver.cpp ../src/remote/powsolver.cpp
               ${REMOTE_SOURCES})
 add_unit_test(test_settingsexport test_settingsexport.cpp

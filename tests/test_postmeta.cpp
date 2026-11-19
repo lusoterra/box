@@ -72,10 +72,80 @@ private slots:
         QCOMPARE(QUrlQuery(dan).queryItemValue(
                      QStringLiteral("search[post_id]")),
                  QStringLiteral("42"));
-        QVERIFY(PostMeta::commentaryUrl(
-                     BooruEngine::Gelbooru,
-                     QStringLiteral("https://gelbooru.com"), 42)
-                     .isEmpty());
+        QCOMPARE(PostMeta::commentaryUrl(
+                     BooruEngine::Derpibooru,
+                     QStringLiteral("https://derpibooru.org"), 42)
+                     .toString(),
+                 QStringLiteral("https://derpibooru.org/api/v1/json/images/42"));
+        QCOMPARE(PostMeta::commentaryUrl(
+                     BooruEngine::Twibooru,
+                     QStringLiteral("https://twibooru.org"), 42)
+                     .toString(),
+                 QStringLiteral("https://twibooru.org/api/v3/posts/42"));
+        QCOMPARE(PostMeta::commentaryUrl(
+                     BooruEngine::Hybooru,
+                     QStringLiteral("https://booru.example"), 42)
+                     .toString(),
+                 QStringLiteral("https://booru.example/api/post/42"));
+        for (BooruEngine e : {BooruEngine::Gelbooru, BooruEngine::Safebooru,
+                              BooruEngine::Moebooru, BooruEngine::Szurubooru,
+                              BooruEngine::Shimmie, BooruEngine::Nuuru})
+            QVERIFY(PostMeta::commentaryUrl(
+                        e, QStringLiteral("https://gelbooru.com"), 42)
+                        .isEmpty());
+    }
+
+    void parseCommentaryEngines() {
+        bool ok = false;
+        // Philomena v1 image envelope.
+        const auto derpi = PostMeta::parseCommentary(
+            BooruEngine::Derpibooru,
+            QByteArray(R"({"image":{"description":"**hello**"}})"), &ok);
+        QVERIFY(ok);
+        QCOMPARE(derpi.size(), 1);
+        QCOMPARE(derpi.at(0).body, QStringLiteral("**hello**"));
+        // Philomena v3 post envelope.
+        const auto twi = PostMeta::parseCommentary(
+            BooruEngine::Twibooru,
+            QByteArray(R"({"post":{"description":"twibody"}})"), &ok);
+        QVERIFY(ok);
+        QCOMPARE(twi.size(), 1);
+        QCOMPARE(twi.at(0).body, QStringLiteral("twibody"));
+        // HyBooru: rect != null is an annotation; translated commentary
+        // wins over the original when both are present.
+        const auto hyb = PostMeta::parseCommentary(
+            BooruEngine::Hybooru,
+            QByteArray(R"({"notes":[)"
+                       R"({"label":"danbooru artist commentary",)"
+                       R"("note":"original","rect":null},)"
+                       R"({"label":"danbooru translated artist commentary",)"
+                       R"("note":"translated","rect":null},)"
+                       R"({"label":null,"note":"annotation",)"
+                       R"("rect":{"left":1,"top":2,"width":3,"height":4}}]})"),
+            &ok);
+        QVERIFY(ok);
+        QCOMPARE(hyb.size(), 1);
+        QCOMPARE(hyb.at(0).body, QStringLiteral("translated"));
+        // No commentary labels: every non-annotation note survives.
+        const auto generic = PostMeta::parseCommentary(
+            BooruEngine::Hybooru,
+            QByteArray(R"({"notes":[{)"
+                       R"("label":"personal","note":"one","rect":null},)"
+                       R"({"label":"extra","note":"two","rect":null}]})"),
+            &ok);
+        QVERIFY(ok);
+        QCOMPARE(generic.size(), 1);
+        QCOMPARE(generic.at(0).body, QStringLiteral("one\n\ntwo"));
+        // Empty/blank descriptions stay hidden.
+        QVERIFY(PostMeta::parseCommentary(BooruEngine::Derpibooru,
+                                          QByteArray(R"({"image":{"description":""}})"),
+                                          &ok)
+                    .isEmpty());
+        QVERIFY(ok);
+        QVERIFY(PostMeta::parseCommentary(BooruEngine::Hybooru,
+                                          QByteArray("nope"), &ok)
+                    .isEmpty());
+        QVERIFY(!ok);
     }
 
     void parseCommentaryShapes() {

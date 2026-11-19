@@ -77,6 +77,11 @@ void PostMetaFetcher::fetch(const QString &siteKey, const QString &baseUrl,
         notesReq.setRawHeader("Accept", "application/json");
         commentsReq.setRawHeader("Accept", "application/json");
         commentaryReq.setRawHeader("Accept", "application/json");
+    } else if (engine == BooruEngine::Derpibooru ||
+               engine == BooruEngine::Twibooru ||
+               engine == BooruEngine::Hybooru) {
+        // Philomena/HyBooru details: ask for the JSON representation only.
+        commentaryReq.setRawHeader("Accept", "application/json");
     }
     if (notesReq.url().isEmpty())
         m_notesDone = true; // engine has no notes API
@@ -177,7 +182,8 @@ void PostMetaFetcher::fetch(const QString &siteKey, const QString &baseUrl,
                         .toInt();
                 body = r->readAll();
                 if (r->error() == QNetworkReply::NoError && http / 100 == 2)
-                    m_commentary = PostMeta::parseCommentary(body, &ok);
+                    m_commentary =
+                        PostMeta::parseCommentary(m_engine, body, &ok);
                 else if (r->error() != QNetworkReply::NoError)
                     m_commentaryErr = r->errorString();
                 else
@@ -216,7 +222,8 @@ void PostMetaFetcher::finishPart() {
     if (err.isEmpty())
         err = m_commentsErr;
     // Commentary is optional enrichment: a failure there must not hide
-    // notes/comments that loaded fine.
+    // notes/comments that loaded fine (nor paint an error banner on
+    // commentary-only engines).
     emit done(m_site, m_postId, m_notes, m_comments, m_commentary,
               m_notesOk && m_commentsOk, err);
 }
@@ -347,15 +354,24 @@ QUrl commentsUrl(BooruEngine engine, const QString &baseUrl, qint64 postId,
 }
 
 QUrl commentaryUrl(BooruEngine engine, const QString &baseUrl, qint64 postId) {
-    if (engine != BooruEngine::Danbooru)
-        return {};
-    QUrl url(baseUrl + QStringLiteral("/artist_commentary.json"));
-    QUrlQuery q;
-    q.addQueryItem(QStringLiteral("search[post_id]"),
-                   QString::number(postId));
-    q.addQueryItem(QStringLiteral("limit"), QStringLiteral("1"));
-    url.setQuery(q);
-    return url;
+    const QString id = QString::number(postId);
+    if (engine == BooruEngine::Danbooru) {
+        QUrl url(baseUrl + QStringLiteral("/artist_commentary.json"));
+        QUrlQuery q;
+        q.addQueryItem(QStringLiteral("search[post_id]"), id);
+        q.addQueryItem(QStringLiteral("limit"), QStringLiteral("1"));
+        url.setQuery(q);
+        return url;
+    }
+    // Philomena (v1 images / v3 posts) and HyBooru expose the commentary-
+    // like text on the single-post object itself.
+    if (engine == BooruEngine::Derpibooru)
+        return QUrl(baseUrl + QStringLiteral("/api/v1/json/images/") + id);
+    if (engine == BooruEngine::Twibooru)
+        return QUrl(baseUrl + QStringLiteral("/api/v3/posts/") + id);
+    if (engine == BooruEngine::Hybooru)
+        return QUrl(baseUrl + QStringLiteral("/api/post/") + id);
+    return {};
 }
 
 QVector<PostNote> parseNotes(const QByteArray &body, bool *ok, qint64 postId) {
@@ -535,17 +551,92 @@ QVector<PostComment> parseComments(const QByteArray &body, bool *ok,
     return out;
 }
 
-QVector<PostComment> parseCommentary(const QByteArray &body, bool *ok) {
+QVector<PostComment> parseCommentary(BooruEngine engine, const QByteArray &body,
+                                     bool *ok) {
     QVector<PostComment> out;
+    if (ok)
+        *ok = false;
     QJsonParseError err;
     const QJsonDocument doc = QJsonDocument::fromJson(body, &err);
-    if (err.error != QJsonParseError::NoError) {
-        if (ok)
-            *ok = false;
+    if (err.error != QJsonParseError::NoError)
         return out;
-    }
     if (ok)
         *ok = true;
+
+    // Philomena: Markdown description on the image/post object.
+    if (engine == BooruEngine::Derpibooru || engine == BooruEngine::Twibooru) {
+        const QJsonObject envelope = doc.object();
+        const QJsonObject o =
+            envelope.value(engine == BooruEngine::Derpibooru
+                               ? QStringLiteral("image")
+                               : QStringLiteral("post"))
+                .toObject();
+        const QString text =
+            o.value(QStringLiteral("description")).toString().trimmed();
+        if (!text.isEmpty()) {
+            PostComment c;
+            c.body = text;
+            out.append(c);
+        }
+        return out;
+    }
+
+    // HyBooru: Hydrus notes. rect != null are image annotations; rect-null
+    // rows are text notes (Danbooru commentary imports carry labels).
+    if (engine == BooruEngine::Hybooru) {
+        struct Note {
+            QString label;
+            QString text;
+        };
+        QVector<Note> notes;
+        for (const QJsonValue &v :
+             doc.object().value(QStringLiteral("notes")).toArray()) {
+            if (!v.isObject())
+                continue;
+            const QJsonObject n = v.toObject();
+            const QJsonValue rect = n.value(QStringLiteral("rect"));
+            if (!rect.isNull() && !rect.isUndefined())
+                continue; // annotation, handled by the notes overlay
+            const QString text =
+                n.value(QStringLiteral("note")).toString().trimmed();
+            if (text.isEmpty())
+                continue;
+            notes.append({n.value(QStringLiteral("label"))
+                              .toString()
+                              .toLower()
+                              .trimmed(),
+                          text});
+        }
+        auto hasLabel = [&notes](const QString &needle) {
+            for (const Note &n : notes)
+                if (n.label.contains(needle))
+                    return true;
+            return false;
+        };
+        const bool translated = hasLabel(QStringLiteral("translat"));
+        const bool commentary = hasLabel(QStringLiteral("commentary"));
+        QStringList texts;
+        for (const Note &n : notes) {
+            if (translated && !n.label.contains(QStringLiteral("translat")))
+                continue;
+            if (!translated && commentary &&
+                !n.label.contains(QStringLiteral("commentary")))
+                continue;
+            texts << n.text;
+        }
+        if (texts.isEmpty()) {
+            for (const Note &n : notes)
+                texts << n.text; // no commentary labels: keep every note
+        }
+        if (!texts.isEmpty()) {
+            PostComment c;
+            c.body = texts.join(QStringLiteral("\n\n"));
+            out.append(c);
+        }
+        return out;
+    }
+
+    // Danbooru: {artist_commentary: [...]}, one row per post.
     QJsonArray arr;
     if (doc.isArray())
         arr = doc.array();
@@ -573,6 +664,10 @@ QVector<PostComment> parseCommentary(const QByteArray &body, bool *ok) {
             out.append(c);
     }
     return out;
+}
+
+QVector<PostComment> parseCommentary(const QByteArray &body, bool *ok) {
+    return parseCommentary(BooruEngine::Danbooru, body, ok);
 }
 
 } // namespace PostMeta
