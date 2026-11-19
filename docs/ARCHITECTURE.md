@@ -82,9 +82,11 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
   - Also: `imagecache` (full-image fetch for viewer), `thumbloader`
     (grid thumbs), `tagsuggest` (per-engine autocomplete), `faviconcache`
     (site icons), `cookiegrab` (WebEngine cookie capture for walled hosts),
-    `postmeta` (notes + comments + Danbooru artist commentary for viewer;
-    Gelbooru dapi XML bodies accepted, rows scoped by `post_id` so an
-    unscoped endpoint can never paint another post's notes/comments).
+    `postmeta` (notes + comments + artist commentary for viewer; Gelbooru
+    dapi XML bodies accepted, rows scoped by `post_id` so an unscoped
+    endpoint can never paint another post's notes/comments; commentary =
+    Danbooru `artist_commentary`, Philomena `description`
+    (Derpibooru/Twibooru detail), HyBooru rect-null Hydrus notes).
 - `src/library/` - local data + classification.
   - `scanner.h:19` `Scanner`: recursive scan, both sidecar layouts, emits
     `progress`/`cacheStats`; impl `src/library/scanner.cpp:156`.
@@ -125,7 +127,7 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
   by the browse sidebar, filter pills and viewer tag groups.
 - `src/ui/` - `mainwindow.h:105` `MainWindow` (all tabs, all searches);
   `BrowserTab` session state (`:47-61`); `PendingSite` OR fan-out (`:342-350`).
-  - `viewerpage.h:170` `ViewerPage` (same-window viewer; member defs split across `src/ui/viewerpage.cpp`, `viewerpage_mediaviews.cpp` (`ImageView`/`GifView`/`VideoView`), `viewerpage_nav.cpp` navigation/prefetch, `viewerpage_meta.cpp` metadata/notes/comments+reload, `viewerpage_tags.cpp` tag rendering, `viewerpage_load.cpp` notes/cache/web load, `viewerpage_setters.cpp` state/setters/badges, `viewerpage_detail.cpp` Hybooru detail fetch; `ImageView` `:33`,
+  - `viewerpage.h:170` `ViewerPage` (same-window viewer; member defs split across `src/ui/viewerpage.cpp`, `viewerpage_mediaviews.cpp` (`ImageView`/`GifView`/`VideoView`), `viewerpage_nav.cpp` navigation/prefetch, `viewerpage_meta.cpp` metadata/notes/comments/commentary popups+reload, `viewerpage_tags.cpp` tag rendering, `viewerpage_load.cpp` notes/cache/web load, `viewerpage_setters.cpp` state/setters/badges, `viewerpage_detail.cpp` Hybooru detail fetch; `ImageView` `:33`,
     `GifView` `:65`, `VideoView` `:93`); software video decoding forced in
     `main.cpp` (`QT_FFMPEG_DECODING_HW_DEVICE_TYPES=,`, user-overridable;
     the VAAPI/hardware path segfaulted on broken surfaces) and
@@ -134,6 +136,9 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     video ghost-audio killed by a wanted-source gate (`VideoPane::
     m_wanted`) + mute-on-stop; note click opens `showNotePopup`;
     `welcomepage` (home + mascot);
+    `metatext` (untrusted DText/BBCode/Markdown -> escaped Qt rich text
+    with http(s)/mailto-only links, relative targets resolved per entry;
+    used by the commentary popup and comment bodies);
     `prefsdlg` (tabbed preferences; booru editor/detect/probe + swatches/`harvestInto` split to `src/ui/prefsdlg_booru.cpp`); `straydialog` (Download/Add Stray);
     `flowlayout` (filter pills), `tabbar` (marquee tabs, drag-reorder
     with welcome pinned first), `theme`, `uicons`,
@@ -157,6 +162,13 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     (`:960-966,1799`); append path skips dupes (`:2113`), throttled vs 429s;
     `♥ Favourites` + `⭳ Downloads` join merges as virtual sources
     (`mainwindow.cpp:221`).
+  - Downloads media picker (`m_mediaBox`, `onMediaChanged`): All /
+    Images / GIFs / Animated / Videos, extension-only. Shown on the
+    `⭳ Downloads` source and the local `Browse Downloads` tab
+    (`MainWindow::isDownloadsTab`); filters download-root rows in
+    `applyBrowseFilter`/`applyFilter` (`mediaFilterMatchesExt`,
+    `src/post.h`). Rating + sort are shown on browse, favourites and both
+    downloads views; local tabs enable every sort order (client-side).
 - Downloads (`src/remote/downloadmanager.cpp:115` `plan`,
   `:385` `completeJob`):
   - `plan(posts, destDir)` -> one `DownloadJob` per post
@@ -303,8 +315,18 @@ Never a group named `General` (QSettings reserves it; see
   (`remotesource.h:170-172`); browse failures attach to status bar
   (`m_statusProbeTitle/Text`, `mainwindow.h:327-329`; click opens dialog;
   `mainwindow.cpp:1991,2022-2141`).
-- `CredentialProbe` (`remotesource.h:56-66`) = Test-button diagnostics;
+- CredentialProbe (`remotesource.h:56-66`) = Test-button diagnostics;
   prefs probe runs on worker thread (`prefsdlg.cpp:1184,1320-1381`).
+- Media CDN walls (`cdn.donmai.us` 403 behind Cloudflare,
+  `derpicdn.net`): one site captcha unlocks the CDN in a browser, so a
+  site clearance stays entry-level and `cookieHeaderValueForHost`
+  forwards clearance-only cookies to known same-operator CDNs (never the
+  session). CDN-specific captures are host-scoped (`host!name=value`,
+  `harvestScopedCookies`) so they cannot clobber the site value; scoped
+  entries only apply under their own host, narrower scope wins. A walled
+  viewer image registers the failing URL in `m_mediaWalls` (Solve button
+  opens the CDN) and the silent clearance refresh loads that media URL,
+  not just the site root; `proxyForUrl` follows the same CDN matching.
 - Transient retry: `isTransientSearchError` = rate-limit/timeout/5xx, never
   auth/wall/bad-filter (`booruengine.h:42`); one delayed auto-retry per fresh
   search (`m_searchRetried`, `mainwindow.h:363`; `mainwindow.cpp:2151-2159`);

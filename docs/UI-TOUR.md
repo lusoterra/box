@@ -58,15 +58,14 @@ Left to right: `★` favourite-tags menu (click a star to add it to the
 search; coloured by tag bucket, scrolls past ~16 rows; manage/remove in
 Preferences → General) → tag search box (placeholder `Search tags…`, autocomplete
 popup ranked exact-match first, then starred tags, then most-used, then your
-recent tokens - `/` focuses, Enter searches) → rating dropdown (`All`, default label) → media dropdown
-(stills / animated GIFs / anything animated / videos / sound, adds a
-`filetype:` tag - expanded to native `animated`/`video` tags on Danbooru
-where live-verified, `filetype:` elsewhere; typing `animated` /
-`animated_gif` / `video` filters by media on Gelbooru-family/Moebooru
-too) → sort dropdown (`Recently added`/`Newest`/`Oldest`/`Top
-Rated`/`Low Rated`/`Random` - server-side via translated tags where the
-engine supports it (options that would only re-sort client-side disable
-themselves per tab; `Recently added`/`Newest` never reorder) →
+recent tokens - `/` focuses, Enter searches) → rating dropdown (`All`/`General`/`Sensitive`/`Questionable`/`Explicit`; shown on browse, favourites and both downloads views - server-side on remote tabs, client-side on local/favourites) → media dropdown
+(`All media` / `Images` / `GIFs` / `Anything animated` / `Videos`, shown only on
+tabs backed by the download folder (`⭳ Downloads` source or `File → Browse Downloads`);
+filters files under the download folder by extension - a `GIFs` choice covers gif/animated webp/jxl, `Anything animated`
+adds mp4/webm; no tags or MIME sniffing) → sort dropdown (`Recently added`/`Newest`/`Oldest`/`Top
+Rated`/`Low Rated`/`Random`; shown on browse, favourites and downloads - server-side via translated tags where the
+engine supports it on remote tabs, all orders client-side on local tabs and favourites; remote options that would only re-sort client-side disable
+themselves per tab, `Recently added`/`Newest` never reorder on remote) →
 `Boorus…` (per-tab source picker, multibooru merge) → `AI` (one-click
 filter hiding AI-generated posts) → `Download (N)`
 (batch-downloads the selection) → `Clear` (resets pills/query) → reload
@@ -78,7 +77,9 @@ cards (× drops the default for that tab and re-searches). The
 rating/category dropdowns are shortcuts for typing: a rating choice renders
 as a `rating:<value>` pill, a source choice as a plain pill - same look and
 × behavior as typed tags (typing a `rating:` tag clears the box to `All`
-so the two never stack).
+so the two never stack). Every omnibar dropdown carries a hover tooltip
+naming what it filters or sorts (rating, source, downloads media type,
+sort order) before you open it.
 
 ## Grid card anatomy (see 19-badge-closeup)
 Thumbnail with, overlaid: top-right media kind (`▶` video / `GIF`);
@@ -173,12 +174,21 @@ tags, comments, media), `Notes`
 opens a larger `Annotation note` popup with selectable text instead of a
 hover tooltip),
 globe (`Open file`), `Copy file URL`, `Comments` (thread popup with cards,
-reuses the cached comments/notes). The tag panel below the groups shows
-three threads when the engine provides them: NOTES (translation bodies,
-box coordinates on the tooltip; deleted annotations are skipped),
-ARTIST COMMENTARY
-(Danbooru `artist_commentary`, translated text preferred) and COMMENTS
-(first five rows, `Show all N comments` expands them in place). A post can be dragged out from the media as well (stills/GIFs at
+reuses the cached comment rows). The tag panel below the groups shows
+three threads when the engine provides them, in this order: NOTES
+(translation bodies, box coordinates on the tooltip; deleted annotations
+are skipped), COMMENTS (first five rows, `Show all N comments` expands
+them in place), and ARTIST COMMENTARY at the bottom of the tail. The
+commentary section is a compact clickable preview (message text with
+markup stripped, cap ~280 chars); clicking it opens the large `Artist
+commentary` popup with selectable rich text and clickable links. Sources:
+Danbooru `artist_commentary` (translation preferred), Philomena
+`description` on Derpibooru/Twibooru, HyBooru rect-null Hydrus notes.
+DText/BBCode (Danbooru) and Markdown (Philomena) are rendered
+(`[b]`/`[i]`/`[url=]`, `**bold**`, `*italic*`, `[label](url)`, quotes,
+bullets); bare URLs auto-link and site-relative links resolve against the
+entry. Comments use the same per-engine formatter; notes stay escaped
+plain text. A post can be dragged out from the media as well (stills/GIFs at
 fit zoom, same URL/file payload as grid drag; videos excluded). Double-click the media for
 fullscreen post view (`MainWindow::setViewerFullscreen`: menubar, tab bar,
 omnibar, sidebar, pills and status bar hide while the viewer goes immersive;
@@ -210,9 +220,14 @@ redacted URL + reason like a search error does; any failure also arms the
 status-bar probe, so clicking the `Media failed…` line opens the
 redacted URL + reason like a search error does; a wall-marked failure
 also triggers one silent clearance refresh from the capture profile,
-then retries the post automatically; fingerprint-walled stills/GIFs
-additionally retry through the browser backend, which re-runs page JS
-where QNAM replays a dead cookie). Right: metadata (`#id`, site -
+loading the failing media URL (CDN clearances are per host) and then
+retrying the post automatically; the `Solve …` button also opens that
+media URL, and captured cookies are host-scoped
+(`cdn.donmai.us!cf_clearance=…`) so the site and CDN challenges coexist
+instead of overwriting each other; walled stills/GIFs
+also retry through the browser backend (matching UA + profile cookies),
+which re-runs page JS where QNAM replays a dead cookie or gets a
+fingerprint 403). Right: metadata (`#id`, site -
 downloaded rows show their booru `Label (Engine)` form -, URLs (the
 post page, not the downloaded file, except strays),
 score, rating with `(inferred)` flag, dimensions, ext) and clickable tag

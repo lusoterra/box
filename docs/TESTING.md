@@ -20,10 +20,11 @@
 - Remote tests link the split set (`REMOTE_SOURCES`, `:20-28`):
   `sitequirks` + `booruengine` + 6 engine impls + `remotesource.cpp`.
 - Files: `test_cachejanitor/downloadplan/explicittags/favdb/favicon/
-  filehash/index/losnimport/metaparser/queryor/remotesource/scanner/
-  security/settings/sidecarrefresh/tagsuggest/tagtypes/thumbloader`
-  + `check_translations.py` (ctest case, `:72-78`). ViewerPage meta
-  tail (notes bodies, comment expand layout) lives in `test_metathread`.
+  filehash/index/losnimport/metaparser/mediafilter/metatext/queryor/
+  remotesource/scanner/security/settings/sidecarrefresh/tagsuggest/
+  tagtypes/thumbloader` + `check_translations.py` (ctest case,
+  `:72-78`). ViewerPage meta tail (notes bodies, comment expand layout,
+  commentary preview/popup) lives in `test_metathread`.
 - Fixtures: `tests/files/` (wired via `TESTFILES_DIR` for thumbloader,
   `:56-58`); `losn-sample.db` at repo root for LOSN import shapes.
 

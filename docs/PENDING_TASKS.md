@@ -1,5 +1,83 @@
 # Pending tasks (from user goal)
 
+## 34. Hover tooltips on the omnibar dropdowns - DONE
+- Rating, source/category, downloads media and sort combos now carry
+  `setToolTip` text explaining what they filter/sort and where it runs
+  (server vs client-side). Downloads media tooltip lists the extension
+  groups (`src/ui/mainwindow.cpp`).
+- Verify: `test_gridwindow` still builds; tooltips are static strings.
+
+## 33. cdn.donmai.us 403 after a browser captcha - DONE
+- [x] Browser parity: one site captcha unlocks the CDN, so a clearance
+      captured on the site stays entry-level and is forwarded to
+      `cdn.donmai.us`/`derpicdn.net` (clearance-only; never the session).
+      CDN-specific captures stay host-scoped so they cannot clobber the
+      site clearance.
+- [x] Media failures register the failing URL in `m_mediaWalls`, so the
+      Solve button opens the CDN challenge (not just the site root), and
+      the silent clearance refresh loads that media URL.
+- [x] Manual/silent/prefs captures merge instead of replacing the entry's
+      cookie list; the cookie editor accepts `host!name=value`.
+- [x] Known media CDNs also inherit the entry's proxy (clearance is
+      IP-bound, so the capture browser and QNAM must egress the same way).
+- [x] Walled viewer stills/GIFs also retry through the browser backend
+      (matching UA + capture-profile cookies), covering Cloudflare/CDN
+      403s where QNAM's request fingerprint is rejected even with a
+      valid clearance.
+- Verify: `test_remotesource` (`cookieHostScoping`, `cookiesApply`,
+  `proxyForUrl`, `harvestScopedCookies`), full `ctest`; live CDN
+  challenge observed against `cdn.donmai.us` (`cf-mitigated: challenge`).
+
+## 32. Rating + sort back on Favourites and Downloads - DONE
+- [x] `m_ratingBox` + `m_sortBox` visible on favourites, the local
+      `File -> Browse Downloads` tab, and the virtual `⭳ Downloads` source
+      (`setBrowseUi`, `MainWindow::isDownloadsTab`).
+- [x] Local tabs enable every sort order (client-side `Index::query`/
+      `sortPosts`, no append reshuffle); rating filters the DB list/local
+      index. Favourites activation refreshes the sort menu and rating
+      items (`rebuildCombos`), so a restored favourites-only session is
+      not stuck with just `All`.
+- [x] The downloads media picker also follows the local Browse Downloads
+      tab and filters its rows client-side (`applyFilter`).
+- Verify: `test_gridwindow` (favourites tab exposes rating/sort, all sort
+  orders enabled), `test_mediafilter`, full `ctest`.
+
+## 31. Downloads media-type picker - DONE
+- [x] Downloads-only media dropdown next to the omnibar: `All media`,
+      `Images`, `GIFs` (animated stills: gif/animated webp/jxl),
+      `Anything animated` (GIFs + mp4/webm), `Videos`.
+- [x] File-extension based only (filesystem truth), never tags or MIME
+      types; hidden/ignored on every other tab.
+- [x] Local grid filtering happens client-side on the loaded download
+      rows (no rescan), and the choice persists for the tab session.
+- Verify: `test_mediafilter` (new: extension mapping), `test_gridwindow`
+  (GUI boot + tabs), GUI eyes for a Downloads tab with mixed extensions;
+  full `ctest` after the build.
+
+## 30. Artist commentary: compact section, readable popup, rich text, more engines - DONE
+- [x] Panel: ARTIST COMMENTARY moves to the bottom of the meta tail
+      (`src/ui/viewerpage_meta.cpp:renderMetaSections`), rendered as a
+      small clickable preview (plain text, capped + ellipsised) instead of
+      inline full text.
+- [x] Click opens a larger `Artist commentary` dialog with scrollable,
+      selectable rich text and clickable links (`showCommentaryPopup`).
+- [x] Formatting helper `MetaText::toHtml/toPlain` (`src/ui/metatext.*`):
+      DText/BBCode (`[b] [i] [u] [s] [url=] [quote] [spoiler] [code]`),
+      Philomena Markdown (`**bold**`, `*italic*`, `~~strike~~`,
+      `[label](url)`, headings, quotes, bullets), bare URL auto-linking,
+      relative links resolved against the entry base URL. Everything is
+      HTML-escaped first; hrefs are http(s)/mailto only.
+- [x] Engines with a commentary-like field: Danbooru `artist_commentary`
+      (existing), Philomena `description` (Derpibooru v1 / Twibooru v3
+      single-image endpoints), HyBooru Hydrus notes (rect-null notes;
+      translated commentary preferred). Gelbooru/Safebooru, Moebooru,
+      Szurubooru, Shimmie and Nuuru expose no such field (no-op).
+- [x] Comment bodies also go through the formatter (DText links/italics),
+      notes stay escaped plain text.
+- Verify: `test_metatext` (new), `test_postmeta` (new URL/shape cases),
+      `test_metathread` (panel tail still lays out), full `ctest`;
+      GUI eyes under Xvfb for the preview click and popup link opening.
+
 ## 29. Browser shortcuts + favourite clipboard parity - DONE
 - Window shortcuts (`src/ui/mainwindow.cpp`): `Ctrl+T` new default tab
   (Default tab booru, else default boorus), `Ctrl+W` close tab,

@@ -6,7 +6,14 @@
   via `sortSearchTag()`, rest client-side `sortPosts()`
   (`src/ui/mainwindow.cpp:2205`).
 - rating box = `m_ratingBox` rating filter (`src/ui/mainwindow.h:272`);
-  values `all/general/sensitive/questionable/explicit`.
+  values `all/general/sensitive/questionable/explicit`; shown on browse,
+  favourites and both downloads views (server-side on remote tabs,
+  client-side on local/favourites).
+- media picker = downloads-only `m_mediaBox` combo (`src/ui/mainwindow.h`);
+  values `all/images/gifs/animated/videos` (`All media`/`Images`/`GIFs`/
+  `Anything animated`/`Videos`), filtered by file extension
+  (`mediaFilterMatchesExt`, `src/post.h`) for rows under the download root;
+  shown on the `⭳ Downloads` source and the local `Browse Downloads` tab.
 - pills = filter pills in `m_pillBar`/`FlowLayout` (`src/ui/mainwindow.h:281`,
   `src/ui/flowlayout.h`); removable active-filter chips. cards = grid cells
   painted by `GalleryDelegate` (`src/ui/mainwindow.h:67`).
@@ -18,13 +25,22 @@
 - annotation note popup = left-click a note marker opens `Annotation note`
   (`ViewerPage::showNotePopup`, `src/ui/viewerpage.cpp`), a larger
   selectable-text dialog replacing the hover tooltip.
-- artist commentary = Danbooru `artist_commentary` thread
-  (`PostMeta::commentaryUrl/parseCommentary`, `src/remote/postmeta.cpp`),
-  translation preferred, rendered as ARTIST COMMENTARY beside NOTES/COMMENTS.
+- artist commentary = the post's commentary/description text
+  (`PostMeta::commentaryUrl/parseCommentary`, `src/remote/postmeta.cpp`):
+  Danbooru `artist_commentary` (translation preferred), Philomena
+  `description` (Derpibooru/Twibooru), HyBooru rect-null Hydrus notes.
+  Rendered as a small clickable ARTIST COMMENTARY preview at the bottom of
+  the viewer's meta tail; click opens the large formatted popup
+  (`ViewerPage::showCommentaryPopup`, rich text via `MetaText`).
 - clickable media errors = red video label, viewer error note and failed
   Downloads rows all open the redacted-URL probe dialog
   (`VideoPane::errorDetailsRequested`, `ViewerPage::showErrorNote`,
   `DownloadsDialog`).
+- scoped cookie = `host!name=value` entry in `BooruSite.cookies`
+  (`RemotePosts::harvestScopedCookies`/`cookieHeaderValueForHost`):
+  media-host clearances (e.g. `cdn.donmai.us!cf_clearance=…`) only apply
+  to their own host, so site and CDN challenges coexist instead of
+  overwriting one `cf_clearance`.
 - grid snap/stagger = `grid/snap` fills the viewport with whole columns
   (`MainWindow::applyGridSnap`); `grid/staggered` offsets odd columns half
   a card (`GalleryDelegate::m_staggered`). Videos never drag out.
