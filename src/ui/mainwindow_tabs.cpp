@@ -94,6 +94,8 @@ void MainWindow::saveCurrentTab() {
     t->rating = m_rating;
     t->category = m_category;
     t->sort = m_sort;
+    if (m_mediaBox && isDownloadsTab())
+        t->mediaFilter = m_mediaBox->currentData().toString();
     int lo = 0, hi = -1;
     visibleRowRange(lo, hi);
     if (hi >= 0)
@@ -715,14 +717,40 @@ void MainWindow::finishActivateTab(int tabIdx) {
 }
 
 // ── Browse ───────────────────────────────────────────────────
+bool MainWindow::isDownloadsTab() {
+    const BrowserTab *t = currentTab();
+    if (!t)
+        return false;
+    if (t->isRemote)
+        return t->sites.contains(kSrcDownloads);
+    if (t->isFavourites)
+        return false;
+    QString root = QDir(t->root).canonicalPath();
+    if (root.isEmpty())
+        root = QDir(t->root).absolutePath();
+    const QString dl = effectiveDownloadDir(m_settings);
+    if (dl.trimmed().isEmpty())
+        return false;
+    QString download = QDir(dl).canonicalPath();
+    if (download.isEmpty())
+        download = QDir(dl).absolutePath();
+    return !root.isEmpty() && !download.isEmpty() && root == download;
+}
+
 void MainWindow::setBrowseUi(bool browse) {
     const BrowserTab *t = currentTab();
     const bool favs = t && t->isFavourites;
-    // Rating/source/sort filters are online-browsing controls. Favourites and
-    // downloads keep the search box only; source filtering there was unreliable.
-    m_ratingBox->setVisible(browse);
+    const bool downloads = isDownloadsTab();
+    // Rating/sort work client-side on favourites and both downloads views.
+    // Real browse tabs keep them for the server-side query/append path.
+    const bool showFilters = browse || favs || downloads;
+    m_ratingBox->setVisible(showFilters);
     m_categoryBox->setVisible(false);
-    m_sortBox->setVisible(browse);
+    // Downloads media type: extension-based, so it only makes sense on
+    // tabs backed by the download folder.
+    if (m_mediaBox)
+        m_mediaBox->setVisible(downloads);
+    m_sortBox->setVisible(showFilters);
     m_sitesBtn->setVisible(browse);
     m_pageLabel->setVisible(browse);
     m_countLabel->setVisible(!browse && !favs);

@@ -93,6 +93,37 @@ inline const QStringList &videoExts() {
                                      QStringLiteral("webm")};
     return exts;
 }
+// Downloads media-type filter. Filesystem extensions only (no tags/MIME):
+// "gifs" means animated stills (gif + animated webp/jxl, which cannot be
+// told apart from stills by extension), "animated" adds video, "videos"
+// is mp4/webm, and "images" is the remaining still formats.
+inline const QStringList &stillImageExts() {
+    static const QStringList exts = {
+        QStringLiteral("jpg"),  QStringLiteral("jpeg"), QStringLiteral("png"),
+        QStringLiteral("bmp"),  QStringLiteral("avif"), QStringLiteral("tif"),
+        QStringLiteral("tiff"), QStringLiteral("heic"), QStringLiteral("heif"),
+        QStringLiteral("svg")};
+    return exts;
+}
+inline bool mediaFilterMatchesExt(const QString &filter, const QString &ext) {
+    const QString f = filter.trimmed().toLower();
+    if (f.isEmpty() || f == QStringLiteral("all"))
+        return true;
+    const QString e = ext.trimmed().toLower();
+    if (e.isEmpty())
+        return false;
+    const bool video = videoExts().contains(e);
+    const bool gifLike = gifLikeExts().contains(e);
+    if (f == QStringLiteral("videos"))
+        return video;
+    if (f == QStringLiteral("gifs"))
+        return gifLike;
+    if (f == QStringLiteral("animated"))
+        return gifLike || video;
+    if (f == QStringLiteral("images"))
+        return stillImageExts().contains(e);
+    return true; // unknown value: never hide rows
+}
 // Canonical media-kind tokens for the single-select omnibar dropdown.
 // The query layer translates the exact tokens to native tags where the
 // scheme is live-verified (Danbooru 2026-10-22: `animated` covers gif +

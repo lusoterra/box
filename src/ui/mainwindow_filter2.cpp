@@ -148,7 +148,20 @@ void MainWindow::applyFilter() {
     }
     const QueryResult r =
         m_index.query(tokens, m_rating, m_category, m_sort, 1, INT_MAX);
-    m_current = r.posts;
+    QVector<Post> posts = r.posts;
+    // Local Browse Downloads tab: the media picker is extension-only.
+    if (t && isDownloadsTab() && t->mediaFilter != QStringLiteral("all")) {
+        posts.erase(
+            std::remove_if(
+                posts.begin(), posts.end(),
+                [&](const Post &p) {
+                    const QString ext =
+                        !p.ext.isEmpty() ? p.ext : QFileInfo(p.absFile).suffix();
+                    return !mediaFilterMatchesExt(t->mediaFilter, ext);
+                }),
+            posts.end());
+    }
+    m_current = posts;
     fillModel();
     updateResultLabel();
     updateTabTitle(m_curTab);

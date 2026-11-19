@@ -151,6 +151,31 @@ void MainWindow::applyBrowseFilter() {
                         posts.end());
         }
     }
+    // Downloads media-type picker: extension truth only, and only for
+    // files under the downloads root (remote rows of a merged booru tab
+    // are left alone). No tags, no MIME sniffing.
+    if (t && t->isRemote && t->sites.contains(kSrcDownloads)) {
+        QString root = QDir(effectiveDownloadDir(m_settings)).absolutePath();
+        if (!root.isEmpty()) {
+            if (!root.endsWith(u'/'))
+                root += u'/';
+            posts.erase(
+                std::remove_if(
+                    posts.begin(), posts.end(),
+                    [&](const Post &p) {
+                        if (p.absFile.isEmpty())
+                            return false;
+                        const QString abs =
+                            QFileInfo(p.absFile).absoluteFilePath();
+                        if (!abs.startsWith(root))
+                            return false; // not a download row
+                        const QString ext =
+                            !p.ext.isEmpty() ? p.ext : QFileInfo(abs).suffix();
+                        return !mediaFilterMatchesExt(t->mediaFilter, ext);
+                    }),
+                posts.end());
+        }
+    }
     sortPosts(posts, t ? t->sort : m_sort);
     m_current = posts;
     fillModel();

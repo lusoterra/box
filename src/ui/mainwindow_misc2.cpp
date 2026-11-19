@@ -160,6 +160,9 @@ void MainWindow::onSitesChanged() {
     updateSortBox();
     t->sites = sites;
     t->page = 1;
+    // The Downloads-only media picker follows the source list.
+    setBrowseUi(true);
+    syncMediaBox();
     updateTabTitle(m_curTab);
     doBrowseSearch(false);
 }

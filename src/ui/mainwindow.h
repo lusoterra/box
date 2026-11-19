@@ -74,6 +74,9 @@ struct BrowserTab {
     QString rating = QStringLiteral("all");
     QString category;
     QString sort = QStringLiteral("id-desc");
+    // Downloads-only media filter (file-extension based: all/images/gifs/
+    // animated/videos). Other tabs ignore it and keep the combo hidden.
+    QString mediaFilter = QStringLiteral("all");
     int page = 1;              // remote (highest loaded)
     QVector<Post> localPosts;  // local index cache (+ favourites list)
     QVector<Post> browseMerged; // remote fetched (unfiltered)
@@ -323,6 +326,10 @@ private:
     QStringList siteDisplayNames(const QStringList &sites) const;
     // Browse
     bool isBrowse() const;
+    // True for tabs backed by the download folder: the local `Browse
+    // Downloads` tab and browse tabs whose sources include the virtual
+    // `⭳ Downloads` entry.
+    bool isDownloadsTab();
     BrowserTab *currentTab();
     void doBrowseSearch(bool append = false);
     void pumpSiteSearch(const QString &key); // next queued OR-alternative
@@ -431,7 +438,7 @@ private:
     QTimer *m_thumbTimer = nullptr;
     QComboBox *m_ratingBox = nullptr;
     QComboBox *m_categoryBox = nullptr;
-    QComboBox *m_mediaBox = nullptr; // stills/GIF/animated/video/sound filter
+    QComboBox *m_mediaBox = nullptr; // downloads-only extension filter
     QComboBox *m_sortBox = nullptr;
     QSlider *m_sizeSlider = nullptr;
     QLabel *m_countLabel = nullptr;

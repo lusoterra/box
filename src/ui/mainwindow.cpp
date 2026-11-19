@@ -937,8 +937,33 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     // Never visually empty: rebuildCombos() replaces this with counts
     // once data arrives ("All (12)"); same data value, same semantics.
     m_ratingBox->addItem(tr("All"), QStringLiteral("all"));
+    m_ratingBox->setToolTip(
+        tr("Filter by content rating: All, General, Sensitive, "
+           "Questionable or Explicit. Applied by the server on remote "
+           "tabs, client-side on favourites, local archives and "
+           "downloads."));
     m_categoryBox = new QComboBox(this);
+    m_categoryBox->setToolTip(
+        tr("Filter by source or folder (the archive's own categories)."));
+    m_mediaBox = new QComboBox(this);
+    m_mediaBox->setToolTip(
+        tr("Downloads only: filter the grid by file extension - Images, "
+           "GIFs (gif/webp/jxl), Anything animated (adds mp4/webm) or "
+           "Videos. Uses the file itself, not tags."));
+    m_mediaBox->addItem(tr("All media"), QStringLiteral("all"));
+    m_mediaBox->addItem(tr("Images"), QStringLiteral("images"));
+    m_mediaBox->addItem(tr("GIFs"), QStringLiteral("gifs"));
+    m_mediaBox->addItem(tr("Anything animated"), QStringLiteral("animated"));
+    m_mediaBox->addItem(tr("Videos"), QStringLiteral("videos"));
+    m_mediaBox->hide(); // Downloads tabs only (setBrowseUi)
+    connect(m_mediaBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &MainWindow::onMediaChanged);
     m_sortBox = new QComboBox(this);
+    m_sortBox->setToolTip(
+        tr("Sort the grid: Recently added, Newest/Oldest by post id, Top/"
+           "Low Rated by score, or Random. Remote tabs use the booru's "
+           "native order where available; local tabs, favourites and "
+           "downloads sort the whole list locally."));
     m_sortBox->addItem(tr("Recently added"), QStringLiteral("added"));
     m_sortBox->addItem(tr("Newest"), QStringLiteral("id-desc"));
     m_sortBox->addItem(tr("Oldest"), QStringLiteral("id-asc"));
@@ -1014,7 +1039,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     // Filter combos ignore the wheel until clicked (same as Preferences),
     // and size to their content: translated labels must never elide.
     auto *wheelGuard = new WheelGuard(this);
-    for (QComboBox *cb : {m_ratingBox, m_categoryBox, m_sortBox}) {
+    for (QComboBox *cb : {m_ratingBox, m_categoryBox, m_mediaBox, m_sortBox}) {
         cb->installEventFilter(wheelGuard);
         cb->setSizeAdjustPolicy(QComboBox::AdjustToContents);
     }
@@ -1040,6 +1065,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     omniLay->addWidget(m_searchEdit, 10);
     omniLay->addWidget(m_ratingBox);
     omniLay->addWidget(m_categoryBox);
+    omniLay->addWidget(m_mediaBox);
     // One-click AI-content filter: hides ai_generated/ai_created/
     // ai_assisted/ai_art everywhere (server -exclusions + client net).
     auto *aiBtn = new QPushButton(tr("AI"), this);

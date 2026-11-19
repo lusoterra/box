@@ -159,42 +159,33 @@ void MainWindow::onCategoryChanged() {
 }
 
 void MainWindow::onMediaChanged() {
-    // Single-select shortcut for typing a filetype: tag: a fresh choice
-    // replaces any committed filetype: tokens (they would AND with the
-    // box and empty everything).
-    for (int i = m_activeTags.size() - 1; i >= 0; --i) {
-        if (isFiletypeToken(m_activeTags.at(i)))
-            m_activeTags.removeAt(i);
-    }
-    const QString v = m_mediaBox->currentData().toString();
-    if (!v.isEmpty())
-        m_activeTags.append(v);
+    // Downloads-only extension filter. Not a search token: the rows are
+    // local files, so filtering is client-side and never refetches.
+    if (!isDownloadsTab())
+        return;
+    BrowserTab *t = currentTab();
+    if (!t)
+        return;
+    t->mediaFilter = m_mediaBox ? m_mediaBox->currentData().toString()
+                                : QStringLiteral("all");
     if (isBrowse())
-        commitSearch();
+        applyBrowseFilter();
     else
-        commitFilter();
+        applyFilter();
+    saveTabs();
 }
 
 void MainWindow::syncMediaBox() {
-    // The box follows the committed tags: an exact token match selects
-    // the entry, anything else (none, custom) shows All media.
+    // Follow the tab's own downloads media filter; every other tab resets
+    // the hidden combo to All so a stale choice cannot leak across tabs.
     if (!m_mediaBox)
         return;
-    int idx = 0;
-    for (const QString &t : m_activeTags) {
-        if (!isFiletypeToken(t))
-            continue;
-        for (int i = 0; i < m_mediaBox->count(); ++i) {
-            if (m_mediaBox->itemData(i).toString().compare(
-                    t, Qt::CaseInsensitive) == 0) {
-                idx = i;
-                break;
-            }
-        }
-        break; // first token decides (single-select box)
-    }
+    const BrowserTab *t = currentTab();
+    const QString want =
+        (isDownloadsTab() && t) ? t->mediaFilter : QStringLiteral("all");
+    const int idx = m_mediaBox->findData(want);
     m_mediaBox->blockSignals(true);
-    m_mediaBox->setCurrentIndex(idx);
+    m_mediaBox->setCurrentIndex(idx >= 0 ? idx : 0);
     m_mediaBox->blockSignals(false);
 }
 
