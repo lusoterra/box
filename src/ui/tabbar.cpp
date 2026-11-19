@@ -1,6 +1,7 @@
 #include "tabbar.h"
 
 #include <QApplication>
+#include <QFontMetrics>
 #include <QStyleOptionTab>
 #include <QStylePainter>
 
@@ -100,6 +101,20 @@ QSize MarqueeTabBar::tabSizeHint(int index) const {
         nativeIconWidth(this, tabIcon(index)) - qMax(1, iconSize().width());
     if (extra > 0)
         s.setWidth(s.width() + extra);
+    // Selected tabs are painted bold. QTabBar sized us from the normal
+    // font, so the bold title needs its own (small) width + a couple of
+    // pixels of slack; otherwise the last letters get clipped. Reserve
+    // it on every tab so selecting one does not resize the whole row.
+    const QString title = fullTitle(index);
+    if (!title.isEmpty()) {
+        QFont boldFont = font();
+        boldFont.setBold(true);
+        const QFontMetrics normal(font());
+        const QFontMetrics bold(boldFont);
+        const int boldExtra =
+            bold.horizontalAdvance(title) - normal.horizontalAdvance(title);
+        s.setWidth(s.width() + qMax(0, boldExtra) + 2);
+    }
     return s;
 }
 
@@ -111,7 +126,12 @@ bool MarqueeTabBar::tabOverflows(int index) const {
     initStyleOption(&opt, index);
     QRect textRect = style()->subElementRect(QStyle::SE_TabBarTabText, &opt, this);
     // (textRect already excludes the icon area - no adjustment needed.)
-    return fontMetrics().horizontalAdvance(full) > textRect.width();
+    // Measure with the font the tab is actually painted with (selected
+    // tabs are bold), otherwise a just-wide-enough title cuts its tail.
+    QFont f = font();
+    if (index == currentIndex())
+        f.setBold(true);
+    return QFontMetrics(f).horizontalAdvance(full) > textRect.width();
 }
 
 void MarqueeTabBar::onTick() {
@@ -173,12 +193,14 @@ void MarqueeTabBar::paintEvent(QPaintEvent *e) {
         p.setPen(opt.palette.color(
             (opt.state & QStyle::State_Selected) ? QPalette::HighlightedText
                                                  : QPalette::WindowText));
-        const QFontMetrics fm = opt.fontMetrics;
         if (selected) {
             QFont f = p.font();
             f.setBold(true);
             p.setFont(f);
         }
+        // Measure the actual paint font: bold adds a few pixels, and using
+        // the normal metrics used to decide "fits" then clip the tail.
+        const QFontMetrics fm = p.fontMetrics();
         const int fw = fm.horizontalAdvance(full);
         if (fw > textR.width()) {
             // Scroll with wraparound ("title    title") and a dwell pause

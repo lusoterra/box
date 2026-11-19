@@ -1,5 +1,13 @@
 # Pending tasks (from user goal)
 
+## 37. Tab labels clipped by the selected bold font - DONE
+- [x] `MarqueeTabBar::tabSizeHint` adds the bold-vs-normal title width
+      (plus 2px slack) to every tab, so selecting one does not cut its
+      last letters and does not resize the whole row.
+- [x] Paint/overflow measurement now uses the actual (bold for selected)
+      font, so the marquee starts exactly when it is needed.
+- Verify: `test_tabbar` (new `selectedTitleFitsBoldWidth`), full `ctest`.
+
 ## 36. JSON sidecar healing + metadata viewer + show in folder - DONE
 - [x] Favourites relink no longer indexes sidecars: both
       `Site_md5.json` and `Site_md5.png` share a stem, and the JSON used

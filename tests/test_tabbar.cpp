@@ -4,7 +4,23 @@
 #include "tabbar.h"
 
 #include <QApplication>
+#include <QFontMetrics>
+#include <QStyle>
+#include <QStyleOptionTab>
 #include <QTest>
+
+namespace {
+// Expose the protected size/text helpers so the test can prove the
+// selected tab reserves room for its bold paint font.
+class ProbeTabBar : public MarqueeTabBar {
+public:
+    QRect textRect(int index) {
+        QStyleOptionTab opt;
+        initStyleOption(&opt, index);
+        return style()->subElementRect(QStyle::SE_TabBarTabText, &opt, this);
+    }
+};
+} // namespace
 
 class TestTabBar : public QObject {
     Q_OBJECT
@@ -46,6 +62,25 @@ private slots:
         QCOMPARE(bar.fullTitle(0), QStringLiteral("Home"));
         QCOMPARE(bar.fullTitle(1), QStringLiteral("B"));
         QCOMPARE(bar.fullTitle(2), QStringLiteral("A"));
+    }
+
+    void selectedTitleFitsBoldWidth() {
+        // Selected tabs paint bold. QTabBar's own size hint uses the
+        // normal font, so the tail used to clip by a few pixels; the bar
+        // must reserve that difference itself.
+        ProbeTabBar bar;
+        bar.setElideMode(Qt::ElideRight);
+        bar.setExpanding(false);
+        bar.resize(400, 30);
+        bar.addTab(QString());
+        bar.setFullTitle(0, QStringLiteral("Favourites"));
+        bar.setCurrentIndex(0);
+        bar.show();
+        QApplication::processEvents();
+        QFont bold = bar.font();
+        bold.setBold(true);
+        QVERIFY(QFontMetrics(bold).horizontalAdvance(QStringLiteral("Favourites")) <=
+                bar.textRect(0).width());
     }
 
     void outOfRangeIsSafe() {

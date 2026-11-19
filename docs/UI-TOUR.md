@@ -113,7 +113,9 @@ Linux) before the clipboard gets the file URL. Dragging cards exports linked
 stills/GIFs as a URL (post page or direct media, per Preferences → Browse)
 and local/downloaded stills/GIFs as the file itself; videos are excluded
 from drag-out on purpose (too heavy for a drop target).
-Tabs drag to reorder (welcome stays first).
+Tabs drag to reorder (welcome stays first). Tab widths reserve the
+selected bold-font difference (plus a couple of pixels), so titles are
+not clipped when the tab becomes current; longer titles still marquee.
 
 ## 04-file-menu - File
 `Open ▸` (folder picker), `Browse Downloads`, `Import LoliSnatcher
