@@ -147,7 +147,10 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     `StrayResolver` + pure `parseBooruPostUrl`/`parseBooruPageHtml`/
     `postFromRaw` (Download/Add Stray link resolution: public API first,
     post-page HTML fallback, generic e621-style shapes); `losnimport`
-    (LOSN `store.db` import); `cachejanitor` (10 GB cap enforcement +
+    (LOSN `store.db` import + the CSV backup row mapping);
+    `mediasize` (header-only pixel dimensions of files already on disk,
+    used by the CSV export - videos deliberately skipped);
+    `cachejanitor` (10 GB cap enforcement +
     per-entry rating/site tracking so "delete NSFW cache" can keep SFW
     files); `cachepolicy` (global + per-booru disk-cache mode, applied to
     thumbnails and full-image cache).

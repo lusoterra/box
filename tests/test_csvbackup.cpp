@@ -11,7 +11,7 @@ private slots:
     void headerIsStable() {
         const QByteArray out = CsvBackup::write({});
         QVERIFY(out.startsWith(
-            "post_url,file_url,downloaded,favourited,date_added,site,"
+            "post_url,file_url,downloaded,favourited,date_added,host,"
             "post_id,md5,rating,ext,width,height,tags,local_file\n"));
         QCOMPARE(out.count('\n'), 1);
     }
@@ -23,7 +23,7 @@ private slots:
         a.downloaded = true;
         a.favourited = true;
         a.dateAdded = QStringLiteral("2026-11-20T05:13:00Z");
-        a.site = QStringLiteral("Gelbooru");
+        a.host = QStringLiteral("gelbooru.com");
         a.postId = 42;
         a.md5 = QStringLiteral("aabbccddeeff00112233445566778899");
         a.rating = QStringLiteral("general");
@@ -37,7 +37,7 @@ private slots:
         b.postUrl = QStringLiteral("https://danbooru.donmai.us/posts/7");
         b.downloaded = false;
         b.favourited = true;
-        b.site = QStringLiteral("Danbooru");
+        b.host = QStringLiteral("danbooru.donmai.us");
         b.postId = 7;
 
         QString error = QStringLiteral("stale");
@@ -50,7 +50,7 @@ private slots:
         QVERIFY(back.at(0).downloaded);
         QVERIFY(back.at(0).favourited);
         QCOMPARE(back.at(0).dateAdded, a.dateAdded);
-        QCOMPARE(back.at(0).site, a.site);
+        QCOMPARE(back.at(0).host, a.host);
         QCOMPARE(back.at(0).postId, 42);
         QCOMPARE(back.at(0).md5, a.md5);
         QCOMPARE(back.at(0).rating, a.rating);
@@ -80,7 +80,8 @@ private slots:
         QVERIFY(rows.at(0).favourited);
         QVERIFY(!rows.at(0).downloaded);
         QCOMPARE(rows.at(0).postId, 9);
-        QCOMPARE(rows.at(0).site, QStringLiteral("Danbooru"));
+        // Legacy `source` header (a display label) still parses into host.
+        QCOMPARE(rows.at(0).host, QStringLiteral("Danbooru"));
         QCOMPARE(rows.at(0).width, 600);
         QCOMPARE(rows.at(0).dateAdded,
                  QStringLiteral("2026-01-02T03:04:05Z"));
@@ -109,7 +110,7 @@ private slots:
         // A line with no URL and no local path is skipped, not imported as
         // a nameless entry.
         const auto rows = CsvBackup::parse(
-            "post_url,file_url,site\n"
+            "post_url,file_url,host\n"
             ",,Gelbooru\n"
             "https://x/posts/3,,Gelbooru\n");
         QCOMPARE(rows.size(), 1);

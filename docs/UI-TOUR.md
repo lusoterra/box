@@ -149,10 +149,14 @@ appears only when bytes actually arrive, so a walled/offline batch leaves
 no empty folder),
 `Export library CSV…` / `Import library CSV…` (portable spreadsheet
 backup: one row per favourite and per file under the download folder,
-with `post_url,file_url,downloaded,favourited,date_added,site,post_id,md5,`
-`rating,ext,width,height,tags,local_file`; reordered/renamed columns,
-CRLF/BOM and `true/false` or `1/0` are accepted. Import opens the same
-options dialog as the LoliSnatcher import and keeps `date_added` order),
+with `post_url,file_url,downloaded,favourited,date_added,host,post_id,md5,`
+`rating,ext,width,height,tags,local_file`; `host` is the site hostname
+(`gelbooru.com`, `yande.re`), `post_id` only the real booru id (never the
+internal identity hash), and missing `width`/`height` are filled by
+probing files that are already on disk - header-only, no network, videos
+left blank. Reordered/renamed/older `site` columns, CRLF/BOM and
+`true/false` or `1/0` are accepted. Import opens the same options dialog
+as the LoliSnatcher import and keeps `date_added` order),
 `Download/Add Stray…` (paste direct media or booru post links;
 see 20-stray-dialog), `Update downloaded sidecars…`,
 `Redownload missing files…`, `Quit`. Media downloads tolerate

@@ -79,6 +79,7 @@ add_unit_test(test_tagtypes test_tagtypes.cpp ../src/library/tagtypes.cpp
               ${REMOTE_SOURCES})
 add_unit_test(test_tagcountcache test_tagcountcache.cpp
               ../src/library/tagcountcache.cpp)
+add_unit_test(test_mediasize test_mediasize.cpp ../src/library/mediasize.cpp)
 add_unit_test(test_tagsuggest test_tagsuggest.cpp ../src/remote/tagsuggest.cpp
               ${REMOTE_SOURCES} ../src/library/tagtypes.cpp
               ../src/library/tagcountcache.cpp
@@ -144,7 +145,7 @@ add_unit_test(test_gridwindow test_gridwindow.cpp
               ../src/library/queryor.cpp ../src/library/tagtypes.cpp
               ../src/library/scanner.cpp ../src/library/cache.cpp
               ../src/remote/thumbloader.cpp ../src/remote/tagsuggest.cpp
-              ../src/library/tagcountcache.cpp
+              ../src/library/tagcountcache.cpp ../src/library/mediasize.cpp
               ../src/remote/faviconcache.cpp ../src/library/sidecarrefresh.cpp
               ../src/library/index.cpp ../src/library/cachejanitor.cpp
               ../src/settings.cpp ${REMOTE_SOURCES} ${UGOIRA_SOURCES}

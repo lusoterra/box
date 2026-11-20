@@ -492,17 +492,24 @@ private slots:
             "516e1f01a05ea895b33316bd28bfd27f.jpg");
         a.downloaded = true;
         a.favourited = true;
-        a.site = QStringLiteral("Gelbooru");
+        a.host = QStringLiteral("gelbooru.com"); // hostname, new format
         a.dateAdded = QStringLiteral("2026-11-20T05:13:00Z");
         a.tags = QStringLiteral("1girl sky");
 
         CsvBackup::Row b;
         b.postUrl = QStringLiteral("https://danbooru.donmai.us/posts/5");
         b.favourited = true;
-        b.site = QStringLiteral("Danbooru");
+        b.host = QStringLiteral("danbooru.donmai.us");
 
-        const QList<LosnRow> rows = LosnImport::rowsFromCsv({a, b});
-        QCOMPARE(rows.size(), 2);
+        CsvBackup::Row legacy;
+        legacy.postUrl = QStringLiteral("https://yande.re/post/show/77");
+        legacy.favourited = true;
+        // Older backups wrote a display label in the site column; the
+        // parser files it under host, and the importer still maps it.
+        legacy.host = QStringLiteral("Yandere");
+
+        const QList<LosnRow> rows = LosnImport::rowsFromCsv({a, b, legacy});
+        QCOMPARE(rows.size(), 3);
         QCOMPARE(rows.at(0).siteKey, QStringLiteral("gelbooru"));
         QCOMPARE(rows.at(0).siteLabel, QStringLiteral("Gelbooru"));
         QCOMPARE(rows.at(0).postId, 7103104LL);
@@ -516,6 +523,8 @@ private slots:
         QCOMPARE(rows.at(1).postId, 5LL);
         QVERIFY(!rows.at(1).snatched); // favourite-only line
         QCOMPARE(rows.at(1).addedMsecs, 0LL); // no date in that row
+        QCOMPARE(rows.at(2).siteKey, QStringLiteral("yandere"));
+        QCOMPARE(rows.at(2).siteLabel, QStringLiteral("Yandere"));
     }
 
     void readMissingBackupFails() {

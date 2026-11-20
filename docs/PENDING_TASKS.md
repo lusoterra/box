@@ -1,5 +1,24 @@
 # Pending tasks (from user goal)
 
+## 165. CSV export: hostnames, real post ids, probed dimensions - DONE
+- The `site` column carried display labels ("Gelbooru"). It is now
+  `host` (`gelbooru.com`, `yande.re`): post URL host, else the configured
+  entry, else the media host; empty for local rows with no URL. Parsing
+  still accepts `site`/`booru`/`source` so older backups re-import.
+- Some rows dumped a gigantic `post_id`: favourites without an API id are
+  keyed internally by a SHA1-derived identity (`FavDb::pidFor`). Only real
+  ids are exported now (id < 2^40, else the id parsed from `post_url`,
+  else empty), so a dump no longer shows ids no site can resolve.
+- Most rows lacked `width`/`height`. Both export passes now probe files
+  that are actually on disk (`MediaSize::probeFile`, header-only
+  QImageReader - no network, no re-download). Favourites resolve their
+  file through the download folder's md5 index, so `local_file` fills in
+  for them too. Videos need a media player: left blank on purpose.
+- `tags` and `local_file` kept as-is.
+- Verify: `test_csvbackup`, `test_losnimport`, `test_mediasize`; live
+  export of a folder with dimension-less sidecars produced
+  `safebooru.donmai.us,7203034,...,850,424,...,<relative file>`.
+
 ## 163. Omnibar suggestions: favourites dropdown, ranked typing - DONE
 - Removed the ★ button left of the omnibar (starring stays on tag
   right-click / context menus; `showFavTagsMenu` deleted).

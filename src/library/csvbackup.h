@@ -4,18 +4,22 @@
 // downloaded file). The format is deliberately boring so a human can read
 // and repair it with any spreadsheet program:
 //
-//   post_url,file_url,downloaded,favourited,date_added,site,post_id,md5,
+//   post_url,file_url,downloaded,favourited,date_added,host,post_id,md5,
 //   rating,ext,width,height,tags,local_file
 //
 // Booleans are `true`/`false` (reading also accepts 1/0, yes/no, y/n, on/
-// off). `date_added` is ISO-8601 UTC. `tags` is the usual space-separated
-// blob. `local_file` is informational only (path relative to the download
-// folder when inside it): imports never trust absolute paths.
+// off). `date_added` is ISO-8601 UTC. `host` is the site's hostname
+// ("gelbooru.com", "yande.re") - no display labels. `post_id` is the
+// booru's own numeric id, empty when only an internal identity exists.
+// `tags` is the usual space-separated blob. `local_file` is informational
+// only (path relative to the download folder when inside it): imports
+// never trust absolute paths.
 //
 // Parsing accepts any column order, extra columns, CRLF/LF, quoted fields
 // with commas/quotes/newlines, and a UTF-8 BOM. Missing known columns
 // default to empty/false. It refuses files with no URL column so a random
-// CSV is never mistaken for a backup.
+// CSV is never mistaken for a backup. Older files that called the host
+// column `site` (or `booru`/`source`) still parse.
 #include <QByteArray>
 #include <QString>
 #include <QVector>
@@ -28,8 +32,8 @@ struct Row {
     bool downloaded = false;
     bool favourited = false;
     QString dateAdded; // ISO-8601 UTC, empty when unknown
-    QString site;      // display label ("Gelbooru", "Safebooru", ...)
-    qint64 postId = 0;
+    QString host;      // hostname ("gelbooru.com", "yande.re"), may be empty
+    qint64 postId = 0; // real booru id only, 0 = unknown
     QString md5;       // content hash when known
     QString rating;    // general|sensitive|questionable|explicit
     QString ext;       // jpg/png/mp4/...

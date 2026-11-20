@@ -8,7 +8,7 @@ namespace CsvBackup {
 namespace {
 
 const char kHeader[] =
-    "post_url,file_url,downloaded,favourited,date_added,site,post_id,md5,"
+    "post_url,file_url,downloaded,favourited,date_added,host,post_id,md5,"
     "rating,ext,width,height,tags,local_file";
 
 // Guards a hostile/mistaken file: a real backup is a few MB. Anything
@@ -52,10 +52,15 @@ QString canonicalColumn(const QString &normalized) {
         {QStringLiteral("added"), QStringLiteral("date_added")},
         {QStringLiteral("addedat"), QStringLiteral("date_added")},
         {QStringLiteral("date"), QStringLiteral("date_added")},
-        {QStringLiteral("site"), QStringLiteral("site")},
-        {QStringLiteral("booru"), QStringLiteral("site")},
-        {QStringLiteral("sitename"), QStringLiteral("site")},
-        {QStringLiteral("source"), QStringLiteral("site")},
+        {QStringLiteral("host"), QStringLiteral("host")},
+        {QStringLiteral("hostname"), QStringLiteral("host")},
+        {QStringLiteral("domain"), QStringLiteral("host")},
+        {QStringLiteral("server"), QStringLiteral("host")},
+        // Older backups called it "site" (a display label): same column.
+        {QStringLiteral("site"), QStringLiteral("host")},
+        {QStringLiteral("booru"), QStringLiteral("host")},
+        {QStringLiteral("sitename"), QStringLiteral("host")},
+        {QStringLiteral("source"), QStringLiteral("host")},
         {QStringLiteral("md5"), QStringLiteral("md5")},
         {QStringLiteral("rating"), QStringLiteral("rating")},
         {QStringLiteral("ext"), QStringLiteral("ext")},
@@ -181,7 +186,7 @@ QByteArray write(const QVector<Row> &rows) {
             r.downloaded ? QStringLiteral("true") : QStringLiteral("false"),
             r.favourited ? QStringLiteral("true") : QStringLiteral("false"),
             csvField(r.dateAdded),
-            csvField(r.site),
+            csvField(r.host.trimmed().toLower()),
             r.postId > 0 ? QString::number(r.postId) : QString(),
             csvField(r.md5),
             csvField(r.rating),
@@ -248,7 +253,7 @@ QVector<Row> parse(const QByteArray &data, QString *error) {
         r.downloaded = parseBool(cell(fields, "downloaded"));
         r.favourited = parseBool(cell(fields, "favourited"));
         r.dateAdded = cell(fields, "date_added").trimmed();
-        r.site = cell(fields, "site").trimmed();
+        r.host = cell(fields, "host").trimmed();
         r.postId = cell(fields, "post_id").trimmed().toLongLong();
         r.md5 = cell(fields, "md5").trimmed().toLower();
         r.rating = cell(fields, "rating").trimmed().toLower();

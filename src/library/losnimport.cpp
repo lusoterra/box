@@ -497,22 +497,23 @@ QList<LosnRow> rowsFromCsv(const QVector<CsvBackup::Row> &rows) {
             r.md5 = c.md5.toLower();
         else
             r.md5 = md5FromFileUrl(r.fileUrl);
-        // Site identity: the exported label is what favourites are keyed
-        // by, so it wins. A configured label also yields the entry key
-        // needed for metadata refreshes; otherwise fall back to the host.
+        // Site identity: a hostname in the backup resolves through the
+        // configured entries; an older display label still maps via
+        // keyForLabel. The resolved entry's label wins so re-imports land
+        // on the same configured booru.
         QString hostKey;
         QString hostLabel;
         siteForHost(r.host, hostKey, hostLabel);
-        QString key = RemotePosts::keyForLabel(c.site);
-        if (key.isEmpty() && RemoteSource::siteFor(c.site))
-            key = c.site;
+        QString key = RemotePosts::keyForLabel(c.host);
+        if (key.isEmpty() && RemoteSource::siteFor(c.host))
+            key = c.host;
         if (key.isEmpty())
             key = hostKey;
         r.siteKey = key;
         const BooruSite *site = key.isEmpty() ? nullptr
                                               : RemoteSource::siteFor(key);
-        r.siteLabel = !c.site.isEmpty() ? c.site
-                                        : (site ? site->label : hostLabel);
+        r.siteLabel = site ? site->label
+                           : (!hostLabel.isEmpty() ? hostLabel : c.host);
         if (r.siteLabel.isEmpty())
             r.siteLabel = QStringLiteral("Box");
         r.postId = c.postId > 0 ? c.postId : idFromPostUrl(r.postUrl);

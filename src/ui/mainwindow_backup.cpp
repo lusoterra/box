@@ -9,6 +9,7 @@
 #include "filehash.h"
 #include "imagecache.h"
 #include "losnimport.h"
+#include "mediasize.h"
 #include "metaparser.h"
 #include "prefsdlg.h"
 #include "progressbar.h"
@@ -178,12 +179,55 @@ void MainWindow::exportLibraryCsv() {
     const QString root =
         QDir(effectiveDownloadDir(m_settings)).absolutePath();
 
-    auto siteLabelFor = [](const Post &p) -> QString {
-        if (const BooruSite *e = RemotePosts::entryForPost(p))
-            return e->label;
-        if (!p.siteName.isEmpty())
-            return p.siteName;
-        return p.category;
+    // Hostname only ("gelbooru.com", "yande.re"): the post URL's host when
+    // there is one, else the configured entry, else the media CDN. Local
+    // rows with no URL keep the column empty instead of guessing.
+    auto hostFor = [](const Post &p) -> QString {
+        auto hostOf = [](const QString &url) {
+            const QString h = QUrl(url).host().trimmed().toLower();
+            if (h.startsWith(QStringLiteral("www.")))
+                return h.mid(4);
+            return h;
+        };
+        if (const QString h = hostOf(p.postUrl); !h.isEmpty())
+            return h;
+        if (const BooruSite *e = RemotePosts::entryForPost(p)) {
+            if (const QString h = hostOf(e->baseUrl); !h.isEmpty())
+                return h;
+        }
+        return hostOf(p.fileUrl);
+    };
+    // Only a real booru id belongs in the backup. Favourites without an
+    // API id are stored under a SHA1-derived identity (a huge 63-bit
+    // number) - dumping that as post_id made rows look like nonsense ids
+    // that no site can resolve. Fall back to the id in the post URL.
+    auto postIdFor = [](const Post &p) -> qint64 {
+        constexpr qint64 kMaxRealId = qint64(1) << 40; // ~1.1e12
+        if (p.id > 0 && p.id < kMaxRealId)
+            return p.id;
+        return LosnImport::idFromPostUrl(p.postUrl);
+    };
+    // Dimensions for files already on disk: no network, header-only read.
+    // Videos need a media player, so they stay blank rather than holding
+    // the export hostage.
+    auto fillSize = [](const QString &path, CsvBackup::Row &r) {
+        if ((r.width > 0 && r.height > 0) || path.isEmpty())
+            return;
+        MediaSize::probeFile(path, r.width, r.height);
+    };
+    // Where a post's media actually lives: the scanned path when local,
+    // else the content hash looked up in one pass over the download
+    // folder (the same identity the downloaded badge uses).
+    const QHash<QString, QString> onDisk = LosnImport::md5PathsOnDisk(root);
+    auto localPathFor = [&onDisk](const Post &p) -> QString {
+        if (!p.absFile.isEmpty() && QFileInfo::exists(p.absFile))
+            return p.absFile;
+        QString md5 = p.md5.trimmed().toLower();
+        if (md5.size() != 32)
+            md5 = LosnImport::md5FromFileUrl(p.fileUrl);
+        if (md5.isEmpty() && !p.fileUrl.isEmpty())
+            md5 = md5FromFileName(QUrl(p.fileUrl).fileName());
+        return md5.isEmpty() ? QString() : onDisk.value(md5);
     };
     auto postUrlFor = [](const Post &p) -> QString {
         if (!p.postUrl.isEmpty())
@@ -194,11 +238,11 @@ void MainWindow::exportLibraryCsv() {
         }
         return {};
     };
-    auto localFileFor = [&root](const Post &p) {
-        if (p.absFile.isEmpty() || !QFileInfo::exists(p.absFile))
+    auto localFileFor = [&root](const QString &path) {
+        if (path.isEmpty() || !QFileInfo::exists(path))
             return QString();
-        const QString rel = QDir(root).relativeFilePath(p.absFile);
-        return rel.startsWith(QStringLiteral("..")) ? p.absFile : rel;
+        const QString rel = QDir(root).relativeFilePath(path);
+        return rel.startsWith(QStringLiteral("..")) ? path : rel;
     };
     auto identityKeys = [&](const Post &p) {
         QStringList keys;
@@ -238,16 +282,18 @@ void MainWindow::exportLibraryCsv() {
             r.fileUrl = p.fileUrl;
             r.favourited = true;
             r.downloaded = isPostDownloaded(p);
-            r.site = siteLabelFor(p);
-            r.postId = p.id;
+            r.host = hostFor(p);
+            r.postId = postIdFor(p);
             r.md5 = p.md5.isEmpty() ? LosnImport::md5FromFileUrl(p.fileUrl)
                                     : p.md5.toLower();
             r.rating = p.rating;
             r.ext = p.ext;
             r.width = p.width;
             r.height = p.height;
+            const QString local = localPathFor(p);
+            fillSize(local, r);
             r.tags = p.tags;
-            r.localFile = localFileFor(p);
+            r.localFile = localFileFor(local);
             r.dateAdded = isoFromMsecs(
                 added.value({FavDb::siteFor(p), FavDb::pidFor(p)}, 0));
             rows.append(r);
@@ -274,15 +320,17 @@ void MainWindow::exportLibraryCsv() {
             r.postUrl = postUrlFor(p);
             r.fileUrl = fileUrlFromSidecar(p.absFile);
             r.downloaded = true;
-            r.site = siteLabelFor(p);
-            r.postId = p.id;
+            r.host = hostFor(p);
+            r.postId = postIdFor(p);
             r.md5 = md5FromFileName(p.absFile);
             r.rating = p.rating;
             r.ext = p.ext;
             r.width = p.width;
             r.height = p.height;
+            const QString local = localPathFor(p);
+            fillSize(local, r);
             r.tags = p.tags;
-            r.localFile = localFileFor(p);
+            r.localFile = localFileFor(local);
             const QFileInfo fi(p.absFile);
             QDateTime stamp = fi.birthTime();
             if (!stamp.isValid())
