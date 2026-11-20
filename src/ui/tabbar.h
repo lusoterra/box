@@ -8,6 +8,7 @@
 // pixmap and drop indicator).
 #include <QTabBar>
 #include <QMouseEvent>
+#include <QPixmap>
 #include <QString>
 #include <QTimer>
 #include <QVector>
@@ -20,9 +21,12 @@ public:
     // Full (untrimmed) titles, parallel to tab indexes.
     void setFullTitle(int index, const QString &title);
     QString fullTitle(int index) const;
+    // A reorder drag is in flight. Reorder emits currentChanged at every
+    // step; the owner must not treat that as "user selected another tab".
+    bool isDragging() const { return m_dragging; }
 
 protected:
-    void paintEvent(QPaintEvent *e) override;
+    void paintEvent(QPaintEvent *) override;
     QSize tabSizeHint(int index) const override; // widen for multi-mark icons
     void tabInserted(int index) override;
     void tabRemoved(int index) override;
@@ -44,4 +48,8 @@ private:
     bool m_pressed = false;
     bool m_dragging = false;
     QPoint m_pressPos;
+    // Floating copy of the dragged tab, painted over the reordered row.
+    QPixmap m_dragPixmap;
+    QPoint m_dragHotspot;
+    QPoint m_dragPos;
 };

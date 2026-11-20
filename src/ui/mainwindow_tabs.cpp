@@ -222,10 +222,11 @@ bool MainWindow::restoreTabs() {
         t->sort = st.sort.isEmpty() ? QStringLiteral("id-desc") : st.sort;
         t->viewerKey = st.viewerKey;
         t->scrollRow = st.scrollRow;
-        updateTabTitle(m_tabs.size() - 1);
+        updateTabTitle(static_cast<int>(m_tabs.size()) - 1);
+        // Tab-bar index (+1: tab 0 is welcome).
         if (n == qBound(0, m_settings.savedTabCurrent,
                         saved.size() - 1))
-            current = m_tabs.size(); // tab-bar index (+1: tab 0 is welcome)
+            current = static_cast<int>(m_tabs.size());
         n++;
         any = true;
     }
@@ -266,11 +267,11 @@ QIcon MainWindow::sitesIcon(const QStringList &sites) const {
         return {};
     if (marks.size() == 1)
         return QIcon(marks.first());
-    QPixmap combo(marks.size() * 18 - 2, 16);
+    QPixmap combo(static_cast<int>(marks.size()) * 18 - 2, 16);
     combo.fill(Qt::transparent);
     QPainter painter(&combo);
-    for (int i = 0; i < marks.size(); ++i)
-        painter.drawPixmap(i * 18, 0, marks.at(i));
+    for (qsizetype i = 0; i < marks.size(); ++i)
+        painter.drawPixmap(static_cast<int>(i) * 18, 0, marks.at(i));
     return QIcon(combo);
 }
 
@@ -367,8 +368,8 @@ void MainWindow::addLocalTab(const QString &root) {
     t->root = root;
     m_tabs.append(t);
     m_tabBar->addTab(QString());
-    updateTabTitle(m_tabs.size() - 1);
-    m_tabBar->setCurrentIndex(m_tabs.size()); // +1: tab 0 is welcome
+    updateTabTitle(static_cast<int>(m_tabs.size()) - 1);
+    m_tabBar->setCurrentIndex(static_cast<int>(m_tabs.size())); // +1: tab 0 is welcome
     saveTabsNow();
 }
 
@@ -380,13 +381,18 @@ void MainWindow::addRemoteTab(const QStringList &sites, const QStringList &tags)
     t->page = 1;
     m_tabs.append(t);
     m_tabBar->addTab(QString());
-    updateTabTitle(m_tabs.size() - 1);
-    m_tabBar->setCurrentIndex(m_tabs.size());
+    updateTabTitle(static_cast<int>(m_tabs.size()) - 1);
+    m_tabBar->setCurrentIndex(static_cast<int>(m_tabs.size()));
     saveTabsNow();
 }
 
 void MainWindow::onTabChanged(int index) {
-        m_suggester->cancel();
+    // Reorder drags move the selected tab and emit currentChanged at every
+    // step; that is not a user tab switch, so never reload the tab content
+    // (the active tab and its filters are unchanged).
+    if (m_tabBar && m_tabBar->isDragging())
+        return;
+    m_suggester->cancel();
     m_completer->popup()->hide();
     saveCurrentTab();
     if (index <= 0) {
@@ -447,7 +453,7 @@ void MainWindow::onTabClosed(int index) {
             // the closed tab: go home explicitly.
             showWelcome();
         } else {
-            activateTab(qMin(tabIdx, m_tabs.size() - 1));
+            activateTab(qMin(tabIdx, static_cast<int>(m_tabs.size()) - 1));
         }
     } else if (m_curTab > tabIdx) {
         m_curTab--;
@@ -492,8 +498,8 @@ void MainWindow::reopenClosedTab() {
         }
         m_tabs.append(t);
         m_tabBar->addTab(QString());
-        updateTabTitle(m_tabs.size() - 1);
-        m_tabBar->setCurrentIndex(m_tabs.size()); // +1: tab 0 is welcome
+        updateTabTitle(static_cast<int>(m_tabs.size()) - 1);
+        m_tabBar->setCurrentIndex(static_cast<int>(m_tabs.size())); // +1: tab 0 is welcome
         saveTabsNow();
         return;
     }
@@ -607,10 +613,10 @@ void MainWindow::activateTab(int tabIdx) {
     // indexOf on a closed tab simply misses (pointer compare, no deref).
     BrowserTab *activated = t;
     QTimer::singleShot(0, this, [this, activated] {
-        const int idx = m_tabs.indexOf(activated);
+        const qsizetype idx = m_tabs.indexOf(activated);
         if (idx < 0 || idx != m_curTab)
             return; // closed, or a newer switch already took over
-        finishActivateTab(idx);
+        finishActivateTab(static_cast<int>(idx));
     });
 }
 

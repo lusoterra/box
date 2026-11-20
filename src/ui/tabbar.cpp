@@ -65,11 +65,24 @@ void MarqueeTabBar::mousePressEvent(QMouseEvent *e) {
 }
 
 void MarqueeTabBar::mouseMoveEvent(QMouseEvent *e) {
-    if (m_pressed && isMovable() &&
-        (e->pos() - m_pressPos).manhattanLength() >=
-            QApplication::startDragDistance()) {
-        m_dragging = true;
-        update();
+    if (m_pressed && isMovable()) {
+        m_dragPos = e->pos();
+        if (!m_dragging &&
+            (e->pos() - m_pressPos).manhattanLength() >=
+                QApplication::startDragDistance()) {
+            m_dragging = true;
+            // Grab the pressed tab once: the row reorders underneath, so
+            // this is the stable visual for the whole drag.
+            const int pressedTab = tabAt(m_pressPos);
+            if (pressedTab >= 0) {
+                const QRect r = tabRect(pressedTab);
+                m_dragPixmap = grab(r);
+                m_dragHotspot = m_pressPos - r.topLeft();
+            }
+            update();
+        } else if (m_dragging) {
+            update(); // move the floating copy
+        }
     }
     QTabBar::mouseMoveEvent(e);
 }
@@ -80,17 +93,12 @@ void MarqueeTabBar::mouseReleaseEvent(QMouseEvent *e) {
         QTabBar::mouseReleaseEvent(e);
         return;
     }
-    // Let the base class start its drop animation first, then keep the
-    // native paint (which applies Tab::dragOffset) until it settles. The
-    // custom paint below has no offset, so switching immediately made the
-    // tab snap to its final rect for a frame - the "flash" after a move.
     QTabBar::mouseReleaseEvent(e);
-    QTimer::singleShot(300, this, [this] {
-        if (m_pressed)
-            return; // a new press/drag owns the state now
-        m_dragging = false;
-        update();
-    });
+    // No native/custom paint switch: the row keeps the same painting
+    // style for the whole gesture, so the tab strip never blinks.
+    m_dragging = false;
+    m_dragPixmap = QPixmap();
+    update();
 }
 
 namespace {
@@ -161,13 +169,9 @@ void MarqueeTabBar::onTick() {
     }
 }
 
-void MarqueeTabBar::paintEvent(QPaintEvent *e) {
-    if (m_dragging) {
-        // Reorder in flight: the native style owns the dragged-tab
-        // pixmap and the drop indicator, so let it paint.
-        QTabBar::paintEvent(e);
-        return;
-    }
+void MarqueeTabBar::paintEvent(QPaintEvent *) {
+    // Always custom-paint, including mid-drag: switching to the native
+    // style for the drag made the whole strip blink at grab and drop.
     QStylePainter p(this);
     for (int i = 0; i < count(); ++i) {
         QStyleOptionTab opt;
@@ -231,6 +235,14 @@ void MarqueeTabBar::paintEvent(QPaintEvent *e) {
                        fm.elidedText(full, Qt::ElideRight,
                                                   textR.width()));
         }
+        p.restore();
+    }
+    if (m_dragging && !m_dragPixmap.isNull()) {
+        // Floating copy of the grabbed tab follows the cursor while the
+        // underlying row reorders live.
+        p.save();
+        p.setOpacity(0.85);
+        p.drawPixmap(m_dragPos - m_dragHotspot, m_dragPixmap);
         p.restore();
     }
 }
