@@ -43,6 +43,7 @@
 #include <QDesktopServices>
 #include <QDir>
 #include <QDrag>
+#include <QEvent>
 #include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
@@ -151,22 +152,49 @@ void MainWindow::setViewerFullscreen(bool on) {
         m_pillBar->setVisible(!on && m_pills && m_pills->count() > 0);
     statusBar()->setVisible(!on);
     if (on) {
+        m_pendingFullscreenMaximize = false;
         showFullScreen();
     } else {
-        // Restore the exact state captured on entry through the Qt state
-        // API instead of a showMaximized()/showNormal() pair: on several
-        // WMs the pair ends up non-maximized.
-        if (m_preFullscreenMaximized)
-            showMaximized();
-        else
-            setWindowState(m_preFullscreenState);
+        // Leave fullscreen through the state API (never showNormal(), which
+        // drops the maximize flag on several WMs) so the window comes back
+        // as it was captured on entry.
+        const Qt::WindowStates before = m_preFullscreenState;
+        const bool wasMax = m_preFullscreenMaximized;
         m_preFullscreenState = Qt::WindowNoState;
         m_preFullscreenMaximized = false;
+        setWindowState(before & ~Qt::WindowFullScreen);
+        if (wasMax) {
+            // KWin restores the pre-fullscreen *normal* geometry and drops
+            // the maximize flag, discarding a maximize asked for in the same
+            // pass: a maximized window would come back filling the workspace
+            // with a normal frame. changeEvent() re-asks on the compositor
+            // configure; this timer is the backstop for the case where no
+            // state event follows, and disarms the retry after the transition
+            // so a later user unmaximize is never fought.
+            m_pendingFullscreenMaximize = true;
+            QTimer::singleShot(800, this, [this] {
+                if (!m_pendingFullscreenMaximize)
+                    return;
+                if (!isFullScreen() && !isMaximized())
+                    showMaximized();
+                m_pendingFullscreenMaximize = false;
+            });
+        }
         if (m_pages)
             m_pages->setCurrentIndex(1); // stay on the viewer
         if (m_viewer)
             m_viewer->setFocus();
     }
+}
+
+void MainWindow::changeEvent(QEvent *e) {
+    // The compositor's unfullscreen configure can land after our own state
+    // request and reset it back to a normal window at workspace size: re-ask
+    // maximize once it has been applied (see setViewerFullscreen).
+    if (e->type() == QEvent::WindowStateChange && m_pendingFullscreenMaximize &&
+        !isFullScreen() && !isMaximized())
+        showMaximized();
+    QMainWindow::changeEvent(e);
 }
 
 void MainWindow::showViewerContextMenu(const Post &post,

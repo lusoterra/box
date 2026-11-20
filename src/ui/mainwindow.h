@@ -143,6 +143,7 @@ public:
 
 protected:
     void closeEvent(QCloseEvent *e) override;
+    void changeEvent(QEvent *e) override;
     bool eventFilter(QObject *o, QEvent *e) override;
 
 private slots:
@@ -422,6 +423,11 @@ private:
     bool m_viewerFullscreen = false;
     Qt::WindowStates m_preFullscreenState = Qt::WindowNoState;
     bool m_preFullscreenMaximized = false;
+    // Set while a fullscreen exit is restoring a maximized window. KWin
+    // answers the unfullscreen by restoring the last normal geometry and
+    // dropping the maximize flag, so the request has to be repeated once
+    // the compositor's configure has landed (changeEvent).
+    bool m_pendingFullscreenMaximize = false;
 
     QString m_root;
     Index m_index;

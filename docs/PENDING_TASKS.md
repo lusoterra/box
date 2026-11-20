@@ -1,5 +1,21 @@
 # Pending tasks (from user goal)
 
+## 150. Fullscreen exit drops the maximized state on KWin Wayland - DONE
+- KWin answers `showFullScreen()` -> unfullscreen by restoring the last
+  *normal* geometry and clearing the maximize flag; a maximize requested
+  in the same pass (the old `showMaximized()`) is discarded. The window
+  then fills the workspace while being a plain window (normal frame).
+- `MainWindow::setViewerFullscreen` now leaves fullscreen through
+  `setWindowState(saved & ~WindowFullScreen)`, arms
+  `m_pendingFullscreenMaximize`, and `MainWindow::changeEvent`
+  re-issues `showMaximized()` after the compositor's configure lands.
+  An 800 ms backstop restores it when no state event follows and disarms
+  the retry so a later user unmaximize is never fought.
+- Verified by execution against the user's KWin 6.8.3 Wayland session
+  (probe: old path -> `max=0 state=0x0`, new path -> `max=1 state=0x2`,
+  work-area geometry) and a non-maximized window keeps its geometry;
+  `test_gridwindow` + `test_downloadplan` green.
+
 ## 149. Cache-move downloads, crash-safe queue, quit/resume guard - DONE
 - Pressing Download for a post the viewer buffered now moves the cached
   full-res file into the download folder (`QFile::rename`, copy fallback)

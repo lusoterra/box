@@ -228,7 +228,12 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
   single selection (`onGridActivated`).
 - Fullscreen viewer (`MainWindow::setViewerFullscreen`): hides shell
   chrome and the viewer toolbar/sidebar; F11/Esc/double-click/right-click
-  toggle it while arrow navigation keeps working.
+  toggle it while arrow navigation keeps working. The exit restores the
+  captured `windowState()`; KWin (Wayland) answers an unfullscreen by
+  restoring the normal geometry and dropping the maximize flag, so
+  `changeEvent` re-issues `showMaximized()` after the compositor's
+  configure (an 800 ms timer is the backstop) - without that a
+  maximized window came back filling the workspace with a normal frame.
 - HyBooru hydration (`MainWindow::scheduleHybooruHydration`): summaries
   carry no tags, so every loaded row is refreshed through a dedicated
   `PostRefresher` queue and merged into the grid/sidebar/viewer.
