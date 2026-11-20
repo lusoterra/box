@@ -55,6 +55,7 @@ add_executable(box
     src/library/settingsexport.cpp
     src/remote/webdlbackend.h
     src/library/losnimport.cpp
+    src/library/csvbackup.cpp
     src/library/queryor.cpp
     src/remote/cookiegrab.cpp
     src/ui/progressbar.cpp

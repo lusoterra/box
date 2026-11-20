@@ -159,6 +159,29 @@ private slots:
         QCOMPARE(ready.size(), 1);
     }
 
+    void progressSignalsTrackTheTask() {
+        // The grid's per-card veil needs queued -> started -> ready (and
+        // never a stuck queued state) even on a fast local response.
+        const QByteArray jpg = sampleJpgBytes();
+        QVERIFY(!jpg.isEmpty());
+        CannedHttpServer server("200 OK", "image/jpeg", jpg);
+        ThumbLoader loader;
+        loader.setAspect(1, 1);
+        QSignalSpy queued(&loader, &ThumbLoader::thumbnailQueued);
+        QSignalSpy started(&loader, &ThumbLoader::thumbnailStarted);
+        QSignalSpy failed(&loader, &ThumbLoader::thumbnailFailed);
+        QSignalSpy ready(&loader, &ThumbLoader::thumbnailReady);
+        QVERIFY(queued.isValid());
+        QVERIFY(started.isValid());
+        QVERIFY(failed.isValid());
+        loader.request(QStringLiteral("url|progress"), server.url(), 0, 0, 128);
+        QCOMPARE(queued.size(), 1); // synchronous accept
+        QVERIFY(ready.wait(15000));
+        QCOMPARE(started.size(), 1);
+        QCOMPARE(failed.size(), 0);
+        QCOMPARE(ready.size(), 1);
+    }
+
     void plainWallRetriesThroughBrowser() {
         // A non-quirk host (the Danbooru/CDN case) answers HTML instead
         // of the thumbnail: the loader must ride the browser backend and
@@ -191,6 +214,7 @@ private slots:
         loader.setWebBackend(&web);
         QSignalSpy ready(&loader, &ThumbLoader::thumbnailReady);
         QSignalSpy wall(&loader, &ThumbLoader::thumbnailWall);
+        QSignalSpy failed(&loader, &ThumbLoader::thumbnailFailed);
         loader.request(QStringLiteral("url|still-walled"), server.url(), 0, 0,
                        128, {}, false, false, QStringLiteral("danbooru"));
         QVERIFY(wall.wait(15000));
@@ -198,6 +222,10 @@ private slots:
         QCOMPARE(wall.first().at(0).toString(), QStringLiteral("danbooru"));
         QCOMPARE(wall.first().at(1).toString(), server.url());
         QCOMPARE(ready.size(), 0);
+        // The card must not keep spinning after the wall gives up.
+        QTRY_COMPARE(failed.size(), 1);
+        QCOMPARE(failed.first().at(0).toString(),
+                 QStringLiteral("url|still-walled"));
     }
 
     void tempMediaRejectsChallengePage() {

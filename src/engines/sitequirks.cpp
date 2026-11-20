@@ -8,15 +8,26 @@ namespace RemotePosts {
 QList<SiteQuirk> siteQuirks() {
     return {
         {QStringLiteral("gelbooru.com"), QString(),
-         {QStringLiteral("fringeBenefits=yup")}, false},
+         {QStringLiteral("fringeBenefits=yup")}, false, false},
         {QStringLiteral("rule34.xxx"),
-         QStringLiteral("https://api.rule34.xxx"), {}, false},
+         QStringLiteral("https://api.rule34.xxx"), {}, false, false},
         {QStringLiteral("booru.allthefallen.moe"), QString(), {},
-         true},
-        {QStringLiteral("soybooru.com"), QString(), {}, true},
+         true, false},
+        {QStringLiteral("soybooru.com"), QString(), {}, true, false},
+
+        // Donmai's two public Danbooru instances sit behind Cloudflare
+        // Turnstile (2026): every anonymous /posts.json answers 403
+        // `cf-mitigated: challenge`, and the clearance cookie only works
+        // from the Chromium profile that solved it. cdn.donmai.us is in
+        // the same walled zone, so media takes the browser path too.
+        {QStringLiteral("danbooru.donmai.us"), QString(), {}, false, true},
+        {QStringLiteral("safebooru.donmai.us"), QString(), {}, false, true},
+        // The media CDN is inside the same walled zone: thumbnails and
+        // downloads there take the same browser path.
+        {QStringLiteral("cdn.donmai.us"), QString(), {}, false, true},
 
         {QStringLiteral("hbooru5cef5tkb7a7m5de5kjxqg6abfh3447sxw36n5pe7utnnei25yd.onion"),
-         QString(), {}, true},
+         QString(), {}, true, false},
     };
 }
 

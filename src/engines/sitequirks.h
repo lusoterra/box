@@ -22,6 +22,11 @@ struct SiteQuirk {
     QString apiHost;            // API base override, empty = same host
     QStringList defaultCookies; // seeded once into new matching entries
     bool powWall = false;       // JS proof-of-work, re-solves periodically
+    // Cloudflare-fronted API/CDN: `cf_clearance` is bound to the browser
+    // fingerprint, so QNAM answers 403 even with a freshly harvested
+    // cookie. API searches, refreshes, tag suggestions and media ride
+    // the capture profile instead of burning a doomed plain request.
+    bool browserApi = false;
 };
 QList<SiteQuirk> siteQuirks();
 const SiteQuirk *quirkForHost(const QString &host);

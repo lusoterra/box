@@ -100,11 +100,13 @@ signals:
 private:
     QUrl buildUrl(const QStringList &tags, int page, int limit) const;
     SearchResult parse(const QByteArray &body) const;
-    // Browser fallback for proof-of-work walls (see WebApiFetcher):
-    // fetches m_lastUrl in the capture profile and emits the parsed
-    // result. Emits only on success; otherwise fills note and returns
-    // false so the normal wall error (plus note) is shown.
-    bool tryWebRetry(QString &note);
+    // Browser fallback for proof-of-work / fingerprint-walled hosts (see
+    // WebApiFetcher): fetches m_lastUrl in the capture profile and emits
+    // the parsed result. Emits only on success; otherwise fills note and
+    // returns false so the normal wall error (plus note) is shown.
+    // `cloudflare` is set when the reply carried `cf-mitigated: challenge`
+    // even though the host has no quirk row (custom instances).
+    bool tryWebRetry(QString &note, bool cloudflare = false);
     // Run the native PoW solver once against the current search and retry
     // it automatically when a wall answers `pow_required` (HTTP 449, or a
     // browser fallback that passed Cloudflare but still got the JSON wall).
@@ -121,6 +123,7 @@ private:
     QString m_baseUrl; // == m_site.baseUrl except self-hosted engines
     SiteCreds m_creds;
     bool m_webRetried = false; // browser fallback already spent this search
+    int m_webRetryGen = 0;     // search generation that owns the fetch
     class QNetworkAccessManager *m_nam;
     class QNetworkReply *m_reply = nullptr;
     QVector<Post> m_lastPosts;

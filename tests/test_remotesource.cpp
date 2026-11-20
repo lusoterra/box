@@ -291,6 +291,20 @@ private slots:
         plain.siteKey = QStringLiteral("gelbooru");
         plain.fileUrl = QStringLiteral("https://img4.gelbooru.com/x.jpg");
         QVERIFY(!RemotePosts::needsWebDownload(plain));
+        // Cloudflare-browser-only Danbooru: media on the sibling CDN also
+        // skips the doomed plain request.
+        BooruSite dan;
+        dan.key = QStringLiteral("dan");
+        dan.label = QStringLiteral("Dan");
+        dan.baseUrl = QStringLiteral("https://danbooru.donmai.us");
+        dan.engine = BooruEngine::Danbooru;
+        RemoteSource::setConfiguredBoorus({atf, gel, dan});
+        Post danCdn;
+        danCdn.isRemote = true;
+        danCdn.siteKey = QStringLiteral("dan");
+        danCdn.fileUrl =
+            QStringLiteral("https://cdn.donmai.us/original/x.jpg");
+        QVERIFY(RemotePosts::needsWebDownload(danCdn));
         // Unknown sites fall back to the file host (old behavior).
         Post stray;
         stray.isRemote = true;
@@ -1294,10 +1308,21 @@ private slots:
             QStringLiteral("booru.allthefallen.moe"));
         QVERIFY(atf);
         QVERIFY(atf->powWall);
+        QVERIFY(!atf->browserApi);
         QVERIFY(atf->defaultCookies.isEmpty());
+        // Donmai's instances are Cloudflare-browser-only: the clearance
+        // is fingerprint-bound, so API/media must ride the capture profile.
+        for (const QString &host : {QStringLiteral("danbooru.donmai.us"),
+                                    QStringLiteral("safebooru.donmai.us")}) {
+            const RemotePosts::SiteQuirk *q =
+                RemotePosts::quirkForHost(host);
+            QVERIFY(q);
+            QVERIFY(q->browserApi);
+            QVERIFY(!q->powWall);
+        }
         // Unknown hosts have no quirk and pass through.
         QVERIFY(!RemotePosts::quirkForHost(
-            QStringLiteral("danbooru.donmai.us")));
+            QStringLiteral("booru.example")));
         QCOMPARE(RemotePosts::apiBaseUrl(
                      BooruEngine::Gelbooru,
                      QStringLiteral("https://gelbooru.com")),

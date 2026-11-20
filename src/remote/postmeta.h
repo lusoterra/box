@@ -2,14 +2,15 @@
 
 // Notes (annotations) + comments for remote posts. Per-engine endpoints:
 //   Danbooru:  /notes.json, /comments.json, /artist_commentary.json
-//   Gelbooru:  dapi s=note|s=comment, post_id= (creds attached when set)
+//   Gelbooru:  post-page HTML notes (dapi s=note fallback), dapi comments
 //   Moebooru:  /note.json?post_id=, /comment.json?post_id=
 // Artist commentary has no universal endpoint:
 //   Danbooru:  /artist_commentary.json (original + translated text)
 //   Philomena:   single image (v1), Markdown `description`
 //   BooruOnRails: single post (v3), Markdown `description`
 //   HyBooru:    single post, Hydrus notes with rect=null (translated
-//               commentary label preferred; rect notes are annotations)
+//               commentary label preferred; rect notes are annotations
+//               in percent coordinates)
 // Failures are silent (sections just stay hidden); results are cached per
 // session so back/forth doesn't refetch.
 #include <QObject>
@@ -41,7 +42,7 @@ public:
     void setCreds(const QString &danUser, const QString &danKey,
                   const QString &gelUser, const QString &gelKey);
     void fetch(const QString &siteKey, const QString &baseUrl, qint64 postId,
-               BooruEngine engine);
+               BooruEngine engine, bool hasNotesHint = false);
     void cancel();
 
 signals:
@@ -56,6 +57,12 @@ signals:
 
 private:
     void finishPart();
+    // Browser-backed part fetch (Cloudflare/browserApi hosts): one hidden
+    // page per part, results applied on the GUI thread. `part` is
+    // 0=notes, 1=comments, 2=commentary.
+    void startBrowserPart(int part, const QUrl &url);
+    void applyBrowserPart(int gen, int part, int http, const QByteArray &body,
+                          const QString &error);
     // Native PoW re-solve attempt for 449-gated stacks; true when a
     // solve started (results arrive as a fresh done, not this one).
     bool maybePowRetry(const QByteArray &body, int http);
@@ -76,6 +83,7 @@ private:
     bool m_notesOk = true;
     bool m_commentsOk = true;
     bool m_commentaryOk = true;
+    int m_gen = 0; // browser workers from an older fetch are ignored
     bool m_powRetried = false; // one native PoW re-solve per fetch
     QString m_notesErr;
     QString m_commentsErr;

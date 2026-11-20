@@ -2,6 +2,57 @@
 
 # Completed tasks
 
+## 159. Empty per-site download folders - DONE
+- `DownloadManager::pump()` no longer creates `<downloads>/<host>/` (and
+  the `.part`) before a request: plain QNAM jobs stage lazily on the
+  first bytes (`openStagingFile`), so walled/offline/aborted batches make
+  no folder. Browser-backed jobs still pre-create it (the backend needs a
+  path) and `finishJob`/`cancel`/`cancelUrls` remove it when empty and no
+  pending job needs it (`removeEmptyDir`).
+- Verify: `test_downloadplan::cancelUrlsDropsQueued` (folder absent after
+  refused downloads); full `ctest`: 42/42.
+
+## 158. Grid filename hover tooltip - DONE
+- The card elides the file name in the middle; hovering the file line
+  under the info card shows the untruncated name. Geometry shared with
+  `GalleryDelegate::paint` via `paintRect`/`fileNameRect`;
+  `GridView::viewportEvent` handles `QEvent::ToolTip` (`mainwindow.cpp`).
+- Verify: hover UI needs Xvfb; full `ctest`: 42/42.
+
+## 157. Tab switch reopens the post after Back to grid - DONE
+- `BrowserTab::viewerKey` is cleared by `backToGrid(false)` (Back, Esc,
+  omnibar, heal), while `activateTab` calls `backToGrid(true)` so a tab
+  left mid-view still restores its post on return. Persisted via
+  `stageTabs` for restart.
+- Verify: live Xvfb path; full `ctest`: 42/42.
+
+## 156. Portable CSV library backup (export + restore) - DONE
+- File menu `Export library CSV…` / `Import library CSV…`: one row per
+  favourite/downloaded post, `post_url,file_url,downloaded,favourited,
+  date_added,site,post_id,md5,rating,ext,width,height,tags,local_file`,
+  RFC 4180 quoting, ISO-8601 dates. Import reuses `LosnImportDialog`
+  (favourites, downloads, sync), keeps `date_added` (`Post::added` ->
+  `FavDb::addMany`) and recovers a missing `file_url` from the metadata
+  refresh (`mediaUrlFromSidecar`).
+- New: `src/library/csvbackup.{h,cpp}`, `LosnImport::rowsFromCsv`,
+  `FavDb::addedTimes`. Tests: `test_csvbackup`, `test_losnimport`,
+  `test_favdb`; full `ctest`: 42/42.
+
+## 152-155. Danbooru 403, grid thumbnails, per-card loading veil, notes overlays - DONE
+- `browserApi` quirk (`src/engines/sitequirks.cpp`): Donmai/CDN searches,
+  refreshes, tag suggest, media, thumbnails and post-meta ride the cookie
+  capture profile; hidden API fetches bail after 8 s on an interactive
+  Turnstile and the Solve dialog accepts an already-answered JSON page.
+- `ThumbLoader` (`src/remote/thumbloader.cpp`) keeps one QNAM per worker
+  thread, retries transients once, uses an inactivity-aware 60 s budget,
+  only drops concurrency on 429/503, and queues visible rows before the
+  overscan band; per-card `Queued/Started/Progress/Failed` signals paint a
+  muted spinner then a thin progress bar (`mainwindow_thumb.cpp`).
+- Notes: HyBooru detail percent rects, Gelbooru/Safebooru post-page HTML
+  when `has_notes`, Danbooru meta through the browser (`postmeta.cpp`).
+- Verify: full `ctest`; live Xvfb Danbooru grid, Szurubooru grid and
+  HyBooru post view (annotation boxes drawn).
+
 ## 147. Import "also download" skips favourites already on disk by URL - DONE
 - `LosnImport::diskIndex` (`src/library/losnimport.cpp`) indexes media by
   md5 and by `file_url`/`post_url` from existing sidecars (stem and

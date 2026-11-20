@@ -464,7 +464,7 @@ void TagSuggester::suggest(const BooruSite &site, const SiteCreds &creds,
     // Web results bypass m_cache (it lives on the caller thread).
     const RemotePosts::SiteQuirk *wq =
         RemotePosts::quirkForHost(QUrl(site.baseUrl).host().toLower());
-    if (wq && wq->powWall) {
+    if (wq && (wq->powWall || wq->browserApi)) {
         if (const RemoteSource::WebFetchFn web = RemoteSource::webFetcher()) {
             const BooruEngine engine = site.engine;
             QPointer<TagSuggester> self(this);

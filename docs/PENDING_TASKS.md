@@ -1,5 +1,124 @@
 # Pending tasks (from user goal)
 
+## 159. Empty per-site download folders - DONE
+- Repro: a batch from a booru whose media is walled/login-walled (or
+  offline) leaves `<downloads>/<host>/` empty even though nothing was
+  downloaded.
+- Cause: `DownloadManager::pump()` created the destination folder and the
+  `.part` file before the request started, so any early failure left the
+  folder behind.
+- Fix: plain QNAM jobs create the folder + `.part` on the first received
+  bytes (`downloadmanager.cpp`); browser-backed jobs still create it up
+  front (the backend writes straight to the staging path), but a failed
+  pass is cleaned. `finishJob`, `cancel` and `cancelUrls` remove an empty
+  folder when no pending job needs it (`removeEmptyDir` /
+  `dirHasPendingJob`).
+- Tests: `test_downloadplan::cancelUrlsDropsQueued` asserts the `_Stray`
+  host folder does not exist after refused downloads. Full `ctest`: 42/42.
+
+## 158. Grid filename hover tooltip - DONE
+- The card's filename line elides in the middle, hiding the meaningful
+  part of hashed/downloaded names. Hovering that line now shows the full
+  name.
+- `GalleryDelegate::paintRect`/`fileNameRect` share the geometry with
+  `paint` (`src/ui/mainwindow.cpp`); `GridView::viewportEvent` routes
+  `QEvent::ToolTip` on that rect to `QToolTip::showText`, otherwise the
+  default item tooltip wins.
+- Verify: live Xvfb hover over a grid card's filename line; no unit test
+  (hover UI). Full `ctest`: 42/42.
+
+## 157. Tab switch reopens the post view after Back - DONE
+- Repro: open a tab, click a post, go back to the grid, switch tabs, come
+  back -> the last post opens again instead of the grid.
+- Cause: `finishActivateTab` restores `BrowserTab::viewerKey`, but
+  `backToGrid` never cleared it (only `showViewer`/stepping set it).
+- Fix: `backToGrid(bool keepViewerState = false)` clears the current
+  tab's `viewerKey`; `activateTab` passes true so leaving a tab *while in
+  the viewer* still restores that post on return. App restart follows the
+  same state (`stageTabs`).
+- Verify: live Xvfb (open post, Esc, switch away/back -> grid); no pure
+  unit test for MainWindow stage state. Full `ctest`: 42/42.
+
+## 156. Portable CSV library backup (export + import) - DONE
+- File menu: `Export library CSV…` writes one row per favourite and one
+  per file under the download folder:
+  `post_url,file_url,downloaded,favourited,date_added,site,post_id,md5,`
+  `rating,ext,width,height,tags,local_file` (RFC 4180 quoting, LF,
+  `true`/`false`, ISO-8601 UTC dates).
+- `Import library CSV…` opens the same options dialog as the LoliSnatcher
+  import (add favourites, download files, download favourites, opt-in
+  sync) via `LosnImportDialog(rows, …)`; `date_added` is restored
+  (`Post::added` -> `FavDb::addMany`).
+- Sources of truth: favourites DB (`addedTimes`), download-folder scan,
+  and sidecar `file_url` fallback when the scanner cannot expose it.
+- Tests: `test_csvbackup` (round trip, aliases/CRLF/BOM, refusal),
+  `test_losnimport` (`csvRowsBecomeImportRows`), `test_favdb`
+  (`restoredAddTimeIsKept`).
+- Verify: `test_csvbackup`, `test_losnimport`, `test_favdb`; full
+  `ctest`: 42/42.
+
+## 155. Notes/translation overlays missing on HyBooru, Gelbooru, Danbooru - DONE
+- HyBooru: annotations live in the `/api/post/<id>` detail `notes` array
+  with `rect` as image *percentages*. There was no notes URL at all for
+  this engine, so nothing was fetched. `PostMeta::notesUrl` now returns the
+  detail URL and `parseNotes` converts percent rects to pixels using the
+  detail `width`/`height` (`src/remote/postmeta.cpp`); `rect:null` rows
+  stay commentary.
+- Gelbooru/Safebooru: dapi `s=note` answers an empty table on
+  gelbooru.com even for annotated posts. When the search row says
+  `has_notes`, `PostMetaFetcher::fetch` reads the public post page and
+  parses `<article data-x/data-y/data-width/data-height/data-body>` or
+  safebooru's `note-box`/`note-body` divs (`hasNotesHint` from
+  `viewerpage_meta.cpp`).
+- Danbooru: `/notes.json`, `/comments.json` and `/artist_commentary.json`
+  now ride the capture profile on `browserApi` hosts (parallel
+  `QtConcurrent` web fetches, generation-guarded), so Cloudflare no longer
+  empties the notes/comments tabs.
+- Overlays stay post-view only (`ImageView::setNotes`), never on grid
+  cards; the grid only gains the amber note badge.
+- Tests: `test_postmeta` (`parseNotesHybooru`, `parseNotesGelbooruHtml`);
+  live Xvfb post view drew both annotation boxes on HyBooru post 19099.
+
+## 154. Per-card thumbnail loading veil (spinner / progress) - DONE
+- Empty grid cards now show a muted rotating arc while the request is
+  queued behind other thumbnails (or the server sends no length), then a
+  thin muted progress bar along the card's bottom edge while bytes move.
+- `ThumbLoader` emits `thumbnailQueued/Started/Progress/Failed`;
+  `GalleryDelegate` paints the state from a MainWindow-owned map, so
+  scrolling re-reads the current phase. Animation ticks at ~8 fps and
+  repaints only the visible loading cards.
+- Verify: live Szurubooru grid (spinners on a cold cache, bars while
+  the 1 MB previews land); `test_thumbloader` signal ordering.
+
+## 153. Grid thumbnails stall or never paint (all boorus) - DONE
+- Reports: Szurubooru instances (`glegle.gallery`, `visuabusters.com/booru`)
+  show black cards while clicking a post loads the full image; VPN
+  changes help a little, some cards load but it stays finicky.
+- Root cause: `ThumbTask` constructs a throwaway `QNetworkAccessManager`
+  per card. No connection reuse means four fresh DNS+TCP+TLS handshakes
+  per visible batch, a 20 s total timeout for multi-MB previews, and a
+  single transient error permanently drops the pool to one thread.
+- Fix: per-thread persistent QNAM, inactivity-aware 60 s budget, one
+  retry on transient network errors, no permanent concurrency loss for
+  plain timeouts, and visible rows queued ahead of the overscan band.
+- Verify: `test_thumbloader` (`progressSignalsTrackTheTask`, wall
+  failure clears the veil) + live Szurubooru grids (spinners/progress on
+  a cold cache, same cards painted after the fix).
+
+## 152. Danbooru Cloudflare Turnstile: 403 even after solving - DONE
+- `danbooru.donmai.us` / `safebooru.donmai.us` answer anonymous API calls
+  with `cf-mitigated: challenge`; the solved `cf_clearance` only works
+  from the capture profile, so QNAM browsing stayed 403 and the Solve
+  dialog just redisplayed the JSON the user had already unlocked.
+- Added the `browserApi` site quirk: searches, refreshes, tag suggest,
+  media and thumbnails ride the capture profile instead of a doomed
+  plain request. Hidden API fetches now bail out of an interactive
+  Turnstile after 8 s instead of stalling 30 s for the dialog.
+- Solve dialog: a JSON page (API already answered) collects and retries
+  instead of waiting forever on a cookie that will never arrive.
+- Verify: `test_remotesource` quirk case, full `ctest`; live Danbooru
+  grid (39 posts + thumbs in a fresh profile, no 403 loop).
+
 ## 151. Boorus… menu closes after one pick - DONE
 - Checkable entries used to dismiss the popup, forcing a reopen per booru.
 - New `MultiPickMenu` (`src/ui/multipickmenu.h`): a click on an enabled

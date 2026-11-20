@@ -150,7 +150,9 @@ void MainWindow::solveWallInBrowser(const QString &siteKey,
     // wall lives there), but a sibling CDN (cdn.donmai.us) can serve the
     // image with no challenge at all - no cookies would be minted - so
     // those start on the site root instead: one site clearance unlocks
-    // its media CDN.
+    // its media CDN. The exception is a browser-only Cloudflare entry:
+    // its CDN is walled independently, so the failing media URL is the
+    // only place that mints its own clearance.
     const bool challengeKind =
         wallKind.isEmpty() || wallKind == QStringLiteral("pow") ||
         wallKind == QStringLiteral("captcha") ||
@@ -158,7 +160,12 @@ void MainWindow::solveWallInBrowser(const QString &siteKey,
     if (!start.isValid())
         start = QUrl(entry.baseUrl);
     const QString startHost = start.host().toLower();
-    if (challengeKind && !startHost.isEmpty() && startHost != siteHost) {
+    const RemotePosts::SiteQuirk *siteQuirk =
+        RemotePosts::quirkForUrl(entry.baseUrl);
+    const bool browserApiHost = siteQuirk && siteQuirk->browserApi;
+    if (challengeKind && !startHost.isEmpty() && startHost != siteHost &&
+        !(browserApiHost &&
+          RemotePosts::isKnownMediaHost(siteHost, startHost))) {
         start = QUrl(entry.baseUrl);
     } else if ((wallKind == QStringLiteral("pow") ||
                 wallKind == QStringLiteral("captcha")) &&

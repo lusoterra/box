@@ -510,15 +510,23 @@ void RemoteSource::search(const QStringList &tags, int page, int limit) {
                                 .arg(reply->errorString());
             if (http == 403 &&
                 (RemotePosts::looksLikeCloudflareWall(body) ||
-                 RemotePosts::looksLikeChallengePage(body))) {
+                 RemotePosts::looksLikeChallengePage(body) ||
+                 reply->rawHeader("cf-mitigated").toLower().contains(
+                     "challenge"))) {
                 // Challenge wall (Cloudflare "Just a moment", captchas,
                 // rule34.xxx's main-host wall): the HTML body names nothing
                 // actionable, so say what to do - including whether any
                 // cookies were even sent, which decides capture vs Apply.
-                // PoW-walled hosts get one silent browser-backed retry
-                // first (its TLS stack passes where QNAM's cannot).
+                // Walled hosts get one silent browser-backed retry first
+                // (its TLS stack passes where QNAM's cannot) - including
+                // hosts whose API is fingerprinted even when the quirk list
+                // has no row for them (the `cf-mitigated` header proves
+                // Cloudflare is the one answering).
+                const bool cfMitigated =
+                    reply->rawHeader("cf-mitigated").toLower().contains(
+                        "challenge");
                 QString webNote;
-                if (tryWebRetry(webNote)) {
+                if (tryWebRetry(webNote, cfMitigated)) {
                     reply->deleteLater();
                     return;
                 }
@@ -718,6 +726,7 @@ void PostRefresher::refresh(const RefreshTarget &target, qint64 reqId) {
     cancel();
     m_target = target;
     m_reqId = reqId;
+    const qint64 ownId = reqId; // this call must not answer a newer request
     if (!target.valid()) {
         emit failed(m_reqId, QStringLiteral("Nothing refreshable (unknown origin)"));
         return;
@@ -730,7 +739,7 @@ void PostRefresher::refresh(const RefreshTarget &target, qint64 reqId) {
     // trip). Proxy env is inherited by the profile, not the entry.
     const RemotePosts::SiteQuirk *wq = RemotePosts::quirkForHost(
         QUrl(target.baseUrl).host().toLower());
-    if (wq && wq->powWall) {
+    if (wq && (wq->powWall || wq->browserApi)) {
         if (const RemoteSource::WebFetchFn web = RemoteSource::webFetcher()) {
             const BooruEngineOps *wops = engineOps(engine);
             const BooruEngineOps::Context wctx{engine, target.baseUrl,
@@ -739,15 +748,17 @@ void PostRefresher::refresh(const RefreshTarget &target, qint64 reqId) {
             const RemoteSource::WebFetchResult fetched =
                 wurl.isEmpty() ? RemoteSource::WebFetchResult{}
                                : web(wurl, 30000);
+            if (m_reqId != ownId)
+                return; // superseded while the hidden browser was loading
             bool ok = false;
             const QJsonObject raw =
                 fetched.body.isEmpty() ? QJsonObject()
                                        : wops->parseSingle(fetched.body, ok);
             if (fetched.error.isEmpty() && ok) {
-                emit refreshed(m_reqId, raw);
+                emit refreshed(ownId, raw);
                 return;
             }
-            emit failed(m_reqId,
+            emit failed(ownId,
                         fetched.error.isEmpty()
                             ? QStringLiteral(
                                   "No such post (or unexpected response)")
@@ -888,14 +899,18 @@ bool RemoteSource::beginPowRetry() {
     return true;
 }
 
-bool RemoteSource::tryWebRetry(QString &note) {
+bool RemoteSource::tryWebRetry(QString &note, bool cloudflare) {
     const RemotePosts::SiteQuirk *q =
         RemotePosts::quirkForHost(QUrl(m_baseUrl).host().toLower());
-    if (!q || !q->powWall || m_webRetried || m_lastUrl.isEmpty() ||
+    const bool browserHost = q && (q->powWall || q->browserApi);
+    if ((!browserHost && !cloudflare) || m_webRetried || m_lastUrl.isEmpty() ||
         !webFetcher())
         return false;
     m_webRetried = true;
+    m_webRetryGen = m_searchGen;
     const WebFetchResult web = webFetcher()(m_lastUrl, 30000);
+    if (m_webRetryGen != m_searchGen)
+        return true; // a newer search owns the UI: drop this stale answer
     if (web.error.isEmpty() && !web.body.isEmpty()) {
         SearchResult result = parse(web.body);
         result.site = m_site.key;
@@ -1179,14 +1194,14 @@ bool needsWebDownload(const Post &post) {
             key.isEmpty() ? nullptr : RemoteSource::siteFor(key)) {
         if (const SiteQuirk *q = quirkForHost(
                 QUrl(site->baseUrl).host().toLower())) {
-            if (q->powWall)
+            if (q->powWall || q->browserApi)
                 return true;
         }
     }
     if (!post.fileUrl.isEmpty()) {
         if (const SiteQuirk *q =
                 quirkForHost(QUrl(post.fileUrl).host().toLower()))
-            return q->powWall;
+            return q->powWall || q->browserApi;
     }
     return false;
 }

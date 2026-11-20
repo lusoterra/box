@@ -38,8 +38,13 @@ void ViewerPage::applyRefreshedPost(const Post &post) {
         if (!p.isRemote || p.siteName != post.siteName || p.id != post.id)
             continue;
         p = post;
-        if (i == m_row)
+        if (i == m_row) {
             renderTags(); // tags/meta only: media must not reload/restart
+            // Notes may have landed before the detail object (HyBooru
+            // summaries have no dimensions): restage now that p.width/
+            // height can scale the overlay.
+            stageNotes();
+        }
         break;
     }
 }

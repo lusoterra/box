@@ -43,6 +43,7 @@ include_directories(${CMAKE_SOURCE_DIR}/src/library/miniz)
 
 add_unit_test(test_explicittags test_explicittags.cpp)
 add_unit_test(test_filehash test_filehash.cpp)
+add_unit_test(test_csvbackup test_csvbackup.cpp ../src/library/csvbackup.cpp)
 add_unit_test(test_metaparser test_metaparser.cpp ../src/library/metaparser.cpp)
 add_unit_test(test_losnimport test_losnimport.cpp ../src/library/losnimport.cpp
               ../src/remote/downloadmanager.cpp ../src/remote/downloadqueue.cpp ../src/remote/webdlbackend.h ${REMOTE_SOURCES}
@@ -135,7 +136,8 @@ add_unit_test(test_gridwindow test_gridwindow.cpp
               ../src/remote/imagecache.cpp ../src/remote/postmeta.cpp
               ../src/remote/downloadmanager.cpp ../src/remote/downloadqueue.cpp ../src/library/losnimport.cpp
               ../src/remote/strayresolve.cpp
-              ../src/library/favdb.cpp ../src/library/metaparser.cpp
+              ../src/library/favdb.cpp ../src/library/csvbackup.cpp
+              ../src/library/metaparser.cpp
               ../src/library/queryor.cpp ../src/library/tagtypes.cpp
               ../src/library/scanner.cpp ../src/library/cache.cpp
               ../src/remote/thumbloader.cpp ../src/remote/tagsuggest.cpp

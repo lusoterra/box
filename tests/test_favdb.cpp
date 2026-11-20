@@ -248,6 +248,19 @@ private slots:
                  tmp.filePath(QStringLiteral("pic.jpg")));
     }
 
+    void restoredAddTimeIsKept() {
+        // CSV restores carry the original date_added; addMany must use it
+        // instead of stamping "now", and addedTimes() must report it.
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        FavDb db;
+        QVERIFY(db.open(tmp.path()));
+        Post p = samplePost();
+        p.added = 1700000000000LL;
+        QCOMPARE(db.addMany({p}), 1);
+        QCOMPARE(db.addedTimes().value({p.siteName, p.id}), 1700000000000LL);
+    }
+
     void addManyBatchesOneTransaction() {
         QTemporaryDir tmp;
         QVERIFY(tmp.isValid());

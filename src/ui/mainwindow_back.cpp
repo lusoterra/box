@@ -84,7 +84,14 @@
 #include <utility>
 #include <algorithm>
 
-void MainWindow::backToGrid() {
+void MainWindow::backToGrid(bool keepViewerState) {
+    // The grid is what this tab shows now: forget the post the viewer had
+    // open, or a later tab switch would restore it (finishActivateTab).
+    // Tab switches keep it (a tab left mid-view reopens on return).
+    if (!keepViewerState) {
+        if (BrowserTab *t = currentTab())
+            t->viewerKey.clear();
+    }
     // Leaving the viewer must halt playback now: audio kept going over
     // the grid (the player lives on after its page hides).
     if (m_viewerFullscreen)

@@ -241,7 +241,7 @@ void ViewerPage::refetchMeta(const Post &p) {
         m_meta->setCreds({}, {}, site->user, site->secret);
     else
         m_meta->setCreds({}, {}, {}, {});
-    m_meta->fetch(key, site->baseUrl, p.id, site->engine);
+    m_meta->fetch(key, site->baseUrl, p.id, site->engine, p.hasNotes);
 }
 
 void ViewerPage::onMetaDone(const QString &site, qint64 postId,

@@ -360,6 +360,7 @@ void DownloadManager::enqueue(const QList<DownloadJob> &jobsIn) {
 void DownloadManager::cancel() {
     const bool wasActive = m_active;
     m_convertCancel.storeRelaxed(1); // abort any in-flight ugoira encode
+    QSet<QString> touchedDirs;
     for (Flight *f : std::as_const(m_flights)) {
         if (f->webId >= 0 && m_webBackend)
             m_webBackend->cancel(f->webId); // backend drops partial files
@@ -373,6 +374,7 @@ void DownloadManager::cancel() {
             delete f->file;
         }
         QFile::remove(f->partPath); // interrupted bytes, never the final
+        touchedDirs.insert(QFileInfo(f->job.filePath).absolutePath());
         delete f;
     }
     m_flights.clear();
@@ -383,11 +385,15 @@ void DownloadManager::cancel() {
             m_imgCache->unpin(j.post.fileUrl);
             m_imgCache->cancelUrl(j.post.fileUrl); // explicit abort
         }
+        touchedDirs.insert(QFileInfo(j.filePath).absolutePath());
     }
     m_cacheWait.clear();
     for (const DownloadJob &j : std::as_const(m_queue))
         QFile::remove(partPathFor(j));
     m_queue.clear();
+    // Aborted attempts leave no empty host folder once nothing needs it.
+    for (const QString &dir : std::as_const(touchedDirs))
+        removeEmptyDir(dir);
     if (m_store)
         m_store->clear(); // explicit abort forgets the batch
     m_active = false;
@@ -480,11 +486,14 @@ void DownloadManager::cancelUrls(const QSet<QString> &fileUrls) {
     const int before = pendingCount();
     for (const QString &url : fileUrls)
         forgetPersisted(url);
+    QSet<QString> touchedDirs;
     m_queue.erase(std::remove_if(m_queue.begin(), m_queue.end(),
                                  [&](const DownloadJob &j) {
                                      if (!fileUrls.contains(j.post.fileUrl))
                                          return false;
                                      QFile::remove(partPathFor(j));
+                                     touchedDirs.insert(
+                                         QFileInfo(j.filePath).absolutePath());
                                      return true;
                                  }),
                   m_queue.end());
@@ -498,6 +507,7 @@ void DownloadManager::cancelUrls(const QSet<QString> &fileUrls) {
             m_imgCache->cancelUrl(j.post.fileUrl);
         }
         m_cachePinned.remove(j.post.fileUrl);
+        touchedDirs.insert(QFileInfo(j.filePath).absolutePath());
     }
     m_cacheWait.erase(std::remove_if(m_cacheWait.begin(), m_cacheWait.end(),
                                      [&](const DownloadJob &j) {
@@ -526,9 +536,12 @@ void DownloadManager::cancelUrls(const QSet<QString> &fileUrls) {
             delete f->file;
         }
         QFile::remove(f->partPath); // interrupted bytes, never the final
+        touchedDirs.insert(QFileInfo(f->job.filePath).absolutePath());
         emit fileFinished(f->job.fileName, false, tr("Cancelled"));
         delete f;
     }
+    for (const QString &dir : std::as_const(touchedDirs))
+        removeEmptyDir(dir);
     m_total = qMax(0, m_total - (before - pendingCount()));
     if (m_queue.isEmpty() && m_flights.isEmpty() && m_cacheWait.isEmpty())
         m_active = false;
@@ -536,10 +549,63 @@ void DownloadManager::cancelUrls(const QSet<QString> &fileUrls) {
         pump(); // fill freed flight slots
 }
 
+bool DownloadManager::dirHasPendingJob(const QString &dirPath) const {
+    const QString dir = QDir::cleanPath(dirPath);
+    auto same = [&dir](const DownloadJob &j) {
+        return QDir::cleanPath(QFileInfo(j.filePath).absolutePath()) == dir;
+    };
+    for (const DownloadJob &j : m_queue)
+        if (same(j))
+            return true;
+    for (const DownloadJob &j : m_cacheWait)
+        if (same(j))
+            return true;
+    for (const Flight *f : m_flights)
+        if (f && same(f->job))
+            return true;
+    return false;
+}
+
+void DownloadManager::removeEmptyDir(const QString &dirPath) {
+    if (dirPath.isEmpty() || dirHasPendingJob(dirPath))
+        return;
+    QDir d(dirPath);
+    if (d.exists() && d.isEmpty())
+        QDir().rmdir(dirPath); // never removes a populated folder
+}
+
+void DownloadManager::removeEmptyJobDir(const QString &filePath) {
+    if (filePath.isEmpty())
+        return;
+    removeEmptyDir(QFileInfo(filePath).absolutePath());
+}
+
+bool DownloadManager::openStagingFile(Flight *flight) {
+    if (!flight)
+        return false;
+    if (flight->file)
+        return true;
+    if (flight->writeError)
+        return false;
+    const QString dir = QFileInfo(flight->job.filePath).absolutePath();
+    if (!QDir().mkpath(dir)) {
+        flight->writeError = true;
+        return false;
+    }
+    auto *file = new QFile(flight->partPath);
+    if (!file->open(QIODevice::WriteOnly)) {
+        delete file;
+        QFile::remove(flight->partPath);
+        flight->writeError = true;
+        return false;
+    }
+    flight->file = file;
+    return true;
+}
+
 void DownloadManager::pump() {
     while (m_active && m_flights.size() < kMaxFlight && !m_queue.isEmpty()) {
         DownloadJob job = m_queue.takeFirst();
-        QDir().mkpath(QFileInfo(job.filePath).absolutePath());
         if (m_imgCache && !job.post.fileUrl.isEmpty()) {
             // Already on disk at full resolution (viewed): move the bytes
             // instead of fetching them again. Cache holds complete
@@ -589,13 +655,6 @@ void DownloadManager::pump() {
         }
         const QString part = partPathFor(job);
         QFile::remove(part);
-        auto *file = new QFile(part);
-        if (!file->open(QIODevice::WriteOnly)) {
-            delete file;
-            QFile::remove(part);
-            finishJob(job, false, tr("Cannot write %1").arg(job.filePath));
-            continue;
-        }
         QNetworkRequest req(QUrl(job.post.fileUrl));
         req.setTransferTimeout(60000);
         const QString referer = RemotePosts::mediaRefererFor(job.post);
@@ -606,12 +665,14 @@ void DownloadManager::pump() {
                       QStringLiteral("box/0.1 (batch download)"));
         req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                          QNetworkRequest::NoLessSafeRedirectPolicy);
-        auto *flight = new Flight{job, nullptr, file, -1, part};
+        // No staging file/dir yet: a wall/login/offline failure must not
+        // leave an empty per-site folder in the download tree.
+        auto *flight = new Flight{job, nullptr, nullptr, -1, part};
         flight->reply = namForProxy(proxySpecForJob(job))->get(req);
         connect(flight->reply, &QNetworkReply::finished, this,
                 &DownloadManager::onFileReply);
         connect(flight->reply, &QIODevice::readyRead, this, [this, flight] {
-            if (flight->file)
+            if (openStagingFile(flight))
                 flight->file->write(flight->reply->readAll());
         });
         connect(flight->reply, &QNetworkReply::downloadProgress, this,
@@ -634,6 +695,9 @@ void DownloadManager::startWebFlight(const DownloadJob &job) {
     flight->webId = m_webNextId++;
     m_flights.append(flight);
     QFile::remove(flight->partPath);
+    // The backend writes straight to the staging path, so the folder has
+    // to exist first; a failed browser pass drops it again in finishJob.
+    QDir().mkpath(QFileInfo(job.filePath).absolutePath());
     m_webBackend->start(flight->webId, job.post.fileUrl, flight->partPath);
 }
 
@@ -676,6 +740,21 @@ void DownloadManager::onFileReply() {
         startWebFlight(job);
         return true;
     };
+    // A small body can already be buffered when finished fires without a
+    // separately queued readyRead: stage it now instead of calling it empty.
+    if (ok && !flight->file && reply->bytesAvailable() > 0 &&
+        openStagingFile(flight)) {
+        flight->file->write(reply->readAll());
+    }
+    const bool localFailure = ok && !flight->file;
+    if (localFailure) {
+        // The staging file is created on first bytes: a reply that never
+        // delivered any is either an empty answer or a failed mkdir/open.
+        ok = false;
+        error = flight->writeError
+                    ? tr("Cannot write %1").arg(job.filePath)
+                    : tr("Empty response");
+    }
     if (ok && flight->file) {
         const QString ct = reply
                                ->header(QNetworkRequest::ContentTypeHeader)
@@ -742,7 +821,7 @@ void DownloadManager::onFileReply() {
                 }
             }
         }
-    } else if (!ok) {
+    } else if (!ok && !localFailure) {
         const int http =
             reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         error = http > 0 ? tr("HTTP %1").arg(http)
@@ -817,7 +896,6 @@ void DownloadManager::onCacheReady(const QString &url, const QString &localPath)
     if (m_cachePinned.remove(url) && m_imgCache)
         m_imgCache->unpin(url);
     for (DownloadJob &job : ready) {
-        QDir().mkpath(QFileInfo(job.filePath).absolutePath());
         if (!moveFileOverwrite(localPath, job.filePath)) {
             // Cache bytes vanished/undecodable mid-move: fall back to a
             // normal network flight instead of failing the download.
@@ -994,6 +1072,9 @@ void DownloadManager::finishJob(const DownloadJob &job, bool ok,
     } else {
         m_summary.failed++;
         m_summary.errors.append(error.isEmpty() ? job.fileName : error);
+        // A failed wall/login/offline attempt must not leave an empty
+        // per-site folder behind (folders are made on first bytes).
+        removeEmptyJobDir(job.filePath);
     }
     m_done++;
     emit fileFinished(job.fileName, ok, error);

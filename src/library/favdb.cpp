@@ -463,7 +463,8 @@ int FavDb::addMany(const QVector<Post> &posts) {
                             : post.absFile);
         ins.bindValue(15, post.width);
         ins.bindValue(16, post.height);
-        ins.bindValue(17, now);
+        // Restores preserve the original add time; fresh rows stamp now.
+        ins.bindValue(17, post.added > 0 ? post.added : now);
         ins.bindValue(18, post.untyped);
         ins.bindValue(19, encodeCustom(post.customTags));
         if (ins.exec() && ins.numRowsAffected() > 0)
@@ -690,6 +691,19 @@ QVector<Post> FavDb::list(int limit) {
                 db.rollback();
         }
     }
+    return out;
+}
+
+QHash<QPair<QString, qint64>, qint64> FavDb::addedTimes() {
+    QHash<QPair<QString, qint64>, qint64> out;
+    if (!m_open)
+        return out;
+    QSqlQuery q(QSqlDatabase::database(m_conn));
+    if (!q.exec(QStringLiteral("SELECT site, post_id, added FROM favourites")))
+        return out;
+    while (q.next())
+        out.insert({q.value(0).toString(), q.value(1).toLongLong()},
+                   q.value(2).toLongLong());
     return out;
 }
 

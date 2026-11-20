@@ -78,7 +78,10 @@
 #include <QStringListModel>
 #include <QStyledItemDelegate>
 #include <QTemporaryFile>
+#include <QHeaderView>
+#include <QHelpEvent>
 #include <QTimer>
+#include <QToolTip>
 #include <QUrl>
 #include <QVBoxLayout>
 #include <QWheelEvent>
@@ -316,9 +319,7 @@ QSize GalleryDelegate::sizeHint(const QStyleOptionViewItem &, const QModelIndex 
     return {m_boxW + 12, boxH + 62 + extra};
 }
 
-void GalleryDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option,
-                            const QModelIndex &index) const {
-    painter->save();
+QRect GalleryDelegate::paintRect(const QStyleOptionViewItem &option) const {
     const int boxH = qMax(60, (m_boxW * m_den) / m_num);
     QRect r = option.rect.adjusted(4, 4, -4, -4);
     if (m_staggered) {
@@ -329,6 +330,22 @@ void GalleryDelegate::paint(QPainter *painter, const QStyleOptionViewItem &optio
         // to make room for the offset.
         r.setHeight(boxH + 54);
     }
+    return r;
+}
+
+QRect GalleryDelegate::fileNameRect(const QStyleOptionViewItem &option) const {
+    const QRect r = paintRect(option);
+    const int boxH = qMax(60, (m_boxW * m_den) / m_num);
+    const QRect imgR(r.left() + 5, r.top() + 5, r.width() - 10, boxH);
+    const QRect cardR(r.left() + 5, imgR.bottom() + 4, r.width() - 10, 24);
+    return QRect(r.left() + 6, cardR.bottom() + 3, r.width() - 12, 16);
+}
+
+void GalleryDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option,
+                            const QModelIndex &index) const {
+    painter->save();
+    const int boxH = qMax(60, (m_boxW * m_den) / m_num);
+    QRect r = paintRect(option);
 
     const bool sel = option.state & QStyle::State_Selected;
     const QColor accent = option.palette.color(QPalette::Highlight);
@@ -355,6 +372,47 @@ void GalleryDelegate::paint(QPainter *painter, const QStyleOptionViewItem &optio
                             imgR.center().y() - scaled.height() / 2, scaled);
     } else {
         painter->fillRect(imgR, cardAlt);
+    }
+    // Per-card load veil: a quiet spinner while the request waits for a
+    // pool thread (or the server sends no length), then a thin progress
+    // bar while bytes move. Drawn over the shared placeholder until the
+    // real pixmap lands (role +16). Muted on purpose: a grid full of
+    // loading cards must not strobe.
+    if (!index.data(Qt::UserRole + 16).toBool()) {
+        ThumbLoadState st;
+        if (m_loadStates) {
+            const auto it = m_loadStates->constFind(
+                index.data(Qt::UserRole + 4).toString());
+            if (it != m_loadStates->constEnd())
+                st = it.value();
+        }
+        if (st.phase == ThumbLoadState::Queued ||
+            (st.phase == ThumbLoadState::Downloading && st.percent <= 0)) {
+            QRect sr(0, 0, 18, 18);
+            sr.moveCenter(imgR.center());
+            QColor arc = cardDim;
+            arc.setAlpha(150);
+            painter->setBrush(Qt::NoBrush);
+            painter->setPen(QPen(arc, 2.0, Qt::SolidLine, Qt::RoundCap));
+            painter->drawArc(sr, m_spinAngle * 16, 270 * 16);
+        } else if (st.phase == ThumbLoadState::Downloading) {
+            QRect bar(imgR.left() + 10, imgR.bottom() - 9,
+                      qMax(0, imgR.width() - 20), 4);
+            if (bar.width() > 0) {
+                QColor track = cardBorder;
+                track.setAlpha(110);
+                painter->setPen(Qt::NoPen);
+                painter->setBrush(track);
+                painter->drawRoundedRect(bar, 2, 2);
+                QRect fill = bar;
+                fill.setWidth(int(bar.width() * (st.percent / 100.0)));
+                QColor fillColor = accent;
+                fillColor.setAlpha(150);
+                painter->setBrush(fillColor);
+                if (fill.width() > 0)
+                    painter->drawRoundedRect(fill, 2, 2);
+            }
+        }
     }
     painter->setClipping(false);
 
@@ -514,7 +572,7 @@ void GalleryDelegate::paint(QPainter *painter, const QStyleOptionViewItem &optio
 
     // Filename line.
     painter->setPen(sel ? cardText : cardDim);
-    const QRect labelR(r.left() + 6, cardR.bottom() + 3, r.width() - 12, 16);
+    const QRect labelR = fileNameRect(option);
     const QString name = index.data(Qt::DisplayRole).toString();
     painter->drawText(labelR, Qt::AlignHCenter | Qt::AlignTop,
                       painter->fontMetrics().elidedText(name, Qt::ElideMiddle,
@@ -612,6 +670,29 @@ void GridView::keyPressEvent(QKeyEvent *e) {
         }
     }
     QListView::keyPressEvent(e);
+}
+
+bool GridView::viewportEvent(QEvent *e) {
+    // Hovering the filename line shows the whole name: the card elides it
+    // in the middle, which hides the part that matters on hashed names.
+    if (e->type() == QEvent::ToolTip) {
+        auto *he = static_cast<QHelpEvent *>(e);
+        const QModelIndex idx = indexAt(he->pos());
+        if (idx.isValid()) {
+            if (auto *d = qobject_cast<GalleryDelegate *>(itemDelegate())) {
+                QStyleOptionViewItem opt;
+                initViewItemOption(&opt);
+                opt.rect = visualRect(idx);
+                const QString name = idx.data(Qt::DisplayRole).toString();
+                if (!name.isEmpty() &&
+                    d->fileNameRect(opt).contains(he->pos())) {
+                    QToolTip::showText(he->globalPos(), name, viewport());
+                    return true;
+                }
+            }
+        }
+    }
+    return QListView::viewportEvent(e);
 }
 
 void GridView::startDrag(Qt::DropActions) {
@@ -799,6 +880,10 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     fileMenu->addSeparator();
     fileMenu->addAction(tr("Import LoliSnatcher backup…"), this,
                         &MainWindow::importLosnBackup);
+    fileMenu->addAction(tr("Export library CSV…"), this,
+                        &MainWindow::exportLibraryCsv);
+    fileMenu->addAction(tr("Import library CSV…"), this,
+                        &MainWindow::importLibraryCsv);
     fileMenu->addAction(tr("Backup settings…"), this,
                         &MainWindow::exportSettingsBackup);
     fileMenu->addAction(tr("Download/Add Stray…"), this,
@@ -1197,10 +1282,32 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     connect(m_grid, &QListView::customContextMenuRequested, this,
             &MainWindow::showGridMenu);
     connect(m_thumbs, &ThumbLoader::thumbnailReady, this, &MainWindow::onThumbnailReady);
+    connect(m_thumbs, &ThumbLoader::thumbnailQueued, this,
+            &MainWindow::onThumbQueued);
+    connect(m_thumbs, &ThumbLoader::thumbnailStarted, this,
+            &MainWindow::onThumbStarted);
+    connect(m_thumbs, &ThumbLoader::thumbnailProgress, this,
+            &MainWindow::onThumbProgress);
+    connect(m_thumbs, &ThumbLoader::thumbnailFailed, this,
+            &MainWindow::onThumbFailed);
     connect(m_thumbs, &ThumbLoader::thumbnailWall, this,
             &MainWindow::onThumbWall);
     connect(m_videoThumbs, &VideoThumbGrabber::thumbnailReady, this,
             &MainWindow::onThumbnailReady);
+    connect(m_videoThumbs, &VideoThumbGrabber::thumbnailQueued, this,
+            &MainWindow::onThumbQueued);
+    connect(m_videoThumbs, &VideoThumbGrabber::thumbnailStarted, this,
+            &MainWindow::onThumbStarted);
+    m_thumbSpinTimer = new QTimer(this);
+    m_thumbSpinTimer->setInterval(120);
+    connect(m_thumbSpinTimer, &QTimer::timeout, this, [this] {
+        m_thumbSpinAngle = (m_thumbSpinAngle + 30) % 360;
+        if (m_delegate)
+            m_delegate->setSpinAngle(m_thumbSpinAngle);
+        updateThumbLoadPaint();
+    });
+    if (m_delegate)
+        m_delegate->setLoadStates(&m_thumbLoad);
     connect(m_fetcher, &TagTypeFetcher::progress, this,
             &MainWindow::onClassifyProgress);
     connect(m_fetcher, &TagTypeFetcher::finished, this,
@@ -1293,7 +1400,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     m_favDb.open(effectiveDataDir(m_settings)); // best effort: store.db lives here
     seedTagTypesOnce(effectiveTagTypesDbPath(m_settings));
     m_viewer = new ViewerPage(this);
-    connect(m_viewer, &ViewerPage::back, this, &MainWindow::backToGrid);
+    connect(m_viewer, &ViewerPage::back, this, [this] { backToGrid(); });
     connect(m_viewer, &ViewerPage::fullscreenToggleRequested, this,
             &MainWindow::toggleViewerFullscreen);
     connect(m_viewer, &ViewerPage::postContextRequested, this,

@@ -58,6 +58,9 @@ public:
     int count();
     // Newest first, for the favourites tab.
     QVector<Post> list(int limit = 5000);
+    // (site, post_id) -> add time in ms since epoch. Backs the CSV export's
+    // date_added column (list() does not carry it).
+    QHash<QPair<QString, qint64>, qint64> addedTimes();
     // Favourites with no recorded download location (imports predate the
     // local_path column, or files arrived by other means).
     struct Unlinked {

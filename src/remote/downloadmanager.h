@@ -136,9 +136,18 @@ private:
         class QFile *file = nullptr;
         qint64 webId = -1; // >= 0 while a browser-backend flight runs
         QString partPath;  // bytes land here, renamed to job.filePath on success
+        bool writeError = false; // staging .part could not be created
     };
     void pump();
     void startWebFlight(const DownloadJob &job);
+    // Create the per-site folder + `.part` lazily, on the first bytes.
+    bool openStagingFile(Flight *flight);
+    // Folders are created on first bytes, never at plan/enqueue time. If a
+    // failed job leaves one empty (wall/login page, offline), drop it again
+    // unless another pending job needs the same folder.
+    void removeEmptyDir(const QString &dirPath);
+    void removeEmptyJobDir(const QString &filePath);
+    bool dirHasPendingJob(const QString &dirPath) const;
     void onFileReply();
     void finishJob(const DownloadJob &job, bool ok, const QString &error,
                    bool walled = false, bool repump = true);

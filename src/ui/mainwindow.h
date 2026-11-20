@@ -38,6 +38,7 @@ class QStandardItemModel;
 class QSplitter;
 class QTimer;
 class GridLoadingOverlay;
+class LosnImportDialog;
 class TagTypeFetcher;
 class MarqueeTabBar;
 class RemoteSource;
@@ -88,6 +89,15 @@ class VideoThumbGrabber;
 class ViewerPage;
 class WelcomePage;
 
+// Per-card thumbnail progress shown on black cards: queued (waiting for
+// a pool thread) or downloading (byte progress; percent < 0 when the
+// server sends no Content-Length).
+struct ThumbLoadState {
+    enum Phase { Idle = 0, Queued = 1, Downloading = 2 };
+    int phase = Idle;
+    int percent = -1;
+};
+
 // Grid delegate: uniform-aspect thumbnail + one info card per entry
 // ([G] +12 #11984812) + filename line.
 class GalleryDelegate : public QStyledItemDelegate {
@@ -100,6 +110,17 @@ public:
     // Brick-staggered rows: odd columns paint half a card lower.
     void setStaggered(bool on) { m_staggered = on; }
     bool staggered() const { return m_staggered; }
+    // Live load state (owned by MainWindow) + animation angle for the
+    // muted spinner/indeterminate bar over a not-yet-painted card.
+    void setLoadStates(const QHash<QString, ThumbLoadState> *states) {
+        m_loadStates = states;
+    }
+    void setSpinAngle(int deg) { m_spinAngle = deg; }
+    // Geometry of the filename line under the info card, in viewport
+    // coordinates for one item (same math as paint; used for the hover
+    // tooltip that shows the untruncated name).
+    QRect fileNameRect(const QStyleOptionViewItem &option) const;
+    QRect paintRect(const QStyleOptionViewItem &option) const;
     void paint(QPainter *painter, const QStyleOptionViewItem &option,
                const QModelIndex &index) const override;
     QSize sizeHint(const QStyleOptionViewItem &option,
@@ -110,6 +131,8 @@ private:
     int m_den = 1;
     int m_boxW = 184; // default grid width (kBoxW in mainwindow.cpp)
     bool m_staggered = false;
+    const QHash<QString, ThumbLoadState> *m_loadStates = nullptr;
+    int m_spinAngle = 0;
 };
 
 // Grid with drag-out: drag thumbnails to other applications as file URLs.
@@ -126,6 +149,7 @@ signals:
 
 protected:
     void startDrag(Qt::DropActions supportedActions) override;
+    bool viewportEvent(QEvent *e) override;
     void wheelEvent(QWheelEvent *e) override;
     void resizeEvent(QResizeEvent *e) override;
     void keyPressEvent(QKeyEvent *e) override; // Space toggles selection
@@ -248,6 +272,9 @@ private slots:
     void showGridMenu(const QPoint &pos); // right-click actions on posts
     void maybeDeleteUnfavFile(const Post &post); // unfav-deletes-file option
     void importLosnBackup();
+    void exportLibraryCsv(); // File menu: favourites + downloads -> CSV
+    void importLibraryCsv(); // File menu: restore a CSV backup
+    void launchImportDialog(LosnImportDialog *dlg); // shared post-launch wiring
     void exportSettingsBackup(); // File menu: settings+favs -> JSON file
     void importSettingsBackup(); // File menu: merge a JSON backup back in
     void openStrayDialog();
@@ -291,6 +318,13 @@ private slots:
     void pumpHybooruHydration(); // omnibar ★: starred tags, click adds to search
     void onGridActivated(const QModelIndex &index);
     void onThumbnailReady(const QString &key, const QImage &image);
+    void onThumbQueued(const QString &key);
+    void onThumbStarted(const QString &key);
+    void onThumbProgress(const QString &key, qint64 received, qint64 total);
+    void onThumbFailed(const QString &key);
+    // Repaint only the visible cards in m_thumbLoad (spinner/progress).
+    void updateThumbLoadPaint();
+    void syncThumbSpinTimer();
     // A grid thumbnail hit a challenge wall: register the media wall and
     // start one capture pass per site (not one dialog per black card).
     void onThumbWall(const QString &siteKey, const QString &url);
@@ -302,7 +336,7 @@ private slots:
     // Visible model rows via item geometry (indexAt misses IconMode
     // margins/ragged edges). Drives thumb requests + pixmap windowing.
     void visibleRowRange(int &lo, int &hi) const;
-    void backToGrid();
+    void backToGrid(bool keepViewerState = false);
     // Fullscreen post view: shell chrome + viewer toolbar hide, media fills.
     void toggleViewerFullscreen();
     void setViewerFullscreen(bool on);
@@ -621,6 +655,10 @@ private:
     QTimer *m_dlHide = nullptr;
     QHash<QString, QPixmap> m_thumbCache; // request key -> pixmap
     QList<QString> m_cacheOrder;
+    // Per-card veil state + a calm animation tick shared by all cards.
+    QHash<QString, ThumbLoadState> m_thumbLoad;
+    QTimer *m_thumbSpinTimer = nullptr;
+    int m_thumbSpinAngle = 0;
     QPixmap m_placeholder;
     class ScanWatcher : public QFutureWatcher<QVector<Post>> {};
     class Scanner *m_scanner = nullptr; // current archive scan (cancellable)

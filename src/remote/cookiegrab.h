@@ -14,6 +14,7 @@
 //   beyond the login itself; only the harvested name=value pairs are
 //   kept, per booru, in settings.ini next to the API keys.
 #include <QDialog>
+#include <QElapsedTimer>
 #include <QEventLoop>
 #include <QNetworkCookie>
 #include <QStringList>
@@ -71,6 +72,7 @@ private:
     QEventLoop *m_loop = nullptr;
     Result m_result;
     bool m_finished = false;
+    QElapsedTimer m_elapsed; // fast-fail when a challenge wants a human
 };
 
 // WebEngine-backed media downloads for fingerprint-walled hosts (see
@@ -178,8 +180,10 @@ private slots:
 
 private:
     void setStatus(const QString &text);
+    void maybeAutoAcceptJson();
     QString m_host;
     QString m_siteHost; // entry base host (m_host may be a media URL)
+    QString m_wallKind; // pow | captcha | challenge (empty = login capture)
     QUrl m_first;      // loaded on first show, not in the ctor
     bool m_loaded = false;
     QWebEngineView *m_view = nullptr;
@@ -194,6 +198,8 @@ private:
     bool m_autoAccept = true; // manual harvest closes the dialog
     bool m_armed = false;    // startup cookie burst is over
     bool m_autoFired = false; // challenge-solved auto-collect already triggered
+    bool m_jsonHandled = false; // API JSON auto-collect/close already ran
+    bool m_jsonPage = false;  // current page is a JSON API answer
     bool m_cfSeen = false;   // a Cloudflare cookie appeared this session
     bool m_restoredClearance = false; // cf_clearance predates this capture
 };

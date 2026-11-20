@@ -73,6 +73,9 @@ struct Post {
     // without a downloaded file stays false, so "liked" alone never lifts
     // the SFW-only cache restriction.
     bool downloaded = false;
+    // Runtime favourite add-time (ms since epoch), 0 = use "now" on
+    // insert. Lets a CSV/LOSN restore keep the original date_added.
+    qint64 added = 0;
 };
 
 inline bool isVideoExt(const QString &ext) {
@@ -174,7 +177,7 @@ inline QSet<QString> filetypeExtSet(const QString &tok) {
     if (t.startsWith(u'-'))
         t = t.mid(1);
     QSet<QString> out;
-    const int colon = t.indexOf(u':');
+    const qsizetype colon = t.indexOf(u':');
     if (colon < 0)
         return out;
     for (const QString &e : t.mid(colon + 1).split(u',')) {

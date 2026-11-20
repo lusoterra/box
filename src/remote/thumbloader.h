@@ -47,6 +47,14 @@ public:
 
 signals:
     void thumbnailReady(const QString &key, const QImage &image);
+    // Progress for the grid's per-card veil: queued (waiting for a pool
+    // thread), started (decoding/downloading), byte progress (total may
+    // be 0 when the server sends no length), and failure so a card is
+    // never left showing a spinner forever.
+    void thumbnailQueued(const QString &key);
+    void thumbnailStarted(const QString &key);
+    void thumbnailProgress(const QString &key, qint64 received, qint64 total);
+    void thumbnailFailed(const QString &key);
     // Plain fetch hit a challenge (HTML/JSON instead of bytes) and the
     // browser fallback either was not tried or could not pass it either.
     // The site key is whatever the caller stamped on the request (may be
@@ -110,6 +118,10 @@ public:
 
 signals:
     void thumbnailReady(const QString &key, const QImage &image);
+    // Same per-card veil contract as ThumbLoader (video decode has no
+    // byte progress: the card stays on the indeterminate spinner).
+    void thumbnailQueued(const QString &key);
+    void thumbnailStarted(const QString &key);
 
 private:
     void pump();

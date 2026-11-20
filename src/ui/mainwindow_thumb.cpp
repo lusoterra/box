@@ -28,6 +28,7 @@
 #include "tagtypes.h"
 #include "theme.h"
 #include "thumbloader.h"
+#include <QTimer>
 #include "viewerpage.h"
 #include "welcomepage.h"
 #include <QAbstractItemView>
@@ -110,9 +111,14 @@ void MainWindow::requestVisibleThumbs() {
     visibleRowRange(lo, hi);
     if (hi < 0)
         return; // nothing laid out yet; the next scroll tick retries
-    const int overscan = 20;
-    for (int row = qMax(0, lo - overscan); row <= qMin(hi + overscan, m_current.size() - 1);
-         ++row) {
+    // Visible rows first: the pool is FIFO, so queueing the overscan
+    // band ahead of the viewport left the cards the user is looking at
+    // waiting behind dozens of off-screen downloads (very visible on a
+    // slow VPN with full-size Szurubooru previews).
+    const int overscan = 10;
+    auto requestRow = [&](int row) {
+        if (row < 0 || row >= m_current.size())
+            return;
         const Post &p = m_current[row];
         const bool persistThumb = MediaCache::persistForPost(p);
         const bool nsfwThumb =
@@ -128,14 +134,14 @@ void MainWindow::requestVisibleThumbs() {
         if (p.isRemote) {
             const QString thumb = RemotePosts::thumbUrlFor(p);
             if (thumb.isEmpty())
-                continue;
+                return;
             const QString key = QStringLiteral("url|") + thumb;
             if (m_thumbCache.contains(key))
-                continue;
+                return;
             if (isVideoExt(p.ext) && !RemotePosts::isImageUrl(thumb)) {
                 // No image preview: decode a frame via the player (slow).
                 if (p.fileUrl.isEmpty())
-                    continue;
+                    return;
                 m_videoThumbs->request(key, p.fileUrl, 0, 0,
                                        m_settings.thumbLongSide, persistThumb,
                                        nsfwThumb, siteKey);
@@ -145,15 +151,15 @@ void MainWindow::requestVisibleThumbs() {
                                   RemotePosts::mediaRefererFor(p), persistThumb,
                                   nsfwThumb, siteKey);
             }
-            continue;
+            return;
         }
         const QFileInfo fi(p.absFile);
         if (!fi.exists())
-            continue;
+            return;
         const qint64 mtime = fi.lastModified().toMSecsSinceEpoch();
         const QString key = p.absFile + u'|' + QString::number(mtime);
         if (m_thumbCache.contains(key))
-            continue;
+            return;
         if (isVideoExt(p.ext))
             m_videoThumbs->request(key, p.absFile, mtime, fi.size(),
                                    m_settings.thumbLongSide, persistThumb,
@@ -162,7 +168,14 @@ void MainWindow::requestVisibleThumbs() {
             m_thumbs->request(key, p.absFile, mtime, fi.size(),
                               m_settings.thumbLongSide, QString(), persistThumb,
                               nsfwThumb, siteKey);
-    }
+    };
+    for (int row = lo; row <= hi; ++row)
+        requestRow(row);
+    for (int row = hi + 1; row <= qMin(hi + overscan, m_current.size() - 1);
+         ++row)
+        requestRow(row);
+    for (int row = lo - 1; row >= qMax(0, lo - overscan); --row)
+        requestRow(row);
     // Pixmap windowing: decoded pixmaps (the actual memory) live only on
     // near-visible rows. Rows scrolled far away drop back to the shared
     // placeholder; scrolling back repaints them from the LRU cache (or
@@ -191,6 +204,9 @@ void MainWindow::requestVisibleThumbs() {
 }
 
 void MainWindow::onThumbnailReady(const QString &key, const QImage &image) {
+    // The card has pixels now: retire its spinner/progress veil.
+    if (m_thumbLoad.remove(key) > 0)
+        syncThumbSpinTimer();
     QPixmap pm = QPixmap::fromImage(image);
     if (pm.isNull())
         return;
@@ -230,6 +246,99 @@ void MainWindow::onThumbnailReady(const QString &key, const QImage &image) {
             continue;
         m_model->setData(idx, pm, Qt::DecorationRole);
         m_model->setData(idx, true, Qt::UserRole + 16); // pixmap-loaded flag
+    }
+}
+
+void MainWindow::onThumbQueued(const QString &key) {
+    if (key.isEmpty() || m_thumbCache.contains(key))
+        return;
+    // Never downgrade a card that already started moving bytes.
+    if (m_thumbLoad.value(key).phase == ThumbLoadState::Downloading)
+        return;
+    m_thumbLoad.insert(key, ThumbLoadState{ThumbLoadState::Queued, -1});
+    updateThumbLoadPaint();
+    syncThumbSpinTimer();
+}
+
+void MainWindow::onThumbStarted(const QString &key) {
+    if (key.isEmpty() || m_thumbCache.contains(key))
+        return;
+    ThumbLoadState st = m_thumbLoad.value(key);
+    st.phase = ThumbLoadState::Downloading;
+    m_thumbLoad.insert(key, st);
+    updateThumbLoadPaint();
+    syncThumbSpinTimer();
+}
+
+void MainWindow::onThumbProgress(const QString &key, qint64 received,
+                                  qint64 total) {
+    if (key.isEmpty() || m_thumbCache.contains(key))
+        return;
+    ThumbLoadState st;
+    st.phase = ThumbLoadState::Downloading;
+    st.percent =
+        total > 0
+            ? int(qBound<qint64>(qint64(0), received * 100 / total, qint64(100)))
+            : -1;
+    const auto it = m_thumbLoad.constFind(key);
+    if (it != m_thumbLoad.constEnd() && it->percent == st.percent &&
+        it->phase == st.phase)
+        return; // same percent: no repaint needed
+    m_thumbLoad.insert(key, st);
+    updateThumbLoadPaint();
+    syncThumbSpinTimer();
+}
+
+void MainWindow::onThumbFailed(const QString &key) {
+    if (m_thumbLoad.remove(key) > 0) {
+        updateThumbLoadPaint();
+        syncThumbSpinTimer();
+    }
+}
+
+void MainWindow::syncThumbSpinTimer() {
+    if (!m_thumbSpinTimer)
+        return;
+    if (m_thumbLoad.isEmpty()) {
+        if (m_thumbSpinTimer->isActive())
+            m_thumbSpinTimer->stop();
+        if (m_thumbSpinAngle != 0) {
+            m_thumbSpinAngle = 0;
+            if (m_delegate)
+                m_delegate->setSpinAngle(0);
+        }
+        return;
+    }
+    if (!m_thumbSpinTimer->isActive())
+        m_thumbSpinTimer->start();
+}
+
+void MainWindow::updateThumbLoadPaint() {
+    if (!m_grid || !m_model || m_thumbLoad.isEmpty())
+        return;
+    // indexAt() can miss IconMode margins/ragged edges, so use it only
+    // to bound the repaint (falling back to the whole viewport) instead
+    // of the O(all rows) visibleRowRange() scan on every animation tick.
+    const QPoint topLeft(2, 2);
+    const QPoint bottomRight(m_grid->viewport()->width() - 3,
+                             m_grid->viewport()->height() - 3);
+    const QModelIndex first = m_grid->indexAt(topLeft);
+    const QModelIndex last = m_grid->indexAt(bottomRight);
+    if (!first.isValid() || !last.isValid()) {
+        m_grid->viewport()->update();
+        return;
+    }
+    const int lo = qMin(first.row(), last.row()) - 1;
+    const int hi = qMax(first.row(), last.row()) + 1;
+    for (int row = qMax(0, lo); row <= hi && row < m_model->rowCount();
+         ++row) {
+        const QModelIndex idx = m_model->index(row, 0);
+        const QString key = m_model->data(idx, Qt::UserRole + 4).toString();
+        if (!m_thumbLoad.contains(key))
+            continue;
+        const QRect r = m_grid->visualRect(idx);
+        if (r.isValid())
+            m_grid->viewport()->update(r);
     }
 }
 

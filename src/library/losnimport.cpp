@@ -7,6 +7,7 @@
 
 #include <QCheckBox>
 #include <QCoreApplication>
+#include <QDateTime>
 #include <QDir>
 #include <QDirIterator>
 #include <QFile>
@@ -478,6 +479,50 @@ QList<LosnRow> readBackup(const QString &dbPath, QString &error) {
     return rows;
 }
 
+QList<LosnRow> rowsFromCsv(const QVector<CsvBackup::Row> &rows) {
+    QList<LosnRow> out;
+    int rowId = 0;
+    for (const CsvBackup::Row &c : rows) {
+        LosnRow r;
+        r.rowId = ++rowId;
+        r.postUrl = c.postUrl;
+        r.fileUrl = c.fileUrl;
+        r.snatched = c.downloaded;
+        r.favourite = c.favourited;
+        r.host = QUrl(r.postUrl).host().toLower();
+        if (r.host.isEmpty())
+            r.host = QUrl(r.fileUrl).host().toLower();
+        r.tags = c.tags.split(u' ', Qt::SkipEmptyParts);
+        if (c.md5.size() == 32)
+            r.md5 = c.md5.toLower();
+        else
+            r.md5 = md5FromFileUrl(r.fileUrl);
+        // Site identity: the exported label is what favourites are keyed
+        // by, so it wins. A configured label also yields the entry key
+        // needed for metadata refreshes; otherwise fall back to the host.
+        QString hostKey;
+        QString hostLabel;
+        siteForHost(r.host, hostKey, hostLabel);
+        QString key = RemotePosts::keyForLabel(c.site);
+        if (key.isEmpty() && RemoteSource::siteFor(c.site))
+            key = c.site;
+        if (key.isEmpty())
+            key = hostKey;
+        r.siteKey = key;
+        const BooruSite *site = key.isEmpty() ? nullptr
+                                              : RemoteSource::siteFor(key);
+        r.siteLabel = !c.site.isEmpty() ? c.site
+                                        : (site ? site->label : hostLabel);
+        if (r.siteLabel.isEmpty())
+            r.siteLabel = QStringLiteral("Box");
+        r.postId = c.postId > 0 ? c.postId : idFromPostUrl(r.postUrl);
+        const QDateTime added = QDateTime::fromString(c.dateAdded, Qt::ISODate);
+        r.addedMsecs = added.isValid() ? added.toMSecsSinceEpoch() : 0;
+        out.append(r);
+    }
+    return out;
+}
+
 } // namespace LosnImport
 
 // ── dialog ─────────────────────────────────────────────────────
@@ -487,6 +532,25 @@ LosnImportDialog::LosnImportDialog(const QString &dbPath, FavDb *favDb,
                                    const QString &downloadDir, QWidget *parent)
     : QDialog(parent), m_dbPath(dbPath), m_downloadDir(downloadDir),
       m_favDb(favDb), m_downloads(dl), m_settings(settings) {
+    initFlights();
+    QString error;
+    m_rows = LosnImport::readBackup(dbPath, error);
+    buildUi(tr("Import LoliSnatcher backup"), error);
+}
+
+LosnImportDialog::LosnImportDialog(const QList<LosnRow> &rows,
+                                   const QString &windowTitle, FavDb *favDb,
+                                   DownloadManager *dl,
+                                   const AppSettings &settings,
+                                   const QString &downloadDir, QWidget *parent)
+    : QDialog(parent), m_downloadDir(downloadDir), m_favDb(favDb),
+      m_downloads(dl), m_settings(settings) {
+    initFlights();
+    m_rows = rows;
+    buildUi(windowTitle, {});
+}
+
+void LosnImportDialog::initFlights() {
     for (int i = 0; i < kMetaFlights; ++i) {
         auto *flight = new PostRefresher(this);
         connect(flight, &PostRefresher::refreshed, this,
@@ -495,12 +559,14 @@ LosnImportDialog::LosnImportDialog(const QString &dbPath, FavDb *favDb,
                 &LosnImportDialog::onMetaFailed);
         m_metaFlights.append(flight);
     }
-    setWindowTitle(tr("Import LoliSnatcher backup"));
+}
+
+void LosnImportDialog::buildUi(const QString &title,
+                               const QString &loadError) {
+    setWindowTitle(title);
     resize(560, 480);
     auto *lay = new QVBoxLayout(this);
 
-    QString error;
-    m_rows = LosnImport::readBackup(dbPath, error);
     for (int i = 0; i < m_rows.size(); ++i)
         m_rowIndex.insert(m_rows.at(i).fileUrl, i);
     for (const LosnRow &r : m_rows) {
@@ -509,8 +575,8 @@ LosnImportDialog::LosnImportDialog(const QString &dbPath, FavDb *favDb,
         if (r.snatched)
             m_snatchCount++;
     }
-    if (!error.isEmpty() && m_rows.isEmpty()) {
-        lay->addWidget(new QLabel(tr("Cannot read backup: %1").arg(error), this));
+    if (!loadError.isEmpty() && m_rows.isEmpty()) {
+        lay->addWidget(new QLabel(tr("Cannot read backup: %1").arg(loadError), this));
         auto *closeBtn = new QPushButton(tr("Close"), this);
         connect(closeBtn, &QPushButton::clicked, this, &QDialog::reject);
         lay->addWidget(closeBtn);
@@ -518,7 +584,7 @@ LosnImportDialog::LosnImportDialog(const QString &dbPath, FavDb *favDb,
     }
 
     m_counts = new QLabel(
-        tr("%1 favourites, %2 snatched (of %3 entries)")
+        tr("%1 favourites, %2 downloaded (of %3 entries)")
             .arg(m_favCount)
             .arg(m_snatchCount)
             .arg(m_rows.size()),
@@ -563,8 +629,8 @@ LosnImportDialog::LosnImportDialog(const QString &dbPath, FavDb *favDb,
     m_snatchedDownload =
         new QRadioButton(tr("Download files and keep the ↓ mark"), this);
     m_snatchedFav = new QRadioButton(
-        tr("Import as favourites only (no files; use after Android deleted "
-           "the originals)"),
+        tr("Import as favourites only (no files; use after the originals "
+           "were deleted)"),
         this);
     m_snatchedSkip = new QRadioButton(tr("Skip these entries"), this);
     m_snatchedDownload->setChecked(true);
@@ -751,6 +817,7 @@ void LosnImportDialog::onStart() {
             p.previewUrl = r.thumbUrl;
             p.postUrl = r.postUrl;
             p.hasMeta = true;
+            p.added = r.addedMsecs; // CSV restore keeps the original order
             favs.append(p);
             // Link only files that actually exist: a target path for a
             // never-downloaded row would later look like a deleted
@@ -966,14 +1033,17 @@ void LosnImportDialog::pumpMeta() {
                 m_refreshFailed++;
                 m_bar->setValue(m_refreshDone + m_metaDone);
             } else {
-                m_sidecars.insert(r.fileUrl, LosnImport::nativeSidecar(r));
+                m_sidecars.insert(r.fileUrl.isEmpty() ? r.postUrl : r.fileUrl,
+                                  LosnImport::nativeSidecar(r));
                 m_metaDone++;
                 m_bar->setValue(m_refreshDone + m_metaDone);
             }
             continue;
         }
         const qint64 id = m_nextReqId++;
-        m_flightUrl.insert(id, r.fileUrl);
+        // CSV rows can carry only post_url: key their fetched sidecar by
+        // the post URL so startDownloads() can still find the media URL.
+        m_flightUrl.insert(id, r.fileUrl.isEmpty() ? r.postUrl : r.fileUrl);
         m_reqFlight.insert(id, flight);
         flight->refresh(t, id);
     }
@@ -1059,6 +1129,23 @@ void LosnImportDialog::onMetaFailed(qint64 reqId, const QString &) {
     pumpMeta();
 }
 
+namespace {
+// Media URL from an API/sidecar object. CSV rows restored from a
+// post_url-only line learn their file_url here after the metadata fetch.
+QString mediaUrlFromSidecar(const QJsonObject &o) {
+    for (const char *key :
+         {"file_url", "fileUrl", "fileURL", "url", "media_url",
+          "contentUrl"}) {
+        const QString url = o.value(QLatin1String(key)).toString().trimmed();
+        const QString scheme = QUrl(url).scheme().toLower();
+        if (scheme == QStringLiteral("http") ||
+            scheme == QStringLiteral("https"))
+            return url;
+    }
+    return {};
+}
+} // namespace
+
 void LosnImportDialog::startDownloads() {
     // Phase 3: enqueue real downloads.
     QList<DownloadJob> jobs;
@@ -1095,10 +1182,20 @@ void LosnImportDialog::startDownloads() {
     };
     QHash<QString, QString> batchMd5; // md5 -> first planned path
     QSet<QString> batchPaths;         // first planned path per file
-    for (const LosnRow &r : m_downloadRows) {
-        if (r.fileUrl.isEmpty())
-            continue;
+    int noMediaUrl = 0;
+    for (const LosnRow &row : m_downloadRows) {
+        LosnRow r = row;
         QJsonObject sidecar = m_sidecars.value(r.fileUrl);
+        if (r.fileUrl.isEmpty() && !r.postUrl.isEmpty()) {
+            // CSV backup line had only the post URL: use the media URL
+            // the metadata pass fetched for it.
+            sidecar = m_sidecars.value(r.postUrl);
+            r.fileUrl = mediaUrlFromSidecar(sidecar);
+        }
+        if (r.fileUrl.isEmpty()) {
+            noMediaUrl++;
+            continue; // nothing to fetch (post gone / fetch failed)
+        }
         if (sidecar.isEmpty())
             sidecar = LosnImport::nativeSidecar(r);
         const LosnImport::DownloadPaths paths =
@@ -1183,6 +1280,9 @@ void LosnImportDialog::startDownloads() {
         log(tr("%1 download(s) use backup sidecars (fetch failed).")
                 .arg(m_metaFailed));
     log(tr("Downloading %1 files…").arg(jobs.size()));
+    if (noMediaUrl > 0)
+        log(tr("%1 row(s) had no media URL (post gone or fetch failed).")
+                .arg(noMediaUrl));
     if (skippedMd5 > 0)
         log(tr("%1 already on disk (matched by content, skipped).").arg(skippedMd5));
     if (skippedUrl > 0)

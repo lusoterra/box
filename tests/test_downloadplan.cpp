@@ -433,9 +433,11 @@ private slots:
         QCOMPARE(errors.size(), 3);
         for (auto it = errors.begin(); it != errors.end(); ++it)
             QVERIFY(!it.value().contains(QStringLiteral("Cancelled")));
-        // Nothing landed on disk either way.
+        // Nothing landed on disk either way, and a failed/aborted batch
+        // must not leave an empty per-site folder behind.
         QDir dlDir(tmp.filePath(QStringLiteral("dl/_Stray")));
         QVERIFY(dlDir.entryList(QDir::Files).isEmpty());
+        QVERIFY(!dlDir.exists());
     }
 };
 

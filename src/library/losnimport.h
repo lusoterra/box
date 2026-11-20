@@ -24,6 +24,7 @@
 
 #include "settings.h" // AppSettings member by value
 #include "downloadmanager.h" // DownloadSummary slot arg
+#include "csvbackup.h"
 
 struct LosnRow {
     qint64 rowId = 0;
@@ -36,11 +37,16 @@ struct LosnRow {
     QString host;      // post URL host, else file (CDN) host
     qint64 postId = 0; // from the post URL, 0 when unparseable
     QString md5;       // 32-hex stem from the file URL, "" when absent
+    qint64 addedMsecs = 0; // original add time (CSV restore), 0 = now
 };
 
 // Pure row parsing (unit-tested): host -> site, URL -> post id / md5.
 namespace LosnImport {
 QList<LosnRow> readBackup(const QString &dbPath, QString &error);
+// CSV backup -> import rows: same favourite/download flags, with the site
+// resolved from the exported label (or the URL host), and the original
+// add time carried so a restore keeps the favourites' order.
+QList<LosnRow> rowsFromCsv(const QVector<CsvBackup::Row> &rows);
 void siteForHost(const QString &host, QString &key, QString &label);
 qint64 idFromPostUrl(const QString &postUrl);
 QString md5FromFileUrl(const QString &fileUrl);
@@ -116,6 +122,11 @@ public:
     LosnImportDialog(const QString &dbPath, FavDb *favDb, DownloadManager *dl,
                      const AppSettings &settings, const QString &downloadDir,
                       QWidget *parent = nullptr);
+    // Same dialog driven by already-parsed rows (CSV backup restore).
+    LosnImportDialog(const QList<LosnRow> &rows, const QString &windowTitle,
+                     FavDb *favDb, DownloadManager *dl,
+                     const AppSettings &settings, const QString &downloadDir,
+                     QWidget *parent = nullptr);
 
 private slots:
     void onStart();
@@ -127,6 +138,8 @@ private slots:
     void onDownloadsDone(const DownloadSummary &summary);
 
 private:
+    void initFlights();
+    void buildUi(const QString &title, const QString &loadError);
     void log(const QString &text);
     void setBusy(bool busy);
 

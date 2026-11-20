@@ -11,6 +11,9 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
   - `Scanner::scan` is blocking, run via `QtConcurrent::run`
     (`src/library/scanner.h:26`); progress via signals on owner.
   - `ThumbLoader` owns a `QThreadPool` (`src/remote/thumbloader.cpp:26`);
+    each worker thread keeps one persistent QNAM (connection reuse for
+    the whole grid), and per-card `thumbnailQueued/Started/Progress/
+    Failed` signals drive the grid's muted spinner/progress veil.
     viewer decode via `QtConcurrent::run` (`src/ui/viewerpage.cpp:996`);
     tag-suggest web fetch via `QtConcurrent::run`
     (`src/remote/tagsuggest.cpp:311`); prefs probe/test via
@@ -48,7 +51,10 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     into the entry) instead of relying on browser-harvested cookies that die
     on any IP change. Only captchas still need the human browser path.
     Traffic rides the browser-backed stack (`powWall` quirk on
-    `soybooru.com`). If that browser fallback passes Cloudflare but the
+    `soybooru.com`). Cloudflare Turnstile instances (`browserApi` quirk on
+    `danbooru.donmai.us`/`safebooru.donmai.us`/`cdn.donmai.us`) never let a
+    harvested `cf_clearance` authorize QNAM, so searches, refreshes, tag
+    suggestions, media and thumbnails go through the capture profile. If that browser fallback passes Cloudflare but the
     origin still answers `pow_required`, `RemoteSource::beginPowRetry`
     solves natively and retries the search automatically
     (`remotesource.cpp:879`);
@@ -64,7 +70,8 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     open); `rating` is a star score (all posts read `general`, server
     `rating:`/`sort:` tokens stripped); files at `/files/f{sha}{ext}`,
     thumbs at `/files/t{sha}.thumbnail`, posts at `/posts/<id>`.
-  - `sitequirks.h` = per-host quirks (api subdomain, cookies, PoW walls).
+  - `sitequirks.h` = per-host quirks (api subdomain, cookies, PoW and
+    Cloudflare browser-only API walls).
   - `boorutypes.h` = `BooruEngine` enum, `BooruSite`, `SiteCreds`,
     `SearchResult`.
 - `src/remote/` - QNAM plumbing + batch jobs.
@@ -88,11 +95,18 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
   - Also: `imagecache` (full-image fetch for viewer), `thumbloader`
     (grid thumbs), `tagsuggest` (per-engine autocomplete), `faviconcache`
     (site icons), `cookiegrab` (WebEngine cookie capture for walled hosts),
-    `postmeta` (notes + comments + artist commentary for viewer; Gelbooru
-    dapi XML bodies accepted, rows scoped by `post_id` so an unscoped
-    endpoint can never paint another post's notes/comments; commentary =
-    Danbooru `artist_commentary`, Philomena `description`
-    (Philomena/Booru-on-Rails detail), HyBooru rect-null Hydrus notes).
+    `postmeta` (notes + comments + artist commentary for viewer; rows are
+    scoped by `post_id` so an unscoped endpoint can never paint another
+    post's notes/comments). Notes sources: Danbooru `/notes.json`,
+    Moebooru `/note.json`, dapi XML (`<note>` table) as fallback, Gelbooru/
+    Safebooru public post-page HTML (`<article data-x…>` / `note-box`
+    divs; the dapi `s=note` table answers empty on gelbooru.com),
+    HyBooru `/api/post/<id>` (`notes[].rect` are percentages of the detail
+    `width`/`height`). On `browserApi` hosts (Donmai/CDN) all three parts
+    ride the capture profile via `QtConcurrent` + `webFetcher`, since QNAM
+    cannot use a browser-bound `cf_clearance`. Commentary = Danbooru
+    `artist_commentary`, Philomena `description` (Philomena/Booru-on-Rails
+    detail), HyBooru rect-null Hydrus notes.
 - `src/library/` - local data + classification.
   - `scanner.h:19` `Scanner`: recursive scan, both sidecar layouts, emits
     `progress`/`cacheStats`; impl `src/library/scanner.cpp:156`.
@@ -289,6 +303,12 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     (`finishActivateTab`). `hideTabLoading` only drops the veil for the
     owning tab, so a stale scan/search finishing after the user left
     cannot clear the new tab's busy state.
+  - Per-tab post identity is `BrowserTab::viewerKey` (site#id or file);
+    `finishActivateTab` reopens that post on return. `showViewer`/post
+    stepping write it, `backToGrid(false)` (Back, Esc, omnibar, heal)
+    clears it so the tab is a grid tab again, and `activateTab` calls
+    `backToGrid(true)` to keep the outgoing tab's state. Persisted in
+    `tabs/saved*` so an app restart restores the same page.
   - Origin badges resolve favourite labels case-insensitively
     (`keyForLabel`, `remotesource.cpp:940`) and fall back to the post/file
     URL host (`entryForHost`), so a renamed entry keeps its favicon and

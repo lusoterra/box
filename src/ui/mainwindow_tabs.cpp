@@ -544,7 +544,9 @@ void MainWindow::onTabMoved(int from, int to) {
 void MainWindow::activateTab(int tabIdx) {
     if (tabIdx < 0 || tabIdx >= m_tabs.size())
         return;
-    backToGrid();
+    // Tab switch: leave the outgoing tab's post state alone so switching
+    // back mid-view reopens the same post.
+    backToGrid(true);
     m_curTab = tabIdx;
     BrowserTab *t = m_tabs[tabIdx];
     // Window title must switch with the tab bar, not after the deferred

@@ -106,7 +106,7 @@ CookieGrabDialog::CookieGrabDialog(const QString &siteLabel,
                                    const QString &wallKind,
                                    const QUrl &startUrl)
     : QDialog(parent), m_host(QUrl(baseUrl).host().toLower()),
-      m_siteHost(QUrl(baseUrl).host().toLower()) {
+      m_siteHost(QUrl(baseUrl).host().toLower()), m_wallKind(wallKind) {
     // A failing URL opens AT the wall (media/file hosts challenge while
     // the homepage lets you through); cookies still harvest for the
     // entry's host, the profile jar keeps the rest for browser fetches.
@@ -177,6 +177,7 @@ CookieGrabDialog::CookieGrabDialog(const QString &siteLabel,
     // restored login (which would self-accept the moment the dialog opens).
     QTimer::singleShot(3000, this, [this] {
         m_armed = true;
+        maybeAutoAcceptJson();
         if (m_restoredClearance && m_cookies.isEmpty())
             setStatus(tr("Existing login found - press <b>Use these "
                          "cookies</b> if it is still valid, or log in "
@@ -228,8 +229,46 @@ void CookieGrabDialog::onUrlChanged(const QUrl &url) {
 }
 
 void CookieGrabDialog::onLoadFinished(bool ok) {
-    if (!ok)
+    if (!ok) {
         setStatus(tr("Page failed to load - check the address and retry."));
+        return;
+    }
+    // A challenge-kind capture opens at the failing API URL. If the
+    // profile already holds a live clearance, that URL answers with raw
+    // JSON and no cookie arrives - previously the dialog just sat on the
+    // JSON the user had already unlocked. Recognize the answer, collect
+    // the jar and close so the caller can retry immediately.
+    if (m_wallKind.isEmpty() || !m_page)
+        return;
+    m_page->runJavaScript(
+        QStringLiteral("(function(){var b=document.body?"
+                       "document.body.innerText:'';"
+                       "return b.slice(0,64);})()"),
+        [this](const QVariant &v) {
+            const QString head = v.toString().trimmed();
+            if (!head.startsWith(u'{') && !head.startsWith(u'['))
+                return;
+            m_jsonPage = true;
+            setStatus(tr("API answered with JSON - this browser is already "
+                         "cleared. Collecting cookies and retrying…"));
+            maybeAutoAcceptJson();
+        });
+}
+
+void CookieGrabDialog::maybeAutoAcceptJson() {
+    // An explicit JSON answer is proof the browser passed the wall, so it
+    // does not wait for the 3 s restored-cookie arming window.
+    if (!m_jsonPage || m_jsonHandled)
+        return;
+    if (m_flushing) {
+        // A cookie-driven harvest is mid-flight: let it land first.
+        QTimer::singleShot(500, this,
+                           &CookieGrabDialog::maybeAutoAcceptJson);
+        return;
+    }
+    m_jsonHandled = true;
+    m_autoAccept = true; // API answered: nothing to verify, close and retry
+    useCookies();
 }
 
 void CookieGrabDialog::onCookieAdded(const QNetworkCookie &cookie) {
@@ -602,6 +641,7 @@ WebApiFetcher::WebApiFetcher(const QUrl &url, int timeoutMs)
 
 void WebApiFetcher::start() {
     // NOTE: caller guarantees the GUI thread (see fetchJsonBlocking).
+    m_elapsed.start();
     m_profile = sharedCaptureProfile(profilePathStore());
     m_view = new QWebEngineView();
     m_view->setVisible(false);
@@ -635,15 +675,57 @@ void WebApiFetcher::start() {
 void WebApiFetcher::poll() {
     if (m_finished)
         return;
+    // Body + title + "a challenge widget is on the page". One JS call so
+    // the three stay from the same document state.
     m_page->runJavaScript(
-        QStringLiteral("(document.body ? document.body.innerText : '')"
-                       ".slice(0, 1048576)"),
+        QStringLiteral(
+            "(function(){var b=document.body?document.body.innerText:'';"
+            "var c=document.querySelector("
+            "'iframe[src*=\"challenges.cloudflare.com\"],#challenge-form,"
+            "#challenge-stage,.cf-turnstile')?1:0;"
+            "return b.slice(0,1048576)+'\\u0000'+(document.title||'')"
+            "+'\\u0000'+c;})()"),
         [this](const QVariant &v) {
             if (m_finished)
                 return;
-            const QString text = v.toString().trimmed();
+            const QString all = v.toString();
+            const int firstNul = all.indexOf(QChar(0));
+            const QString text =
+                (firstNul >= 0 ? all.left(firstNul) : all).trimmed();
+            QString title, widget;
+            if (firstNul >= 0) {
+                const int secondNul = all.indexOf(QChar(0), firstNul + 1);
+                title = (secondNul >= 0
+                             ? all.mid(firstNul + 1,
+                                       secondNul - firstNul - 1)
+                             : all.mid(firstNul + 1))
+                            .trimmed();
+                if (secondNul >= 0)
+                    widget = all.mid(secondNul + 1).trimmed();
+            }
             if (text.startsWith(u'{') || text.startsWith(u'[')) {
                 finish(200, text.toUtf8(), {});
+                return;
+            }
+            // A visible Turnstile/captcha cannot be solved in a hidden
+            // view. Give the non-interactive path a few seconds to pass
+            // on its own, then report instead of stalling the caller for
+            // the full timeout (the wall dialog then opens promptly).
+            const bool challengePage =
+                RemotePosts::looksLikeCloudflareWall(text.toUtf8()) ||
+                title.contains(QStringLiteral("Just a moment"),
+                               Qt::CaseInsensitive) ||
+                title.contains(QStringLiteral("Attention Required"),
+                               Qt::CaseInsensitive) ||
+                text.contains(QStringLiteral("Verify you are human"),
+                              Qt::CaseInsensitive) ||
+                text.contains(QStringLiteral("Verifying you are human"),
+                              Qt::CaseInsensitive) ||
+                widget == QStringLiteral("1");
+            if (challengePage && m_elapsed.elapsed() > 8000) {
+                finish(0, {},
+                       tr("Cloudflare wants a click - solve it once in the "
+                          "capture browser"));
                 return;
             }
             // Still a challenge/login page: keep polling. Detect a login

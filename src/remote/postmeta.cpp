@@ -10,10 +10,14 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QPointer>
+#include <QRegularExpression>
+#include <QTextDocumentFragment>
 #include <QUrl>
 #include <QUrlQuery>
 #include <QXmlStreamAttributes>
 #include <QXmlStreamReader>
+#include <QtConcurrent>
 
 PostMetaFetcher::PostMetaFetcher(QObject *parent)
     : QObject(parent), m_nam(new QNetworkAccessManager(this)) {}
@@ -47,7 +51,8 @@ void applyBasicAuth(QNetworkRequest &req, const QString &user, const QString &se
 } // namespace
 
 void PostMetaFetcher::fetch(const QString &siteKey, const QString &baseUrl,
-                            qint64 postId, BooruEngine engine) {
+                            qint64 postId, BooruEngine engine,
+                            bool hasNotesHint) {
     cancel();
     m_site = siteKey;
     m_baseUrl = baseUrl;
@@ -63,8 +68,19 @@ void PostMetaFetcher::fetch(const QString &siteKey, const QString &baseUrl,
     m_notesOk = true;
     m_commentsOk = true;
     m_commentaryOk = true;
-    QNetworkRequest notesReq = timedRequest(
-        PostMeta::notesUrl(engine, baseUrl, postId, m_gelUser, m_gelKey));
+    QUrl notesUrl =
+        PostMeta::notesUrl(engine, baseUrl, postId, m_gelUser, m_gelKey);
+    // Gelbooru's dapi note table is not reliable (gelbooru.com answers an
+    // empty table for posts whose page carries annotations). The public
+    // post page embeds them, so a post whose search row says has_notes
+    // reads that instead of the dapi endpoint.
+    if ((engine == BooruEngine::Gelbooru ||
+         engine == BooruEngine::Safebooru) &&
+        hasNotesHint) {
+        notesUrl = QUrl(baseUrl + QStringLiteral("/index.php?page=post&s=view&id=") +
+                        QString::number(postId));
+    }
+    QNetworkRequest notesReq = timedRequest(notesUrl);
     QNetworkRequest commentsReq = timedRequest(
         PostMeta::commentsUrl(engine, baseUrl, postId, m_gelUser, m_gelKey));
     QNetworkRequest commentaryReq = timedRequest(
@@ -80,6 +96,7 @@ void PostMetaFetcher::fetch(const QString &siteKey, const QString &baseUrl,
     } else if (RemotePosts::isPhilomenaFamily(engine) ||
                engine == BooruEngine::Hybooru) {
         // Philomena/HyBooru details: ask for the JSON representation only.
+        notesReq.setRawHeader("Accept", "application/json");
         commentaryReq.setRawHeader("Accept", "application/json");
     }
     if (notesReq.url().isEmpty())
@@ -95,6 +112,32 @@ void PostMetaFetcher::fetch(const QString &siteKey, const QString &baseUrl,
     } else if (engine == BooruEngine::Gelbooru ||
                engine == BooruEngine::Safebooru) {
         // Gelbooru dapi takes creds as query params (already in the URL).
+    }
+    // Cloudflare/browserApi hosts: QNAM answers 403 even with a harvested
+    // clearance. Fetch the three parts through the capture profile, in
+    // parallel, so the viewer keeps its metadata on Danbooru/Safebooru.
+    if (const RemotePosts::SiteQuirk *q =
+            RemotePosts::quirkForHost(QUrl(baseUrl).host().toLower());
+        q && q->browserApi) {
+        if (RemoteSource::webFetcher()) {
+            if (!notesReq.url().isEmpty()) {
+                m_notesOk = false;
+                m_notesErr.clear();
+                startBrowserPart(0, notesReq.url());
+            }
+            if (!commentsReq.url().isEmpty()) {
+                m_commentsOk = false;
+                m_commentsErr.clear();
+                startBrowserPart(1, commentsReq.url());
+            }
+            if (!commentaryReq.url().isEmpty()) {
+                m_commentaryOk = false;
+                m_commentaryErr.clear();
+                startBrowserPart(2, commentaryReq.url());
+            }
+            finishPart();
+            return;
+        }
     }
     if (!notesReq.url().isEmpty()) {
         m_notesOk = false; // issued: must prove success below
@@ -200,6 +243,7 @@ void PostMetaFetcher::fetch(const QString &siteKey, const QString &baseUrl,
 }
 
 void PostMetaFetcher::cancel() {
+    ++m_gen; // drop results from browser workers started before this call
     for (QNetworkReply **slot :
          {&m_notesReply, &m_commentsReply, &m_commentaryReply}) {
         if (*slot) {
@@ -212,6 +256,70 @@ void PostMetaFetcher::cancel() {
     m_notesDone = true;
     m_commentsDone = true;
     m_commentaryDone = true;
+}
+
+void PostMetaFetcher::startBrowserPart(int part, const QUrl &url) {
+    const auto web = RemoteSource::webFetcher();
+    if (!web || !url.isValid()) {
+        // Never leave a part "in flight" forever: report the failure so
+        // finishPart can emit done.
+        applyBrowserPart(m_gen, part, 0, {},
+                         tr("Browser fetch unavailable"));
+        return;
+    }
+    const int gen = m_gen;
+    QPointer<PostMetaFetcher> self(this);
+    QtConcurrent::run([web, url, gen, part, self] {
+        const RemoteSource::WebFetchResult r = web(url, 20000);
+        if (!self)
+            return;
+        QMetaObject::invokeMethod(
+            self.data(),
+            [self, gen, part, r] {
+                if (self)
+                    self->applyBrowserPart(gen, part, r.http, r.body, r.error);
+            },
+            Qt::QueuedConnection);
+    });
+}
+
+void PostMetaFetcher::applyBrowserPart(int gen, int part, int http,
+                                       const QByteArray &body,
+                                       const QString &error) {
+    if (gen != m_gen)
+        return; // a newer fetch owns the UI
+    bool ok = false;
+    QString err = error;
+    if (http / 100 == 2 && !body.isEmpty()) {
+        if (part == 0)
+            m_notes = PostMeta::parseNotes(body, &ok, m_postId);
+        else if (part == 1)
+            m_comments = PostMeta::parseComments(body, &ok, m_postId);
+        else
+            m_commentary = PostMeta::parseCommentary(m_engine, body, &ok);
+        if (!ok && err.isEmpty())
+            err = tr("Unparseable response");
+    } else if (err.isEmpty()) {
+        err = http > 0 ? tr("HTTP %1").arg(http) : tr("Browser fetch failed");
+    }
+    switch (part) {
+    case 0:
+        m_notesOk = ok;
+        m_notesErr = ok ? QString() : err;
+        m_notesDone = true;
+        break;
+    case 1:
+        m_commentsOk = ok;
+        m_commentsErr = ok ? QString() : err;
+        m_commentsDone = true;
+        break;
+    default:
+        m_commentaryOk = ok;
+        m_commentaryErr = ok ? QString() : err;
+        m_commentaryDone = true;
+        break;
+    }
+    finishPart();
 }
 
 void PostMetaFetcher::finishPart() {
@@ -266,9 +374,14 @@ QUrl notesUrl(BooruEngine engine, const QString &baseUrl, qint64 postId,
               const QString &gelUser, const QString &gelKey) {
     const QString id = QString::number(postId);
     if (engine == BooruEngine::Szurubooru || engine == BooruEngine::Shimmie ||
-        engine == BooruEngine::Hybooru || engine == BooruEngine::Nuuru ||
+        engine == BooruEngine::Nuuru ||
         RemotePosts::isPhilomenaFamily(engine))
         return {}; // no notes endpoint on these engines
+    if (engine == BooruEngine::Hybooru) {
+        // Hydrus notes ride the post detail object: rect notes are the
+        // image annotations, rect-null rows are commentary.
+        return QUrl(baseUrl + QStringLiteral("/api/post/") + id);
+    }
     if (engine == BooruEngine::Danbooru) {
         QUrl url(baseUrl + QStringLiteral("/notes.json"));
         QUrlQuery q;
@@ -371,14 +484,132 @@ QUrl commentaryUrl(BooruEngine engine, const QString &baseUrl, qint64 postId) {
     return {};
 }
 
+namespace {
+// HTML attribute values arrive entity-escaped ("&quot;", "&#039;", "&amp;").
+// Rich-text parsing decodes them and strips any accidental inline tags.
+QString decodeHtmlText(const QString &in) {
+    if (in.isEmpty())
+        return {};
+    return QTextDocumentFragment::fromHtml(in).toPlainText().trimmed();
+}
+
+int stylePx(const QString &style, const QString &name) {
+    const QRegularExpression re(
+        QStringLiteral("(?:^|;)\\s*%1\\s*:\\s*(-?[\\d.]+)px").arg(name),
+        QRegularExpression::CaseInsensitiveOption);
+    const QRegularExpressionMatch m = re.match(style);
+    return m.hasMatch() ? qRound(m.captured(1).toDouble()) : 0;
+}
+
+QString styleAttr(const QString &attrs) {
+    const QRegularExpression re(QStringLiteral("style\\s*=\\s*\"([^\"]*)\""),
+                                QRegularExpression::CaseInsensitiveOption);
+    const QRegularExpressionMatch m = re.match(attrs);
+    return m.hasMatch() ? m.captured(1) : QString();
+}
+
+// Gelbooru/Safebooru post-page annotations. Public pages embed them in
+// two shapes: gelbooru.com uses <article data-x data-y data-width
+// data-height data-body="...">; safebooru.org renders note-box/note-body
+// divs with inline geometry and the text as element content. The dapi
+// s=note table is unreliable (empty on gelbooru.com), so the viewer
+// reads the page when the post says it has notes.
+QVector<PostNote> parseGelbooruNotesHtml(const QByteArray &body, bool *ok) {
+    if (ok)
+        *ok = false;
+    const QString html = QString::fromUtf8(body);
+    const bool postPage =
+        html.contains(QStringLiteral("note-container")) ||
+        html.contains(QStringLiteral("id=\"notes\""));
+    QVector<PostNote> out;
+
+    static const QRegularExpression articleRe(
+        QStringLiteral("<article\\b([^>]*)>"),
+        QRegularExpression::CaseInsensitiveOption);
+    static const QRegularExpression attrRe(
+        QStringLiteral("data-(x|y|width|height|body)\\s*=\\s*\"([^\"]*)\""),
+        QRegularExpression::CaseInsensitiveOption);
+    auto articles = articleRe.globalMatch(html);
+    while (articles.hasNext()) {
+        const QRegularExpressionMatch m = articles.next();
+        QHash<QString, QString> attrs;
+        auto it = attrRe.globalMatch(m.captured(1));
+        while (it.hasNext()) {
+            const QRegularExpressionMatch am = it.next();
+            attrs.insert(am.captured(1).toLower(), am.captured(2));
+        }
+        if (!attrs.contains(QStringLiteral("body")))
+            continue;
+        PostNote n;
+        n.x = attrs.value(QStringLiteral("x")).toInt();
+        n.y = attrs.value(QStringLiteral("y")).toInt();
+        n.w = attrs.value(QStringLiteral("width")).toInt();
+        n.h = attrs.value(QStringLiteral("height")).toInt();
+        n.body = decodeHtmlText(attrs.value(QStringLiteral("body")));
+        if (!n.body.isEmpty() && n.w > 0 && n.h > 0)
+            out.append(n);
+    }
+    if (!out.isEmpty()) {
+        if (ok)
+            *ok = true;
+        return out;
+    }
+
+    // safebooru.org shape: note-box-<id> style + note-body-<id> text.
+    QHash<QString, QRect> boxes;
+    static const QRegularExpression boxRe(
+        QStringLiteral("<div\\b([^>]*id=\"note-box-(\\d+)\"[^>]*)>"),
+        QRegularExpression::CaseInsensitiveOption);
+    auto boxIt = boxRe.globalMatch(html);
+    while (boxIt.hasNext()) {
+        const QRegularExpressionMatch m = boxIt.next();
+        const QString attrs = m.captured(1);
+        const QString style = styleAttr(attrs);
+        const QRect r(stylePx(style, QStringLiteral("left")),
+                      stylePx(style, QStringLiteral("top")),
+                      stylePx(style, QStringLiteral("width")),
+                      stylePx(style, QStringLiteral("height")));
+        if (r.width() > 0 && r.height() > 0)
+            boxes.insert(m.captured(2), r);
+    }
+    static const QRegularExpression noteBodyRe(
+        QStringLiteral(
+            "<div\\b([^>]*id=\"note-body-(\\d+)\"[^>]*)>(.*?)</div>"),
+        QRegularExpression::CaseInsensitiveOption |
+            QRegularExpression::DotMatchesEverythingOption);
+    auto bodyIt = noteBodyRe.globalMatch(html);
+    while (bodyIt.hasNext()) {
+        const QRegularExpressionMatch m = bodyIt.next();
+        const auto box = boxes.constFind(m.captured(2));
+        if (box == boxes.constEnd())
+            continue;
+        PostNote n;
+        n.x = box->x();
+        n.y = box->y();
+        n.w = box->width();
+        n.h = box->height();
+        n.body = decodeHtmlText(m.captured(3));
+        if (!n.body.isEmpty())
+            out.append(n);
+    }
+    if (ok)
+        *ok = postPage;
+    return out;
+}
+} // namespace
+
 QVector<PostNote> parseNotes(const QByteArray &body, bool *ok, qint64 postId) {
     QVector<PostNote> out;
     if (ok)
         *ok = false;
+    // Gelbooru/Safebooru post-page annotations (see parser above).
+    const QByteArray trimmed = body.trimmed();
+    if (trimmed.contains("note-container") || trimmed.contains("<article") ||
+        trimmed.contains("id=\"notes\""))
+        return parseGelbooruNotesHtml(trimmed, ok);
     // Gelbooru's dapi serves the note table as XML even when json=1 is
     // requested (live safebooru.org, 2026-11-15), so a leading '<' routes
     // to the XML reader instead of failing every note fetch there.
-    const QByteArray trimmed = body.trimmed();
     if (trimmed.startsWith('<')) {
         QXmlStreamReader xml(trimmed);
         bool shaped = false; // root must be a notes table, not wall HTML
@@ -412,6 +643,41 @@ QVector<PostNote> parseNotes(const QByteArray &body, bool *ok, qint64 postId) {
     const QJsonDocument doc = QJsonDocument::fromJson(body, &err);
     if (err.error != QJsonParseError::NoError)
         return out; // challenge HTML, wall pages: not definitive
+    // HyBooru detail object: Hydrus notes carry percentage rects (left,
+    // top, width, height are 0..100 of the original image). rect=null
+    // rows are commentary and stay in parseCommentary.
+    if (doc.isObject()) {
+        const QJsonObject root = doc.object();
+        const QJsonValue notesVal = root.value(QStringLiteral("notes"));
+        const double imageW = root.value(QStringLiteral("width")).toDouble();
+        const double imageH = root.value(QStringLiteral("height")).toDouble();
+        if (notesVal.isArray() && imageW > 0 && imageH > 0) {
+            for (const QJsonValue &v : notesVal.toArray()) {
+                if (!v.isObject())
+                    continue;
+                const QJsonObject o = v.toObject();
+                const QJsonValue rect = o.value(QStringLiteral("rect"));
+                if (!rect.isObject())
+                    continue; // null rect = commentary, not an overlay
+                const QJsonObject r = rect.toObject();
+                PostNote n;
+                n.x = qRound(r.value(QStringLiteral("left")).toDouble() /
+                             100.0 * imageW);
+                n.y = qRound(r.value(QStringLiteral("top")).toDouble() /
+                             100.0 * imageH);
+                n.w = qRound(r.value(QStringLiteral("width")).toDouble() /
+                             100.0 * imageW);
+                n.h = qRound(r.value(QStringLiteral("height")).toDouble() /
+                             100.0 * imageH);
+                n.body = o.value(QStringLiteral("note")).toString().trimmed();
+                if (!n.body.isEmpty() && n.w > 0 && n.h > 0)
+                    out.append(n);
+            }
+            if (ok)
+                *ok = true;
+            return out;
+        }
+    }
     if (ok)
         *ok = true;
     QJsonArray arr;

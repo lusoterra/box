@@ -94,14 +94,18 @@ a stale favourites DB link),
 blue speech bubble = has comments, amber note = has annotations
 (counts/stamps where the engine exposes them; viewer-fetched threads
 mark the grid too);
+while the preview is still loading, a muted spinner sits in the middle
+of the empty card (queued behind other thumbnails) and turns into a thin
+muted progress bar along the card's bottom edge once bytes are moving;
 bottom-left origin badge = site favicon + short name (`DAN`/`SFW`/…)
 - downloaded rows resolve their folder back to the entry, so they
 keep the badge; single-booru tabs omit it (the tab already names the
 source), while favourites, downloads and multibooru tabs always show it;
 below, info card with rating chip (`G`), score
-(`+12`), `#postid`, and the file name. The tooltip and the viewer
-link stay on the booru post page after a download (strays keep the
-local file). Right-click menu resolves the on-disk file behind downloaded
+(`+12`), `#postid`, and the file name. The file line elides in the
+middle, so hovering just that line shows the untruncated name in a
+tooltip. The viewer link stays on the booru post page after a download
+(strays keep the local file). Right-click menu resolves the on-disk file behind downloaded
 remote rows too: `⭳ Download` disables once everything selected is on
 disk, `Delete from disk…` enables, `Set as mascot` shows, and `Copy post
 link` / `Copy media link` / `Copy file path` / `Copy file (clipboard)`
@@ -129,7 +133,15 @@ them; imports only add favourites, and the opt-in `Sync` checkbox asks
 for confirmation before removing anything and never touches sites absent
 from the backup; files land in the same host folders as the regular
 downloader, e.g. `gelbooru.com/` not `Gelbooru/`, and already-downloaded
-media is matched by md5 anywhere under the download folder),
+media is matched by md5 anywhere under the download folder; a host folder
+appears only when bytes actually arrive, so a walled/offline batch leaves
+no empty folder),
+`Export library CSV…` / `Import library CSV…` (portable spreadsheet
+backup: one row per favourite and per file under the download folder,
+with `post_url,file_url,downloaded,favourited,date_added,site,post_id,md5,`
+`rating,ext,width,height,tags,local_file`; reordered/renamed columns,
+CRLF/BOM and `true/false` or `1/0` are accepted. Import opens the same
+options dialog as the LoliSnatcher import and keeps `date_added` order),
 `Download/Add Stray…` (paste direct media or booru post links;
 see 20-stray-dialog), `Update downloaded sidecars…`,
 `Redownload missing files…`, `Quit`. Media downloads tolerate
@@ -199,7 +211,10 @@ globe (`Open file`), `Copy file URL`, `Comments` (thread popup with cards,
 reuses the cached comment rows). The tag panel below the groups shows
 three threads when the engine provides them, in this order: NOTES
 (translation bodies, box coordinates on the tooltip; deleted annotations
-are skipped), COMMENTS (first five rows, `Show all N comments` expands
+are skipped; loaded from the engine's note table, or the public post page
+on Gelbooru/Safebooru where dapi notes answer empty, or the post detail
+object on HyBooru where rect values are image percentages), COMMENTS (first
+five rows, `Show all N comments` expands
 them in place), and ARTIST COMMENTARY at the bottom of the tail. The
 commentary section is a compact clickable preview (message text with
 markup stripped, cap ~280 chars); clicking it opens the large `Artist

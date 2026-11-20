@@ -126,6 +126,8 @@ void MainWindow::setAspect(int num, int den) {
     // Memory cache holds old-aspect crops; disk cache has the right ones.
     m_thumbCache.clear();
     m_cacheOrder.clear();
+    m_thumbLoad.clear();
+    syncThumbSpinTimer();
     m_placeholder = QPixmap(kBoxW, (kBoxW * m_aspectDen) / m_aspectNum);
     m_placeholder.fill(QColor(0x1e, 0x21, 0x30));
 }

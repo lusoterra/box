@@ -483,6 +483,41 @@ private slots:
         QVERIFY(dan.md5.isEmpty()); // non-md5 URL: no md5 stem
     }
 
+    void csvRowsBecomeImportRows() {
+        CsvBackup::Row a;
+        a.postUrl = QStringLiteral(
+            "https://gelbooru.com/index.php?page=post&s=view&id=7103104");
+        a.fileUrl = QStringLiteral(
+            "https://img4.gelbooru.com/images/51/6e/"
+            "516e1f01a05ea895b33316bd28bfd27f.jpg");
+        a.downloaded = true;
+        a.favourited = true;
+        a.site = QStringLiteral("Gelbooru");
+        a.dateAdded = QStringLiteral("2026-11-20T05:13:00Z");
+        a.tags = QStringLiteral("1girl sky");
+
+        CsvBackup::Row b;
+        b.postUrl = QStringLiteral("https://danbooru.donmai.us/posts/5");
+        b.favourited = true;
+        b.site = QStringLiteral("Danbooru");
+
+        const QList<LosnRow> rows = LosnImport::rowsFromCsv({a, b});
+        QCOMPARE(rows.size(), 2);
+        QCOMPARE(rows.at(0).siteKey, QStringLiteral("gelbooru"));
+        QCOMPARE(rows.at(0).siteLabel, QStringLiteral("Gelbooru"));
+        QCOMPARE(rows.at(0).postId, 7103104LL);
+        QCOMPARE(rows.at(0).md5,
+                 QStringLiteral("516e1f01a05ea895b33316bd28bfd27f"));
+        QVERIFY(rows.at(0).snatched);
+        QVERIFY(rows.at(0).favourite);
+        QCOMPARE(rows.at(0).tags, QStringList({"1girl", "sky"}));
+        QVERIFY(rows.at(0).addedMsecs > 0);
+        QCOMPARE(rows.at(1).siteKey, QStringLiteral("danbooru"));
+        QCOMPARE(rows.at(1).postId, 5LL);
+        QVERIFY(!rows.at(1).snatched); // favourite-only line
+        QCOMPARE(rows.at(1).addedMsecs, 0LL); // no date in that row
+    }
+
     void readMissingBackupFails() {
         QString err;
         const QList<LosnRow> rows =

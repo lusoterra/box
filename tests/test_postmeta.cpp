@@ -33,10 +33,12 @@ private slots:
         QVERIFY(sfw.toString().startsWith(kSfw));
         QCOMPARE(PostMeta::notesUrl(BooruEngine::Moebooru, kMoe, 42).toString(),
                  kMoe + QStringLiteral("/note.json?post_id=42"));
+        // HyBooru annotations ride the single-post detail object.
+        QCOMPARE(PostMeta::notesUrl(BooruEngine::Hybooru, kDan, 42).toString(),
+                 kDan + QStringLiteral("/api/post/42"));
         // No separate notes endpoint here.
         QVERIFY(PostMeta::notesUrl(BooruEngine::Szurubooru, kDan, 1).isEmpty());
         QVERIFY(PostMeta::notesUrl(BooruEngine::Shimmie, kDan, 1).isEmpty());
-        QVERIFY(PostMeta::notesUrl(BooruEngine::Hybooru, kDan, 1).isEmpty());
         QVERIFY(PostMeta::notesUrl(BooruEngine::Philomena, kDan, 1).isEmpty());
         QVERIFY(PostMeta::notesUrl(BooruEngine::BooruOnRails, kDan, 1).isEmpty());
     }
@@ -224,11 +226,11 @@ private slots:
         // (live safebooru.org) and answers XML: parse that too instead of
         // failing every note fetch on the site.
         const QByteArray xml =
-            R"(<?xml version="1.0" encoding="UTF-8"?><notes type="array">)"
-            R"(<note post_id="7" x="92" y="540" width="75" height="104" )"
-            R"(body="translation one" is_active="true" />)"
-            R"(<note post_id="9" x="1" y="2" width="3" height="4" )"
-            R"(body="other post" is_active="true" />)</notes>)";
+            R"xml(<?xml version="1.0" encoding="UTF-8"?><notes type="array">)xml"
+            R"xml(<note post_id="7" x="92" y="540" width="75" height="104" )xml"
+            R"xml(body="translation one" is_active="true" />)xml"
+            R"xml(<note post_id="9" x="1" y="2" width="3" height="4" )xml"
+            R"xml(body="other post" is_active="true" />)</notes>)xml";
         bool ok = false;
         const auto notes = PostMeta::parseNotes(xml, &ok, 7);
         QVERIFY(ok);
@@ -244,6 +246,79 @@ private slots:
                     .isEmpty());
         QVERIFY(ok);
     }
+    void parseNotesHybooru() {
+        // Hydrus notes: rect values are percentages of the original
+        // image (0..100), converted to pixels with the detail dimensions.
+        const QByteArray json =
+            QByteArrayLiteral("{\"id\":19099,\"width\":1000,\"height\":500,"
+                              "\"notes\":["
+                              "{\"label\":null,\"note\":\"boxed text\","
+                              "\"rect\":{\"left\":10,\"top\":20,"
+                              "\"width\":30,\"height\":40}},"
+                              "{\"label\":\"danbooru translated artist "
+                              "commentary\",\"note\":\"commentary text\","
+                              "\"rect\":null}]}");
+        bool ok = false;
+        const auto notes = PostMeta::parseNotes(json, &ok, 19099);
+        QVERIFY(ok);
+        QCOMPARE(notes.size(), 1); // rect=null is commentary, not an overlay
+        QCOMPARE(notes.at(0).x, 100);
+        QCOMPARE(notes.at(0).y, 100);
+        QCOMPARE(notes.at(0).w, 300);
+        QCOMPARE(notes.at(0).h, 200);
+        QCOMPARE(notes.at(0).body, QStringLiteral("boxed text"));
+    }
+
+    void parseNotesGelbooruHtml() {
+        // gelbooru.com embeds <article data-*> annotations in the post page.
+        const QByteArray gel =
+            QByteArrayLiteral("<html><section id=\"notes\">"
+                              "<article data-width=\"129\" data-height=\"261\" "
+                              "data-x=\"2073\" data-y=\"221\" "
+                              "data-id=\"739884\" "
+                              "data-body=\"Did you moan Saori?\">"
+                              "Did you moan Saori?</article>"
+                              "<article data-width=\"283\" data-height=\"370\" "
+                              "data-x=\"1609\" data-y=\"385\" "
+                              "data-body=\"Ah!&#039;q&quot;\">x</article>"
+                              "</section></html>");
+        bool ok = false;
+        auto notes = PostMeta::parseNotes(gel, &ok, 1);
+        QVERIFY(ok);
+        QCOMPARE(notes.size(), 2);
+        QCOMPARE(notes.at(0).x, 2073);
+        QCOMPARE(notes.at(0).y, 221);
+        QCOMPARE(notes.at(0).w, 129);
+        QCOMPARE(notes.at(0).h, 261);
+        QCOMPARE(notes.at(0).body, QStringLiteral("Did you moan Saori?"));
+        QCOMPARE(notes.at(1).body, QStringLiteral("Ah!'q\""));
+        // An empty notes section is a real answer, not a failed fetch.
+        bool emptyOk = false;
+        QVERIFY(PostMeta::parseNotes(
+                    QByteArrayLiteral(
+                        "<html><section id=\"notes\"></section></html>"),
+                    &emptyOk, 1)
+                    .isEmpty());
+        QVERIFY(emptyOk);
+        // safebooru.org renders note-box/note-body divs instead.
+        const QByteArray sfw = QByteArrayLiteral(
+            "<div id=\"note-container\">"
+            "<div class=\"note-box\" style=\"width: 57px; height: 749px; "
+            "top: 290px; left: 732px; display: block;\" "
+            "id=\"note-box-140228\"></div>"
+            "<div style=\"top: 290px; left: 732px;\" class=\"note-body\" "
+            "id=\"note-body-140228\" title=\"Click to edit\">"
+            "Her both arms &amp; more</div></div>");
+        notes = PostMeta::parseNotes(sfw, &ok, 1);
+        QVERIFY(ok);
+        QCOMPARE(notes.size(), 1);
+        QCOMPARE(notes.at(0).x, 732);
+        QCOMPARE(notes.at(0).y, 290);
+        QCOMPARE(notes.at(0).w, 57);
+        QCOMPARE(notes.at(0).h, 749);
+        QCOMPARE(notes.at(0).body, QStringLiteral("Her both arms & more"));
+    }
+
     void parseCommentsShapes() {
         // Danbooru array shape.
         const auto dan = PostMeta::parseComments(

@@ -8,19 +8,129 @@
 #include <QBuffer>
 #include <QCryptographicHash>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QEventLoop>
 #include <QFile>
 #include <QFileInfo>
+#include <QHash>
 #include <QImageReader>
 #include <QMediaPlayer>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QTemporaryFile>
+#include <QThread>
+#include <QThreadStorage>
 #include <QTimer>
 #include <QUrl>
 #include <QVideoFrame>
 #include <QVideoSink>
+
+namespace {
+// One persistent QNetworkAccessManager per worker thread: thumbnails
+// arrive in bursts, and a throwaway NAM per card meant a fresh DNS +
+// TCP + TLS handshake for every image (a browser reuses one HTTP/2
+// connection for the whole grid). On a slow VPN that handshake churn is
+// the difference between a painted grid and a wall of black cards.
+struct ThumbNamCache {
+    QHash<QString, QNetworkAccessManager *> nams;
+    ~ThumbNamCache() { qDeleteAll(nams); }
+};
+QThreadStorage<ThumbNamCache *> &thumbNamCache() {
+    static QThreadStorage<ThumbNamCache *> storage;
+    return storage;
+}
+QNetworkAccessManager *thumbNam(const QString &proxySpec) {
+    ThumbNamCache *cache = thumbNamCache().localData();
+    if (!cache) {
+        cache = new ThumbNamCache;
+        thumbNamCache().setLocalData(cache);
+    }
+    const auto it = cache->nams.constFind(proxySpec);
+    if (it != cache->nams.constEnd())
+        return it.value();
+    auto *nam = new QNetworkAccessManager;
+    const QNetworkProxy proxy = RemotePosts::proxyFromSpec(proxySpec);
+    if (proxy.type() != QNetworkProxy::NoProxy)
+        nam->setProxy(proxy);
+    cache->nams.insert(proxySpec, nam);
+    return nam;
+}
+
+// One plain-GET attempt for a remote preview. Kept out of run() so a
+// transient failure can be retried without duplicating the event-loop
+// plumbing.
+struct ThumbFetch {
+    QByteArray bytes;
+    QString contentType;
+    int http = 0;
+    bool transportError = false; // no HTTP answer: DNS/TCP/TLS/timeout
+    bool challenge = false;      // wall markup/JSON instead of media
+};
+ThumbFetch fetchThumbOnce(ThumbLoader *loader, const QString &key,
+                          const QString &path, const QString &referer) {
+    ThumbFetch out;
+    QNetworkRequest req{QUrl(path)};
+    // Inactivity guard: a dead VPN tunnel aborts, a slow 4 MB preview
+    // that keeps moving does not.
+    req.setTransferTimeout(30000);
+    if (!referer.isEmpty())
+        req.setRawHeader("Referer", referer.toUtf8());
+    RemoteSource::applyCookies(req); // clearance header, if any
+    req.setHeader(QNetworkRequest::UserAgentHeader,
+                  QStringLiteral("box/0.1 (thumbnail)"));
+    req.setRawHeader("Accept", "image/*,*/*;q=0.5");
+    req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
+                     QNetworkRequest::NoLessSafeRedirectPolicy);
+    QNetworkReply *reply =
+        thumbNam(RemotePosts::proxyForUrl(path))->get(req);
+    QEventLoop loop;
+    QTimer total;
+    total.setSingleShot(true);
+    total.setInterval(60000); // hard ceiling for one preview
+    QObject::connect(&total, &QTimer::timeout, &loop, [&] {
+        reply->abort();
+        loop.quit();
+    });
+    QObject::connect(reply, &QNetworkReply::finished, &loop,
+                     &QEventLoop::quit);
+    int lastPct = -2;
+    QElapsedTimer sinceEmit;
+    sinceEmit.start();
+    QObject::connect(
+        reply, &QNetworkReply::downloadProgress, &loop,
+        [&](qint64 got, qint64 all) {
+            const int pct = all > 0 ? int(got * 100 / all) : -1;
+            if (pct == lastPct)
+                return; // 1 MB over a fast link must not spam the GUI
+            // Throttle repaints to the veil's own animation cadence; the
+            // final 100% still lands immediately.
+            if (pct != 100 && sinceEmit.elapsed() < 150)
+                return;
+            lastPct = pct;
+            sinceEmit.restart();
+            emit loader->thumbnailProgress(key, got, all);
+        });
+    total.start();
+    loop.exec();
+    out.http = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute)
+                   .toInt();
+    out.bytes = reply->readAll();
+    out.contentType =
+        reply->header(QNetworkRequest::ContentTypeHeader).toString();
+    out.transportError = reply->error() != QNetworkReply::NoError &&
+                         out.http <= 0;
+    const QString ctl = out.contentType.trimmed().toLower();
+    out.challenge =
+        RemotePosts::looksLikeCloudflareWall(out.bytes) ||
+        RemotePosts::looksLikeChallengePage(out.bytes) ||
+        ctl.startsWith(QStringLiteral("text/")) ||
+        ctl.contains(QStringLiteral("json")) ||
+        ctl.contains(QStringLiteral("xml"));
+    reply->deleteLater();
+    return out;
+}
+} // namespace
 
 ThumbLoader::ThumbLoader(QObject *parent) : QObject(parent) {
     m_pool = new QThreadPool(this);
@@ -68,6 +178,7 @@ void ThumbLoader::request(const QString &key, const QString &path, qint64 mtime,
     auto *task = new ThumbTask(this, key, path, mtime, size, longSide, referer,
                                persistToDisk, nsfw, siteKey);
     task->setAutoDelete(true);
+    emit thumbnailQueued(key);
     m_pool->start(task);
 }
 
@@ -94,10 +205,15 @@ ThumbTask::ThumbTask(ThumbLoader *loader, QString key, QString path, qint64 mtim
       m_nsfw(nsfw), m_siteKey(std::move(siteKey)) {}
 
 void ThumbTask::run() {
+    emit m_loader->thumbnailStarted(m_key);
     const int num = m_loader->m_aspectNum;
     const int den = m_loader->m_aspectDen;
     const double want = double(num) / double(den);
     const QString ext = QFileInfo(m_path).suffix().toLower();
+    auto fail = [this] {
+        m_loader->releaseKey(m_key);
+        emit m_loader->thumbnailFailed(m_key);
+    };
 
     // Disk cache lookup.
     QString diskPath;
@@ -130,7 +246,7 @@ void ThumbTask::run() {
         const QString host = QUrl(m_path).host().toLower();
         const RemotePosts::SiteQuirk *wq = RemotePosts::quirkForHost(host);
         const bool browserFirst =
-            m_loader->m_webBackend && wq && wq->powWall;
+            m_loader->m_webBackend && wq && (wq->powWall || wq->browserApi);
         QByteArray bytes;
         bool wallSeen = false;
         auto browserFetch = [&]() -> QByteArray {
@@ -157,68 +273,46 @@ void ThumbTask::run() {
             return {};
         };
         if (browserFirst) {
+            emit m_loader->thumbnailProgress(m_key, 0, 0); // no byte feed
             bytes = browserFetch();
         } else {
-            // Remote preview/sample URL: plain GET into memory.
-            QNetworkAccessManager nam;
-            const QNetworkProxy thumbProxy = RemotePosts::proxyFromSpec(
-                RemotePosts::proxyForUrl(m_path));
-            if (thumbProxy.type() != QNetworkProxy::NoProxy)
-                nam.setProxy(thumbProxy);
-            QEventLoop loop;
-            QTimer timer;
-            timer.setSingleShot(true);
-            timer.setInterval(20000);
-            QObject::connect(&timer, &QTimer::timeout, &loop, &QEventLoop::quit);
-            QNetworkRequest req{QUrl(m_path)};
-            if (!m_referer.isEmpty())
-                req.setRawHeader("Referer", m_referer.toUtf8());
-            RemoteSource::applyCookies(req); // clearance header, if any
-            req.setHeader(QNetworkRequest::UserAgentHeader,
-                          QStringLiteral("box/0.1 (thumbnail)"));
-            req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
-                             QNetworkRequest::NoLessSafeRedirectPolicy);
-            QNetworkReply *reply = nam.get(req);
-            QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
-            timer.start();
-            loop.exec();
-            const int httpStatus = reply->attribute(
-                                       QNetworkRequest::HttpStatusCodeAttribute)
-                                       .toInt();
-            const QByteArray body = reply->readAll();
-            const QString contentType =
-                reply->header(QNetworkRequest::ContentTypeHeader).toString();
-            const QString ctl = contentType.trimmed().toLower();
-            const bool httpError = reply->error() != QNetworkReply::NoError ||
-                                   httpStatus >= 400;
-            // Challenge pages answer HTML/JSON with a 200 or a 403. Some
-            // walled CDNs answer with an empty 403, so the status alone
-            // counts too.
-            const bool challenge =
-                RemotePosts::looksLikeCloudflareWall(body) ||
-                RemotePosts::looksLikeChallengePage(body) ||
-                ctl.startsWith(QStringLiteral("text/")) ||
-                ctl.contains(QStringLiteral("json")) ||
-                ctl.contains(QStringLiteral("xml"));
+            // Remote preview/sample URL: plain GET into memory through
+            // the thread's persistent NAM (connection reuse).
+            ThumbFetch got = fetchThumbOnce(m_loader, m_key, m_path, m_referer);
+            const bool transient =
+                got.transportError || got.http == 429 || got.http >= 500;
+            if (got.bytes.isEmpty() && transient) {
+                QThread::msleep(400); // one cheap retry for VPN/TLS hiccups
+                got = fetchThumbOnce(m_loader, m_key, m_path, m_referer);
+            }
+            const int httpStatus = got.http;
+            const QByteArray &body = got.bytes;
+            const QString ctl = got.contentType.trimmed().toLower();
+            const bool httpError = got.transportError || httpStatus >= 400;
             if (!httpError)
                 bytes = body;
             if (httpError) {
+                // Empty 403/449/503 bodies (CDN challenge without markup)
+                // look like plain HTTP errors, but the browser can still
+                // pass, so the status alone registers the wall.
                 wallSeen = httpStatus == 401 || httpStatus == 403 ||
                            httpStatus == 429 || httpStatus == 449 ||
-                           httpStatus == 503 || challenge;
+                           httpStatus == 503 || got.challenge;
             } else if (!body.isEmpty() &&
-                       !RemotePosts::looksLikeMediaBytes(body.left(512)) &&
-                       (challenge ||
-                        !ctl.startsWith(QStringLiteral("image/")))) {
+                       (!RemotePosts::looksLikeMediaBytes(body.left(512)) ||
+                        got.challenge)) {
                 // 200 but markup/JSON instead of bytes (Cloudflare JS
                 // interstitial): never let it decode as a black card.
                 bytes.clear();
                 wallSeen = true;
             }
-            if (httpStatus == 429 || httpStatus >= 500 ||
-                reply->error() != QNetworkReply::NoError)
+            // Only real rate limiting should slow the pool. A VPN timeout
+            // used to drop it to one thread permanently, so one hiccup
+            // made the rest of the grid look dead.
+            if (httpStatus == 429 || httpStatus == 503)
                 m_loader->lowerConcurrency();
-            reply->deleteLater();
+            if (!httpError && body.isEmpty())
+                wallSeen = false; // empty success body: plain failure
             // Cloudflare/captcha hosts get one browser ride too (Danbooru
             // & co. have no powWall quirk but still reject QNAM's TLS
             // fingerprint even with live clearance). Tell the shell right
@@ -227,13 +321,14 @@ void ThumbTask::run() {
             // like a frozen grid); MainWindow dedupes per site.
             if (bytes.isEmpty() && wallSeen) {
                 emit m_loader->thumbnailWall(m_siteKey, m_path);
+                emit m_loader->thumbnailProgress(m_key, 0, 0); // browser ride
                 bytes = browserFetch();
             }
         }
         if (bytes.isEmpty()) {
             if (wallSeen && browserFirst)
                 emit m_loader->thumbnailWall(m_siteKey, m_path);
-            m_loader->releaseKey(m_key);
+            fail();
             return;
         }
         // Bounded decode: hostile dimensions must not balloon memory.
@@ -255,7 +350,7 @@ void ThumbTask::run() {
         }
         img = ThumbCommon::cropScale(img, want, m_longSide);
         if (img.isNull()) {
-            m_loader->releaseKey(m_key);
+            fail();
             return;
         }
     } else if (isVideoExt(ext)) {
@@ -276,7 +371,7 @@ void ThumbTask::run() {
         }
         img = ThumbCommon::cropScale(reader.read(), want, m_longSide);
         if (img.isNull()) {
-            m_loader->releaseKey(m_key);
+            fail();
             return;
         }
     }
@@ -365,6 +460,7 @@ void VideoThumbGrabber::request(const QString &key, const QString &path, qint64 
     m_queued.insert(key);
     m_queue.append({key, path, mtime, size, longSide, persistToDisk, nsfw,
                     siteKey});
+    emit thumbnailQueued(key);
     pump();
 }
 
@@ -373,6 +469,7 @@ void VideoThumbGrabber::pump() {
         return;
     m_busy = true;
     m_current = m_queue.takeFirst();
+    emit thumbnailStarted(m_current.key);
     m_want = double(m_aspectNum) / double(m_aspectDen);
     m_diskPath =
         m_current.persistToDisk

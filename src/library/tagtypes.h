@@ -54,7 +54,7 @@ inline bool isValidBucket(const QString &bucket) {
 inline QMap<QString, QString> normalizeTagOverrides(const QStringList &lines) {
     QMap<QString, QString> out;
     for (const QString &line : lines) {
-        const int eq = line.indexOf(u'=');
+        const qsizetype eq = line.indexOf(u'=');
         if (eq <= 0)
             continue;
         const QString tag = line.left(eq).trimmed().toLower();

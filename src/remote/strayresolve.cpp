@@ -645,7 +645,7 @@ void StrayResolver::requestApi() {
     // Fingerprint/PoW-walled hosts: plain API requests get wall pages, so
     // ride the browser stack the same way refreshes do (when available).
     if (const RemotePosts::SiteQuirk *q = RemotePosts::quirkForHost(host);
-        q && q->powWall) {
+        q && (q->powWall || q->browserApi)) {
         if (const RemoteSource::WebFetchFn web = RemoteSource::webFetcher()) {
             const RemoteSource::WebFetchResult fetched = web(api, 30000);
             bool ok = false;
