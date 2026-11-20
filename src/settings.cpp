@@ -226,7 +226,7 @@ AppSettings loadSettings() {
     for (const QString &line :
          c.value(QStringLiteral("tagtypes/tagCustomCategories"))
              .toStringList()) {
-        const int eq = line.indexOf(u'=');
+        const qsizetype eq = line.indexOf(u'=');
         if (eq <= 0)
             continue;
         const QString tag = line.left(eq).trimmed().toLower();

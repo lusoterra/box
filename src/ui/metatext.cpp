@@ -16,7 +16,7 @@ QString tokenFor(QStringList &stash, const QString &html) {
 
 QString restoreTokens(QString text, const QStringList &stash) {
     // Highest index first: token 1 must not eat the "1" of token 10.
-    for (int i = stash.size() - 1; i >= 0; --i) {
+    for (qsizetype i = stash.size() - 1; i >= 0; --i) {
         text.replace(QString(kTokenOpen) + u'M' + QString::number(i) +
                          kTokenClose,
                      stash.at(i));
@@ -67,7 +67,7 @@ void stashPattern(QString &text, const QRegularExpression &re,
                   const QString &open, const QString &close,
                   QStringList &stash) {
     QString out;
-    int last = 0;
+    qsizetype last = 0;
     auto it = re.globalMatch(text);
     while (it.hasNext()) {
         const QRegularExpressionMatch m = it.next();
@@ -144,7 +144,7 @@ QString toHtml(const QString &raw, const QUrl &base, int maxChars,
         linkRes = {LinkRe{&mdLink, 2, 1}};
     for (const LinkRe &lr : linkRes) {
         QString out;
-        int last = 0;
+        qsizetype last = 0;
         auto it = lr.re->globalMatch(text);
         while (it.hasNext()) {
             const QRegularExpressionMatch m = it.next();
@@ -164,14 +164,14 @@ QString toHtml(const QString &raw, const QUrl &base, int maxChars,
         QRegularExpression::CaseInsensitiveOption);
     {
         QString out;
-        int last = 0;
+        qsizetype last = 0;
         auto it = bare.globalMatch(text);
         while (it.hasNext()) {
             const QRegularExpressionMatch m = it.next();
             const QString shown = trimmedUrl(m.captured(1));
             if (shown.isEmpty())
                 continue;
-            const int start = m.capturedStart(1);
+            const qsizetype start = m.capturedStart(1);
             out += text.mid(last, start - last);
             const QString href = shown.startsWith(QStringLiteral("www."),
                                                   Qt::CaseInsensitive)

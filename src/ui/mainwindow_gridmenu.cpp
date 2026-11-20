@@ -132,7 +132,7 @@ void MainWindow::copyPostFilesToClipboard(const QVector<Post> &posts) {
         QString hint = p.ext;
         if (hint.isEmpty()) {
             const QString path = QUrl(url).path();
-            const int dot = path.lastIndexOf(u'.');
+            const qsizetype dot = path.lastIndexOf(u'.');
             if (dot >= 0 && dot + 1 < path.size())
                 hint = path.mid(dot + 1);
         }

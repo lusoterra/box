@@ -172,7 +172,7 @@ void MainWindow::onViewerPastEnd() {
     if (!isBrowse() || m_loadingPage)
         return;
     // Fetch more, then step into the first new post.
-    m_advanceRow = m_current.size();
+    m_advanceRow = static_cast<int>(m_current.size());
     m_advanceOnLoad = true;
     loadNextPage();
     if (!m_loadingPage) {
@@ -203,8 +203,8 @@ void MainWindow::openFavTab() {
     t->title = tr("Favourites");
     m_tabs.append(t);
     m_tabBar->addTab(QString());
-    updateTabTitle(m_tabs.size() - 1);
-    m_tabBar->setCurrentIndex(m_tabs.size());
+    updateTabTitle(static_cast<int>(m_tabs.size()) - 1);
+    m_tabBar->setCurrentIndex(static_cast<int>(m_tabs.size()));
     saveTabsNow();
 }
 

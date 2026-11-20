@@ -118,7 +118,7 @@ void MainWindow::toggleFavTag(const QString &tag) {
         return;
     const bool wasFav = isFavTag(clean);
     if (wasFav) {
-        for (int i = m_settings.favTags.size() - 1; i >= 0; --i) {
+        for (qsizetype i = m_settings.favTags.size() - 1; i >= 0; --i) {
             if (m_settings.favTags.at(i).trimmed().compare(
                     clean, Qt::CaseInsensitive) == 0)
                 m_settings.favTags.removeAt(i);
@@ -203,7 +203,8 @@ void MainWindow::onTagContextMenu(const QPoint &pos) {
             m.sources = {sourceCategory};
             m.target = bucket;
             // Replace any existing rule for the same scope/source.
-            for (int i = m_settings.tagCategoryMerges.size() - 1; i >= 0; --i) {
+            for (qsizetype i = m_settings.tagCategoryMerges.size() - 1;
+                 i >= 0; --i) {
                 const TagCategoryMerge &r = m_settings.tagCategoryMerges.at(i);
                 if (r.siteKey.compare(siteKey, Qt::CaseInsensitive) == 0 &&
                     r.sources.contains(sourceCategory,

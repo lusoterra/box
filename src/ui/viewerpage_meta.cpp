@@ -158,7 +158,7 @@ void ViewerPage::renderMetaSections() {
             // Toggle the hidden rows in place: a rebuild here re-laid the
             // whole tail and the detached labels ended up stacked on each
             // other (unreadable thread).
-            const int total = comments.size();
+            const qsizetype total = comments.size();
             connect(more, &QPushButton::clicked, this,
                     [this, more, extra, total] {
                         m_commentsExpanded = !m_commentsExpanded;
@@ -276,9 +276,9 @@ void ViewerPage::onMetaDone(const QString &site, qint64 postId,
         return;
     if (m_commentsBtn) {
         const auto it = m_metaCache.constFind(metaKey());
-        const int n = it != m_metaCache.constEnd()
-                          ? it->comments.size()
-                          : 0;
+        const qsizetype n = it != m_metaCache.constEnd()
+                                ? it.value().comments.size()
+                                : 0;
         m_commentsBtn->setText(n > 0 ? tr("Comments (%1)").arg(n)
                                     : tr("Comments"));
     }
@@ -469,9 +469,9 @@ void ViewerPage::showCommentsPopup() {
                     return;
                 if (m_commentsBtn && metaKey() == key) {
                     const auto it = m_metaCache.constFind(key);
-                    const int n = it != m_metaCache.constEnd()
-                                      ? it->comments.size()
-                                      : 0;
+                    const qsizetype n = it != m_metaCache.constEnd()
+                                            ? it.value().comments.size()
+                                            : 0;
                     m_commentsBtn->setText(n > 0 ? tr("Comments (%1)").arg(n)
                                                 : tr("Comments"));
                 }

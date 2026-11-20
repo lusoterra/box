@@ -366,7 +366,7 @@ void MainWindow::applyManualBuckets(BrowserTab *t,
             }
         }
         QVector<Post> &target = autoVerdicts ? work : t->localPosts;
-        moved = applyTagBuckets(target, buckets).size();
+        moved = static_cast<int>(applyTagBuckets(target, buckets).size());
         if (autoVerdicts) {
             for (int j = 0; j < work.size(); ++j)
                 t->localPosts[workIndex.at(j)] = work.at(j);
@@ -392,7 +392,7 @@ void MainWindow::applyManualBuckets(BrowserTab *t,
             }
         }
         QVector<Post> &target = autoVerdicts ? work : t->browseMerged;
-        moved = applyTagBuckets(target, buckets).size();
+        moved = static_cast<int>(applyTagBuckets(target, buckets).size());
         if (autoVerdicts) {
             for (int j = 0; j < work.size(); ++j)
                 t->browseMerged[workIndex.at(j)] = work.at(j);

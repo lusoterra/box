@@ -251,7 +251,7 @@ void MainWindow::exportLibraryCsv() {
             r.dateAdded = isoFromMsecs(
                 added.value({FavDb::siteFor(p), FavDb::pidFor(p)}, 0));
             rows.append(r);
-            addKeys(rows.size() - 1, identityKeys(p));
+            addKeys(static_cast<int>(rows.size()) - 1, identityKeys(p));
         }
     }
 
@@ -291,7 +291,7 @@ void MainWindow::exportLibraryCsv() {
                               ? stamp.toUTC().toString(Qt::ISODate)
                               : QString();
             rows.append(r);
-            addKeys(rows.size() - 1, keys);
+            addKeys(static_cast<int>(rows.size()) - 1, keys);
         }
     }
 

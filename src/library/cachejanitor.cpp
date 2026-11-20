@@ -237,7 +237,7 @@ void CacheJanitor::enforce(bool force) {
                 }
             }
         }
-        const qint64 target = static_cast<qint64>(cap * 0.9);
+        const qint64 target = cap - cap / 10; // trim to ~90%, integer-safe
         QSqlQuery del(db);
         del.prepare(QStringLiteral("DELETE FROM files WHERE path=?"));
         for (const auto &[path, recorded] : rows) {

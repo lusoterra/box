@@ -1,5 +1,6 @@
 // Danbooru engine: /posts.json listing, object-shaped refresh, Basic auth.
 #include "booruengine.h"
+#include "engineinternal.h"
 #include "explicittags.h"
 
 #include <QUrlQuery>

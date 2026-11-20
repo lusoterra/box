@@ -251,7 +251,7 @@ StrayMassTagDialog::StrayMassTagDialog(const QVector<Post> &strays,
     lay->addLayout(row);
 
     connect(m_list, &QListWidget::currentRowChanged, this,
-            [this](int row) { loadRow(row); });
+            [this](int current) { loadRow(current); });
     connect(pasteBtn, &QPushButton::clicked, this, [this] {
         if (m_row < 0 || m_row >= m_edits.size())
             return;

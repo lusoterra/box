@@ -104,7 +104,7 @@ void MainWindow::saveTabState() {
 
 void MainWindow::onCompleterActivated(const QString &text) {
     QString cur = m_searchEdit->text();
-    int pos = cur.lastIndexOf(u' ');
+    const qsizetype pos = cur.lastIndexOf(u' ');
     QString prefix = (pos >= 0) ? cur.left(pos + 1) : QString();
     QString last = (pos >= 0) ? cur.mid(pos + 1) : cur;
     const QString dash = last.startsWith(u'-') ? QStringLiteral("-") : QString();
@@ -121,7 +121,7 @@ void MainWindow::onRatingChanged() {
     // The box is a single-select shortcut for typing a rating: tag: a
     // fresh choice replaces any committed typed rating:/safety: tags
     // (they would AND with the box and empty everything).
-    for (int i = m_activeTags.size() - 1; i >= 0; --i) {
+    for (qsizetype i = m_activeTags.size() - 1; i >= 0; --i) {
         const QString t = m_activeTags.at(i);
         const QString low = t.toLower();
         if (isRatingToken(t) ||

@@ -151,12 +151,8 @@ void ViewerPage::showCurrent() {
         m_imgSearchBtn->setEnabled(
             p.isRemote && RemotePosts::isHttpUrl(p.fileUrl));
     if (m_commentsBtn) {
-        const auto itc = p.isRemote
-                             ? m_metaCache.constFind(metaKey())
-                             : m_metaCache.constEnd();
-        const int n = itc != m_metaCache.constEnd()
-                          ? itc->comments.size()
-                          : 0;
+        const qsizetype n =
+            p.isRemote ? m_metaCache.value(metaKey()).comments.size() : 0;
         m_commentsBtn->setEnabled(p.isRemote);
         m_commentsBtn->setText(n > 0 ? tr("Comments (%1)").arg(n)
                                     : tr("Comments"));

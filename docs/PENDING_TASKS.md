@@ -1,5 +1,34 @@
 # Pending tasks (from user goal)
 
+## 161. Tab drag reloaded the tab and blinked the strip - DONE
+- Repro: drag a tab past the reorder threshold -> the whole tab/omnibar
+  area blinks and the dragged tab re-runs its search/tag load, although it
+  was already selected.
+- Cause: `QTabBar` emits `currentChanged` at every reorder step, so
+  `MainWindow::onTabChanged` ran the full `activateTab` path; separately,
+  `MarqueeTabBar::paintEvent` switched to the native paint for the drag
+  and back after 300 ms, which made the strip flash.
+- Fix: `MarqueeTabBar::isDragging()` gates `onTabChanged` during a
+  reorder; the bar keeps its custom paint for the whole gesture and draws
+  a floating copy of the grabbed tab (`tabbar.cpp`). No paint-mode switch
+  at grab/drop.
+- Verify: `test_tabbar` + `test_gridwindow`; full `ctest`: 42/42. Drag
+  gesture needs live eyes (Xvfb).
+
+## 160. Strict compiler warning sweep - DONE
+- `-Wall -Wextra -Wpedantic -Wconversion -Wsign-conversion -Wshadow
+  -Wdeprecated -Wnon-virtual-dtor -Woverloaded-virtual -Wunused
+  -Wnull-dereference -Wdouble-promotion -Wimplicit-fallthrough -Wformat
+  -Wformat-security -Wmissing-declarations`: 0 warnings across the app and
+  all test targets.
+- Fixed qsizetype/int index and size conversions (prefer qsizetype,
+  explicit casts only at int-based APIs), engine singleton declarations
+  via `src/engines/engineinternal.h`, missing `static` on file-local
+  helpers, a shadowed lambda parameter, `QThreadPool::start` instead of
+  discarding a `QtConcurrent::run` future, and null-checked UI pointers.
+- Verify: `cmake --build /tmp/opencode/warn_build -j4` -> 0 warnings;
+  full `ctest`: 42/42.
+
 ## 159. Empty per-site download folders - DONE
 - Repro: a batch from a booru whose media is walled/login-walled (or
   offline) leaves `<downloads>/<host>/` empty even though nothing was

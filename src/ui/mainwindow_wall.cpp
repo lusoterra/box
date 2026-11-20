@@ -101,7 +101,7 @@ void MainWindow::showWallMenu(const QStringList &wallSites) {
                 });
     }
     menu.addSeparator();
-    const int liveSites = t->sites.size();
+    const int liveSites = static_cast<int>(t->sites.size());
     if (liveSites <= 1) {
         QAction *close = menu.addAction(tr("Close tab"));
         connect(close, &QAction::triggered, this, [this] {
@@ -181,7 +181,7 @@ void MainWindow::solveWallInBrowser(const QString &siteKey,
                          this, wallKind, start);
     if (dlg.exec() == QDialog::Accepted && !dlg.cookies().isEmpty()) {
         // A solved media wall clears too (same entry, file-host page).
-        for (int i = m_mediaWalls.size() - 1; i >= 0; --i) {
+        for (qsizetype i = m_mediaWalls.size() - 1; i >= 0; --i) {
             if (m_mediaWalls.at(i).first == siteKey)
                 m_mediaWalls.removeAt(i);
         }

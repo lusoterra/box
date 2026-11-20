@@ -341,10 +341,10 @@ DownloadPaths targetPaths(const LosnRow &row, const QString &destDir) {
     if (md5.isEmpty()) {
         // Stable fallback stem (re-imports agree on the path) that can
         // never be mistaken for a real content hash.
-        const int dot = stem.lastIndexOf(u'.');
+        const qsizetype dot = stem.lastIndexOf(u'.');
         const QString extPart = dot > 0 ? stem.mid(dot) : QString();
         const QString base = dot > 0 ? stem.left(dot) : stem;
-        const int cut = base.lastIndexOf(u'_');
+        const qsizetype cut = base.lastIndexOf(u'_');
         const QString prefix = cut > 0 ? base.left(cut) : base;
         stem = prefix + QStringLiteral("_losn") + QString::number(row.rowId) +
                extPart;
@@ -950,18 +950,18 @@ void LosnImportDialog::onStart() {
                 .arg(m_refreshPending.size()));
     m_metaDone = 0;
     m_metaFailed = 0;
-    m_metaTotal = m_metaPending.size();
+    m_metaTotal = static_cast<int>(m_metaPending.size());
     m_refreshDone = 0;
     m_refreshOk = 0;
     m_refreshFailed = 0;
-    m_refreshTotal = m_refreshPending.size();
+    m_refreshTotal = static_cast<int>(m_refreshPending.size());
     m_sidecars.clear();
     m_flightUrl.clear();
     m_reqFlight.clear();
     // Rows with no refreshable origin can never re-fetch: the media still
     // downloads, but the sidecar is backup data - and said out loud.
     int unrefreshable = 0;
-    for (int i = m_metaPending.size() - 1; i >= 0; --i) {
+    for (qsizetype i = m_metaPending.size() - 1; i >= 0; --i) {
         const LosnRow &r = m_metaPending.at(i);
         if (!targetForRow(r, m_settings).valid()) {
             m_sidecars.insert(r.fileUrl, LosnImport::nativeSidecar(r));
@@ -971,7 +971,7 @@ void LosnImportDialog::onStart() {
         }
     }
     // Same for on-disk rows: no reachable source, sidecar stays as is.
-    for (int i = m_refreshPending.size() - 1; i >= 0; --i) {
+    for (qsizetype i = m_refreshPending.size() - 1; i >= 0; --i) {
         const LosnRow &r = m_refreshPending.at(i);
         if (!targetForRow(r, m_settings).valid()) {
             m_refreshPending.removeAt(i);
@@ -1407,8 +1407,8 @@ void LosnImportDialog::onDownloadsDone(const DownloadSummary &summary) {
             .arg(summary.failed));
     if (!diff.newFiles.isEmpty()) {
         log(tr("New files:"));
-        const int shown = qMin(diff.newFiles.size(), 50);
-        for (int i = 0; i < shown; ++i)
+        const qsizetype shown = qMin<qsizetype>(diff.newFiles.size(), 50);
+        for (qsizetype i = 0; i < shown; ++i)
             log(tr("  + %1").arg(diff.newFiles.at(i)));
         if (diff.newFiles.size() > shown)
             log(tr("  + %1 more…").arg(diff.newFiles.size() - shown));

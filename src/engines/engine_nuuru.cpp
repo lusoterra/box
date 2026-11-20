@@ -23,6 +23,7 @@
 // Rating values beyond "safe" were never observed live; the mapping
 // below assumes danbooru-style words and defaults to general.
 #include "booruengine.h"
+#include "engineinternal.h"
 #include "explicittags.h"
 
 #include <QFileInfo>

@@ -99,7 +99,8 @@ void MainWindow::maybeClassifyBrowse(BrowserTab *t) {
         knownManual.insert(it.key(), it.value());
     int manualMoved = 0;
     if (!knownManual.isEmpty()) {
-        manualMoved = applyTagBuckets(target, knownManual).size();
+        manualMoved =
+            static_cast<int>(applyTagBuckets(target, knownManual).size());
         if (manualMoved > 0 && t->isFavourites)
             persistFavBuckets(target);
     }

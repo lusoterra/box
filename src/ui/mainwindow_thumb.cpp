@@ -215,7 +215,7 @@ void MainWindow::onThumbnailReady(const QString &key, const QImage &image) {
     if (key.startsWith(QStringLiteral("url|"))) {
         const QString url = key.mid(4);
         bool changed = false;
-        for (int i = m_mediaWalls.size() - 1; i >= 0; --i) {
+        for (qsizetype i = m_mediaWalls.size() - 1; i >= 0; --i) {
             if (m_mediaWalls.at(i).second == url) {
                 m_mediaWalls.removeAt(i);
                 changed = true;

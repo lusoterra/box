@@ -13,11 +13,11 @@
 #include <QPointer>
 #include <QRegularExpression>
 #include <QTextDocumentFragment>
+#include <QThreadPool>
 #include <QUrl>
 #include <QUrlQuery>
 #include <QXmlStreamAttributes>
 #include <QXmlStreamReader>
-#include <QtConcurrent>
 
 PostMetaFetcher::PostMetaFetcher(QObject *parent)
     : QObject(parent), m_nam(new QNetworkAccessManager(this)) {}
@@ -269,7 +269,7 @@ void PostMetaFetcher::startBrowserPart(int part, const QUrl &url) {
     }
     const int gen = m_gen;
     QPointer<PostMetaFetcher> self(this);
-    QtConcurrent::run([web, url, gen, part, self] {
+    QThreadPool::globalInstance()->start([web, url, gen, part, self] {
         const RemoteSource::WebFetchResult r = web(url, 20000);
         if (!self)
             return;

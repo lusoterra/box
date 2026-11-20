@@ -189,15 +189,16 @@ QueryResult Index::query(const QStringList &tags, const QString &rating,
         std::sort(results.begin(), results.end(),
                   [](const Post &a, const Post &b) { return a.score < b.score; });
     else if (sort == QStringLiteral("random")) {
-        for (int i = results.size() - 1; i > 0; --i)
-            results.swapItemsAt(i, static_cast<int>(
-                                        QRandomGenerator::global()->bounded(i + 1)));
+        for (qsizetype i = results.size() - 1; i > 0; --i)
+            results.swapItemsAt(
+                i, static_cast<qsizetype>(QRandomGenerator::global()->bounded(
+                       static_cast<quint32>(i + 1))));
     } else if (sort == QStringLiteral("added")) {
         // File mtime, newest first (download folders: actual arrival order).
         // One stat per post, sorted once.
-        QVector<QPair<qint64, int>> order;
+        QVector<QPair<qint64, qsizetype>> order;
         order.reserve(results.size());
-        for (int i = 0; i < results.size(); ++i)
+        for (qsizetype i = 0; i < results.size(); ++i)
             order.append({QFileInfo(results.at(i).absFile).lastModified().toMSecsSinceEpoch(), i});
         std::sort(order.begin(), order.end(),
                   [](const auto &a, const auto &b) { return a.first > b.first; });
@@ -212,7 +213,7 @@ QueryResult Index::query(const QStringList &tags, const QString &rating,
     }
 
     QueryResult out;
-    out.total = results.size();
+    out.total = static_cast<int>(results.size());
     out.page = qMax(1, page);
     out.perPage = qMax(1, perPage);
     // 64-bit page math: a huge page/perPage pair must land past the end
@@ -287,7 +288,7 @@ QVector<Index::Suggestion> Index::suggest(const QString &prefix, int limit,
 }
 
 Stats Index::stats() const {    Stats s;
-    s.total = m_posts.size();
+    s.total = static_cast<int>(m_posts.size());
     for (const Post &p : m_posts)
         s.ratings[p.rating]++;
     s.categories = m_categories;
@@ -336,7 +337,7 @@ int Index::applyTagTypes(const QHash<QString, QString> &tagToBucket) {
         }
         m_tagCounts[m.to][m.tag]++;
     }
-    return moves.size();
+    return static_cast<int>(moves.size());
 }
 
 // Shared core with Index::applyTagTypes, for post vectors that live outside
@@ -386,9 +387,9 @@ QVector<TagMove> applyTagBuckets(QVector<Post> &posts,
             QStringList present;
             int occurrences = 0;
             for (const auto &[name, list] : all) {
-                const int n = list->count(t);
+                const qsizetype n = list->count(t);
                 if (n > 0) {
-                    occurrences += n;
+                    occurrences += static_cast<int>(n);
                     present << name;
                 }
             }

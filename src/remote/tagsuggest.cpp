@@ -209,7 +209,7 @@ QVector<TagSuggestion> parseHybooru(const QByteArray &body) {
         if (name.isEmpty())
             continue;
         TagSuggestion s;
-        const int colon = name.indexOf(u':');
+        const qsizetype colon = name.indexOf(u':');
         const QString ns =
             colon > 0 ? name.left(colon).toLower() : QString();
         if (ns == QStringLiteral("character")) {
@@ -508,7 +508,7 @@ QVector<TagSuggestion> TagSuggester::metaFor(const QString &bare,
     QString rest = bare.trimmed();
     while (rest.startsWith(u'-') && rest.size() > 1)
         rest = rest.mid(1);
-    const int ci = rest.indexOf(u':');
+    const qsizetype ci = rest.indexOf(u':');
     if (ci <= 0)
         return {};
     const QString head = rest.left(ci).toLower();

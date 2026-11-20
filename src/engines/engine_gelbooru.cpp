@@ -3,6 +3,7 @@
 // The rule34.xxx captcha wall lives on the main host, so API calls go to
 // the api subdomain (sitequirks table, via apiBase()).
 #include "booruengine.h"
+#include "engineinternal.h"
 #include "explicittags.h"
 
 #include <QUrlQuery>

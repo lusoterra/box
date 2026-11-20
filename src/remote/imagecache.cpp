@@ -105,7 +105,7 @@ void ImageCache::setBaseDir(const QString &dir) {
 
 QString ImageCache::extOfUrl(const QString &url) {
     const QString path = QUrl(url).path();
-    const int dot = path.lastIndexOf(u'.');
+    const qsizetype dot = path.lastIndexOf(u'.');
     if (dot < 0)
         return QStringLiteral("bin");
     const QString ext = path.mid(dot + 1).toLower();

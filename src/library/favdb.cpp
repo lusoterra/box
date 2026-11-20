@@ -606,7 +606,7 @@ static Post rowToPost(const QSqlQuery &q) {
             p.category = parts.last();
         else {
             const QString stem = fi.completeBaseName();
-            const int us = stem.indexOf(u'_');
+            const qsizetype us = stem.indexOf(u'_');
             p.category = (us > 0) ? stem.left(us) : QStringLiteral("Favourites");
         }
         if (p.category.isEmpty())
@@ -617,7 +617,7 @@ static Post rowToPost(const QSqlQuery &q) {
     // and download naming keep working without a DB migration.
     if (p.ext.isEmpty()) {
         QString src = !p.fileUrl.isEmpty() ? p.fileUrl : p.absFile;
-        const int qi = src.indexOf(u'?');
+        const qsizetype qi = src.indexOf(u'?');
         if (qi >= 0)
             src = src.left(qi);
         QString suf = QFileInfo(src).suffix().toLower();

@@ -419,7 +419,7 @@ void VideoThumbGrabber::setCacheDir(const QString &dir) {
         QDir().mkpath(dir);
 }
 
-QString videoDiskPath(const QString &cacheDir, const QString &path, qint64 mtime,
+static QString videoDiskPath(const QString &cacheDir, const QString &path, qint64 mtime,
                       qint64 size, int num, int den, int longSide) {
     if (cacheDir.isEmpty())
         return {};

@@ -794,7 +794,7 @@ VideoPane::VideoPane(QWidget *parent) : QWidget(parent) {
             m ? QStringLiteral("volume-x") : QStringLiteral("volume-2")));
     });
     connect(m_vol, &QSlider::valueChanged, this, [this](int v) {
-        m_audio->setVolume(v / 100.0);
+        m_audio->setVolume(static_cast<float>(v) / 100.0f);
         if (v > 0 && m_audio->isMuted())
             m_audio->setMuted(false);
     });
@@ -892,7 +892,7 @@ bool VideoPane::eventFilter(QObject *watched, QEvent *e) {
 void VideoPane::setDefaults(bool muted, bool loop, int volume) {
     m_muteDefault = muted;
     m_audio->setMuted(muted);
-    m_audio->setVolume(qBound(0, volume, 100) / 100.0);
+    m_audio->setVolume(static_cast<float>(qBound(0, volume, 100)) / 100.0f);
     m_vol->setValue(qBound(0, volume, 100));
     m_player->setLoops(loop ? QMediaPlayer::Infinite : 1);
 }

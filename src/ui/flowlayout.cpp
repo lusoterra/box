@@ -56,7 +56,7 @@ int FlowLayout::heightForWidth(int width) const {
 }
 
 int FlowLayout::count() const {
-    return m_items.size();
+    return static_cast<int>(m_items.size()); // QLayout API is int-based
 }
 
 QLayoutItem *FlowLayout::itemAt(int index) const {

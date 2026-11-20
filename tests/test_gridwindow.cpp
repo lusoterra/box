@@ -107,7 +107,7 @@ void decorationStats(GridView *grid, int &distinctOut, int &topCountOut,
         if (!pm.isNull())
             counts[pm.cacheKey()]++;
     }
-    distinctOut = counts.size();
+    distinctOut = static_cast<int>(counts.size());
     topCountOut = 0;
     for (auto it = counts.begin(); it != counts.end(); ++it)
         topCountOut = qMax(topCountOut, it.value());

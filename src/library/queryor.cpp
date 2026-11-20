@@ -118,7 +118,7 @@ QString suggestBare(const QString &queryText) {
         last = last.mid(1);
     // Pool reference (`12#tag`, Danbooru pool syntax): complete the tag.
     if (last.size() > 2 && last.at(0).isDigit()) {
-        const int hash = last.indexOf(u'#');
+        const qsizetype hash = last.indexOf(u'#');
         if (hash > 0)
             last = last.mid(hash + 1);
     }

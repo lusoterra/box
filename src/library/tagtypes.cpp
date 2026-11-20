@@ -189,7 +189,7 @@ QHash<QString, int> TagTypes::parseTagSeed(const QByteArray &tsv) {
         const QString line = QString::fromUtf8(rawLine).trimmed();
         if (line.isEmpty() || line.startsWith(u'#'))
             continue;
-        const int tab = line.indexOf(u'\t');
+        const qsizetype tab = line.indexOf(u'\t');
         if (tab <= 0)
             continue;
         const QString tag = line.left(tab).trimmed().toLower();
@@ -316,7 +316,7 @@ void TagTypeFetcher::fetch(const QStringList &tags, const QString &dbPath) {
         }
     }
     m_done = 0;
-    m_total = m_queue.size();
+    m_total = static_cast<int>(m_queue.size());
     m_failures = 0;
     m_results.clear();
     m_cache.beginBatch();

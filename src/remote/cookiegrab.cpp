@@ -689,12 +689,12 @@ void WebApiFetcher::poll() {
             if (m_finished)
                 return;
             const QString all = v.toString();
-            const int firstNul = all.indexOf(QChar(0));
+            const qsizetype firstNul = all.indexOf(QChar(0));
             const QString text =
                 (firstNul >= 0 ? all.left(firstNul) : all).trimmed();
             QString title, widget;
             if (firstNul >= 0) {
-                const int secondNul = all.indexOf(QChar(0), firstNul + 1);
+                const qsizetype secondNul = all.indexOf(QChar(0), firstNul + 1);
                 title = (secondNul >= 0
                              ? all.mid(firstNul + 1,
                                        secondNul - firstNul - 1)

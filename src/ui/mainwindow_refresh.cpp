@@ -137,7 +137,7 @@ Post remapFresh(const QJsonObject &raw, const RefreshTarget &t) {
 }
 
 // Sidecar the scanner would have used for this local file.
-QString localSidecarFor(const Post &p) {
+static QString localSidecarFor(const Post &p) {
     const QFileInfo fi(p.absFile);
     const QString flat = p.absFile + QStringLiteral(".json");
     if (QFile::exists(flat))
@@ -157,7 +157,7 @@ void MainWindow::onRefreshDone(qint64 reqId,
     const Post fresh = remapFresh(raw, m_refreshTarget);
     const Post orig = m_refreshPost;
     const QString siteKey = m_refreshTarget.siteKey;
-    int tagCount = 0;
+    qsizetype tagCount = 0;
 
     if (orig.isRemote) {
         // In-memory update (+ downloaded copy's sidecar, if present).

@@ -13,6 +13,7 @@
 // - File URLs are conventional, not API-provided: /files/f{sha256}{ext}
 //   (full) and /files/t{sha256}.thumbnail. Post pages live at /posts/<id>.
 #include "booruengine.h"
+#include "engineinternal.h"
 #include "explicittags.h"
 
 #include <QUrlQuery>
@@ -154,7 +155,7 @@ static void hybooruPlace(const QString &name, QString &artist,
         return;
     QString ns;
     QString bare = tag;
-    const int colon = tag.indexOf(u':');
+    const qsizetype colon = tag.indexOf(u':');
     if (colon > 0) {
         ns = tag.left(colon).toLower();
         bare = tag.mid(colon + 1).trimmed();

@@ -52,6 +52,8 @@ QString favVetoKey(const QString &site, qint64 pid);
 extern const QString kSrcDownloads;
 extern const QString kSrcFavourites;
 QString viewerKeyFor(const Post &post);
+// Map a raw API object through the engine that owns the refresh target.
+Post remapFresh(const QJsonObject &raw, const RefreshTarget &t);
 bool isVirtualSource(const QString &key);
 bool blacklisted(const Post &p, const QSet<QString> &banned);
 void splitIncExc(const QStringList &tokens, QStringList &inc, QStringList &exc);

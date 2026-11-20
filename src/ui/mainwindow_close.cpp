@@ -344,9 +344,9 @@ void MainWindow::downloadSelected() {
 }
 
 void MainWindow::updateDownloadButton() {
-    const int n = m_grid && m_grid->selectionModel()
-                      ? m_grid->selectionModel()->selectedRows().size()
-                      : 0;
+    const qsizetype n = m_grid && m_grid->selectionModel()
+                            ? m_grid->selectionModel()->selectedRows().size()
+                            : 0;
     m_downloadSelBtn->setText(tr("Download (%1)").arg(n));
     const BrowserTab *t = currentTab();
     const bool downloadable = isBrowse() || (t && t->isFavourites);

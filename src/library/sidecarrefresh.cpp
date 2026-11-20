@@ -80,7 +80,7 @@ void SidecarBatch::startJobs(QList<SidecarRefresh::Job> jobs) {
     m_updated = 0;
     m_failed = 0;
     m_skipped = 0;
-    m_total = m_pending.size();
+    m_total = static_cast<int>(m_pending.size());
     if (m_total == 0) {
         emit finished(0, 0, 0);
         return;

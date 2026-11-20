@@ -52,7 +52,7 @@ inline QColor filterTagColor(const QString &token) {
     QString t = token.trimmed().toLower();
     while (t.startsWith(u'-') || t.startsWith(u'~'))
         t = t.mid(1);
-    const int colon = t.indexOf(u':');
+    const qsizetype colon = t.indexOf(u':');
     if (colon <= 0)
         return {};
     const QString key = t.left(colon);

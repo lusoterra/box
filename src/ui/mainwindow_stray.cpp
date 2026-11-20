@@ -195,7 +195,7 @@ void MainWindow::importStrayFiles(const QStringList &paths) {
             this, [this, watcher, dest] {
                 const auto [errors, imported] = watcher->result();
                 watcher->deleteLater();
-                const int ok = imported.size();
+                const int ok = static_cast<int>(imported.size());
                 int faved = 0;
                 if (ok > 0 && m_settings.strayAutoFav && m_favDb.isOpen()) {
                     QVector<Post> favs;

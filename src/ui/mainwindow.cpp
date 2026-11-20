@@ -186,7 +186,7 @@ QString favVetoKey(const QString &site, qint64 pid) {
 // categorize from cache instead of hundreds of rate-limited requests.
 // INSERT OR IGNORE inside importSeed: established caches and user-fetched
 // verdicts are never clobbered. Seedless builds just fetch live.
-void seedTagTypesOnce(const QString &dbPath) {
+static void seedTagTypesOnce(const QString &dbPath) {
     if (QFile::exists(dbPath))
         return;
     QFile seed(QStringLiteral(":/seed/tagtypes.tsv"));
@@ -224,7 +224,7 @@ bool isRatingToken(const QString &tok) {
            low.startsWith(QStringLiteral("safety:"));
 }
 
-bool ratingMatches(const QString &postRating, const QString &tok) {
+static bool ratingMatches(const QString &postRating, const QString &tok) {
     QString want = tok.mid(tok.indexOf(u':') + 1).toLower();
     if (want == QStringLiteral("safe"))
         want = QStringLiteral("general"); // danbooru convention
@@ -726,9 +726,6 @@ void GridView::startDrag(Qt::DropActions) {
 }
 
 // ── MainWindow ───────────────────────────────────────────────────
-
-Post remapFresh(const QJsonObject &raw, const RefreshTarget &t);
-
 
 MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     : QMainWindow(parent), m_thumbs(new ThumbLoader(this)),
@@ -1828,7 +1825,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
                     if (post.siteKey.isEmpty())
                         continue;
                     bool changed = false;
-                    for (int i = m_mediaWalls.size() - 1; i >= 0; --i) {
+                    for (qsizetype i = m_mediaWalls.size() - 1; i >= 0; --i) {
                         if (m_mediaWalls.at(i).first == post.siteKey) {
                             m_mediaWalls.removeAt(i);
                             changed = true;

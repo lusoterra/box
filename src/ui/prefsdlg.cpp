@@ -1340,18 +1340,22 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
             baseUrl, QUrl(baseUrl).host(),
             dataDir + QStringLiteral("/webprofile"),
             [self, btn, entryKey, label](const QStringList &fresh) {
-                if (self.isNull())
+                PrefsDialog *dlg = self.data();
+                if (!dlg)
+                    return;
+                QLabel *status = dlg->m_accStatus;
+                if (!status)
                     return;
                 if (!btn.isNull())
                     btn->setEnabled(true);
                 if (fresh.isEmpty()) {
-                    self->m_accStatus->setText(
+                    status->setText(
                         tr("✗ %1: still challenged - open Capture in "
                            "browser… and solve it.").arg(label));
                     return;
                 }
                 BooruSite *live = nullptr;
-                for (BooruSite &b : self->m_booruEdits) {
+                for (BooruSite &b : dlg->m_booruEdits) {
                     if (b.key == entryKey) {
                         live = &b;
                         break;
@@ -1361,9 +1365,9 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
                     return;
                 live->cookies = RemotePosts::normalizeCookies(live->cookies +
                                                              fresh);
-                self->updateCookieLabel();
-                self->updateApplyState();
-                self->m_accStatus->setText(
+                dlg->updateCookieLabel();
+                dlg->updateApplyState();
+                status->setText(
                     tr("✓ %1: %2 cookie(s) refreshed - Apply to save.")
                         .arg(label).arg(fresh.size()));
             });
@@ -1686,8 +1690,9 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     expRow->addWidget(expDefaults);
     expLay->addLayout(expRow);
     auto updateExpCount = [this] {
-        const int n = normalizeExplicitTags(
-                          m_explicit->toPlainText().split(u'\n')).size();
+        const qsizetype n = normalizeExplicitTags(
+                                m_explicit->toPlainText().split(u'\n'))
+                                .size();
         m_explicitCount->setText(tr("%1 tags (one per line)").arg(n));
     };
     connect(m_explicit, &QPlainTextEdit::textChanged, this, updateExpCount);

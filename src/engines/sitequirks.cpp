@@ -89,7 +89,7 @@ QStringList normalizeCookies(const QStringList &lines) {
             const QString t = tok.trimmed();
             if (t.isEmpty() || t.startsWith(u'$'))
                 continue; // $Path/$Domain relics
-            const int eq = t.indexOf(u'=');
+            const qsizetype eq = t.indexOf(u'=');
             if (eq <= 0)
                 continue;
             const QString name = t.left(eq).trimmed();
@@ -158,7 +158,7 @@ QString cookieHeaderValueForHost(const QStringList &cookies,
         return {};
     QMap<QString, QString> jar;
     auto insert = [&jar](const QString &entry) {
-        const int eq = entry.indexOf(u'=');
+        const qsizetype eq = entry.indexOf(u'=');
         if (eq <= 0)
             return;
         const QString name = entry.left(eq).trimmed();
@@ -170,8 +170,8 @@ QString cookieHeaderValueForHost(const QStringList &cookies,
     const bool media = isKnownMediaHost(site, req);
     if (direct || media) {
         for (const QString &entry : cookies) {
-            const int eq = entry.indexOf(u'=');
-            const int bang = entry.indexOf(u'!');
+            const qsizetype eq = entry.indexOf(u'=');
+            const qsizetype bang = entry.indexOf(u'!');
             if (bang > 0 && (eq < 0 || bang < eq))
                 continue; // host-scoped entry
             if (!direct) {
@@ -192,8 +192,8 @@ QString cookieHeaderValueForHost(const QStringList &cookies,
     // domains (donmai.us) insert before narrower hosts (cdn.donmai.us).
     QList<QPair<int, QString>> scoped;
     for (const QString &entry : cookies) {
-        const int bang = entry.indexOf(u'!');
-        const int eq = entry.indexOf(u'=');
+        const qsizetype bang = entry.indexOf(u'!');
+        const qsizetype eq = entry.indexOf(u'=');
         if (bang <= 0 || (eq > 0 && bang > eq))
             continue;
         const QString scope = entry.left(bang).trimmed().toLower();
@@ -203,7 +203,7 @@ QString cookieHeaderValueForHost(const QStringList &cookies,
         if (!direct) {
             // Same clearance-only rule for host-scoped entries: a CDN
             // capture must never leak a site session cookie.
-            const int scEq = nv.indexOf(u'=');
+            const qsizetype scEq = nv.indexOf(u'=');
             const QString scName =
                 (scEq > 0 ? nv.left(scEq) : nv).trimmed().toLower();
             if (!scName.startsWith(QStringLiteral("cf")) &&

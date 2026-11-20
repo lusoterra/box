@@ -230,7 +230,7 @@ QList<DownloadJob> DownloadManager::plan(const QVector<Post> &posts,
             destDir + u'/' + RemotePosts::safeFolderSegment(tag);
         QString name = RemotePosts::downloadFileName(tag, raw);
         if (used.contains(dir + u'/' + name)) {
-            const int dot = name.lastIndexOf(u'.');
+            const qsizetype dot = name.lastIndexOf(u'.');
             const QString stem = name.left(dot), ext = name.mid(dot);
             int n = 2;
             while (used.contains(dir + u'/' + stem + u'_' +
@@ -243,7 +243,7 @@ QList<DownloadJob> DownloadManager::plan(const QVector<Post> &posts,
         job.post.rawJson = raw; // sidecar keeps id/md5/file info, not {}
         job.fileName = name;
         job.filePath = dir + u'/' + name;
-        const int dot = name.lastIndexOf(u'.');
+        const qsizetype dot = name.lastIndexOf(u'.');
         job.jsonPath = dir + u'/' + name.left(dot) + QStringLiteral(".json");
         used.insert(job.filePath);
         jobs.append(job);
@@ -340,7 +340,7 @@ void DownloadManager::enqueue(const QList<DownloadJob> &jobsIn) {
     }
 
     m_queue.append(accepted);
-    m_total += accepted.size() + skipped.size();
+    m_total += static_cast<int>(accepted.size() + skipped.size());
     if (fresh)
         emit batchStarted(m_total);
     if (m_queue.isEmpty() && m_flights.isEmpty() && m_cacheWait.isEmpty()) {
@@ -477,7 +477,8 @@ void DownloadManager::discardPersistedQueue() {
 }
 
 int DownloadManager::pendingCount() const {
-    return m_queue.size() + m_flights.size() + m_cacheWait.size();
+    return static_cast<int>(m_queue.size() + m_flights.size() +
+                            m_cacheWait.size());
 }
 
 void DownloadManager::cancelUrls(const QSet<QString> &fileUrls) {
@@ -932,7 +933,7 @@ void DownloadManager::onCacheFailed(const QString &url, const QString &) {
         m_imgCache->unpin(url);
     // The cache request failed (wall/network): run the normal download
     // path, which has its own browser retry for fingerprint walls.
-    for (int i = failed.size() - 1; i >= 0; --i)
+    for (qsizetype i = failed.size() - 1; i >= 0; --i)
         m_queue.prepend(failed.at(i));
     pump();
 }
@@ -977,7 +978,7 @@ bool DownloadManager::convertUgoiraZip(DownloadJob &job, QJsonObject &raw,
         emit fileRenamed(job.fileName, newName);
     job.fileName = newName;
     job.filePath = outPath;
-    const int dot = newName.lastIndexOf(u'.');
+    const qsizetype dot = newName.lastIndexOf(u'.');
     job.jsonPath =
         dir + u'/' + (dot > 0 ? newName.left(dot) : newName) + QStringLiteral(".json");
     job.post.rawJson = raw;
@@ -1016,7 +1017,7 @@ bool DownloadManager::completeJob(DownloadJob &job, QString *error,
                 const QString dir =
                     QFileInfo(job.filePath).absolutePath();
                 const QString newPath = dir + u'/' + name;
-                const int dot = name.lastIndexOf(u'.');
+                const qsizetype dot = name.lastIndexOf(u'.');
                 const QString newJson =
                     dir + u'/' + name.left(dot) + QStringLiteral(".json");
                 if (!QFile::exists(newPath) &&

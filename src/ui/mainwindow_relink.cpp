@@ -128,7 +128,7 @@ void MainWindow::relinkFavourites() {
                 if (FavDb::isSidecarPath(fi.absoluteFilePath()))
                     continue;
                 const QString stem = fi.completeBaseName();
-                const int cut = stem.lastIndexOf(u'_');
+                const qsizetype cut = stem.lastIndexOf(u'_');
                 if (cut > 0 && cut + 1 < stem.size() &&
                     !byMd5.contains(stem.mid(cut + 1)))
                     byMd5.insert(stem.mid(cut + 1), fi.absoluteFilePath());

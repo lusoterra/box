@@ -1,5 +1,6 @@
 // Moebooru engine (Yandere / Konachan): /post.json listing, Basic auth.
 #include "booruengine.h"
+#include "engineinternal.h"
 #include "explicittags.h"
 
 #include <QDateTime>

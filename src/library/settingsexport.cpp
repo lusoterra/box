@@ -349,7 +349,7 @@ bool importJson(const QJsonObject &o, AppSettings *s, QVector<Post> *favs,
         s->tagCustomCategories.clear();
         for (const QString &line :
              strList(o.value(QStringLiteral("tagCustomCategories")))) {
-            const int eq = line.indexOf(u'=');
+            const qsizetype eq = line.indexOf(u'=');
             if (eq <= 0)
                 continue;
             const QString tag = line.left(eq).trimmed().toLower();

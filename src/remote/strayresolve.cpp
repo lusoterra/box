@@ -601,7 +601,8 @@ void StrayResolver::startNext() {
         return;
     }
     const QString url = m_urls.at(m_index);
-    emit progress(m_index, m_urls.size(), url);
+    emit progress(static_cast<int>(m_index),
+                  static_cast<int>(m_urls.size()), url);
     m_htmlTried = false;
     m_candidate = 0;
     m_match = RemotePosts::parseBooruPostUrl(url);

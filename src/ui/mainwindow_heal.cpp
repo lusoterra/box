@@ -169,7 +169,7 @@ bool MainWindow::isPostDownloaded(const Post &post) {
         DownloadManager::plan({probe}, idx.root);
     if (!jobs.isEmpty()) {
         const QString name = jobs.first().fileName;
-        const int dot = name.lastIndexOf(u'.');
+        const qsizetype dot = name.lastIndexOf(u'.');
         if (idx.stems.contains(dot > 0 ? name.left(dot) : name))
             return true;
     }
@@ -207,8 +207,10 @@ void MainWindow::syncViewerToGrid() {
         backToGrid(); // nothing left to show
         return;
     }
-    const int row = found >= 0 ? found
-                              : qMin(m_viewer->currentRow(), m_current.size() - 1);
+    const int row =
+        found >= 0 ? found
+                   : qMin(m_viewer->currentRow(),
+                          static_cast<int>(m_current.size()) - 1);
     m_viewer->setPosts(m_current);
     m_viewer->showRow(row);
     const Post &p = m_current.at(row);

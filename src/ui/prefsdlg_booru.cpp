@@ -201,7 +201,7 @@ void PrefsDialog::updateCookieLabel() {
     if (!m_booruCookieLabel)
         return;
     const BooruSite *e = currentBooruEntry();
-    const int n = e ? e->cookies.size() : 0;
+    const qsizetype n = e ? e->cookies.size() : 0;
     m_booruCookieLabel->setText(
         n == 0 ? tr("none") : tr("%1 set").arg(n));
 }

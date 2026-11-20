@@ -16,6 +16,7 @@
 // one parser/engine is parameterised by PhilomenaShape instead of forking
 // two near-identical files.
 #include "booruengine.h"
+#include "engineinternal.h"
 
 #include <QJsonArray>
 #include <QUrlQuery>

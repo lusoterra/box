@@ -44,7 +44,7 @@ QString categoryFor(const QStringList &dirParts, const QString &fileName) {
         return dirParts.first();
     // Flat folder (like testfiles/): Danbooru_<md5>.jpg -> Danbooru
     const QString stem = fileName.left(fileName.lastIndexOf(u'.'));
-    const int us = stem.indexOf(u'_');
+    const qsizetype us = stem.indexOf(u'_');
     if (us > 0)
         return stem.split(u'_').value(0);
     return {};
@@ -184,7 +184,9 @@ QVector<Post> Scanner::scan(const QString &root, Scanner *owner, bool useCache,
                 mediaPaths.append(counter.filePath());
         }
     }
-    const int total = mediaPaths.size();
+    // The progress signal is int-based UI state; file counts stay far
+    // below its limit.
+    const int total = static_cast<int>(mediaPaths.size());
     if (owner)
         emit owner->progress(0, total);
 
@@ -263,7 +265,7 @@ QVector<Post> Scanner::scan(const QString &root, Scanner *owner, bool useCache,
 
         if (owner && ++sinceProgress >= 200) {
             sinceProgress = 0;
-            emit owner->progress(posts.size(), total);
+            emit owner->progress(static_cast<int>(posts.size()), total);
             // Cooperative cancel (quit / rescan): return what we have.
             if (owner->cancelRequested.load())
                 return posts;
@@ -275,6 +277,6 @@ QVector<Post> Scanner::scan(const QString &root, Scanner *owner, bool useCache,
             emit owner->cacheStats(cache.hits(), cache.misses());
     }
     if (owner)
-        emit owner->progress(posts.size(), total);
+        emit owner->progress(static_cast<int>(posts.size()), total);
     return posts;
 }

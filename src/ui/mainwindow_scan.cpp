@@ -324,7 +324,7 @@ int MainWindow::applyHostBuckets(QVector<Post> &work,
         sub.reserve(it.value().size());
         for (int i : it.value())
             sub.append(work.at(i));
-        moved += applyTagBuckets(sub, folded).size();
+        moved += static_cast<int>(applyTagBuckets(sub, folded).size());
         for (int j = 0; j < it.value().size(); ++j)
             work[it.value().at(j)] = sub.at(j);
     }

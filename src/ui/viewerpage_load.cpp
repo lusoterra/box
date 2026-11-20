@@ -25,8 +25,11 @@ QString formatBytes(qint64 bytes) {
     if (bytes < 1024)
         return QString::number(bytes) + QStringLiteral(" B");
     if (bytes < 1024 * 1024)
-        return QString::number(bytes / 1024.0, 'f', 1) + QStringLiteral(" KB");
-    return QString::number(bytes / (1024.0 * 1024.0), 'f', 1) + QStringLiteral(" MB");
+        return QString::number(static_cast<double>(bytes) / 1024.0, 'f', 1) +
+           QStringLiteral(" KB");
+    return QString::number(static_cast<double>(bytes) / (1024.0 * 1024.0),
+                           'f', 1) +
+           QStringLiteral(" MB");
 }
 bool isWallError(const QString &error) {
     const QString low = error.toLower();

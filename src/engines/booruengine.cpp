@@ -2,6 +2,7 @@
 // engine taxonomy and other pure helpers. Per-family request/response
 // shapes live in engine_danbooru.cpp and friends.
 #include "booruengine.h"
+#include "engineinternal.h"
 #include "explicittags.h"
 #include "tagcategories.h"
 
@@ -60,7 +61,7 @@ QString BooruEngineOps::extOf(const QString &fileUrl, const QString &fallback) {
     // Last path segment only ("a.b/c" has no extension), strict match:
     // a hostile tail like b/c falls back instead of reaching a filename.
     const QString segment = QUrl(fileUrl).path().section(u'/', -1);
-    const int dot = segment.lastIndexOf(u'.');
+    const qsizetype dot = segment.lastIndexOf(u'.');
     if (dot < 0)
         return fallback;
     static const QRegularExpression ext(
@@ -416,7 +417,7 @@ QStringList translateSearchTags(const QStringList &tags, BooruEngine engine) {
     QStringList out;
     out.reserve(tags.size());
     for (QString tok : tags) {
-        const int colon = tok.indexOf(u':');
+        const qsizetype colon = tok.indexOf(u':');
         if (colon > 0 &&
             tok.left(colon).compare(QStringLiteral("rating"),
                                     Qt::CaseInsensitive) == 0) {
@@ -449,7 +450,7 @@ QStringList translateSearchTags(const QStringList &tags, BooruEngine engine) {
             // Nuuru's sort: vocabulary is native (seen live in its search
             // UI): keep validated spellings server-side; rating:/safety:/
             // order: have no verified spelling, so drop them like before.
-            const int ci = tok.indexOf(u':');
+            const qsizetype ci = tok.indexOf(u':');
             QString head = (ci > 0 ? tok.left(ci) : QString()).toLower();
             while (head.startsWith(u'-'))
                 head = head.mid(1);
@@ -467,7 +468,7 @@ QStringList translateSearchTags(const QStringList &tags, BooruEngine engine) {
             // spelling (HyBooru rating: is a 0-100 star filter): such
             // tokens would silently mis-filter, so drop them - sorting
             // stays client-side, rating filters client-side.
-            const int ci = tok.indexOf(u':');
+            const qsizetype ci = tok.indexOf(u':');
             const QString head =
                 (ci > 0 ? tok.left(ci) : QString()).toLower();
             if (head == QStringLiteral("rating") ||
@@ -734,7 +735,7 @@ QString displayFileName(const Post &post) {
     if (host.startsWith(QStringLiteral("www.")))
         host = host.mid(4);
     QStringList kept;
-    int budget = 100;
+    qsizetype budget = 100;
     for (const QString &t :
          post.tags.split(QChar::Space, Qt::SkipEmptyParts)) {
         if (t.size() + 1 > budget)
@@ -851,19 +852,6 @@ bool bucketDisabledFor(const QString &host, const QString &bucket) {
 }
 
 } // namespace RemotePosts
-
-// Per-family singletons live in engine_danbooru.cpp and friends.
-namespace EngineInternal {
-const BooruEngineOps *danbooruOps();
-const BooruEngineOps *gelbooruOps();
-const BooruEngineOps *moebooruOps();
-const BooruEngineOps *szurubooruOps();
-const BooruEngineOps *shimmieOps();
-const BooruEngineOps *hybooruOps();
-const BooruEngineOps *nuuruOps();
-const BooruEngineOps *philomenaOps();
-const BooruEngineOps *booruOnRailsOps();
-} // namespace EngineInternal
 
 const BooruEngineOps *engineOps(BooruEngine engine) {
     using enum BooruEngine;

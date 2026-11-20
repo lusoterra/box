@@ -350,7 +350,8 @@ void MainWindow::rebuildBrowseSidebar() {
         // Same rule as the fixed five: a single tag is not worth a header.
         sec->box->setVisible(it.value().size() > 1);
         // Tiny custom categories shrink like the fixed five.
-        const int n = qMin<int>(it.value().size(), 30);
+        const int n =
+            static_cast<int>(qMin<qsizetype>(it.value().size(), 30));
         sec->box->setMaximumHeight(n <= 3 && n > 0
                                        ? 18 + n * 22 + 6
                                        : QWIDGETSIZE_MAX);

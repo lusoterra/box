@@ -21,7 +21,7 @@ QString extOf(const QString &url, const QString &hint) {
     const QString h = hint.trimmed().toLower();
     auto extFrom = [](const QString &s) {
         const QString clean = s.split(u'?').first();
-        const int dot = clean.lastIndexOf(u'.');
+        const qsizetype dot = clean.lastIndexOf(u'.');
         if (dot < 0)
             return QString();
         QString e = clean.mid(dot + 1);

@@ -1,6 +1,7 @@
 // Szurubooru engine: /api/posts/ listing with offset paging,
 // /api/post/<id> refresh, Token auth (406 without the Accept header).
 #include "booruengine.h"
+#include "engineinternal.h"
 #include "explicittags.h"
 
 #include <QUrlQuery>

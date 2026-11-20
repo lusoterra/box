@@ -152,8 +152,8 @@ void MainWindow::openLastPlace() {
         if (restoreTabs())
             return;
     } else {
-        const int idx =
-            qBound(0, m_settings.savedTabCurrent, m_tabs.size() - 1);
+        const int idx = qBound(0, m_settings.savedTabCurrent,
+                               static_cast<int>(m_tabs.size()) - 1);
         if (m_tabBar->currentIndex() == idx + 1)
             activateTab(idx); // already there: refresh in place
         else
@@ -186,8 +186,8 @@ void MainWindow::openLastPlace() {
             t->title = tr("Favourites");
             m_tabs.append(t);
             m_tabBar->addTab(QString());
-            updateTabTitle(m_tabs.size() - 1);
-            favIdx = m_tabs.size() - 1;
+            updateTabTitle(static_cast<int>(m_tabs.size()) - 1);
+            favIdx = static_cast<int>(m_tabs.size()) - 1;
         }
         BrowserTab *t = m_tabs[favIdx];
         t->activeTags = lp.tags;
@@ -232,8 +232,8 @@ void MainWindow::openLastPlace() {
         t->page = 1;
         m_tabs.append(t);
         m_tabBar->addTab(QString());
-        updateTabTitle(m_tabs.size() - 1);
-        m_tabBar->setCurrentIndex(m_tabs.size()); // +1: tab 0 is welcome
+        updateTabTitle(static_cast<int>(m_tabs.size()) - 1);
+        m_tabBar->setCurrentIndex(static_cast<int>(m_tabs.size())); // +1: tab 0 is welcome
         saveTabsNow();
         return;
     }
@@ -272,8 +272,8 @@ void MainWindow::openLastPlace() {
         t->scrollRow = lp.scrollRow;
         m_tabs.append(t);
         m_tabBar->addTab(QString());
-        updateTabTitle(m_tabs.size() - 1);
-        m_tabBar->setCurrentIndex(m_tabs.size()); // +1: tab 0 is welcome
+        updateTabTitle(static_cast<int>(m_tabs.size()) - 1);
+        m_tabBar->setCurrentIndex(static_cast<int>(m_tabs.size())); // +1: tab 0 is welcome
         saveTabsNow();
     }
 }
