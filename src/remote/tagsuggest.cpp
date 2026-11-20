@@ -54,8 +54,8 @@ QVector<TagSuggestion> takeCapped(QVector<TagSuggestion> v, int cap = 12) {
 QVector<TagSuggestion> parseGelbooruXmlList(const QByteArray &body);
 QVector<TagSuggestion> parseHybooru(const QByteArray &body);
 QVector<TagSuggestion> parseNuuru(const QByteArray &body);
-QVector<TagSuggestion> parseDerpibooruTags(const QByteArray &body);
-QVector<TagSuggestion> parseTwibooruTags(const QByteArray &body);
+QVector<TagSuggestion> parsePhilomenaTags(const QByteArray &body,
+                                         const QString &countKey);
 
 QVector<TagSuggestion> parseDanbooru(const QByteArray &body) {
     // [{name, category, post_count}] - category is danbooru numbering.
@@ -282,7 +282,8 @@ QVector<TagSuggestion> parseNuuru(const QByteArray &body) {
     return takeCapped(out, 24);
 }
 
-QVector<TagSuggestion> parseDerpibooruTags(const QByteArray &body) {
+QVector<TagSuggestion> parsePhilomenaTags(const QByteArray &body,
+                                         const QString &countKey) {
     QVector<TagSuggestion> out;
     QJsonParseError err;
     const QJsonDocument doc = QJsonDocument::fromJson(body, &err);
@@ -296,36 +297,7 @@ QVector<TagSuggestion> parseDerpibooruTags(const QByteArray &body) {
         if (name.isEmpty()) continue;
         TagSuggestion s;
         s.tag = name;
-        s.count = qMax(0, o.value(QStringLiteral("images")).toInt());
-        const QString cat = o.value(QStringLiteral("category")).toString().toLower();
-        if (cat == QStringLiteral("artist")) s.bucket = QStringLiteral("artist");
-        else if (cat == QStringLiteral("character") || cat == QStringLiteral("oc"))
-            s.bucket = QStringLiteral("character");
-        else if (cat == QStringLiteral("origin") || cat == QStringLiteral("content"))
-            s.bucket = QStringLiteral("copyright");
-        else if (cat == QStringLiteral("rating") || cat == QStringLiteral("spoiler"))
-            s.bucket = QStringLiteral("meta");
-        else s.bucket = QStringLiteral("general");
-        out.append(s);
-    }
-    return takeCapped(out, 24);
-}
-
-QVector<TagSuggestion> parseTwibooruTags(const QByteArray &body) {
-    QVector<TagSuggestion> out;
-    QJsonParseError err;
-    const QJsonDocument doc = QJsonDocument::fromJson(body, &err);
-    if (err.error != QJsonParseError::NoError || !doc.isObject())
-        return out;
-    const QJsonArray arr = doc.object().value(QStringLiteral("tags")).toArray();
-    for (const QJsonValue &v : arr) {
-        if (!v.isObject()) continue;
-        const QJsonObject o = v.toObject();
-        const QString name = o.value(QStringLiteral("name")).toString().trimmed();
-        if (name.isEmpty()) continue;
-        TagSuggestion s;
-        s.tag = name;
-        s.count = qMax(0, o.value(QStringLiteral("posts")).toInt());
+        s.count = qMax(0, o.value(countKey).toInt());
         const QString cat = o.value(QStringLiteral("category")).toString().toLower();
         if (cat == QStringLiteral("artist")) s.bucket = QStringLiteral("artist");
         else if (cat == QStringLiteral("character") || cat == QStringLiteral("oc"))
@@ -421,16 +393,9 @@ QUrl TagSuggester::urlFor(BooruEngine engine, const QString &baseUrl,
         url.setQuery(q);
         return url;
     }
-    if (engine == BooruEngine::Derpibooru) {
-        QUrl url(baseUrl + QStringLiteral("/api/v1/json/search/tags"));
-        QUrlQuery q;
-        q.addQueryItem(QStringLiteral("q"), prefix + QStringLiteral("*"));
-        q.addQueryItem(QStringLiteral("per_page"), QStringLiteral("24"));
-        url.setQuery(q);
-        return url;
-    }
-    if (engine == BooruEngine::Twibooru) {
-        QUrl url(baseUrl + QStringLiteral("/api/v3/search/tags"));
+    if (RemotePosts::isPhilomenaFamily(engine)) {
+        QUrl url(baseUrl + RemotePosts::philomenaApiRoot(engine) +
+                 QStringLiteral("/search/tags"));
         QUrlQuery q;
         q.addQueryItem(QStringLiteral("q"), prefix + QStringLiteral("*"));
         q.addQueryItem(QStringLiteral("per_page"), QStringLiteral("24"));
@@ -710,10 +675,9 @@ QVector<TagSuggestion> TagSuggester::parse(BooruEngine engine,
         return parseHybooru(body);
     case Nuuru:
         return parseNuuru(body);
-    case Derpibooru:
-        return parseDerpibooruTags(body);
-    case Twibooru:
-        return parseTwibooruTags(body);
+    case Philomena:
+    case BooruOnRails:
+        return parsePhilomenaTags(body, RemotePosts::philomenaListKey(engine));
     case Shimmie:
         return {};
     }

@@ -193,7 +193,8 @@ commentary section is a compact clickable preview (message text with
 markup stripped, cap ~280 chars); clicking it opens the large `Artist
 commentary` popup with selectable rich text and clickable links. Sources:
 Danbooru `artist_commentary` (translation preferred), Philomena
-`description` on Derpibooru/Twibooru, HyBooru rect-null Hydrus notes.
+`description` on Philomena/Booru-on-Rails hosts, HyBooru rect-null Hydrus
+notes.
 DText/BBCode (Danbooru) and Markdown (Philomena) are rendered
 (`[b]`/`[i]`/`[url=]`, `**bold**`, `*italic*`, `[label](url)`, quotes,
 bullets); bare URLs auto-link and site-relative links resolve against the

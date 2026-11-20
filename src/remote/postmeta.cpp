@@ -77,8 +77,7 @@ void PostMetaFetcher::fetch(const QString &siteKey, const QString &baseUrl,
         notesReq.setRawHeader("Accept", "application/json");
         commentsReq.setRawHeader("Accept", "application/json");
         commentaryReq.setRawHeader("Accept", "application/json");
-    } else if (engine == BooruEngine::Derpibooru ||
-               engine == BooruEngine::Twibooru ||
+    } else if (RemotePosts::isPhilomenaFamily(engine) ||
                engine == BooruEngine::Hybooru) {
         // Philomena/HyBooru details: ask for the JSON representation only.
         commentaryReq.setRawHeader("Accept", "application/json");
@@ -268,7 +267,7 @@ QUrl notesUrl(BooruEngine engine, const QString &baseUrl, qint64 postId,
     const QString id = QString::number(postId);
     if (engine == BooruEngine::Szurubooru || engine == BooruEngine::Shimmie ||
         engine == BooruEngine::Hybooru || engine == BooruEngine::Nuuru ||
-        engine == BooruEngine::Derpibooru || engine == BooruEngine::Twibooru)
+        RemotePosts::isPhilomenaFamily(engine))
         return {}; // no notes endpoint on these engines
     if (engine == BooruEngine::Danbooru) {
         QUrl url(baseUrl + QStringLiteral("/notes.json"));
@@ -313,7 +312,7 @@ QUrl commentsUrl(BooruEngine engine, const QString &baseUrl, qint64 postId,
         return url;
     }
     if (engine == BooruEngine::Shimmie || engine == BooruEngine::Hybooru ||
-        engine == BooruEngine::Derpibooru || engine == BooruEngine::Twibooru)
+        RemotePosts::isPhilomenaFamily(engine))
         return {}; // no comment API on these engines (v1 / unknown shape)
     if (engine == BooruEngine::Nuuru) {
         QUrl url(baseUrl + QStringLiteral("/api/booru/posts/") + id +
@@ -363,12 +362,10 @@ QUrl commentaryUrl(BooruEngine engine, const QString &baseUrl, qint64 postId) {
         url.setQuery(q);
         return url;
     }
-    // Philomena (v1 images / v3 posts) and HyBooru expose the commentary-
-    // like text on the single-post object itself.
-    if (engine == BooruEngine::Derpibooru)
-        return QUrl(baseUrl + QStringLiteral("/api/v1/json/images/") + id);
-    if (engine == BooruEngine::Twibooru)
-        return QUrl(baseUrl + QStringLiteral("/api/v3/posts/") + id);
+    // Philomena family (v1 images / v3 posts) and HyBooru expose the
+    // commentary-like text on the single-post object itself.
+    if (RemotePosts::isPhilomenaFamily(engine))
+        return QUrl(baseUrl + RemotePosts::philomenaItemPath(engine) + id);
     if (engine == BooruEngine::Hybooru)
         return QUrl(baseUrl + QStringLiteral("/api/post/") + id);
     return {};
@@ -564,13 +561,10 @@ QVector<PostComment> parseCommentary(BooruEngine engine, const QByteArray &body,
         *ok = true;
 
     // Philomena: Markdown description on the image/post object.
-    if (engine == BooruEngine::Derpibooru || engine == BooruEngine::Twibooru) {
+    if (RemotePosts::isPhilomenaFamily(engine)) {
         const QJsonObject envelope = doc.object();
         const QJsonObject o =
-            envelope.value(engine == BooruEngine::Derpibooru
-                               ? QStringLiteral("image")
-                               : QStringLiteral("post"))
-                .toObject();
+            envelope.value(RemotePosts::philomenaItemKey(engine)).toObject();
         const QString text =
             o.value(QStringLiteral("description")).toString().trimmed();
         if (!text.isEmpty()) {

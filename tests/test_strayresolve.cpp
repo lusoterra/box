@@ -22,7 +22,7 @@ private slots:
         const int szu = int(BooruEngine::Szurubooru);
         const int shi = int(BooruEngine::Shimmie);
         const int nuu = int(BooruEngine::Nuuru);
-        const int der = int(BooruEngine::Derpibooru);
+        const int der = int(BooruEngine::Philomena);
 
         QTest::newRow("danbooru")
             << "https://danbooru.donmai.us/posts/123?q=foo" << true
@@ -91,7 +91,7 @@ private slots:
         const auto m = RemotePosts::parseBooruPostUrl(
             "https://twibooru.org/posts/3889209");
         QVERIFY(m.valid());
-        QVERIFY(m.engines.contains(BooruEngine::Twibooru));
+        QVERIFY(m.engines.contains(BooruEngine::BooruOnRails));
     }
 
     void htmlPage() {
@@ -242,7 +242,7 @@ private slots:
             QStringLiteral("https://derpicdn.net/img/thumb/1.png");
         derpi[QStringLiteral("representations")] = reps;
         const Post dp = RemotePosts::postFromRaw(
-            BooruEngine::Derpibooru, derpi, QStringLiteral("https://derpibooru.org"));
+            BooruEngine::Philomena, derpi, QStringLiteral("https://derpibooru.org"));
         QVERIFY(dp.isRemote);
         QCOMPARE(dp.id, qint64(3926792));
         QCOMPARE(dp.postUrl, QStringLiteral("https://derpibooru.org/images/3926792"));
@@ -259,7 +259,7 @@ private slots:
         treps[QStringLiteral("thumb")] = QStringLiteral("https://cdn.twibooru.org/t.jpg");
         twi[QStringLiteral("representations")] = treps;
         const Post tp = RemotePosts::postFromRaw(
-            BooruEngine::Twibooru, twi, QStringLiteral("https://twibooru.org"));
+            BooruEngine::BooruOnRails, twi, QStringLiteral("https://twibooru.org"));
         QVERIFY(tp.isRemote);
         QCOMPARE(tp.postUrl, QStringLiteral("https://twibooru.org/posts/55"));
     }

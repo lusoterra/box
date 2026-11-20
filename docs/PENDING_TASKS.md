@@ -1,5 +1,25 @@
 # Pending tasks (from user goal)
 
+## 148. Engines renamed to their software + Philomena family de-duplicated - DONE
+- Verified live: Derpibooru = Philomena v1 (`/api/v1/json/...`, `{images}`/
+  `{image}`); Twibooru = booru-on-rails 3.1.0 (footer) with a v3-shaped API
+  (`/api/v3/...`, `{posts}`/`{post}`) - same lineage, not the same engine.
+- Engines renamed `BooruEngine::Philomena`/`BooruOnRails`, labels
+  "Philomena"/"Booru-on-Rails", keys `philomena`/`booru-on-rails`
+  (`src/engines/booruengine.cpp:325-360`). Legacy keys `derpibooru`/
+  `twibooru` still load (saved sites) and per-engine disabled-bucket
+  settings under the old names still apply (`legacyEngineKeys`, `:817`).
+- `engine_derpibooru.cpp` + `engine_twibooru.cpp` -> one
+  `engine_philomena.cpp` with a `PhilomenaShape` row per API version;
+  helpers `isPhilomenaFamily`/`philomenaApiRoot/ListKey/ItemKey/ItemPath`
+  (`src/engines/booruengine.h:60-69`). Tag-suggest parsers/URL builders
+  and the postmeta envelope/URL branches collapsed onto them.
+- Posts from other instances are named after their host instead of
+  claiming "Derpibooru"; derpibooru.org/twibooru.org keep their historic
+  labels so favourites and download names stay valid.
+- Verify: `ctest -R 'test_philomena|test_postmeta|test_strayresolve|test_remotesource'`
+  (new `familyShapes` case covers shapes, legacy keys, host labels).
+
 ## 40. Import "also download" skips favourites already on disk - DONE
 - `LosnImport::diskIndex` (`src/library/losnimport.cpp`) indexes media by
   md5 AND by `file_url`/`post_url` from existing sidecars (stem + flat
@@ -144,8 +164,8 @@
       relative links resolved against the entry base URL. Everything is
       HTML-escaped first; hrefs are http(s)/mailto only.
 - [x] Engines with a commentary-like field: Danbooru `artist_commentary`
-      (existing), Philomena `description` (Derpibooru v1 / Twibooru v3
-      single-image endpoints), HyBooru Hydrus notes (rect-null notes;
+      (existing), Philomena `description` (Philomena v1 / Booru-on-Rails v3
+      single-post endpoints), HyBooru Hydrus notes (rect-null notes;
       translated commentary preferred). Gelbooru/Safebooru, Moebooru,
       Szurubooru, Shimmie and Nuuru expose no such field (no-op).
 - [x] Comment bodies also go through the formatter (DText links/italics),

@@ -350,14 +350,15 @@ BooruPostUrl parseBooruPostUrl(const QString &url) {
     static const QRegularExpression derpi(
         QStringLiteral("^(.*)/images/(\\d+)(?:/.*)?$"));
     if (pathMatch(derpi)) {
-        out.engines = {BooruEngine::Derpibooru};
+        out.engines = {BooruEngine::Philomena};
         return out;
     }
     static const QRegularExpression posts(
         QStringLiteral("^(.*)/posts/(\\d+)(?:/.*)?$"));
     if (pathMatch(posts)) {
-        // Danbooru-family, HyBooru and Twibooru (Philomena v3) use /posts/<id>.
-        out.engines = {BooruEngine::Danbooru, BooruEngine::Hybooru, BooruEngine::Twibooru};
+        // Danbooru family, HyBooru and Booru-on-Rails (Twibooru) use /posts/<id>.
+        out.engines = {BooruEngine::Danbooru, BooruEngine::Hybooru,
+                       BooruEngine::BooruOnRails};
         return out;
     }
     static const QRegularExpression single(
@@ -528,11 +529,9 @@ Post postFromRaw(BooruEngine engine, const QJsonObject &raw,
     case BooruEngine::Nuuru:
         p = fromNuuru(raw, baseUrl);
         break;
-    case BooruEngine::Derpibooru:
-        p = fromDerpibooru(raw, baseUrl);
-        break;
-    case BooruEngine::Twibooru:
-        p = fromTwibooru(raw, baseUrl);
+    case BooruEngine::Philomena:
+    case BooruEngine::BooruOnRails:
+        p = fromPhilomenaFamily(engine, raw, baseUrl);
         break;
     }
     genericFillPost(p, raw, baseUrl);

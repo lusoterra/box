@@ -16,7 +16,7 @@ user; everything else follows the tags below.
 | Safebooru-as-dapi | yes (box concept, no losn equiv) | - |
 | HyBooru | yes (box concept) | - |
 | e621 | no | PICK: biggest missing engine (furry). |
-| Philomena / BooruOnRails (Twibooru) | no | PICK: pony family. |
+| Philomena / Booru-on-Rails (Derpibooru, Twibooru, pony hosts) | yes (both API shapes) | - |
 | Sankaku (+Idol) | no | PICK: needs account + anti-bot handling. |
 | R34Hentai / R34US / Realbooru / RainBooru / AGNPH / InkBunny / WildCritters / NyanPals / WorldXYZ | no | PICK, mostly scrapers/meme hosts; box covers meme hosts via `skipAutoClassify` instead. |
 | Hydrus-as-source | no | WONT-DO: Hydrus is a local client, not a web booru; box reads local archives directly. |

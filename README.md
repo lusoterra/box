@@ -21,8 +21,8 @@ quality, and keep favourites.
 | Shimmie | any Shimmie instance | |
 | HyBooru | any HyBooru instance | |
 | Nuuru | soybooru.com | proof-of-work clearance solves itself in-app |
-| Derpibooru | derpibooru.org (Philomena v1) | |
-| Twibooru | twibooru.org (Philomena v3) | |
+| Philomena | derpibooru.org and other Philomena v1 hosts | |
+| Booru-on-Rails | twibooru.org and other v3 hosts (the Ruby codebase Philomena replaced) | |
 
 Any instance of a supported engine can be added in Preferences → Booru
 manager (base URL + engine type); only Safebooru ships preconfigured so

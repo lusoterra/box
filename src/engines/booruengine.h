@@ -57,9 +57,16 @@ Post fromHybooru(const QJsonObject &o, const QString &baseUrl);
 // rides the browser-backed stack (powWall quirk).
 Post fromNuuruSummary(const QJsonObject &o, const QString &baseUrl);
 Post fromNuuru(const QJsonObject &o, const QString &baseUrl);
-// Philomena-family post parsers (Derpibooru v1 / Twibooru v3 shapes).
-Post fromDerpibooru(const QJsonObject &o, const QString &baseUrl);
-Post fromTwibooru(const QJsonObject &o, const QString &baseUrl);
+// Philomena family: Philomena (Elixir; Derpibooru and other v1 hosts) and
+// BooruOnRails (Ruby; Twibooru and other v3 hosts) share the post fields
+// but differ in paths and envelope keys. One engine, two shapes.
+bool isPhilomenaFamily(BooruEngine engine);
+QString philomenaApiRoot(BooruEngine engine);  // "/api/v1/json" | "/api/v3"
+QString philomenaListKey(BooruEngine engine);  // "images" | "posts"
+QString philomenaItemKey(BooruEngine engine);  // "image"  | "post"
+QString philomenaItemPath(BooruEngine engine); // ".../images/" | "/api/v3/posts/"
+Post fromPhilomenaFamily(BooruEngine engine, const QJsonObject &o,
+                         const QString &baseUrl);
 
 // Native category name -> classic bucket ("" = genuinely custom). Handles
 // singular/plural, case and loose aliases (character/characters, series/

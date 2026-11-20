@@ -309,8 +309,8 @@ private slots:
         for (BooruEngine e : {BooruEngine::Danbooru, BooruEngine::Gelbooru,
                               BooruEngine::Moebooru, BooruEngine::Szurubooru,
                               BooruEngine::Shimmie, BooruEngine::Hybooru,
-                              BooruEngine::Nuuru, BooruEngine::Derpibooru,
-                              BooruEngine::Twibooru}) {
+                              BooruEngine::Nuuru, BooruEngine::Philomena,
+                              BooruEngine::BooruOnRails}) {
             QCOMPARE(RemotePosts::engineForKey(RemotePosts::engineKey(e)), e);
             QVERIFY(!RemotePosts::engineLabel(e).isEmpty());
         }
@@ -1470,7 +1470,7 @@ private slots:
         derp.key = QStringLiteral("derp");
         derp.label = QStringLiteral("Derp");
         derp.baseUrl = QStringLiteral("https://derpibooru.org");
-        derp.engine = BooruEngine::Derpibooru;
+        derp.engine = BooruEngine::Philomena;
         derp.proxy = QStringLiteral("http://127.0.0.1:8082");
         RemoteSource::setConfiguredBoorus({proxied, plain, dan, derp});
         QCOMPARE(RemotePosts::proxyForUrl(

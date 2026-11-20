@@ -24,6 +24,9 @@
 ## 145. New engines: Philomena (Derpibooru v1 + Twibooru v3) - DONE
 ##    (live APIs probed: Derpi /api/v1/json/images, Twibooru /api/v3/posts -
 ##    different shapes, so two engines; build + 33/33 ctest green)
+##    CORRECTION (task 148): the "Philomena v3" label was wrong - Twibooru
+##    runs booru-on-rails; engines renamed Philomena / BooruOnRails and
+##    merged into one shape-parameterised implementation.
 - [x] VERIFY/probed live APIs: Derpibooru uses Philomena v1
       (`/api/v1/json/search/images`/`images/:id`, `images` array, `representations`),
       Twibooru uses Philomena v3 (`/api/v3/search/posts`/`posts/:id`, `posts` array).

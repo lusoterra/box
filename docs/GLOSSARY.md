@@ -28,7 +28,8 @@
 - artist commentary = the post's commentary/description text
   (`PostMeta::commentaryUrl/parseCommentary`, `src/remote/postmeta.cpp`):
   Danbooru `artist_commentary` (translation preferred), Philomena
-  `description` (Derpibooru/Twibooru), HyBooru rect-null Hydrus notes.
+  `description` (Philomena/Booru-on-Rails hosts), HyBooru rect-null Hydrus
+  notes.
   Rendered as a small clickable ARTIST COMMENTARY preview at the bottom of
   the viewer's meta tail; click opens the large formatted popup
   (`ViewerPage::showCommentaryPopup`, rich text via `MetaText`).

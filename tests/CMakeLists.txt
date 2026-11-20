@@ -27,8 +27,7 @@ set(REMOTE_SOURCES
     ../src/engines/engine_shimmie.cpp
     ../src/engines/engine_hybooru.cpp
     ../src/engines/engine_nuuru.cpp
-    ../src/engines/engine_derpibooru.cpp
-    ../src/engines/engine_twibooru.cpp
+    ../src/engines/engine_philomena.cpp
     ../src/remote/remotesource.cpp
     ../src/remote/powsolver.cpp)
 

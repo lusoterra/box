@@ -1160,9 +1160,9 @@ QString postPageUrlFor(const BooruSite &site, qint64 id) {
         return base + QStringLiteral("/posts/") + QString::number(id);
     case Nuuru:
         return base + QStringLiteral("/post/view/") + QString::number(id);
-    case Derpibooru:
+    case Philomena:
         return base + QStringLiteral("/images/") + QString::number(id);
-    case Twibooru:
+    case BooruOnRails:
         return base + QStringLiteral("/posts/") + QString::number(id);
     case Gelbooru:
     case Safebooru:

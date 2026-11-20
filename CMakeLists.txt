@@ -33,8 +33,7 @@ add_executable(box
     src/engines/engine_shimmie.cpp
     src/engines/engine_hybooru.cpp
     src/engines/engine_nuuru.cpp
-    src/engines/engine_derpibooru.cpp
-    src/engines/engine_twibooru.cpp
+    src/engines/engine_philomena.cpp
     src/library/ugoioconvert.cpp
     src/library/miniz/miniz.c
     src/library/miniz/miniz_tdef.c

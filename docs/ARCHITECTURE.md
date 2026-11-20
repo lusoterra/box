@@ -29,11 +29,17 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
   `parseSingle`/`applyAuth`; `engineOps()` at `:146`).
   - Pure shared helpers in `RemotePosts`: `translateSearchTags`,
     `sortSearchTag`, `isTransientSearchError`, `fromDanbooru/Gelbooru/Moebooru/
-    Szuru/Shimmie/Hybooru/Nuuru/Derpibooru/Twibooru`, `parseShimmieXml`
-    (`src/engines/booruengine.h:25-95`). `engine_derpibooru.cpp`/`engine_twibooru.cpp`:
-    Philomena-family engines (Derpibooru v1 `/api/v1/json/search/images|images/:id`,
-    Twibooru v3 `/api/v3/search/posts|posts/:id`; ratings from `safe`/`suggestive`/
-    `questionable`/`explicit` tags; namespaced `artist:`/`character:`/`oc:` buckets).
+    Szuru/Shimmie/Hybooru/Nuuru`, `fromPhilomenaFamily`, `parseShimmieXml`
+    (`src/engines/booruengine.h:25-95`). `engine_philomena.cpp`: the
+    Philomena family, one implementation with two `PhilomenaShape` rows -
+    Philomena (Elixir; Derpibooru v1 `/api/v1/json/search/images|images/:id`,
+    `{images}`/`{image}`) and Booru-on-Rails (Ruby; Twibooru v3
+    `/api/v3/search/posts|posts/:id`, `{posts}`/`{post}`). Shared fields:
+    `representations`, ratings from `safe`/`suggestive`/`questionable`/
+    `explicit` tags, namespaced `artist:`/`character:`/`oc:` buckets,
+    Markdown `description`. Helpers: `isPhilomenaFamily`,
+    `philomenaApiRoot/ListKey/ItemKey/ItemPath`. Engine keys are
+    `philomena`/`booru-on-rails`; legacy `derpibooru`/`twibooru` still load.
     Nuuru notes: plain fetches hit HTTP 449 `{"error":"pow_required"}`
     (or `captcha_required`: hCaptcha via `/api/captcha/*`); PoW is a WASM
     worker (`/api/pow/challenge` → `/api/pow/verify`). The token embeds
@@ -86,7 +92,7 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     dapi XML bodies accepted, rows scoped by `post_id` so an unscoped
     endpoint can never paint another post's notes/comments; commentary =
     Danbooru `artist_commentary`, Philomena `description`
-    (Derpibooru/Twibooru detail), HyBooru rect-null Hydrus notes).
+    (Philomena/Booru-on-Rails detail), HyBooru rect-null Hydrus notes).
 - `src/library/` - local data + classification.
   - `scanner.h:19` `Scanner`: recursive scan, both sidecar layouts, emits
     `progress`/`cacheStats`; impl `src/library/scanner.cpp:156`.

@@ -37,8 +37,8 @@ private slots:
         QVERIFY(PostMeta::notesUrl(BooruEngine::Szurubooru, kDan, 1).isEmpty());
         QVERIFY(PostMeta::notesUrl(BooruEngine::Shimmie, kDan, 1).isEmpty());
         QVERIFY(PostMeta::notesUrl(BooruEngine::Hybooru, kDan, 1).isEmpty());
-        QVERIFY(PostMeta::notesUrl(BooruEngine::Derpibooru, kDan, 1).isEmpty());
-        QVERIFY(PostMeta::notesUrl(BooruEngine::Twibooru, kDan, 1).isEmpty());
+        QVERIFY(PostMeta::notesUrl(BooruEngine::Philomena, kDan, 1).isEmpty());
+        QVERIFY(PostMeta::notesUrl(BooruEngine::BooruOnRails, kDan, 1).isEmpty());
     }
 
     void commentsUrls() {
@@ -60,8 +60,8 @@ private slots:
         QVERIFY(queryItem(szuru, "postId").isEmpty());
         QVERIFY(PostMeta::commentsUrl(BooruEngine::Shimmie, kDan, 1).isEmpty());
         QVERIFY(PostMeta::commentsUrl(BooruEngine::Hybooru, kDan, 1).isEmpty());
-        QVERIFY(PostMeta::commentsUrl(BooruEngine::Derpibooru, kDan, 1).isEmpty());
-        QVERIFY(PostMeta::commentsUrl(BooruEngine::Twibooru, kDan, 1).isEmpty());
+        QVERIFY(PostMeta::commentsUrl(BooruEngine::Philomena, kDan, 1).isEmpty());
+        QVERIFY(PostMeta::commentsUrl(BooruEngine::BooruOnRails, kDan, 1).isEmpty());
     }
 
     void commentaryUrlPerEngine() {
@@ -73,12 +73,12 @@ private slots:
                      QStringLiteral("search[post_id]")),
                  QStringLiteral("42"));
         QCOMPARE(PostMeta::commentaryUrl(
-                     BooruEngine::Derpibooru,
+                     BooruEngine::Philomena,
                      QStringLiteral("https://derpibooru.org"), 42)
                      .toString(),
                  QStringLiteral("https://derpibooru.org/api/v1/json/images/42"));
         QCOMPARE(PostMeta::commentaryUrl(
-                     BooruEngine::Twibooru,
+                     BooruEngine::BooruOnRails,
                      QStringLiteral("https://twibooru.org"), 42)
                      .toString(),
                  QStringLiteral("https://twibooru.org/api/v3/posts/42"));
@@ -99,14 +99,14 @@ private slots:
         bool ok = false;
         // Philomena v1 image envelope.
         const auto derpi = PostMeta::parseCommentary(
-            BooruEngine::Derpibooru,
+            BooruEngine::Philomena,
             QByteArray(R"({"image":{"description":"**hello**"}})"), &ok);
         QVERIFY(ok);
         QCOMPARE(derpi.size(), 1);
         QCOMPARE(derpi.at(0).body, QStringLiteral("**hello**"));
         // Philomena v3 post envelope.
         const auto twi = PostMeta::parseCommentary(
-            BooruEngine::Twibooru,
+            BooruEngine::BooruOnRails,
             QByteArray(R"({"post":{"description":"twibody"}})"), &ok);
         QVERIFY(ok);
         QCOMPARE(twi.size(), 1);
@@ -137,7 +137,7 @@ private slots:
         QCOMPARE(generic.size(), 1);
         QCOMPARE(generic.at(0).body, QStringLiteral("one\n\ntwo"));
         // Empty/blank descriptions stay hidden.
-        QVERIFY(PostMeta::parseCommentary(BooruEngine::Derpibooru,
+        QVERIFY(PostMeta::parseCommentary(BooruEngine::Philomena,
                                           QByteArray(R"({"image":{"description":""}})"),
                                           &ok)
                     .isEmpty());

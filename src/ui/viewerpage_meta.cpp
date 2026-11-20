@@ -29,8 +29,7 @@ MetaTextContext metaTextContextFor(const Post &p) {
     if (!site)
         return ctx;
     ctx.base = QUrl(site->baseUrl);
-    if (site->engine == BooruEngine::Derpibooru ||
-        site->engine == BooruEngine::Twibooru)
+    if (RemotePosts::isPhilomenaFamily(site->engine))
         ctx.flavor = MetaText::Flavor::Markdown;
     else if (site->engine == BooruEngine::Hybooru)
         ctx.flavor = MetaText::Flavor::Plain;

@@ -332,8 +332,8 @@ QString engineKey(BooruEngine engine) {
     case Shimmie: return QStringLiteral("shimmie");
     case Hybooru: return QStringLiteral("hybooru");
     case Nuuru: return QStringLiteral("nuuru");
-    case Derpibooru: return QStringLiteral("derpibooru");
-    case Twibooru: return QStringLiteral("twibooru");
+    case Philomena: return QStringLiteral("philomena");
+    case BooruOnRails: return QStringLiteral("booru-on-rails");
     case Safebooru: return QStringLiteral("gelbooru"); // dapi family
     }
     return QStringLiteral("danbooru");
@@ -352,10 +352,12 @@ BooruEngine engineForKey(const QString &key) {
         return BooruEngine::Hybooru;
     if (key == QStringLiteral("nuuru"))
         return BooruEngine::Nuuru;
-    if (key == QStringLiteral("derpibooru") || key == QStringLiteral("philomena"))
-        return BooruEngine::Derpibooru;
-    if (key == QStringLiteral("twibooru"))
-        return BooruEngine::Twibooru;
+    // Legacy keys (pre-rename settings and favourites) keep resolving.
+    if (key == QStringLiteral("philomena") || key == QStringLiteral("derpibooru"))
+        return BooruEngine::Philomena;
+    if (key == QStringLiteral("booru-on-rails") ||
+        key == QStringLiteral("booruonrails") || key == QStringLiteral("twibooru"))
+        return BooruEngine::BooruOnRails;
     return BooruEngine::Danbooru;
 }
 
@@ -369,8 +371,8 @@ QString engineLabel(BooruEngine engine) {
     case Shimmie: return QStringLiteral("Shimmie");
     case Hybooru: return QStringLiteral("HyBooru");
     case Nuuru: return QStringLiteral("Nuuru (Soybooru)");
-    case Derpibooru: return QStringLiteral("Derpibooru");
-    case Twibooru: return QStringLiteral("Twibooru");
+    case Philomena: return QStringLiteral("Philomena");
+    case BooruOnRails: return QStringLiteral("Booru-on-Rails");
     case Safebooru: return QStringLiteral("Safebooru");
     }
     return QStringLiteral("Danbooru");
@@ -459,8 +461,8 @@ QStringList translateSearchTags(const QStringList &tags, BooruEngine engine) {
                 !isNativeNuuruSort(tok.mid(ci + 1)))
                 continue;
         } else if (engine == BooruEngine::Hybooru ||
-                   engine == BooruEngine::Derpibooru ||
-                   engine == BooruEngine::Twibooru) {
+                   engine == BooruEngine::Philomena ||
+                   engine == BooruEngine::BooruOnRails) {
             // Neither engine exposes a verified content-rating or sort
             // spelling (HyBooru rating: is a 0-100 star filter): such
             // tokens would silently mis-filter, so drop them - sorting
@@ -695,9 +697,13 @@ bool isSzuruRootIdHost(const QString &hostIn) {
 }
 
 QString postPageUrl(const QString &siteKey, const QString &baseUrl, qint64 id, bool rootIdPosts) {
+    const BooruEngine engine = engineForKey(siteKey);
+    if (isPhilomenaFamily(engine))
+        return baseUrl + (engine == BooruEngine::BooruOnRails
+                              ? QStringLiteral("/posts/")
+                              : QStringLiteral("/images/")) +
+               QString::number(id);
     if (siteKey == QStringLiteral("danbooru") || siteKey == QStringLiteral("hybooru"))
-        return baseUrl + QStringLiteral("/posts/") + QString::number(id);
-    if (siteKey == QStringLiteral("twibooru"))
         return baseUrl + QStringLiteral("/posts/") + QString::number(id);
     if (siteKey == QStringLiteral("yandere") || siteKey == QStringLiteral("konachan"))
         return baseUrl + QStringLiteral("/post/show/") + QString::number(id);
@@ -715,8 +721,6 @@ QString postPageUrl(const QString &siteKey, const QString &baseUrl, qint64 id, b
     }
     if (siteKey == QStringLiteral("shimmie") || siteKey == QStringLiteral("nuuru"))
         return baseUrl + QStringLiteral("/post/view/") + QString::number(id);
-    if (siteKey == QStringLiteral("derpibooru"))
-        return baseUrl + QStringLiteral("/images/") + QString::number(id);
     return baseUrl + QStringLiteral("/index.php?page=post&s=view&id=") +
            QString::number(id);
 }
@@ -808,6 +812,18 @@ QSet<QString> &disabledBucketSet() {
     static QSet<QString> s;
     return s;
 }
+// Pre-rename engine keys: buckets disabled under the old names must keep
+// applying after Philomena/BooruOnRails were named after the software.
+const QSet<QString> &legacyEngineKeys(BooruEngine engine) {
+    static const QSet<QString> philomena{QStringLiteral("derpibooru")};
+    static const QSet<QString> booruOnRails{QStringLiteral("twibooru")};
+    static const QSet<QString> none;
+    if (engine == BooruEngine::Philomena)
+        return philomena;
+    if (engine == BooruEngine::BooruOnRails)
+        return booruOnRails;
+    return none;
+}
 } // namespace
 
 void setDisabledBuckets(const QSet<QString> &disabled) {
@@ -817,7 +833,15 @@ void setDisabledBuckets(const QSet<QString> &disabled) {
 bool bucketDisabled(BooruEngine engine, const QString &bucket) {
     if (bucket == QStringLiteral("general"))
         return false;
-    return disabledBucketSet().contains(engineKey(engine) + u':' + bucket);
+    const QString key = engineKey(engine);
+    if (disabledBucketSet().contains(key + u':' + bucket))
+        return true;
+    // Renamed engines: keep the pre-rename engine-scoped settings working.
+    const QSet<QString> &legacy = legacyEngineKeys(engine);
+    for (const QString &old : legacy)
+        if (disabledBucketSet().contains(old + u':' + bucket))
+            return true;
+    return false;
 }
 
 bool bucketDisabledFor(const QString &host, const QString &bucket) {
@@ -837,8 +861,8 @@ const BooruEngineOps *szurubooruOps();
 const BooruEngineOps *shimmieOps();
 const BooruEngineOps *hybooruOps();
 const BooruEngineOps *nuuruOps();
-const BooruEngineOps *derpibooruOps();
-const BooruEngineOps *twibooruOps();
+const BooruEngineOps *philomenaOps();
+const BooruEngineOps *booruOnRailsOps();
 } // namespace EngineInternal
 
 const BooruEngineOps *engineOps(BooruEngine engine) {
@@ -857,10 +881,10 @@ const BooruEngineOps *engineOps(BooruEngine engine) {
         return EngineInternal::hybooruOps();
     case Nuuru:
         return EngineInternal::nuuruOps();
-    case Derpibooru:
-        return EngineInternal::derpibooruOps();
-    case Twibooru:
-        return EngineInternal::twibooruOps();
+    case Philomena:
+        return EngineInternal::philomenaOps();
+    case BooruOnRails:
+        return EngineInternal::booruOnRailsOps();
     case Danbooru:
         return EngineInternal::danbooruOps();
     }

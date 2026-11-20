@@ -1154,10 +1154,10 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
                            RemotePosts::engineKey(BooruEngine::Hybooru));
     m_booruEngine->addItem(RemotePosts::engineLabel(BooruEngine::Nuuru),
                            RemotePosts::engineKey(BooruEngine::Nuuru));
-    m_booruEngine->addItem(RemotePosts::engineLabel(BooruEngine::Derpibooru),
-                           RemotePosts::engineKey(BooruEngine::Derpibooru));
-    m_booruEngine->addItem(RemotePosts::engineLabel(BooruEngine::Twibooru),
-                           RemotePosts::engineKey(BooruEngine::Twibooru));
+    m_booruEngine->addItem(RemotePosts::engineLabel(BooruEngine::Philomena),
+                           RemotePosts::engineKey(BooruEngine::Philomena));
+    m_booruEngine->addItem(RemotePosts::engineLabel(BooruEngine::BooruOnRails),
+                           RemotePosts::engineKey(BooruEngine::BooruOnRails));
     m_booruUser = new QLineEdit(this);
     m_booruSecret = new QLineEdit(this);
     m_booruSecret->setEchoMode(QLineEdit::Password);

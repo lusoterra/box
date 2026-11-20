@@ -108,7 +108,8 @@ void MainWindow::onRefreshFailed(qint64 reqId, const QString &error) {
 Post remapFresh(const QJsonObject &raw, const RefreshTarget &t) {
     // Engine-based so custom instances map like their family presets.
     using enum BooruEngine;
-    switch (RemotePosts::engineForSiteKey(t.siteKey)) {
+    const BooruEngine engine = RemotePosts::engineForSiteKey(t.siteKey);
+    switch (engine) {
     case Danbooru:
         return RemotePosts::fromDanbooru(raw, t.baseUrl);
     case Gelbooru:
@@ -120,10 +121,9 @@ Post remapFresh(const QJsonObject &raw, const RefreshTarget &t) {
         return RemotePosts::fromHybooru(raw, t.baseUrl);
     case Nuuru:
         return RemotePosts::fromNuuru(raw, t.baseUrl);
-    case Derpibooru:
-        return RemotePosts::fromDerpibooru(raw, t.baseUrl);
-    case Twibooru:
-        return RemotePosts::fromTwibooru(raw, t.baseUrl);
+    case Philomena:
+    case BooruOnRails:
+        return RemotePosts::fromPhilomenaFamily(engine, raw, t.baseUrl);
     case Shimmie: {
         QMap<QString, QString> attrs;
         for (auto it = raw.begin(); it != raw.end(); ++it)
