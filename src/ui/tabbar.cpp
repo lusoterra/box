@@ -2,6 +2,7 @@
 
 #include <QApplication>
 #include <QFontMetrics>
+#include <QLabel>
 #include <QStyleOptionTab>
 #include <QStylePainter>
 
@@ -66,7 +67,9 @@ void MarqueeTabBar::mousePressEvent(QMouseEvent *e) {
 
 void MarqueeTabBar::mouseMoveEvent(QMouseEvent *e) {
     if (m_pressed && isMovable()) {
-        m_dragPos = e->pos();
+        // Browser-style: the grabbed tab only slides horizontally, it never
+        // leaves its row. The y stays pinned at the press position.
+        m_dragPos = QPoint(e->pos().x(), m_pressPos.y());
         if (!m_dragging &&
             (e->pos() - m_pressPos).manhattanLength() >=
                 QApplication::startDragDistance()) {
@@ -78,10 +81,11 @@ void MarqueeTabBar::mouseMoveEvent(QMouseEvent *e) {
                 const QRect r = tabRect(pressedTab);
                 m_dragPixmap = grab(r);
                 m_dragHotspot = m_pressPos - r.topLeft();
+                showGhost();
             }
             update();
         } else if (m_dragging) {
-            update(); // move the floating copy
+            moveGhost(); // slide the floating copy
         }
     }
     QTabBar::mouseMoveEvent(e);
@@ -98,7 +102,37 @@ void MarqueeTabBar::mouseReleaseEvent(QMouseEvent *e) {
     // style for the whole gesture, so the tab strip never blinks.
     m_dragging = false;
     m_dragPixmap = QPixmap();
+    if (m_ghost)
+        m_ghost->hide();
     update();
+}
+
+void MarqueeTabBar::showGhost() {
+    if (!m_ghost) {
+        // Child of the window, not of the bar: close buttons are children
+        // of the bar and paint after it, so anything drawn inside the bar's
+        // paintEvent ends up underneath them. A raised window child is the
+        // only reliable way to keep the dragged tab in front of the strip.
+        m_ghost = new QLabel(window());
+        m_ghost->setAttribute(Qt::WA_TransparentForMouseEvents);
+        m_ghost->setAttribute(Qt::WA_NoSystemBackground);
+        m_ghost->setFrameShape(QFrame::NoFrame);
+    }
+    m_ghost->setPixmap(m_dragPixmap);
+    const qreal dpr = m_dragPixmap.devicePixelRatio();
+    m_ghost->resize(QSize(qRound(m_dragPixmap.width() / dpr),
+                          qRound(m_dragPixmap.height() / dpr)));
+    moveGhost();
+    m_ghost->show();
+    m_ghost->raise();
+}
+
+void MarqueeTabBar::moveGhost() {
+    if (!m_ghost)
+        return;
+    m_ghost->move(mapTo(m_ghost->parentWidget(),
+                        m_dragPos - m_dragHotspot));
+    m_ghost->raise(); // stay above the tab buttons between repaints
 }
 
 namespace {
@@ -235,14 +269,6 @@ void MarqueeTabBar::paintEvent(QPaintEvent *) {
                        fm.elidedText(full, Qt::ElideRight,
                                                   textR.width()));
         }
-        p.restore();
-    }
-    if (m_dragging && !m_dragPixmap.isNull()) {
-        // Floating copy of the grabbed tab follows the cursor while the
-        // underlying row reorders live.
-        p.save();
-        p.setOpacity(0.85);
-        p.drawPixmap(m_dragPos - m_dragHotspot, m_dragPixmap);
         p.restore();
     }
 }

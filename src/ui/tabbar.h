@@ -3,15 +3,17 @@
 // Tab bar with music-player-style marquee: tabs keep a sane width (text
 // still elides for measurement), but overflowing titles slide instead of
 // sitting cut off. Full title is always in the tooltip. Drag-reorder
-// works: titles track tab moves, and painting falls back to the native
-// style while a drag is in flight (the native style owns the dragged-tab
-// pixmap and drop indicator).
+// works browser-style: a raised overlay shows a grab of the pressed tab
+// that slides horizontally in its row while the strip reorders underneath.
 #include <QTabBar>
 #include <QMouseEvent>
 #include <QPixmap>
+#include <QPointer>
 #include <QString>
 #include <QTimer>
 #include <QVector>
+
+class QLabel;
 
 class MarqueeTabBar : public QTabBar {
     Q_OBJECT
@@ -40,6 +42,9 @@ private slots:
 
 private:
     bool tabOverflows(int index) const;
+    // Drag ghost: a raised window child showing a grab of the pressed tab.
+    void showGhost();
+    void moveGhost();
     QTimer *m_timer;
     int m_offset = 0;
     QVector<QString> m_fullTitles;
@@ -48,8 +53,11 @@ private:
     bool m_pressed = false;
     bool m_dragging = false;
     QPoint m_pressPos;
-    // Floating copy of the dragged tab, painted over the reordered row.
+    // Floating copy of the dragged tab. It lives in its own raised widget
+    // (see showGhost) so the strip's close buttons cannot paint over it.
+    // m_dragPos.y() stays pinned at the press y: horizontal-only slide.
     QPixmap m_dragPixmap;
     QPoint m_dragHotspot;
     QPoint m_dragPos;
+    QPointer<QLabel> m_ghost;
 };
