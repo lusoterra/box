@@ -44,6 +44,7 @@
 #include <QDrag>
 #include <QFile>
 #include <QFileDialog>
+#include <QFocusEvent>
 #include <QFileInfo>
 #include <QFutureWatcher>
 #include <QHBoxLayout>
@@ -216,6 +217,42 @@ void MainWindow::maybeResumeDownloads() {
 }
 
 bool MainWindow::eventFilter(QObject *o, QEvent *e) {
+    // Omnibar: an empty box offers the favourite tags (no typing needed).
+    // Clicking a suggestion appends it and keeps the dropdown open so a
+    // whole query can be assembled with the mouse.
+    if (o == m_searchEdit && m_searchEdit) {
+        const bool empty = m_searchEdit->text().trimmed().isEmpty();
+        // Only a real user action opens the favourite list: focus bouncing
+        // back from the completer's popup (ActiveWindow/PopupFocusReason)
+        // used to pop it open again right after Enter committed a query.
+        Qt::FocusReason reason = Qt::OtherFocusReason;
+        if (e->type() == QEvent::FocusIn)
+            reason = static_cast<QFocusEvent *>(e)->reason();
+        const bool userFocus =
+            e->type() == QEvent::FocusIn &&
+            (reason == Qt::MouseFocusReason || reason == Qt::TabFocusReason ||
+             reason == Qt::BacktabFocusReason ||
+             reason == Qt::ShortcutFocusReason);
+        if (userFocus || (e->type() == QEvent::MouseButtonPress && empty))
+            showFavSuggestions();
+    } else if (m_completer && m_completer->popup() &&
+               (o == m_completer->popup() ||
+                o == m_completer->popup()->viewport())) {
+        if (e->type() == QEvent::MouseButtonRelease) {
+            auto *me = static_cast<QMouseEvent *>(e);
+            if (me->button() == Qt::LeftButton) {
+                const QModelIndex idx =
+                    m_completer->popup()->indexAt(me->pos());
+                if (idx.isValid())
+                    acceptSuggestion(idx.data(Qt::DisplayRole).toString());
+                return true; // no completer activation: stay open
+            }
+        } else if (e->type() == QEvent::KeyPress &&
+                   static_cast<QKeyEvent *>(e)->key() == Qt::Key_Escape) {
+            m_completer->popup()->hide();
+            return true;
+        }
+    }
     if (o == statusBar() && e->type() == QEvent::MouseButtonPress &&
         m_statusProbeValid) {
         RemotePosts::showProbeDialog(this, m_statusProbeTitle, m_statusProbeText);
@@ -389,8 +426,7 @@ void MainWindow::searchVariants(const Post &post) {
 }
 
 void MainWindow::addTagToSearch(const QString &tag) {
-    if (!m_activeTags.contains(tag))
-        m_activeTags.append(tag);
+    mergeActiveTags({tag}); // "-tag" flips the pill, duplicates are no-ops
     if (isBrowse()) {
         commitSearch();
     } else {

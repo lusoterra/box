@@ -16,7 +16,15 @@
   shown on the `⭳ Downloads` source and the local `Browse Downloads` tab.
 - pills = filter pills in `m_pillBar`/`FlowLayout` (`src/ui/mainwindow.h:281`,
   `src/ui/flowlayout.h`); removable active-filter chips. cards = grid cells
-  painted by `GalleryDelegate` (`src/ui/mainwindow.h:67`).
+  painted by `GalleryDelegate` (`src/ui/mainwindow.h:67`). Entering a query
+  turns each token into a pill (`QueryOr::mergeActiveTokens`): a negated
+  token replaces the matching positive pill, an existing pill is a no-op.
+- favourite tags = starred tags (`fav/tags`, managed in Preferences →
+  General or by right-clicking any tag). They lead every suggestion list and
+  fill the omnibar dropdown when the box is empty.
+- tag cache = `tags.db` (`TagCountCache`, data dir): tag + bucket + post
+  count learned from tag-API answers and the archive; instant, popularity
+  ranked omnibar answers before the network replies.
 - viewer = `ViewerPage`, same-window post view (`src/ui/viewerpage.h:170`);
   stills `ImageView`, GIFs `GifView`, mp4/webm `VideoView`/`VideoPane`.
   Double-click / right-click / F11 toggles fullscreen (`MainWindow::
@@ -67,7 +75,8 @@
   `BooruSite.dragLinkMode` (Inherit follows global).
 - search history = removed (whole-query replay + clock button). Recent
   search tokens still feed suggestions (`historyTokens`,
-  `src/settings.h:50`); the omnibar keeps only the ★ favourite-tags button.
+  `src/settings.h:50`); the omnibar has no extra buttons (the empty-box
+  dropdown lists favourite tags instead).
 - sort orders = `id-desc/id-asc/score/rating/added/...` (`BrowserTab.sort`,
   `src/ui/mainwindow.h:57`); `added` has no server spellings (client-side).
 - OR-groups = `~(...)` query syntax (`src/library/queryor.h:1-9`); one search

@@ -1,5 +1,55 @@
 # Pending tasks (from user goal)
 
+## 163. Omnibar suggestions: favourites dropdown, ranked typing - DONE
+- Removed the ★ button left of the omnibar (starring stays on tag
+  right-click / context menus; `showFavTagsMenu` deleted).
+- Clicking (or tab/Ctrl+L focusing) the empty omnibar opens the
+  favourite-tag dropdown: scrollable, bucket colours, most-used first
+  (post counts from `TagCountCache`, else the archive index).
+- Every left click appends the tag to the box and keeps the dropdown open
+  (`acceptSuggestion`); the token in progress is replaced (a leading `-`
+  is preserved). Esc closes the dropdown only - the second Esc still
+  clears pills/query; a query commit no longer reopens it (focus reason
+  gate: only mouse/tab/shortcut focus counts).
+- Enter (`onSearchReturn`): box wiped, tokens become pills via
+  `QueryOr::mergeActiveTokens` - `-tag` replaces the `tag` pill, `tag`
+  replaces `-tag`, an already-active tag is a no-op, and multi-token
+  input applies both rules in order.
+- Typing ranks exact match -> favourite tags -> archive/cached tags by
+  post count -> remote; `Index::suggest` no longer pools substring hits
+  with prefix hits (that was the "garbage" source), and parsers keep 64
+  rows + ask for 64 so ranking happens before truncation.
+- Verify: live under Xvfb (dropdown, multi-click, Esc, Enter, `-tag`
+  flip, duplicates) + `ctest`.
+
+## 164. Persistent tag cache with post counts (migration) - DONE
+- New `tags.db` in the data dir: `tags(name COLLATE NOCASE PRIMARY KEY,
+  tag, bucket, count, updated)` + a count index, created on open, so an
+  existing file is upgraded in place. WAL, `synchronous=NORMAL`, rows
+  capped at 200k (least popular trimmed).
+- Filled from every tag-API answer (stale ones included) and from the
+  archive vocabulary after a scan (`syncTagCacheFromIndex`, tags with
+  >= 2 posts, top 20k).
+- `TagCountCache::suggest`: prefix-only, count DESC, exact/favourites
+  lifted. Used by `TagSuggester` and by the local-tab suggestion path, so
+  keystrokes answer instantly while the network request is out.
+- Counts never shrink (MAX on upsert); newest spelling/bucket win.
+- Verify: `test_tagcountcache` (prefix, ranking, max-count, reopen) +
+  full `ctest`.
+
+## 162. Tab drag ghost: horizontal-only, opaque, in front - DONE
+- The dragged tab's floating copy followed the cursor in both axes (it
+  could be pulled out of the strip) and painted at 0.85 opacity.
+- Fix: `MarqueeTabBar::mouseMoveEvent` pins the copy's y to the press
+  position (browser-style horizontal slide); no opacity.
+- Second half: the ghost used to be drawn inside `paintEvent`, so the
+  strip's close buttons (child widgets, painted after the bar) punched
+  through it and the dragged tab looked like it slid underneath.
+  `showGhost`/`moveGhost` (`tabbar.cpp`) now show the grab in a raised
+  `QLabel` child of the window, above the bar and its buttons.
+- Verify: `ctest -R test_tabbar`; drag checked live under Xvfb: ghost
+  overlaps neighbours, no button punch-through, drag stays one row.
+
 ## 161. Tab drag reloaded the tab and blinked the strip - DONE
 - Repro: drag a tab past the reorder threshold -> the whole tab/omnibar
   area blinks and the dragged tab re-runs its search/tag load, although it

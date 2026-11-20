@@ -19,6 +19,7 @@ add_executable(box
     src/library/index.cpp
     src/settings.cpp
     src/library/tagtypes.cpp
+    src/library/tagcountcache.cpp
     src/remote/postmeta.cpp
     src/remote/tempmedia.cpp
     src/engines/boorutypes.h

@@ -235,14 +235,13 @@ QVector<Index::Suggestion> Index::suggest(const QString &prefix, int limit,
         return {};
     limit = qMin(limit, 1000);
     // Relevance tiers: the exact tag first, then favourite tags (starred
-    // by the user), then prefix matches by use count, then substring
-    // matches (longer, more specific tags beat short noise at equal
-    // counts). A linear scan over precomputed entries is fast enough; the
-    // omnibar completer prefix-filters the model, so substring hits rank
-    // strictly last.
+    // by the user), then prefix matches by use count. Substring matches
+    // (what you type is in the middle of the tag) only fill leftover slots
+    // AFTER every prefix match: pooling them with prefix hits used to
+    // surface random obscure tags for short prefixes.
     struct Hit {
         const SuggestEntry *e;
-        int tier; // 0 = exact, 1 = favourite, 2 = prefix, 3 = substring
+        int tier; // 0 = exact, 1 = favourite, 2 = prefix
     };
     QVector<Hit> hits;
     hits.reserve(qMax(0, limit * 2));
@@ -257,16 +256,6 @@ QVector<Index::Suggestion> Index::suggest(const QString &prefix, int limit,
         if (tier >= 0)
             hits.append({&e, tier});
     }
-    if (hits.size() < limit) {
-        for (const SuggestEntry &e : m_suggest) {
-            if (e.lower != q && !e.lower.startsWith(q) &&
-                e.lower.contains(q)) {
-                hits.append({&e, 2});
-                if (hits.size() >= limit * 4)
-                    break; // bound the slow path; ranking trims below
-            }
-        }
-    }
     if (hits.isEmpty())
         return {};
     std::stable_sort(hits.begin(), hits.end(), [](const Hit &a, const Hit &b) {
@@ -280,10 +269,54 @@ QVector<Index::Suggestion> Index::suggest(const QString &prefix, int limit,
     });
     if (hits.size() > limit)
         hits.resize(limit);
+    if (hits.size() < limit) {
+        // Slow path, bounded: substring hits ranked strictly last, by use
+        // count, only to fill the remaining popup slots.
+        QVector<const SuggestEntry *> subs;
+        for (const SuggestEntry &e : m_suggest) {
+            if (e.lower != q && !e.lower.startsWith(q) &&
+                e.lower.contains(q))
+                subs.append(&e);
+        }
+        std::stable_sort(subs.begin(), subs.end(),
+                         [](const SuggestEntry *a, const SuggestEntry *b) {
+                             if (a->count != b->count)
+                                 return a->count > b->count;
+                             if (a->tag.size() != b->tag.size())
+                                 return a->tag.size() > b->tag.size();
+                             return a->tag < b->tag;
+                         });
+        for (const SuggestEntry *e : subs) {
+            if (hits.size() >= limit)
+                break;
+            hits.append({e, 3});
+        }
+    }
     QVector<Suggestion> out;
     out.reserve(hits.size());
     for (const Hit &h : hits)
         out.append({h.e->tag, h.e->count, h.e->bucket});
+    return out;
+}
+
+QVector<Index::Suggestion> Index::topTags(int limit) const {
+    QVector<Suggestion> out;
+    if (limit <= 0)
+        return out;
+    out.reserve(m_suggest.size());
+    for (const SuggestEntry &e : m_suggest) {
+        if (e.count < 2 && e.bucket != QStringLiteral("custom"))
+            continue; // one-off tags are noise in a shared cache
+        out.append({e.tag, e.count, e.bucket});
+    }
+    std::stable_sort(out.begin(), out.end(),
+                     [](const Suggestion &a, const Suggestion &b) {
+                         if (a.count != b.count)
+                             return a.count > b.count;
+                         return a.tag < b.tag;
+                     });
+    if (out.size() > limit)
+        out.resize(limit);
     return out;
 }
 

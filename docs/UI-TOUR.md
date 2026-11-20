@@ -38,7 +38,8 @@ fit at once;
 click toggles filter pills, right-click stars/un-stars favourite tags or
 recategorises one (the pane reloads in place, so a source category left
 with its last tag moved away disappears immediately). The
-omnibar keeps only the ★ favourite-tags button. A captcha/PoW wall failure pops the solve browser open (opt out in Preferences → Browse, back to a small menu: solve the challenge in the capture browser, or drop the booru (deselect in multibooru, close a solo tab)). Grid thumbnails hit the same walls: a failed preview retries through the capture browser on its own, and the first failure per site opens one capture pass (never one browser per black card), including on Favourites tabs. Center: post grid. Bottom-left: `40 results · page 1` and infinite scroll (more loads at the bottom); a failed query leaves its one-liner there (click = full server response) plus a `Solve … in browser…` button while walls are reported. The browser
+omnibar has no extra buttons: typing (or clicking it empty) drives the
+suggestions. A captcha/PoW wall failure pops the solve browser open (opt out in Preferences → Browse, back to a small menu: solve the challenge in the capture browser, or drop the booru (deselect in multibooru, close a solo tab)). Grid thumbnails hit the same walls: a failed preview retries through the capture browser on its own, and the first failure per site opens one capture pass (never one browser per black card), including on Favourites tabs. Center: post grid. Bottom-left: `40 results · page 1` and infinite scroll (more loads at the bottom); a failed query leaves its one-liner there (click = full server response) plus a `Solve … in browser…` button while walls are reported. The browser
 opens AT the failing search request. Media walls on a sibling CDN
 (`cdn.donmai.us`) open the site root instead: that CDN page can serve the
 image with no challenge (and mint no cookies), while one site clearance
@@ -57,11 +58,8 @@ search on the site there so the challenge fires, then save. Repeat auto-popups
 within minutes are suppressed (the button stays).
 
 ## 03-omnibar - the control row under the tab bar
-Left to right: `★` favourite-tags menu (click a star to add it to the
-search; coloured by tag bucket, scrolls past ~16 rows; manage/remove in
-Preferences → General) → tag search box (placeholder `Search tags…`, autocomplete
-popup ranked exact-match first, then starred tags, then most-used, then your
-recent tokens - `/` focuses, Enter searches) → rating dropdown (`All`/`General`/`Sensitive`/`Questionable`/`Explicit`; shown on browse, favourites and both downloads views - server-side on remote tabs, client-side on local/favourites) → media dropdown
+Left to right: tag search box (placeholder `Search tags…`, `/` focuses)
+→ rating dropdown (`All`/`General`/`Sensitive`/`Questionable`/`Explicit`; shown on browse, favourites and both downloads views - server-side on remote tabs, client-side on local/favourites) → media dropdown
 (`All media` / `Images` / `GIFs` / `Anything animated` / `Videos`, shown only on
 tabs backed by the download folder (`⭳ Downloads` source or `File → Browse Downloads`);
 filters files under the download folder by extension - a `GIFs` choice covers gif/animated webp/jxl, `Anything animated`
@@ -74,7 +72,20 @@ toggle in place and keep the menu open) → `AI` (one-click
 filter hiding AI-generated posts) → `Download (N)`
 (batch-downloads the selection) → `Clear` (resets pills/query) → reload
 `↺` (`Rescan folder` locally, re-search remotely) → `Page 1 · 40 results`
-→ grid-zoom slider (far right). Below: filter pills - typed tags
+→ grid-zoom slider (far right).
+
+Omnibar suggestions: clicking (or tab-focusing) the empty box opens the
+favourite-tag dropdown - scrollable, coloured by bucket, most-used first.
+Every left click appends that tag to the box and leaves the dropdown open,
+so a whole query can be picked with the mouse; Esc closes the dropdown
+only (the second Esc clears pills/query as before). Typing ranks exact
+match, then starred tags, then cached/archive tags by post count, then
+remote answers that merge in when they land. Enter commits: the box is
+wiped and each tag becomes a pill; a tag already worn as a pill is
+ignored, and `-tag` replaces the existing `tag` pill (same for the other
+direction), so `-tag other` flips `tag` and adds `other` in one go.
+
+Below: filter pills - typed tags
 (including `rating:` and `filetype:` media kinds), query
 groups, rating/source, plus each booru entry's `defaultTags` as removable
 cards (× drops the default for that tab and re-searches). The

@@ -20,6 +20,7 @@ struct TagSuggestion {
 };
 
 class Index;
+class TagCountCache;
 
 class TagSuggester : public QObject {
     Q_OBJECT
@@ -33,6 +34,10 @@ public:
     // (offline completion from your own vocabulary); the remote fetch
     // MERGES into them when it lands (never replaces). Not owned.
     void setLocalIndex(const Index *index);
+    // Persistent vocabulary filled from tag-API answers: answers keystrokes
+    // instantly (ranked by post count) while the network request is out.
+    // Not owned.
+    void setTagCache(TagCountCache *cache) { m_tagCache = cache; }
     // Starred tags (lowercased by the caller): they outrank plain prefix
     // matches in both the instant local answers and the merged remote ones.
     void setFavTags(const QSet<QString> &fav) { m_favTags = fav; }
@@ -92,4 +97,5 @@ private:
     // Memory-only cache (cleared past a few hundred entries).
     QHash<QString, QVector<TagSuggestion>> m_cache;
     const Index *m_localIndex = nullptr;
+    TagCountCache *m_tagCache = nullptr;
 };

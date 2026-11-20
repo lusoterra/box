@@ -88,8 +88,13 @@ void MainWindow::onSearchEdited(const QString &text) {
     // Suggestions follow the tag being typed (2nd, 3rd, inside ~(groups)),
     // not just the first one.
     const QString bare = QueryOr::suggestBare(text);
-    if (bare.length() < 2)
+    if (bare.length() < 2) {
+        // Nothing in progress (fresh box or a trailing space): offer the
+        // favourite tags instead of leaving an empty popup.
+        if (bare.isEmpty())
+            showFavSuggestions();
         return;
+    }
     if (isBrowse()) {
         // Remote tags: ask the tab's first real site (cached per site+prefix).
         BrowserTab *t = currentTab();
@@ -119,10 +124,22 @@ void MainWindow::onSearchEdited(const QString &text) {
         t.count = s.count;
         local.append(t);
     }
+    // Popular vocabulary cached from earlier API answers (local tabs get
+    // it too: a tag you use remotely is still a good completion here).
+    QVector<TagSuggestion> cached;
+    for (const CachedTag &c : m_tagCache.suggest(bare, 40, favTagSet())) {
+        TagSuggestion t;
+        t.tag = c.tag;
+        t.bucket = c.bucket;
+        t.count = c.count;
+        cached.append(t);
+    }
     TagSuggester::appendHistory(local, bare, m_settings.historyTokens,
                                 &m_index, 24);
+    const QVector<TagSuggestion> ranked =
+        TagSuggester::merge(bare, local, cached, favTagSet(), 20);
     QStringList words, buckets;
-    for (const auto &s : local) {
+    for (const TagSuggestion &s : ranked) {
         words << s.tag;
         buckets << s.bucket;
     }
@@ -133,6 +150,115 @@ void MainWindow::onSearchEdited(const QString &text) {
         m_completer->setCompletionPrefix(bare);
         m_completer->complete();
     }
+}
+
+// Empty omnibar (or a finished token): the suggestion dropdown becomes the
+// favourite-tag picker. No network, no typing - click them one by one to
+// build a query, Esc closes the list.
+void MainWindow::showFavSuggestions() {
+    qWarning() << Q_FUNC_INFO;
+    if (!m_searchEdit || !m_completer || !m_completeModel)
+        return;
+    if (!m_completer->widget() || !m_searchEdit->isVisible())
+        return;
+    if (!QueryOr::suggestBare(m_searchEdit->text()).isEmpty())
+        return; // a token is being typed: normal suggestions own the popup
+    struct Entry {
+        QString tag;
+        QString bucket;
+        int count = 0;
+    };
+    QVector<Entry> entries;
+    QSet<QString> seen;
+    for (const QString &raw : m_settings.favTags) {
+        const QString tag = raw.trimmed();
+        const QString key = tag.toLower();
+        if (tag.isEmpty() || seen.contains(key))
+            continue;
+        seen.insert(key);
+        Entry e;
+        e.tag = tag;
+        // Popularity when the tag is in the cache (or the archive), so the
+        // ones that actually have posts surface first.
+        for (const CachedTag &c : m_tagCache.suggest(tag, 1, {})) {
+            if (c.tag.compare(tag, Qt::CaseInsensitive) != 0)
+                continue;
+            e.bucket = c.bucket;
+            e.count = c.count;
+            break;
+        }
+        if (e.bucket.isEmpty())
+            e.bucket = m_index.bucketOf(tag);
+        if (e.bucket.isEmpty())
+            e.bucket = QStringLiteral("general");
+        entries.append(e);
+    }
+    if (entries.isEmpty())
+        return;
+    std::stable_sort(entries.begin(), entries.end(),
+                     [](const Entry &a, const Entry &b) {
+                         if (a.count != b.count)
+                             return a.count > b.count;
+                         return a.tag.compare(b.tag, Qt::CaseInsensitive) < 0;
+                     });
+    QStringList words, buckets;
+    words.reserve(entries.size());
+    buckets.reserve(entries.size());
+    for (const Entry &e : entries) {
+        words << e.tag;
+        buckets << e.bucket;
+    }
+    fillSuggestModel(words, buckets);
+    m_completer->setCompletionPrefix(QString());
+    m_completer->complete();
+}
+
+// Suggestion picked with the mouse: swap the token in progress for the
+// tag (keeping a leading '-' negation) and leave the dropdown open on the
+// next token, so several tags can be picked in a row.
+void MainWindow::acceptSuggestion(const QString &tag) {
+    const QString clean = tag.trimmed();
+    if (clean.isEmpty() || !m_searchEdit)
+        return;
+    const QString cur = m_searchEdit->text();
+    // Replace the token in progress (not "everything after the last
+    // space": a click keeps whatever was typed before it, space or not).
+    const QString bare = QueryOr::suggestBare(cur);
+    qsizetype start = cur.size();
+    if (!bare.isEmpty() && cur.endsWith(bare))
+        start = cur.size() - bare.size();
+    QString head = cur.left(start);
+    QString dash;
+    if (!bare.isEmpty() && head.endsWith(u'-')) {
+        dash = QStringLiteral("-");
+        head.chop(1);
+    }
+    if (!head.isEmpty() && !head.endsWith(u' '))
+        head += u' ';
+    m_searchEdit->setText(head + dash + clean + u' ');
+    m_suggester->cancel();
+    const QString next = QueryOr::suggestBare(m_searchEdit->text());
+    if (next.isEmpty())
+        showFavSuggestions(); // ready for the next favourite
+    else
+        onSearchEdited(m_searchEdit->text());
+}
+
+// Push the archive vocabulary into the persistent tag cache, so its tags
+// answer the omnibar by popularity in every tab (and after a restart).
+// Bounded: only tags with at least two posts, top 20000.
+void MainWindow::syncTagCacheFromIndex() {
+    if (!m_tagCache.isOpen())
+        return;
+    QVector<CachedTag> rows;
+    for (const Index::Suggestion &s : m_index.topTags(20000)) {
+        CachedTag c;
+        c.tag = s.tag;
+        c.bucket = s.bucket;
+        c.count = s.count;
+        rows.append(c);
+    }
+    m_tagCache.upsert(rows);
 }
 
 void MainWindow::fillSuggestModel(const QStringList &tags,
@@ -168,6 +294,20 @@ void MainWindow::fillSuggestModel(const QStringList &tags,
 void MainWindow::onRemoteSuggest(const QString &siteKey, const QString &prefix,
                                  QVector<TagSuggestion> suggestions) {
     Q_UNUSED(siteKey);
+    // Learn from every answer, stale or not: the vocabulary cache is what
+    // makes the next keystroke instant (and ranked by post count).
+    if (!suggestions.isEmpty() && m_tagCache.isOpen()) {
+        QVector<CachedTag> rows;
+        rows.reserve(suggestions.size());
+        for (const TagSuggestion &s : std::as_const(suggestions)) {
+            CachedTag c;
+            c.tag = s.tag;
+            c.bucket = s.bucket;
+            c.count = s.count;
+            rows.append(c);
+        }
+        m_tagCache.upsert(rows);
+    }
     // Stale results (user kept typing) must not overwrite the popup.
     const QString bare = QueryOr::suggestBare(m_searchEdit->text());
     if (bare != prefix || !isBrowse())
@@ -218,18 +358,25 @@ void MainWindow::onRemoteSuggest(const QString &siteKey, const QString &prefix,
     }
 }
 
+// Commit parsed query tokens as pills. "-mytag" replaces the "mytag" pill
+// instead of stacking a contradictory second one; typing a tag that is
+// already there changes nothing (no duplicate pills).
+void MainWindow::mergeActiveTags(const QStringList &tokens) {
+    m_activeTags = QueryOr::mergeActiveTokens(m_activeTags, tokens);
+}
+
 void MainWindow::onSearchReturn() {
     m_suggester->cancel();
+    m_completeTimer->stop();
     m_completer->popup()->hide();
     // The omnibar feeds the card bar below: plain tags become one card
     // each (accumulating with existing cards), OR-groups stay a query
     // but render as one card per group (see updateResultLabel).
     const QueryOr::ParsedQuery pq =
         QueryOr::parse(m_searchEdit->text().trimmed());
-    for (const QString &tok : pq.andTokens) {
-        if (!tok.isEmpty() && !m_activeTags.contains(tok))
-            m_activeTags.append(tok);
-    }
+    // Positive/negative aware: "-mytag" flips the existing "mytag" pill,
+    // repeats are ignored (see mergeActiveTags).
+    mergeActiveTags(pq.andTokens);
     // Remember committed tokens for suggestions (deduped, capped).
     for (const QString &tok : pq.andTokens)
         m_settings.historyTokens =
@@ -243,6 +390,10 @@ void MainWindow::onSearchReturn() {
     saveSettings(m_settings);
     m_searchQuery = canonicalQuery({}, pq.groups);
     m_searchEdit->clear();
+    m_completeTimer->stop(); // clear() itself queues an empty-text edit
+    // Nothing left to auto-complete for: an empty box must not pop the
+    // favourite list back open right after Enter (a fresh click does).
+    m_completeModel->clear();
     commitSearch();
 }
 

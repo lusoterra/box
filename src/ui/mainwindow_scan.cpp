@@ -227,6 +227,7 @@ void MainWindow::onScanFinished(const QString &scannedRoot,
         return;
     }
     m_index.setPosts(scanned);
+    syncTagCacheFromIndex(); // archive vocabulary -> omnibar cache
     const Stats s = m_index.stats();
     m_countLabel->setText(tr("%1 posts").arg(s.total));
     updateDots();

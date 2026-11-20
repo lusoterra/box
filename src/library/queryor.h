@@ -49,4 +49,11 @@ QString suggestBare(const QString &queryText);
 QStringList pushRecentTag(QStringList recent, const QString &tag,
                           int cap = 200);
 
+// Commit query tokens into an active-pill list (the omnibar's Enter path):
+// "-mytag" replaces the "mytag" pill instead of adding a contradictory
+// second one, and a token that is already active is a no-op. Order is
+// preserved for new pills. Pure (unit-tested).
+QStringList mergeActiveTokens(const QStringList &active,
+                              const QStringList &tokens);
+
 } // namespace QueryOr

@@ -2,6 +2,7 @@
 
 #include "index.h"
 #include "remotesource.h"
+#include "tagcountcache.h"
 #include "tagtypes.h"
 
 #include <QJsonArray>
@@ -77,7 +78,7 @@ QVector<TagSuggestion> parseDanbooru(const QByteArray &body) {
         s.count = o.value(QStringLiteral("post_count")).toInt(0);
         out.append(s);
     }
-    return takeCapped(out, 24);
+    return takeCapped(out, 64);
 }
 
 QVector<TagSuggestion> parseGelbooru(const QByteArray &body) {
@@ -109,7 +110,7 @@ QVector<TagSuggestion> parseGelbooru(const QByteArray &body) {
         s.count = o.value(QStringLiteral("count")).toInt(0);
         out.append(s);
     }
-    return takeCapped(out, 24);
+    return takeCapped(out, 64);
 }
 
 QVector<TagSuggestion> parseGelbooruXmlList(const QByteArray &body) {
@@ -137,7 +138,7 @@ QVector<TagSuggestion> parseGelbooruXmlList(const QByteArray &body) {
         if (out.size() >= 64)
             break; // bounded (takeCapped trims to 12 below)
     }
-    return takeCapped(out, 24);
+    return takeCapped(out, 64);
 }
 
 QVector<TagSuggestion> parseMoebooru(const QByteArray &body) {
@@ -160,7 +161,7 @@ QVector<TagSuggestion> parseMoebooru(const QByteArray &body) {
         s.count = o.value(QStringLiteral("count")).toInt(0);
         out.append(s);
     }
-    return takeCapped(out, 24);
+    return takeCapped(out, 64);
 }
 
 QVector<TagSuggestion> parseSzuru(const QByteArray &body) {
@@ -190,7 +191,7 @@ QVector<TagSuggestion> parseSzuru(const QByteArray &body) {
         s.count = o.value(QStringLiteral("usages")).toInt(0);
         out.append(s);
     }
-    return takeCapped(out, 24);
+    return takeCapped(out, 64);
 }
 
 QVector<TagSuggestion> parseHybooru(const QByteArray &body) {
@@ -235,7 +236,7 @@ QVector<TagSuggestion> parseHybooru(const QByteArray &body) {
         s.count = it.value().toInt(0);
         out.append(s);
     }
-    return takeCapped(out, 24);
+    return takeCapped(out, 64);
 }
 
 QVector<TagSuggestion> parseNuuru(const QByteArray &body) {
@@ -279,7 +280,7 @@ QVector<TagSuggestion> parseNuuru(const QByteArray &body) {
             o.value(QStringLiteral("usages")).toInt(0));
         out.append(s);
     }
-    return takeCapped(out, 24);
+    return takeCapped(out, 64);
 }
 
 QVector<TagSuggestion> parsePhilomenaTags(const QByteArray &body,
@@ -309,7 +310,7 @@ QVector<TagSuggestion> parsePhilomenaTags(const QByteArray &body,
         else s.bucket = QStringLiteral("general");
         out.append(s);
     }
-    return takeCapped(out, 24);
+    return takeCapped(out, 64);
 }
 } // namespace
 
@@ -338,7 +339,7 @@ QUrl TagSuggester::urlFor(BooruEngine engine, const QString &baseUrl,
         QUrlQuery q;
         q.addQueryItem(QStringLiteral("search[name_matches]"), prefix + u'*');
         q.addQueryItem(QStringLiteral("search[order]"), QStringLiteral("count"));
-        q.addQueryItem(QStringLiteral("limit"), QStringLiteral("24"));
+        q.addQueryItem(QStringLiteral("limit"), QStringLiteral("64"));
         url.setQuery(q);
         return url;
     }
@@ -350,7 +351,7 @@ QUrl TagSuggester::urlFor(BooruEngine engine, const QString &baseUrl,
         q.addQueryItem(QStringLiteral("s"), QStringLiteral("tag"));
         q.addQueryItem(QStringLiteral("q"), QStringLiteral("index"));
         q.addQueryItem(QStringLiteral("name_pattern"), prefix + u'%');
-        q.addQueryItem(QStringLiteral("limit"), QStringLiteral("24"));
+        q.addQueryItem(QStringLiteral("limit"), QStringLiteral("64"));
         q.addQueryItem(QStringLiteral("json"), QStringLiteral("1"));
         if (creds.complete()) {
             q.addQueryItem(QStringLiteral("api_key"), creds.secret);
@@ -364,7 +365,7 @@ QUrl TagSuggester::urlFor(BooruEngine engine, const QString &baseUrl,
         QUrlQuery q;
         q.addQueryItem(QStringLiteral("name"), prefix + u'*');
         q.addQueryItem(QStringLiteral("order"), QStringLiteral("count"));
-        q.addQueryItem(QStringLiteral("limit"), QStringLiteral("24"));
+        q.addQueryItem(QStringLiteral("limit"), QStringLiteral("64"));
         url.setQuery(q);
         return url;
     }
@@ -372,7 +373,7 @@ QUrl TagSuggester::urlFor(BooruEngine engine, const QString &baseUrl,
         QUrl url(baseUrl + QStringLiteral("/api/tags/"));
         QUrlQuery q;
         q.addQueryItem(QStringLiteral("query"), prefix + u'*');
-        q.addQueryItem(QStringLiteral("limit"), QStringLiteral("24"));
+        q.addQueryItem(QStringLiteral("limit"), QStringLiteral("64"));
         url.setQuery(q);
         return url;
     }
@@ -389,7 +390,7 @@ QUrl TagSuggester::urlFor(BooruEngine engine, const QString &baseUrl,
         QUrl url(baseUrl + QStringLiteral("/api/booru/tags/search"));
         QUrlQuery q;
         q.addQueryItem(QStringLiteral("query"), prefix);
-        q.addQueryItem(QStringLiteral("limit"), QStringLiteral("24"));
+        q.addQueryItem(QStringLiteral("limit"), QStringLiteral("64"));
         url.setQuery(q);
         return url;
     }
@@ -398,7 +399,7 @@ QUrl TagSuggester::urlFor(BooruEngine engine, const QString &baseUrl,
                  QStringLiteral("/search/tags"));
         QUrlQuery q;
         q.addQueryItem(QStringLiteral("q"), prefix + QStringLiteral("*"));
-        q.addQueryItem(QStringLiteral("per_page"), QStringLiteral("24"));
+        q.addQueryItem(QStringLiteral("per_page"), QStringLiteral("64"));
         url.setQuery(q);
         return url;
     }
@@ -416,10 +417,6 @@ void TagSuggester::suggest(const BooruSite &site, const SiteCreds &creds,
         return;
     }
     const QString cacheKey = site.key + u'\n' + prefix.toLower();
-    if (m_cache.contains(cacheKey)) {
-        emit finished(site.key, prefix, m_cache.value(cacheKey));
-        return;
-    }
     QVector<TagSuggestion> local;
     if (m_localIndex) {
         // Instant offline answers from the local archive; the remote
@@ -432,11 +429,37 @@ void TagSuggester::suggest(const BooruSite &site, const SiteCreds &creds,
             local.append(t);
         }
     }
+    // Persistent post-count vocabulary: tags whose API answers landed on
+    // earlier sessions, so a remote tab has popular candidates before the
+    // network answers (and when the host is slow, walled or offline).
+    QVector<TagSuggestion> cached;
+    if (m_tagCache) {
+        for (const CachedTag &c : m_tagCache->suggest(prefix, 40, m_favTags)) {
+            TagSuggestion t;
+            t.tag = c.tag;
+            t.bucket = c.bucket;
+            t.count = c.count;
+            cached.append(t);
+        }
+    }
     // Your own recent tokens fill the rest: familiar answers even when
     // the index is silent (or absent) and the network is slow or walled.
     appendHistory(local, prefix, m_historyTags, m_localIndex, 24);
-    if (!local.isEmpty())
-        emit finished(site.key, prefix, local);
+    // Remembered answers for this exact prefix: still merged with the
+    // favourites/cache/index rows, so priority never depends on whether
+    // the site answered before.
+    QVector<TagSuggestion> remembered;
+    if (m_cache.contains(cacheKey))
+        remembered = m_cache.value(cacheKey);
+    if (!local.isEmpty() || !cached.isEmpty() || !remembered.isEmpty()) {
+        // One relevance pass before the popup sees them: favourites first,
+        // then post count - the same contract the remote merge follows.
+        cached += remembered;
+        emit finished(site.key, prefix,
+                      merge(prefix, local, cached, m_favTags, 20));
+    }
+    if (!remembered.isEmpty())
+        return; // answered from memory: no request needed
     const QUrl url = urlFor(site.engine, site.baseUrl, prefix, creds);
     if (!url.isValid() || url.isEmpty()) {
         emit finished(site.key, prefix, {});

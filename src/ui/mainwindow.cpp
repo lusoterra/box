@@ -957,6 +957,13 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     auto *esc = new QShortcut(QKeySequence(Qt::Key_Escape), this);
     esc->setContext(Qt::ApplicationShortcut);
     connect(esc, &QShortcut::activated, this, [this] {
+        // An open suggestion dropdown owns the first Esc: close it and
+        // leave the query alone (clearing the filters under the popup was
+        // the surprising part).
+        if (m_completer && m_completer->popup()->isVisible()) {
+            m_completer->popup()->hide();
+            return;
+        }
         if (m_viewerFullscreen) {
             setViewerFullscreen(false); // first Esc leaves fullscreen
         } else if (m_pages->currentIndex() == 1) {
@@ -1001,10 +1008,19 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     m_completer->setCompletionMode(QCompleter::PopupCompletion);
     m_completer->popup()->setItemDelegate(new SuggestDelegate(m_completer));
     m_searchEdit->setCompleter(m_completer);
+    // Click in the omnibar with nothing typed -> favourite tags menu;
+    // clicks in the popup append tags instead of closing it.
+    m_searchEdit->installEventFilter(this);
+    m_completer->popup()->installEventFilter(this);
+    m_completer->popup()->viewport()->installEventFilter(this);
     m_suggester = new TagSuggester(this);
     m_suggester->setLocalIndex(&m_index); // offline answers from your archive
     m_suggester->setFavTags(favTagSet()); // starred tags outrank the rest
     m_suggester->setHistoryTags(m_settings.historyTokens); // your own recent tokens
+    // Popular vocabulary learned from earlier tag-API answers: instant
+    // answers ranked by post count, before (and without) the network.
+    m_tagCache.open(TagCountCache::dbPath(effectiveDataDir(m_settings)));
+    m_suggester->setTagCache(&m_tagCache);
     connect(m_suggester, &TagSuggester::finished, this,
             &MainWindow::onRemoteSuggest);
     m_completeTimer = new QTimer(this);
@@ -1137,16 +1153,6 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     m_dotCount = new QLabel(QStringLiteral("·"), this);
     m_dotCount->setStyleSheet(QStringLiteral("color:#4a5068;"));
 
-    // Starred tags menu (right-click any tag to star it): click a star
-    // to add it to the search, like picking a suggestion.
-    auto *favBtn = new QPushButton(QStringLiteral("★"), this);
-    favBtn->setFixedWidth(32);
-    favBtn->setToolTip(tr("Favourite tags"));
-    favBtn->setCursor(Qt::PointingHandCursor);
-    connect(favBtn, &QPushButton::clicked, this,
-            &MainWindow::showFavTagsMenu);
-
-    omniLay->addWidget(favBtn);
     omniLay->addWidget(m_searchEdit, 10);
     omniLay->addWidget(m_ratingBox);
     omniLay->addWidget(m_categoryBox);

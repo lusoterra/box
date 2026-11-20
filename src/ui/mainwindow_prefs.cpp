@@ -216,6 +216,9 @@ void MainWindow::applyPreferences(const AppSettings &app) {
     if (effectiveDataDir(m_settings) != oldDataDir) {
         QDir().mkpath(effectiveDataDir(m_settings));
         m_favDb.open(effectiveDataDir(m_settings));
+        // Tag vocabulary follows the data folder too: suggestions keep
+        // their counts in the new location (fresh DB until one is moved).
+        m_tagCache.open(TagCountCache::dbPath(effectiveDataDir(m_settings)));
         refreshFavTabs();
         statusBar()->showMessage(
             tr("Data folder moved. Existing databases stay where they were "

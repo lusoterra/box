@@ -127,6 +127,36 @@ private slots:
         QVERIFY(!hist.contains(QStringLiteral("cloud")));
     }
 
+    void mergeActiveTokensFlipsPolarity() {
+        // The Enter path: "-mytag" replaces the "mytag" pill, duplicates
+        // are no-ops, several tokens land in order.
+        QCOMPARE(QueryOr::mergeActiveTokens(
+                     {QStringLiteral("mytag")}, {QStringLiteral("-mytag")}),
+                 QStringList{QStringLiteral("-mytag")});
+        QCOMPARE(QueryOr::mergeActiveTokens({QStringLiteral("-mytag")},
+                                            {QStringLiteral("mytag")}),
+                 QStringList{QStringLiteral("mytag")});
+        QCOMPARE(QueryOr::mergeActiveTokens({QStringLiteral("mytag")},
+                                            {QStringLiteral("mytag")}),
+                 QStringList{QStringLiteral("mytag")});
+        QCOMPARE(QueryOr::mergeActiveTokens(
+                     {QStringLiteral("mytag")},
+                     {QStringLiteral("-mytag"), QStringLiteral("other")}),
+                 QStringList({QStringLiteral("-mytag"),
+                              QStringLiteral("other")}));
+        // Case-insensitive on the tag, but the requested spelling wins.
+        QCOMPARE(QueryOr::mergeActiveTokens({QStringLiteral("MyTag")},
+                                            {QStringLiteral("-mytag")}),
+                 QStringList{QStringLiteral("-mytag")});
+        // Unrelated pills are untouched, blanks skipped.
+        QCOMPARE(QueryOr::mergeActiveTokens(
+                     {QStringLiteral("a"), QStringLiteral("-b")},
+                     {QString(), QStringLiteral("  "),
+                      QStringLiteral("c")}),
+                 QStringList({QStringLiteral("a"), QStringLiteral("-b"),
+                              QStringLiteral("c")}));
+    }
+
     void pushRecentTagGaps() {
         // src/library/queryor.h: pushRecentTag
         // cap=0 returns original (no change)

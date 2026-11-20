@@ -47,6 +47,9 @@ public:
     };
     QVector<Suggestion> suggest(const QString &prefix, int limit = 15,
                                const QSet<QString> &favTags = {}) const;
+    // Most-used tags across every bucket (count desc), bounded: seeds the
+    // persistent tag vocabulary cache after a scan.
+    QVector<Suggestion> topTags(int limit = 20000) const;
 
     Stats stats() const;
 

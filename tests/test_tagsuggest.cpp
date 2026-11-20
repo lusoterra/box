@@ -99,12 +99,18 @@ private slots:
     }
 
     void capped() {
+        // Parsers keep a wider pool (64) so ranking happens before the
+        // suggestion cap: truncating the API order to 24 threw away the
+        // popular rows the ranked popup needed.
         QByteArray body = "[";
-        for (int i = 0; i < 30; ++i)
+        for (int i = 0; i < 80; ++i)
             body += QString(R"({"name":"t%1","category":0,"post_count":%1},)").arg(i).toUtf8();
         body.chop(1);
         body += "]";
-        QCOMPARE(TagSuggester::parse(BooruEngine::Danbooru, body).size(), 24);
+        QCOMPARE(TagSuggester::parse(BooruEngine::Danbooru, body).size(), 64);
+        QCOMPARE(TagSuggester::parse(BooruEngine::Danbooru, "[" + body.mid(1))
+                     .size(),
+                 64); // malformed tail: still bounded, no overflow
     }
 
     void gelbooruXmlFallback() {

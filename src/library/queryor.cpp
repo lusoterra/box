@@ -143,4 +143,31 @@ QStringList pushRecentTag(QStringList recent, const QString &tag,
     return recent;
 }
 
+QStringList mergeActiveTokens(const QStringList &active,
+                              const QStringList &tokens) {
+    QStringList out = active;
+    for (const QString &raw : tokens) {
+        const QString tok = raw.trimmed();
+        if (tok.isEmpty())
+            continue;
+        const bool negated = tok.startsWith(u'-') && tok.size() > 1;
+        const QString bare = negated ? tok.mid(1) : tok;
+        // Same tag, opposite polarity: drop the old pill, the requested
+        // form is appended below (so "-mytag" visibly replaces "mytag").
+        for (qsizetype i = out.size() - 1; i >= 0; --i) {
+            const QString &cur = out.at(i);
+            const bool curNeg = cur.startsWith(u'-') && cur.size() > 1;
+            if (curNeg == negated)
+                continue;
+            const QString curBare = curNeg ? cur.mid(1) : cur;
+            if (curBare.compare(bare, Qt::CaseInsensitive) == 0)
+                out.removeAt(i);
+        }
+        if (out.contains(tok))
+            continue; // already an active pill: nothing to do
+        out.append(tok);
+    }
+    return out;
+}
+
 } // namespace QueryOr

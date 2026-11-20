@@ -93,7 +93,9 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     cpp`), so empty/misleading types (Shimmie2) download fine while wall
     pages still fail named; failed rows are clickable to their reason.
   - Also: `imagecache` (full-image fetch for viewer), `thumbloader`
-    (grid thumbs), `tagsuggest` (per-engine autocomplete), `faviconcache`
+    (grid thumbs), `tagsuggest` (per-engine autocomplete: favourites ->
+    cached by post count -> remote, merged into one ranked list),
+    `faviconcache`
     (site icons), `cookiegrab` (WebEngine cookie capture for walled hosts),
     `postmeta` (notes + comments + artist commentary for viewer; rows are
     scoped by `post_id` so an unscoped endpoint can never paint another
@@ -115,12 +117,19 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
   - `cache.h:18` `ScanCache`: per-root SQLite keyed by (path, mtime, size);
     `dbPathFor()` at `:26`.
   - `index.h:30` `Index`: in-memory posts + tag counts; `query()` (`:38`),
-    `suggest()` buckets for colored autocomplete, `collectUntyped()` (`:53`),
+    `suggest()` buckets for colored autocomplete (favourites, then prefix
+    matches by post count; substring hits only fill leftover slots),
+    `topTags()` seeds the persistent cache, `collectUntyped()` (`:53`),
     `applyTagTypes()` (`:64`); `applyTagBuckets()` (`:91`) = same core for
     browse vectors.
+  - `tagcountcache.h` `TagCountCache` (`<data>/tags.db`): tag + bucket +
+    post count learned from every tag-API answer (and from the archive
+    after a scan); prefix query ordered by count, favourites lifted. Feeds
+    the omnibar instantly, before the network answers.
   - `queryor.h:16` `QueryOr`: `~(...)` OR-groups - `parse()` (`:28`),
     `expand()` cartesian cap `kMaxCombos = 12` (`:36`), `groupsMatch()`
-    (`:40`), `suggestBare()` (`:45`).
+    (`:40`), `suggestBare()` (`:45`), `mergeActiveTokens()` (`:50`) = the
+    Enter/pill commit (negation flips a pill, duplicates ignored).
   - `favdb.h:12` `FavDb` (`store.db`): identity `pidFor`/`siteFor` (`:24`),
     `open/add/addMany/remove/list` (`:33-52`), `unlinked()` (`:61`),
     `setTagSplits()` (`:68`); `migrateHashIds()` (`:74`).
@@ -160,8 +169,10 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     with http(s)/mailto-only links, relative targets resolved per entry;
     used by the commentary popup and comment bodies);
     `prefsdlg` (tabbed preferences; booru editor/detect/probe + swatches/`harvestInto` split to `src/ui/prefsdlg_booru.cpp`); `straydialog` (Download/Add Stray);
-    `flowlayout` (filter pills), `tabbar` (marquee tabs, drag-reorder
-    with welcome pinned first), `theme`, `uicons`,
+    `flowlayout` (filter pills), `tabbar` (marquee tabs, browser-style
+    drag-reorder: opaque grab shown in a raised overlay child of the
+    window, sliding horizontally only, with welcome pinned first),
+    `theme`, `uicons`,
     `progressbar`.
 - `src/post.h:11` `Post`: shared record (local + remote + fav rows);
   `tagTokenOk/cleanTagTokens` hygiene (`:110-128`), `isAiPost` (`:87`).

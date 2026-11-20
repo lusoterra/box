@@ -8,6 +8,7 @@
 #include "sidecarrefresh.h"
 #include "faviconcache.h"
 #include "straydialog.h"
+#include "tagcountcache.h"
 #include "tagsuggest.h"
 
 #include <QFutureWatcher>
@@ -294,8 +295,18 @@ private slots:
     void onRemoteSuggest(const QString &siteKey, const QString &prefix,
                          QVector<TagSuggestion> suggestions);
     void fillSuggestModel(const QStringList &tags, const QStringList &buckets);
+    // Empty omnibar: the popup becomes the favourite-tag picker (ranked by
+    // post count, no network).
+    void showFavSuggestions();
+    // Mouse pick: append the tag as a query token, keep the popup open.
+    void acceptSuggestion(const QString &tag);
+    // Seed the persistent tag cache with the archive vocabulary.
+    void syncTagCacheFromIndex();
     void onFaviconReady(const QString &key, QIcon icon);
     void onSearchReturn();
+    // Append committed query tokens as pills: negated tokens flip the
+    // matching positive pill, repeats are ignored.
+    void mergeActiveTags(const QStringList &tokens);
     void onCompleterActivated(const QString &text);
     void removeQueryGroup(int gi); // drop one OR-group card, keep the rest
     static QString canonicalQuery(const QStringList &andTokens,
@@ -309,15 +320,14 @@ private slots:
     void normalizeTypedFiletype();
     void onTagClicked();
     void onTagContextMenu(const QPoint &pos); // sidebar right-click: fav toggle
-    // Starred tags (lowercased) for suggestion priority + the ★ menu.
+    // Starred tags (lowercased) for suggestion priority + tag menus.
     QSet<QString> favTagSet() const;
     bool isFavTag(const QString &tag) const;
     void toggleFavTag(const QString &tag);
-    void showFavTagsMenu();
     // HyBooru summaries carry no tags: hydrate the loaded page in the
     // background so the sidebar fills like every other engine.
     void scheduleHybooruHydration();
-    void pumpHybooruHydration(); // omnibar ★: starred tags, click adds to search
+    void pumpHybooruHydration(); // omnibar suggestions: click adds to search
     void onGridActivated(const QModelIndex &index);
     void onThumbnailReady(const QString &key, const QImage &image);
     void onThumbQueued(const QString &key);
@@ -486,6 +496,9 @@ private:
     QCompleter *m_completer = nullptr;
     QStandardItemModel *m_completeModel = nullptr; // DisplayRole tag, UserRole bucket
     TagSuggester *m_suggester = nullptr;
+    // Persistent tag vocabulary (tag + bucket + post count) learned from
+    // tag-API answers: instant, popularity-ranked omnibar answers.
+    TagCountCache m_tagCache;
     FaviconCache *m_favicons = nullptr;
     // One icon per site, side by side (titled tabs show the query text,
     // untagged tabs fall back to "booru1 + booru2" text + these marks).
