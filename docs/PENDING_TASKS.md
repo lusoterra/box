@@ -1,5 +1,17 @@
 # Pending tasks (from user goal)
 
+## 151. Boorus… menu closes after one pick - DONE
+- Checkable entries used to dismiss the popup, forcing a reopen per booru.
+- New `MultiPickMenu` (`src/ui/multipickmenu.h`): a click on an enabled
+  checkable entry calls `QAction::trigger()` in place (toggles, re-emits
+  `QMenu::triggered`) and swallows the release; `Space` does the same from
+  the keyboard. Plain entries, `Enter`, separators and outside clicks
+  still close it.
+- Used for the per-tab source picker (`src/ui/mainwindow.cpp:1010`,
+  `m_sitesMenu`), so `onSitesChanged` fires per toggle without closing.
+- Verify: `test_multipick` (`checkableEntriesStayOpen`,
+  `plainEntriesStillClose`), `QT_QPA_PLATFORM=offscreen`; full `ctest`.
+
 ## 150. Fullscreen exit drops the maximized state on KWin Wayland - DONE
 - KWin answers `showFullScreen()` -> unfullscreen by restoring the last
   *normal* geometry and clearing the maximize flag; a maximize requested

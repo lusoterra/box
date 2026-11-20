@@ -69,7 +69,8 @@ adds mp4/webm; no tags or MIME sniffing) → sort dropdown (`Recently added`/`Ne
 Rated`/`Low Rated`/`Random`; shown on browse, favourites and downloads - server-side via translated tags where the
 engine supports it on remote tabs, all orders client-side on local tabs and favourites; remote options that would only re-sort client-side disable
 themselves per tab, `Recently added`/`Newest` never reorder on remote) →
-`Boorus…` (per-tab source picker, multibooru merge) → `AI` (one-click
+`Boorus…` (per-tab source picker, multibooru merge; checkable entries
+toggle in place and keep the menu open) → `AI` (one-click
 filter hiding AI-generated posts) → `Download (N)`
 (batch-downloads the selection) → `Clear` (resets pills/query) → reload
 `↺` (`Rescan folder` locally, re-search remotely) → `Page 1 · 40 results`
@@ -178,7 +179,11 @@ Copyright, General, Meta, then native categories from unusual boorus.
 ## 10-boorus-menu - Boorus… per-tab picker (`m_sitesMenu`)
 Checkable entries: configured sites by label, then virtual sources `♥
 Favourites` and `⭳ Downloads` (merged locally, page 1 only). Checking a
-set re-searches immediately (`onSitesChanged`).
+set re-searches immediately (`onSitesChanged`). The popup stays open
+while entries are clicked or toggled with `Space` (`MultiPickMenu`,
+`src/ui/multipickmenu.h`), so several sources can be picked without
+reopening it; `Enter`, a click outside or a plain (non-checkable) entry
+still closes it.
 
 ## 11-viewer - same-window post viewer (`ViewerPage`, `src/ui/viewerpage.cpp`)
 Toolbar: `Back`, `‹ 8 / 40 ›` stepping, `Fit`, `100%`, `Variants`

@@ -9,6 +9,7 @@
 #include "imagecache.h"
 #include "losnimport.h"
 #include "metaparser.h"
+#include "multipickmenu.h"
 #include "prefsdlg.h"
 #include "progressbar.h"
 #include "gridloadingoverlay.h"
@@ -1007,7 +1008,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     reloadBtn->setToolTip(tr("Re-scan folder"));
     m_sitesBtn = new QPushButton(tr("Boorus…"), this);
     m_sitesBtn->setToolTip(tr("Choose boorus for this tab"));
-    m_sitesMenu = new QMenu(this);
+    m_sitesMenu = new MultiPickMenu(this);
     rebuildSitesMenu();
     m_sitesBtn->setMenu(m_sitesMenu);
     connect(m_sitesMenu, &QMenu::triggered, this, &MainWindow::onSitesChanged);
