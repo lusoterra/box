@@ -177,6 +177,10 @@ void MainWindow::offerRestartForLanguage(const QString &previous) {
         QMessageBox::Yes)
         return;
     flushSavedTabs();
+    // Restart bypasses closeEvent(): stop the sockets but keep the download
+    // journal, so the relaunched instance offers to resume the batch.
+    if (m_downloads)
+        m_downloads->shutdown();
     QProcess::startDetached(QCoreApplication::applicationFilePath(),
                             QCoreApplication::arguments().mid(1));
     QCoreApplication::quit();

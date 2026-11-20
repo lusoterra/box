@@ -48,6 +48,14 @@ public:
     // Forget one entry (delete the cached file): the next request()
     // refetches bytes. Used by viewer reload, not by normal browsing.
     void drop(const QString &url);
+    // True while a request() for this URL is in flight. DownloadManager
+    // parks its job on this instead of starting a second fetch.
+    bool isFetching(const QString &url) const { return m_active.contains(url); }
+    // Pin a fetch against navigation-driven cancelUrl(): an explicit
+    // Download started while the viewer is still buffering must not be
+    // aborted by stepping to another post.
+    void pin(const QString &url) { m_pinned.insert(url); }
+    void unpin(const QString &url) { m_pinned.remove(url); }
 
 signals:
     void ready(const QString &url, const QString &localPath);
@@ -69,6 +77,7 @@ private:
 
     QNetworkAccessManager *m_nam;
     QHash<QString, QNetworkReply *> m_active;
+    QSet<QString> m_pinned; // survives cancelUrl() (download waiting on it)
     QSet<QString> m_prefetched; // range warm-ups already issued
     QMap<QString, QNetworkAccessManager *> m_proxyNams;
     QString m_baseDir;

@@ -395,6 +395,10 @@ private:
     // rows fetched into the shared temp folder (TempMedia) first.
     void copyPostFilesToClipboard(const QVector<Post> &posts);
     void showDlDialog();
+    // Quit/startup download guards: warn before dropping a batch, and
+    // offer to continue a journal left by a previous session.
+    void showDownloadQuitPrompt();
+    void maybeResumeDownloads();
     void updateDownloadButton();
     void rebuildCombos();
     // Sidebar section fill: entries render in the section's bucket colour
@@ -528,6 +532,10 @@ private:
     Post m_hybooruCurrent;
     DownloadManager *m_downloads = nullptr;
     class DownloadsDialog *m_dlDialog = nullptr;
+    // Close flow: set when the quit prompt was already answered (or a
+    // drain was requested), so the second close() goes straight through.
+    bool m_quitBypassPrompt = false;
+    bool m_quitWhenDownloadsDone = false;
     // Download destinations written since their tab last scanned
     // (canonical paths): landing on a dirty local tab rescans it, so new
     // files show up without a manual F5. Cleared once consumed.

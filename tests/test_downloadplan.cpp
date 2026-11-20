@@ -1,9 +1,14 @@
 // Batch download planning: per-site layouts, skip rules, filename fallbacks.
+#include "cachejanitor.h"
 #include "downloadmanager.h"
+#include "downloadqueue.h"
+#include "imagecache.h"
 #include "remotesource.h"
 
 #include <QCoreApplication>
+#include <QCryptographicHash>
 #include <QDir>
+#include <QFile>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QtTest>
@@ -291,6 +296,107 @@ private slots:
         QCOMPARE(skipped.size(), 1);
         QCOMPARE(skipped.first().post.fileUrl,
                  QStringLiteral("https://x/b.jpg"));
+    }
+
+    void cachedFullResMovesIntoDownloads() {
+        // Viewing a post buffers the full-res bytes: pressing Download must
+        // move that file (instant, no second fetch) and evict the cache
+        // entry, not duplicate the bytes.
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        CacheJanitor::setTrackingDir(tmp.filePath(QStringLiteral("janitor")));
+        ImageCache cache;
+        cache.setBaseDir(tmp.filePath(QStringLiteral("cache")));
+        cache.setEnabled(true);
+        QVERIFY(QDir().mkpath(tmp.filePath(QStringLiteral("cache"))));
+        const QString url =
+            QStringLiteral("https://img.example/abc.png");
+        const QString cached =
+            tmp.filePath(QStringLiteral("cache")) + u'/' +
+            QString::fromLatin1(
+                QCryptographicHash::hash(url.toUtf8(),
+                                         QCryptographicHash::Sha1).toHex()) +
+            QStringLiteral(".png");
+        {
+            QFile f(cached);
+            QVERIFY(f.open(QIODevice::WriteOnly));
+            f.write("not html, pretend png");
+        }
+        QJsonObject raw;
+        raw[QStringLiteral("id")] = 42;
+        raw[QStringLiteral("md5")] =
+            QStringLiteral("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        raw[QStringLiteral("file_ext")] = QStringLiteral("png");
+        DownloadManager dl;
+        dl.setImageCache(&cache);
+        QSignalSpy landed(&dl, &DownloadManager::fileFinished);
+        const QString dest = tmp.filePath(QStringLiteral("dl"));
+        dl.enqueue(DownloadManager::plan(
+            {remotePost(QStringLiteral("Gelbooru"), url, raw)}, dest));
+        QCOMPARE(landed.count(), 1);
+        QVERIFY(landed.first().at(1).toBool());
+        QVERIFY(!QFile::exists(cached)); // moved: cache entry is gone
+        const QString final =
+            dest + QStringLiteral(
+                       "/Gelbooru/Gelbooru_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.png");
+        QVERIFY(QFile::exists(final));
+        QVERIFY(QFile::exists(
+            dest + QStringLiteral(
+                       "/Gelbooru/Gelbooru_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.json")));
+        CacheJanitor::setTrackingDir(QString());
+    }
+
+    void queueJournalRoundTrip() {
+        DownloadJob job;
+        job.fileName = QStringLiteral("Gelbooru_abc.png");
+        job.filePath = QStringLiteral("/dl/Gelbooru/Gelbooru_abc.png");
+        job.jsonPath = QStringLiteral("/dl/Gelbooru/Gelbooru_abc.json");
+        job.post = remotePost(
+            QStringLiteral("Gelbooru"),
+            QStringLiteral("https://img.example/abc.png"),
+            QJsonObject{{QStringLiteral("id"), 7},
+                        {QStringLiteral("md5"),
+                         QStringLiteral("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")}});
+        job.post.id = 7;
+        job.post.tags = QStringLiteral("safe tag");
+        job.post.customTags.insert(QStringLiteral("meme"),
+                                   {QStringLiteral("one")});
+        DownloadJob restored;
+        QVERIFY(DownloadQueueStore::jobFromJson(
+            DownloadQueueStore::jobToJson(job), restored));
+        QCOMPARE(restored.fileName, job.fileName);
+        QCOMPARE(restored.filePath, job.filePath);
+        QCOMPARE(restored.jsonPath, job.jsonPath);
+        QCOMPARE(restored.post.siteName, QStringLiteral("Gelbooru"));
+        QCOMPARE(restored.post.id, qint64(7));
+        QCOMPARE(restored.post.fileUrl,
+                 QStringLiteral("https://img.example/abc.png"));
+        QCOMPARE(restored.post.tags, QStringLiteral("safe tag"));
+        QCOMPARE(restored.post.customTags.value(QStringLiteral("meme")),
+                 QStringList{QStringLiteral("one")});
+        QCOMPARE(restored.post.rawJson.value(QStringLiteral("id")).toInt(), 7);
+
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        const QString db = tmp.filePath(QStringLiteral("queue.db"));
+        {
+            DownloadQueueStore store(db);
+            QVERIFY(store.isOpen());
+            QVERIFY(store.add({job}));
+            QCOMPARE(store.count(), 1);
+            const QList<DownloadJob> loaded = store.load();
+            QCOMPARE(loaded.size(), 1);
+            QCOMPARE(loaded.first().post.fileUrl, job.post.fileUrl);
+            QVERIFY(store.removeUrl(job.post.fileUrl));
+            QCOMPARE(store.count(), 0);
+        }
+        {
+            DownloadQueueStore store(db);
+            QVERIFY(store.isOpen());
+            QVERIFY(store.add({job}));
+            QVERIFY(store.clear());
+            QCOMPARE(store.count(), 0);
+        }
     }
 
     void cancelUrlsDropsQueued() {

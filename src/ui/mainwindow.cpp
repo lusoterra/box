@@ -685,7 +685,9 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     });
     auto *webDownloads = new WebEngineDownloadBackend(this);
     m_downloads->setWebBackend(webDownloads);
-    m_downloads->setImageCache(m_imgCache); // full-res copy shortcut
+    m_downloads->setImageCache(m_imgCache); // full-res move shortcut
+    m_downloads->setQueueStorePath(effectiveDataDir(m_settings) +
+                                   QStringLiteral("/download_queue.db"));
     m_downloads->setUgoiraFormat(m_settings.ugoiraFormat);
     m_downloads->setUgoiraFrameDelayMs(m_settings.ugoiraFrameDelayMs);
     m_thumbs->setWebBackend(webDownloads);
@@ -805,7 +807,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     fileMenu->addAction(tr("Redownload missing files…"), this,
                         &MainWindow::redownloadMissingFiles);
     fileMenu->addSeparator();
-    fileMenu->addAction(QStringLiteral("&Quit"), qApp, &QApplication::quit);
+    fileMenu->addAction(QStringLiteral("&Quit"), this, &QWidget::close);
 
     auto *tabsMenu = menuBar()->addMenu(tr("&Tabs"));
     tabsMenu->addAction(tr("&Close Folder"), this, &MainWindow::showWelcome);
@@ -1728,6 +1730,23 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
                         updateWallButton();
                 }
             });
+    connect(m_downloads, &DownloadManager::cancelled, this, [this] {
+        if (!m_quitWhenDownloadsDone)
+            return;
+        m_quitWhenDownloadsDone = false;
+        statusBar()->showMessage(tr("Download cancelled - quit cancelled."),
+                                 6000);
+    });
+    // Deferred quit: the close prompt asked to finish the current job or
+    // the whole queue first. Closing again bypasses the prompt because the
+    // download manager is idle by then.
+    connect(m_downloads, &DownloadManager::finished, this, [this] {
+        if (!m_quitWhenDownloadsDone)
+            return;
+        m_quitWhenDownloadsDone = false;
+        m_quitBypassPrompt = true;
+        close();
+    });
     statusBar()->showMessage(tr("Ready"));
     statusBar()->installEventFilter(this); // click errors -> response viewer
 
@@ -1761,10 +1780,11 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
         m_tabBar->setCurrentIndex(0);
         showWelcome();
     }
-    // Missing-download offer at startup: favourited files deleted outside
-    // the app get a redownload prompt once per launch (deferred past show;
+    // Unfinished downloads first (a modal batch proposal), then the
+    // missing-download offer: favourited files deleted outside the app get
+    // a redownload prompt once per launch (deferred past show;
     // relinkFavourites heals moved files first so only true losses prompt).
-    QTimer::singleShot(0, this, [this] { relinkFavourites(); });
+    QTimer::singleShot(0, this, [this] { maybeResumeDownloads(); });
 }
 
 RemoteSource *MainWindow::sourceFor(const QString &key) {

@@ -25,6 +25,7 @@
 
 class QNetworkAccessManager;
 class WebDownloadBackend; // webdlbackend.h (injected by the app)
+class DownloadQueueStore; // downloadqueue.h
 
 struct DownloadJob {
     Post post;
@@ -54,6 +55,7 @@ class DownloadManager : public QObject {
     Q_OBJECT
 public:
     explicit DownloadManager(QObject *parent = nullptr);
+    ~DownloadManager() override;
 
     // Build target paths for posts under destDir (one subfolder per site).
     static QList<DownloadJob> plan(const QVector<Post> &posts, const QString &destDir);
@@ -70,6 +72,20 @@ public:
 
     void enqueue(const QList<DownloadJob> &jobs);
     void cancel();
+    // Stop accepting new work but let flights already in progress finish
+    // (quit path: "finish current, then quit"). Queued jobs stay in the
+    // journal so the next launch can resume them.
+    void stopAfterCurrent();
+    // Close-time teardown: abort sockets and drop partial files, but keep
+    // the persisted queue for the next launch (unlike cancel(), which is
+    // an explicit user abort and forgets the batch).
+    void shutdown();
+    // Crash-safe queue journal. Empty path disables persistence.
+    void setQueueStorePath(const QString &path);
+    QList<DownloadJob> persistedJobs() const;
+    void resumePersistedQueue();
+    void discardPersistedQueue(); // forget rows + stray .part files
+    int pendingCount() const; // queued + in-flight + waiting on the cache
     // Drop queued/in-flight jobs for these file URLs (explicit unfavourite:
     // a finishing download must neither resurrect the row nor rewrite the
     // deleted file). Dropped flights report Cancelled, never failure.
@@ -94,6 +110,12 @@ signals:
     void fileStarted(const QString &fileName);
     void fileFinished(const QString &fileName, bool ok, const QString &error);
     void fileSkipped(const QString &fileName); // already on disk
+    // A fresh batch replaced the previous one (progress restarts at 0/N).
+    // Appended batches do not emit this, so the dialog keeps its log.
+    void batchStarted(int total);
+    // Explicit Cancel (downloads dialog) ended a running batch: any
+    // pending "quit when downloads finish" decision is void.
+    void cancelled();
     // A finished file landed under a different name than planned (md5
     // rename below): retitle its in-flight log row.
     void fileRenamed(const QString &oldName, const QString &newName);
@@ -102,6 +124,10 @@ signals:
 private slots:
     void onWebProgress(qint64 id, qint64 received, qint64 total);
     void onWebFinished(qint64 id, bool ok, const QString &error);
+    // The viewer's full-res fetch finished (or failed): resume jobs that
+    // were parked waiting for its bytes instead of fetching them twice.
+    void onCacheReady(const QString &url, const QString &localPath);
+    void onCacheFailed(const QString &url, const QString &error);
 
 private:
     struct Flight {
@@ -109,6 +135,7 @@ private:
         class QNetworkReply *reply = nullptr;
         class QFile *file = nullptr;
         qint64 webId = -1; // >= 0 while a browser-backend flight runs
+        QString partPath;  // bytes land here, renamed to job.filePath on success
     };
     void pump();
     void startWebFlight(const DownloadJob &job);
@@ -122,10 +149,18 @@ private:
                      bool *walled = nullptr);
     Flight *findWebFlight(qint64 webId);
     QNetworkAccessManager *namForProxy(const QString &proxySpec);
+    void persistAccepted(const QList<DownloadJob> &jobs);
+    void forgetPersisted(const QString &url);
 
     class QNetworkAccessManager *m_nam;
     QList<DownloadJob> m_queue;
     QList<Flight *> m_flights;
+    // Jobs whose bytes are currently being fetched into the viewer cache.
+    // Parked here (and the cache fetch pinned) instead of starting a second
+    // request; navigation must not abort them.
+    QList<DownloadJob> m_cacheWait;
+    QSet<QString> m_cachePinned;
+    DownloadQueueStore *m_store = nullptr;
     WebDownloadBackend *m_webBackend = nullptr;
     class ImageCache *m_imgCache = nullptr; // viewer-warmed full bytes
     qint64 m_webNextId = 1;
@@ -150,6 +185,7 @@ public:
     void setTotal(int n);
 
 public slots:
+    void onBatchStarted(int total);
     void onProgress(int done, int total, const QString &current);
     void onFileStarted(const QString &fileName);
     void onFileFinished(const QString &fileName, bool ok, const QString &error);

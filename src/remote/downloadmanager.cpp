@@ -1,4 +1,5 @@
 #include "downloadmanager.h"
+#include "downloadqueue.h"
 #include "imagecache.h"
 #include "filehash.h"
 #include "progressbar.h"
@@ -20,13 +21,20 @@
 #include <QPushButton>
 #include <QRegularExpression>
 #include <QSet>
+#include <QTimer>
 #include <QUrl>
 #include <QVBoxLayout>
 
 #include <algorithm>
+#include <utility>
 
 DownloadManager::DownloadManager(QObject *parent)
     : QObject(parent), m_nam(new QNetworkAccessManager(this)) {}
+
+DownloadManager::~DownloadManager() {
+    delete m_store;
+    m_store = nullptr;
+}
 
 QNetworkAccessManager *DownloadManager::namForProxy(const QString &proxySpec) {
     if (proxySpec.trimmed().isEmpty())
@@ -64,10 +72,47 @@ QString md5Stem(const QString &fileUrl) {
     static const QRegularExpression hex32(QStringLiteral("^[0-9a-f]{32}$"));
     return hex32.match(stem).hasMatch() ? stem : QString();
 }
+
+// Move a completed file onto its final download path. A rename keeps the
+// bytes on the same filesystem (the cache -> downloads case: instant), with
+// a copy fallback for cross-device destinations. Never leaves both copies.
+bool moveFileOverwrite(const QString &src, const QString &dest) {
+    if (src.isEmpty() || dest.isEmpty())
+        return false;
+    if (QFileInfo(src).absoluteFilePath() == QFileInfo(dest).absoluteFilePath())
+        return QFile::exists(src);
+    QDir().mkpath(QFileInfo(dest).absolutePath());
+    if (QFile::exists(dest) && !QFile::remove(dest))
+        return false;
+    if (QFile::rename(src, dest))
+        return true;
+    if (!QFile::copy(src, dest))
+        return false;
+    QFile::remove(src);
+    return true;
+}
+
+QString partPathFor(const DownloadJob &job) {
+    return job.filePath + QStringLiteral(".part");
+}
 } // namespace
 
 void DownloadManager::setImageCache(ImageCache *cache) {
+    if (m_imgCache == cache)
+        return;
+    if (m_imgCache) {
+        disconnect(m_imgCache, nullptr, this, nullptr);
+        for (const QString &url : std::as_const(m_cachePinned))
+            m_imgCache->unpin(url);
+        m_cachePinned.clear();
+    }
     m_imgCache = cache;
+    if (!m_imgCache)
+        return;
+    connect(m_imgCache, &ImageCache::ready, this,
+            &DownloadManager::onCacheReady);
+    connect(m_imgCache, &ImageCache::failed, this,
+            &DownloadManager::onCacheFailed);
 }
 
 void DownloadManager::setWebBackend(WebDownloadBackend *backend) {
@@ -222,49 +267,100 @@ QList<DownloadJob> DownloadManager::dedupeJobs(const QList<DownloadJob> &jobs,
     return unique;
 }
 
+void DownloadManager::persistAccepted(const QList<DownloadJob> &jobs) {
+    if (m_store)
+        m_store->add(jobs);
+}
+
+void DownloadManager::forgetPersisted(const QString &url) {
+    if (m_store && !url.isEmpty())
+        m_store->removeUrl(url);
+}
+
 void DownloadManager::enqueue(const QList<DownloadJob> &jobsIn) {
-    cancel();
+    // A batch that arrives while a previous batch is still running is
+    // appended instead of cancelling it: browsing to another post and
+    // pressing Download must never abort the file already in flight.
+    const bool fresh = !m_active && m_queue.isEmpty() && m_flights.isEmpty() &&
+                       m_cacheWait.isEmpty();
+    if (fresh) {
+        m_summary = DownloadSummary();
+        m_done = 0;
+        m_total = 0;
+        if (m_store)
+            m_store->clear(); // new session starts from this batch only
+    }
+
+    QSet<QString> knownPaths;
+    QSet<QString> knownUrls;
+    for (const DownloadJob &j : std::as_const(m_queue)) {
+        knownPaths.insert(j.filePath);
+        knownUrls.insert(j.post.fileUrl);
+    }
+    for (const Flight *f : std::as_const(m_flights)) {
+        knownPaths.insert(f->job.filePath);
+        knownUrls.insert(f->job.post.fileUrl);
+    }
+    for (const DownloadJob &j : std::as_const(m_cacheWait)) {
+        knownPaths.insert(j.filePath);
+        knownUrls.insert(j.post.fileUrl);
+    }
+
     QList<DownloadJob> skipped;
     QList<DownloadJob> duplicates;
     const QList<DownloadJob> jobs = dedupeJobs(jobsIn, &duplicates);
-    for (const DownloadJob &j : duplicates) {
+    auto skipOne = [&](const DownloadJob &j) {
         // Same bytes, same target from a duplicate DB row: one fetch is
         // enough. Record the path so callers linking rows still see it.
         m_summary.skipped++;
         m_summary.downloaded.append(j.post);
         m_summary.finalPaths.append({j.post.fileUrl, j.filePath});
+        ++m_done; // skipped rows still advance the bar
         skipped.append(j);
-    }
+        forgetPersisted(j.post.fileUrl);
+    };
+    for (const DownloadJob &j : std::as_const(duplicates))
+        skipOne(j);
+    QList<DownloadJob> accepted;
     for (const DownloadJob &j : jobs) {
+        if (knownPaths.contains(j.filePath) ||
+            knownUrls.contains(j.post.fileUrl))
+            continue; // already queued/in flight: never start a second fetch
         if (QFile::exists(j.filePath)) {
-            m_summary.skipped++;
             // Already on disk still counts as downloaded for the
             // favourite coupling (otherwise re-downloads never get
             // favourited/linked and Downloads/Favourites diverge).
-            m_summary.downloaded.append(j.post);
-            m_summary.finalPaths.append({j.post.fileUrl, j.filePath});
-            skipped.append(j);
+            skipOne(j);
             continue;
         }
-        m_queue.append(j);
+        QFile::remove(partPathFor(j)); // stale interrupted attempt
+        accepted.append(j);
+        knownPaths.insert(j.filePath);
+        knownUrls.insert(j.post.fileUrl);
     }
-    m_done = 0;
-    m_total = m_queue.size() + m_summary.skipped;
-    if (m_queue.isEmpty()) {
+
+    m_queue.append(accepted);
+    m_total += accepted.size() + skipped.size();
+    if (fresh)
+        emit batchStarted(m_total);
+    if (m_queue.isEmpty() && m_flights.isEmpty() && m_cacheWait.isEmpty()) {
+        m_active = false;
         emit finished(m_summary);
         return;
     }
-    m_convertCancel.storeRelaxed(0); // fresh batch clears any abort
+    m_convertCancel.storeRelaxed(0); // fresh work clears any prior abort
     m_active = true;
-    emit progress(0, m_total, QString());
-    for (const DownloadJob &j : skipped)
+    persistAccepted(accepted);
+    emit progress(m_done, m_total, QString());
+    for (const DownloadJob &j : std::as_const(skipped))
         emit fileSkipped(j.fileName);
     pump();
 }
 
 void DownloadManager::cancel() {
+    const bool wasActive = m_active;
     m_convertCancel.storeRelaxed(1); // abort any in-flight ugoira encode
-    for (Flight *f : m_flights) {
+    for (Flight *f : std::as_const(m_flights)) {
         if (f->webId >= 0 && m_webBackend)
             m_webBackend->cancel(f->webId); // backend drops partial files
         if (f->reply) {
@@ -274,28 +370,145 @@ void DownloadManager::cancel() {
         }
         if (f->file) {
             f->file->close();
-            f->file->remove(); // partial file
             delete f->file;
         }
+        QFile::remove(f->partPath); // interrupted bytes, never the final
         delete f;
     }
     m_flights.clear();
+    for (const DownloadJob &j : std::as_const(m_cacheWait)) {
+        QFile::remove(partPathFor(j));
+        m_cachePinned.remove(j.post.fileUrl);
+        if (m_imgCache) {
+            m_imgCache->unpin(j.post.fileUrl);
+            m_imgCache->cancelUrl(j.post.fileUrl); // explicit abort
+        }
+    }
+    m_cacheWait.clear();
+    for (const DownloadJob &j : std::as_const(m_queue))
+        QFile::remove(partPathFor(j));
+    m_queue.clear();
+    if (m_store)
+        m_store->clear(); // explicit abort forgets the batch
+    m_active = false;
+    m_done = 0;
+    m_total = 0;
+    m_summary = DownloadSummary();
+    if (wasActive)
+        emit cancelled();
+}
+
+void DownloadManager::stopAfterCurrent() {
+    for (const DownloadJob &j : std::as_const(m_queue))
+        QFile::remove(partPathFor(j));
+    m_queue.clear();
+    // Flights and cache waits are "current": let them land. Their journal
+    // rows are removed on completion, queued rows stay for the next launch.
+    if (m_active && m_flights.isEmpty() && m_cacheWait.isEmpty()) {
+        // Deferred: the caller is inside a modal quit prompt and will
+        // close the window from the finished handler.
+        QTimer::singleShot(0, this, [this] {
+            if (m_active && m_flights.isEmpty() && m_cacheWait.isEmpty() &&
+                m_queue.isEmpty()) {
+                m_active = false;
+                emit finished(m_summary);
+            }
+        });
+    }
+}
+
+void DownloadManager::shutdown() {
+    m_convertCancel.storeRelaxed(1);
+    for (Flight *f : std::as_const(m_flights)) {
+        if (f->webId >= 0 && m_webBackend)
+            m_webBackend->cancel(f->webId);
+        if (f->reply) {
+            disconnect(f->reply, nullptr, this, nullptr);
+            f->reply->abort();
+            f->reply->deleteLater();
+        }
+        if (f->file) {
+            f->file->close();
+            delete f->file;
+        }
+        QFile::remove(f->partPath);
+        delete f;
+    }
+    m_flights.clear();
+    for (const QString &url : std::as_const(m_cachePinned)) {
+        if (m_imgCache)
+            m_imgCache->unpin(url);
+    }
+    m_cachePinned.clear();
+    m_cacheWait.clear();
     m_queue.clear();
     m_active = false;
-    m_summary = DownloadSummary();
+    // The journal keeps every unfinished job on purpose: the next launch
+    // offers to resume it.
+}
+
+void DownloadManager::setQueueStorePath(const QString &path) {
+    delete m_store;
+    m_store = path.isEmpty() ? nullptr : new DownloadQueueStore(path);
+}
+
+QList<DownloadJob> DownloadManager::persistedJobs() const {
+    return m_store ? m_store->load() : QList<DownloadJob>();
+}
+
+void DownloadManager::resumePersistedQueue() {
+    const QList<DownloadJob> jobs = persistedJobs();
+    if (!jobs.isEmpty())
+        enqueue(jobs);
+}
+
+void DownloadManager::discardPersistedQueue() {
+    const QList<DownloadJob> jobs = persistedJobs();
+    for (const DownloadJob &j : jobs)
+        QFile::remove(partPathFor(j));
+    if (m_store)
+        m_store->clear();
+}
+
+int DownloadManager::pendingCount() const {
+    return m_queue.size() + m_flights.size() + m_cacheWait.size();
 }
 
 void DownloadManager::cancelUrls(const QSet<QString> &fileUrls) {
     if (fileUrls.isEmpty())
         return;
-    const int before = m_queue.size() + m_flights.size();
+    const int before = pendingCount();
+    for (const QString &url : fileUrls)
+        forgetPersisted(url);
     m_queue.erase(std::remove_if(m_queue.begin(), m_queue.end(),
                                  [&](const DownloadJob &j) {
-                                     return fileUrls.contains(j.post.fileUrl);
+                                     if (!fileUrls.contains(j.post.fileUrl))
+                                         return false;
+                                     QFile::remove(partPathFor(j));
+                                     return true;
                                  }),
                   m_queue.end());
+    QList<DownloadJob> deadWaits;
+    for (const DownloadJob &j : std::as_const(m_cacheWait)) {
+        if (!fileUrls.contains(j.post.fileUrl))
+            continue;
+        deadWaits.append(j);
+        if (m_imgCache) {
+            m_imgCache->unpin(j.post.fileUrl);
+            m_imgCache->cancelUrl(j.post.fileUrl);
+        }
+        m_cachePinned.remove(j.post.fileUrl);
+    }
+    m_cacheWait.erase(std::remove_if(m_cacheWait.begin(), m_cacheWait.end(),
+                                     [&](const DownloadJob &j) {
+                                         return fileUrls.contains(
+                                             j.post.fileUrl);
+                                     }),
+                      m_cacheWait.end());
+    for (const DownloadJob &j : std::as_const(deadWaits))
+        emit fileFinished(j.fileName, false, tr("Cancelled"));
     QList<Flight *> dead;
-    for (Flight *f : m_flights) {
+    for (Flight *f : std::as_const(m_flights)) {
         if (fileUrls.contains(f->job.post.fileUrl))
             dead.append(f);
     }
@@ -310,14 +523,14 @@ void DownloadManager::cancelUrls(const QSet<QString> &fileUrls) {
         }
         if (f->file) {
             f->file->close();
-            f->file->remove(); // partial file
             delete f->file;
         }
+        QFile::remove(f->partPath); // interrupted bytes, never the final
         emit fileFinished(f->job.fileName, false, tr("Cancelled"));
         delete f;
     }
-    m_total = qMax(0, m_total - (before - m_queue.size() - m_flights.size()));
-    if (m_queue.isEmpty() && m_flights.isEmpty())
+    m_total = qMax(0, m_total - (before - pendingCount()));
+    if (m_queue.isEmpty() && m_flights.isEmpty() && m_cacheWait.isEmpty())
         m_active = false;
     else
         pump(); // fill freed flight slots
@@ -328,18 +541,39 @@ void DownloadManager::pump() {
         DownloadJob job = m_queue.takeFirst();
         QDir().mkpath(QFileInfo(job.filePath).absolutePath());
         if (m_imgCache && !job.post.fileUrl.isEmpty()) {
-            // Already on disk at full resolution (viewed): copy the
-            // bytes instead of re-fetching. Cache holds complete
+            // Already on disk at full resolution (viewed): move the bytes
+            // instead of fetching them again. Cache holds complete
             // image/video bodies only (walls never land there).
-            const QString have = m_imgCache->localPath(job.post.fileUrl);
-            if (!have.isEmpty() && QFile::copy(have, job.filePath)) {
-                QString error;
-                const bool ok = completeJob(job, &error);
+            const QString have =
+                m_imgCache->localPath(job.post.fileUrl, &job.post);
+            if (!have.isEmpty()) {
+                if (moveFileOverwrite(have, job.filePath)) {
+                    // The bytes now live in the download folder: evict the
+                    // cache entry + its bookkeeping.
+                    m_imgCache->drop(job.post.fileUrl);
+                    QString error;
+                    const bool ok = completeJob(job, &error);
+                    emit fileStarted(job.fileName);
+                    emit progress(m_done, m_total, job.fileName);
+                    // No repump: the outer loop keeps filling flights, so a
+                    // long all-cached run stays flat instead of recursing.
+                    finishJob(job, ok, error, false, false);
+                    continue;
+                }
+            } else if (m_imgCache->isFetching(job.post.fileUrl)) {
+                // The viewer is still buffering this exact full-res URL.
+                // Park the job instead of starting a second request and pin
+                // the cache fetch so stepping to another post cannot abort
+                // it. onCacheReady() moves the bytes once they land.
+                if (!m_cachePinned.contains(job.post.fileUrl)) {
+                    m_imgCache->pin(job.post.fileUrl);
+                    m_cachePinned.insert(job.post.fileUrl);
+                }
+                m_cacheWait.append(job);
                 emit fileStarted(job.fileName);
-                emit progress(m_done, m_total, job.fileName);
-                // No repump: the outer loop keeps filling flights, so a
-                // long all-cached run stays flat instead of recursing.
-                finishJob(job, ok, error, false, false);
+                emit progress(m_done, m_total,
+                              tr("Waiting for the viewer download: %1")
+                                  .arg(job.fileName));
                 continue;
             }
         }
@@ -353,10 +587,12 @@ void DownloadManager::pump() {
             startWebFlight(job);
             continue;
         }
-        auto *file = new QFile(job.filePath);
+        const QString part = partPathFor(job);
+        QFile::remove(part);
+        auto *file = new QFile(part);
         if (!file->open(QIODevice::WriteOnly)) {
             delete file;
-            const QString name = job.fileName;
+            QFile::remove(part);
             finishJob(job, false, tr("Cannot write %1").arg(job.filePath));
             continue;
         }
@@ -370,7 +606,7 @@ void DownloadManager::pump() {
                       QStringLiteral("box/0.1 (batch download)"));
         req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                          QNetworkRequest::NoLessSafeRedirectPolicy);
-        auto *flight = new Flight{job, nullptr, file};
+        auto *flight = new Flight{job, nullptr, file, -1, part};
         flight->reply = namForProxy(proxySpecForJob(job))->get(req);
         connect(flight->reply, &QNetworkReply::finished, this,
                 &DownloadManager::onFileReply);
@@ -386,17 +622,19 @@ void DownloadManager::pump() {
         emit fileStarted(job.fileName);
         emit progress(m_done, m_total, job.fileName);
     }
-    if (m_active && m_flights.isEmpty()) {
+    if (m_active && m_flights.isEmpty() && m_cacheWait.isEmpty() &&
+        m_queue.isEmpty()) {
         m_active = false;
         emit finished(m_summary);
     }
 }
 
 void DownloadManager::startWebFlight(const DownloadJob &job) {
-    auto *flight = new Flight{job, nullptr, nullptr};
+    auto *flight = new Flight{job, nullptr, nullptr, -1, partPathFor(job)};
     flight->webId = m_webNextId++;
     m_flights.append(flight);
-    m_webBackend->start(flight->webId, job.post.fileUrl, job.filePath);
+    QFile::remove(flight->partPath);
+    m_webBackend->start(flight->webId, job.post.fileUrl, flight->partPath);
 }
 
 void DownloadManager::onFileReply() {
@@ -419,6 +657,7 @@ void DownloadManager::onFileReply() {
     // Final paths: the sidecar + media may be renamed below (md5 fixup),
     // so the job copy - not the queued original - is what finishes.
     DownloadJob job = flight->job;
+    const QString part = flight->partPath;
     // Cloudflare/captcha CDNs reject QNAM even with a valid clearance
     // (TLS/UA fingerprint). Instead of failing the download, re-run it
     // once through the capture browser that minted the clearance.
@@ -428,11 +667,10 @@ void DownloadManager::onFileReply() {
         job.webTried = true;
         if (flight->file) {
             flight->file->close();
-            flight->file->remove();
             delete flight->file;
             flight->file = nullptr;
         }
-        QFile::remove(job.filePath);
+        QFile::remove(part);
         reply->deleteLater();
         delete flight;
         startWebFlight(job);
@@ -457,7 +695,7 @@ void DownloadManager::onFileReply() {
         flight->file->close();
         QByteArray head;
         {
-            QFile probe(job.filePath);
+            QFile probe(part);
             if (probe.open(QIODevice::ReadOnly))
                 head = probe.read(512);
         }
@@ -467,7 +705,6 @@ void DownloadManager::onFileReply() {
             // The head names a captcha/wall and points at cookie capture
             // instead of quoting a misleading content type.
             ok = false;
-            flight->file = nullptr; // closed+kept: cleanup below only deletes
             const bool isWall =
                 RemotePosts::looksLikeChallengePage(head) ||
                 RemotePosts::looksLikeCloudflareWall(head);
@@ -475,25 +712,34 @@ void DownloadManager::onFileReply() {
                 QUrl(job.post.fileUrl).host(), head,
                 reply->header(QNetworkRequest::ContentTypeHeader).toString());
             if (isWall) {
-                QFile::remove(job.filePath);
+                QFile::remove(part);
                 if (retryInBrowser())
                     return;
                 reply->deleteLater();
                 finishJob(job, false, error, true);
+                delete flight->file;
                 delete flight;
                 return;
             }
         } else {
-            bool walled = false;
-            if (!completeJob(job, &error, &walled))
+            // Bytes are only promoted to the final name after the sniff:
+            // a crash or abort never leaves a half-written .jpg behind.
+            if (!moveFileOverwrite(part, job.filePath)) {
                 ok = false;
-            if (walled) {
-                if (retryInBrowser())
+                error = tr("Cannot write %1").arg(job.filePath);
+            } else {
+                bool walled = false;
+                if (!completeJob(job, &error, &walled))
+                    ok = false;
+                if (walled) {
+                    if (retryInBrowser())
+                        return;
+                    reply->deleteLater();
+                    finishJob(job, ok, error, true);
+                    delete flight->file;
+                    delete flight;
                     return;
-                reply->deleteLater();
-                finishJob(job, ok, error, true);
-                delete flight;
-                return;
+                }
             }
         }
     } else if (!ok) {
@@ -511,12 +757,12 @@ void DownloadManager::onFileReply() {
         }
     }
     if (flight->file) {
-        if (!ok) {
-            flight->file->close();
-            flight->file->remove();
-        }
+        flight->file->close();
         delete flight->file;
     }
+    // Only the staging name is ever removed here: on success it was
+    // already renamed onto job.filePath.
+    QFile::remove(part);
     reply->deleteLater();
     finishJob(job, ok, error);
     delete flight;
@@ -533,13 +779,83 @@ void DownloadManager::onWebFinished(qint64 id, bool ok, const QString &errorIn) 
         return;
     m_flights.removeAll(flight);
     DownloadJob job = flight->job;
+    const QString part = flight->partPath;
     delete flight;
     QString error = errorIn;
-    // The backend drops partial files itself on failure.
     bool walled = false;
-    if (ok && !completeJob(job, &error, &walled))
-        ok = false;
+    if (ok) {
+        // The backend writes the staged .part name; promote it only after
+        // it reports success (a failure/cancel never leaves a final file).
+        if (!moveFileOverwrite(part, job.filePath)) {
+            ok = false;
+            error = tr("Cannot write %1").arg(job.filePath);
+        } else if (!completeJob(job, &error, &walled)) {
+            ok = false;
+        }
+    }
+    if (!ok)
+        QFile::remove(part); // backend normally dropped it already
     finishJob(job, ok, error, walled);
+    pump();
+}
+
+void DownloadManager::onCacheReady(const QString &url, const QString &localPath) {
+    if (m_cacheWait.isEmpty())
+        return;
+    QList<DownloadJob> ready;
+    for (const DownloadJob &j : std::as_const(m_cacheWait)) {
+        if (j.post.fileUrl == url)
+            ready.append(j);
+    }
+    if (ready.isEmpty())
+        return; // a viewer prefetch, not one of our parked jobs
+    m_cacheWait.erase(std::remove_if(m_cacheWait.begin(), m_cacheWait.end(),
+                                     [&](const DownloadJob &j) {
+                                         return j.post.fileUrl == url;
+                                     }),
+                      m_cacheWait.end());
+    if (m_cachePinned.remove(url) && m_imgCache)
+        m_imgCache->unpin(url);
+    for (DownloadJob &job : ready) {
+        QDir().mkpath(QFileInfo(job.filePath).absolutePath());
+        if (!moveFileOverwrite(localPath, job.filePath)) {
+            // Cache bytes vanished/undecodable mid-move: fall back to a
+            // normal network flight instead of failing the download.
+            QFile::remove(partPathFor(job));
+            m_queue.prepend(job);
+            continue;
+        }
+        if (m_imgCache)
+            m_imgCache->drop(url); // bytes moved: forget the cache entry
+        QString error;
+        const bool ok = completeJob(job, &error);
+        emit progress(m_done, m_total, job.fileName);
+        finishJob(job, ok, error, false, false);
+    }
+    pump();
+}
+
+void DownloadManager::onCacheFailed(const QString &url, const QString &) {
+    if (m_cacheWait.isEmpty())
+        return;
+    QList<DownloadJob> failed;
+    for (const DownloadJob &j : std::as_const(m_cacheWait)) {
+        if (j.post.fileUrl == url)
+            failed.append(j);
+    }
+    if (failed.isEmpty())
+        return; // a viewer prefetch failure, not a parked job
+    m_cacheWait.erase(std::remove_if(m_cacheWait.begin(), m_cacheWait.end(),
+                                     [&](const DownloadJob &j) {
+                                         return j.post.fileUrl == url;
+                                     }),
+                      m_cacheWait.end());
+    if (m_cachePinned.remove(url) && m_imgCache)
+        m_imgCache->unpin(url);
+    // The cache request failed (wall/network): run the normal download
+    // path, which has its own browser retry for fingerprint walls.
+    for (int i = failed.size() - 1; i >= 0; --i)
+        m_queue.prepend(failed.at(i));
     pump();
 }
 
@@ -664,6 +980,7 @@ bool DownloadManager::completeJob(DownloadJob &job, QString *error,
 
 void DownloadManager::finishJob(const DownloadJob &job, bool ok,
                                  const QString &error, bool walled, bool repump) {
+    forgetPersisted(job.post.fileUrl);
     if (!ok && walled) {
         // HTML-where-media-was-expected: remember where, so the solve
         // browser opens AT the wall instead of the homepage.
@@ -736,15 +1053,18 @@ void DownloadsDialog::setTotal(int n) {
     m_bar->setValue(0);
 }
 
+void DownloadsDialog::onBatchStarted(int total) {
+    // New batch: start the log over (the dialog outlives batches).
+    m_log->clear();
+    m_rows.clear();
+    m_cancelled = false;
+    m_cancelBtn->setEnabled(true);
+    m_cancelBtn->setText(tr("Cancel"));
+    m_bar->setRange(0, qMax(1, total));
+    m_bar->setValue(0);
+}
+
 void DownloadsDialog::onProgress(int done, int total, const QString &current) {
-    if (done == 0) {
-        // New batch: start the log over (the dialog outlives batches).
-        m_log->clear();
-        m_rows.clear();
-        m_cancelled = false;
-        m_cancelBtn->setEnabled(true);
-        m_cancelBtn->setText(tr("Cancel"));
-    }
     m_bar->setRange(0, qMax(1, total));
     m_bar->setValue(done);
     if (!current.isEmpty())

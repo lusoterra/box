@@ -134,6 +134,13 @@ see 20-stray-dialog), `Update downloaded sidecars…`,
 `Redownload missing files…`, `Quit`. Media downloads tolerate
 empty/misleading `Content-Type` headers (Shimmie2 serves real JPEGs with
 none): magic bytes decide, wall pages still fail with a named error.
+Closing while a download runs asks `Abort and quit` (delete partials),
+`Finish current, then quit`, `Finish all, then quit`, or
+`Keep downloading`; a later launch offers Continue / Remove history /
+Close Box for the unfinished queue. Pressing Download on a post the
+viewer already buffered moves those full-res bytes into the folder
+instantly, and waiting for a mid-flight viewer fetch pins it so
+navigation cannot abort it.
 
 ## 05-tabs-menu - Tabs
 `Close Folder`, `Start fresh session` (closes every tab, forgets the

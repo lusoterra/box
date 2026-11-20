@@ -180,6 +180,22 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
   - `plan(posts, destDir)` -> one `DownloadJob` per post
     (`downloadmanager.h:28`): `dest/<host>/<host>_<md5>.<ext>` + `.json`;
     host folder via `fsTagForPost` (`mainwindow.cpp:884,3261`).
+  - Media bytes are staged as `<dest>.part` and renamed onto the final
+    name only after the content sniff; abort/crash can therefore never
+    leave a half-written image under a real filename. The viewer's
+    full-res cache is *moved* into the download folder (`QFile::rename`,
+    copy fallback). When the viewer is still buffering the exact URL the
+    job is parked and the cache fetch pinned (`ImageCache::pin`), so the
+    bytes land once and stepping to another post cannot abort them.
+  - Every accepted job is journaled in `download_queue.db`
+    (`downloadqueue.*`); completion/skip/failure deletes the row. A
+    later launch offers Continue / Remove history / Close Box for the
+    leftovers. Enqueues while a batch runs append instead of cancelling
+    it.
+  - Closing the app mid-download asks Abort and quit / Finish current,
+    then quit / Finish all, then quit / Keep downloading. Abort deletes
+    `.part` files + journal; finish-current leaves the rest of the queue
+    in the journal for the next launch, finish-all drains it.
   - `completeJob`: content sniff, md5 hash-and-rename for nameless files,
     pretty-printed raw-API sidecar write (backfilled from the parsed post
     to a full gallery-dl-style record: urls, buckets, dims, ids);
@@ -220,7 +236,8 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
   `baseDir`; "cache nothing" (and browsing without full cache) keeps a
   bounded 512 MB session RAM cache, staged only in `box-ram-<pid>/` and
   destroyed on unload. `prefetchRange` warms adjacent videos with a 2 MB
-  Range GET without caching the stream.
+  Range GET without caching the stream. A URL an explicit download is
+  waiting on is pinned against navigation-time `cancelUrl()`.
 - Favourites (`src/library/favdb.h`):
   - Identity = site+id (`pidFor`, `:24`); id-less strays key by URL hash,
     pure-local rows by path hash; `migrateHashIds()` heals unstable rows
@@ -307,7 +324,7 @@ ini + `boorus.json` to the target and leaves only the pointer stub.
 | Kind    | Path | Notes |
 |---|---|---|
 | Config  | `~/.config/box/settings.ini` (+ `.bak` last-good backup, `.tmp` stage) | all keys below; `boorus/*` registry; atomic tmp+rename writes |
-| Data    | `~/.local/share/box/` (or `storage/dataDir`) | `store.db` favs, `tag_types.db` verdicts, `downloads/`, `session.lock`, `box.log[.1-.3]` rotating logs (`src/applog.cpp`) (`settings.h:122-167`, `main.cpp:112`) |
+| Data    | `~/.local/share/box/` (or `storage/dataDir`) | `store.db` favs, `tag_types.db` verdicts, `downloads/`, `download_queue.db` unfinished download journal, `session.lock`, `box.log[.1-.3]` rotating logs (`src/applog.cpp`) (`settings.h:122-167`, `main.cpp:112`) |
 | Cache   | `~/.cache/box/` (`appCacheDir`, `settings.cpp:15`) | `roots/` scan index, `thumbs/`, full-image cache, `cache.db`; `clearIndexCache()` drops `roots/` only. Media deletes go through `CacheJanitor::purgeMedia()` (SFW-only keeps provably SFW entries; everything removes `thumbs/`+`full/`) and never touch favourites, downloads, or the scan index. SFW-only still caches explicitly downloaded media (`Post::downloaded`); a favourite with no downloaded file stays filtered. |
 
 Key `settings.ini` groups: `cache/` (index, mode=all|sfw|none, full, limitMB,

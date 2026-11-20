@@ -123,6 +123,8 @@ void MainWindow::showDlDialog() {
     if (!m_dlDialog) {
         m_dlDialog = new DownloadsDialog(m_downloads, dest, this);
         m_dlDialog->setAttribute(Qt::WA_DeleteOnClose, false);
+        connect(m_downloads, &DownloadManager::batchStarted, m_dlDialog,
+                &DownloadsDialog::onBatchStarted);
         connect(m_downloads, &DownloadManager::progress, m_dlDialog,
                 &DownloadsDialog::onProgress);
         connect(m_downloads, &DownloadManager::fileStarted, m_dlDialog,

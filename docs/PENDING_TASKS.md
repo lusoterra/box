@@ -1,5 +1,24 @@
 # Pending tasks (from user goal)
 
+## 149. Cache-move downloads, crash-safe queue, quit/resume guard - DONE
+- Pressing Download for a post the viewer buffered now moves the cached
+  full-res file into the download folder (`QFile::rename`, copy fallback)
+  and evicts the cache entry; a mid-flight viewer fetch parks the job
+  instead of starting a second request.
+- `ImageCache::pin()/unpin()` keeps that fetch alive when stepping to
+  another post (`cancelUrl` ignores pinned URLs). `onCacheReady/Failed`
+  in `DownloadManager` finish the parked job.
+- `enqueue()` appends while a batch is active instead of cancelling it.
+- Downloads stage as `<dest>.part` and rename only after the content
+  sniff (QNAM + browser backends), so aborts/crashes never leave
+  corrupt media under the real name.
+- `download_queue.db` journal (`src/remote/downloadqueue.*`) records
+  every unfinished job; startup asks Continue / Remove history /
+  Close Box. Closing mid-download asks Abort / Finish current / Finish
+  all / Keep downloading.
+- Verify: `test_downloadplan` (`cachedFullResMovesIntoDownloads`,
+  `queueJournalRoundTrip`), full `ctest`.
+
 ## 148. Engines renamed to their software + Philomena family de-duplicated - DONE
 - Verified live: Derpibooru = Philomena v1 (`/api/v1/json/...`, `{images}`/
   `{image}`); Twibooru = booru-on-rails 3.1.0 (footer) with a v3-shaped API

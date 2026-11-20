@@ -43,6 +43,7 @@ add_executable(box
     src/remote/strayresolve.cpp
     src/remote/powsolver.cpp
     src/remote/downloadmanager.cpp
+    src/remote/downloadqueue.cpp
     src/remote/imagecache.cpp
     src/remote/thumbloader.cpp
     src/ui/theme.cpp

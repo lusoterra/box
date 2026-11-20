@@ -309,6 +309,8 @@ void ImageCache::cancelUrl(const QString &url) {
     auto it = m_active.find(url);
     if (it == m_active.end())
         return;
+    if (m_pinned.contains(url))
+        return; // an explicit Download is waiting on these bytes
     disconnect(it.value(), nullptr, this, nullptr);
     it.value()->abort();
     it.value()->deleteLater();

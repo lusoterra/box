@@ -45,7 +45,7 @@ add_unit_test(test_explicittags test_explicittags.cpp)
 add_unit_test(test_filehash test_filehash.cpp)
 add_unit_test(test_metaparser test_metaparser.cpp ../src/library/metaparser.cpp)
 add_unit_test(test_losnimport test_losnimport.cpp ../src/library/losnimport.cpp
-              ../src/remote/downloadmanager.cpp ../src/remote/webdlbackend.h ${REMOTE_SOURCES}
+              ../src/remote/downloadmanager.cpp ../src/remote/downloadqueue.cpp ../src/remote/webdlbackend.h ${REMOTE_SOURCES}
               ../src/remote/imagecache.cpp ../src/library/cachejanitor.cpp
               ${UGOIRA_SOURCES}
               ../src/library/favdb.cpp ../src/settings.cpp ../src/library/metaparser.cpp
@@ -56,7 +56,7 @@ add_unit_test(test_strayresolve test_strayresolve.cpp ../src/remote/strayresolve
 set_tests_properties(test_strayresolve PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_unit_test(test_downloadplan test_downloadplan.cpp ../src/remote/downloadmanager.cpp
-              ../src/remote/webdlbackend.h ${REMOTE_SOURCES} ${UGOIRA_SOURCES} ../src/ui/progressbar.cpp
+              ../src/remote/downloadqueue.cpp ../src/remote/webdlbackend.h ${REMOTE_SOURCES} ${UGOIRA_SOURCES} ../src/ui/progressbar.cpp
               ../src/remote/imagecache.cpp ../src/library/cachejanitor.cpp ../src/settings.cpp)
 add_unit_test(test_settings test_settings.cpp ../src/settings.cpp
               ${REMOTE_SOURCES})
@@ -130,7 +130,7 @@ add_unit_test(test_gridwindow test_gridwindow.cpp
               ../src/ui/straydialog.cpp ../src/ui/progressbar.cpp
               ../src/ui/gridloadingoverlay.cpp
               ../src/remote/imagecache.cpp ../src/remote/postmeta.cpp
-              ../src/remote/downloadmanager.cpp ../src/library/losnimport.cpp
+              ../src/remote/downloadmanager.cpp ../src/remote/downloadqueue.cpp ../src/library/losnimport.cpp
               ../src/remote/strayresolve.cpp
               ../src/library/favdb.cpp ../src/library/metaparser.cpp
               ../src/library/queryor.cpp ../src/library/tagtypes.cpp
@@ -188,6 +188,7 @@ add_unit_test(test_security test_security.cpp ${REMOTE_SOURCES}
               ../src/library/favdb.cpp ../src/settings.cpp
               ../src/library/queryor.cpp
               ../src/remote/downloadmanager.cpp
+              ../src/remote/downloadqueue.cpp
               ../src/remote/webdlbackend.h
               ../src/remote/imagecache.cpp ../src/library/cachejanitor.cpp
               ${UGOIRA_SOURCES}
