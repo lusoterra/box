@@ -55,6 +55,8 @@ QVector<TagSuggestion> takeCapped(QVector<TagSuggestion> v, int cap = 12) {
 QVector<TagSuggestion> parseGelbooruXmlList(const QByteArray &body);
 QVector<TagSuggestion> parseHybooru(const QByteArray &body);
 QVector<TagSuggestion> parseNuuru(const QByteArray &body);
+QVector<TagSuggestion> parseE621(const QByteArray &body);
+QVector<TagSuggestion> parseAnimePictures(const QByteArray &body);
 QVector<TagSuggestion> parsePhilomenaTags(const QByteArray &body,
                                          const QString &countKey);
 
@@ -312,6 +314,91 @@ QVector<TagSuggestion> parsePhilomenaTags(const QByteArray &body,
     }
     return takeCapped(out, 64);
 }
+
+QVector<TagSuggestion> parseE621(const QByteArray &body) {
+    // [{name, post_count, category}] - e621 numbering (verified live:
+    // 5 species, 6 invalid, 7 meta, 8 lore). Furry-native buckets have
+    // no classic home: they suggest as "custom" (native-category blue),
+    // exactly like Szurubooru natives elsewhere.
+    QVector<TagSuggestion> out;
+    QJsonParseError err;
+    const QJsonDocument doc = QJsonDocument::fromJson(body, &err);
+    if (err.error != QJsonParseError::NoError || !doc.isArray())
+        return out;
+    for (const QJsonValue &v : doc.array()) {
+        if (!v.isObject())
+            continue;
+        const QJsonObject o = v.toObject();
+        const QString name = o.value(QStringLiteral("name")).toString().trimmed();
+        if (name.isEmpty())
+            continue;
+        TagSuggestion s;
+        s.tag = name;
+        s.count = qMax(0, o.value(QStringLiteral("post_count")).toInt());
+        switch (o.value(QStringLiteral("category")).toInt(0)) {
+        case 1:
+            s.bucket = QStringLiteral("artist");
+            break;
+        case 3:
+            s.bucket = QStringLiteral("copyright");
+            break;
+        case 4:
+            s.bucket = QStringLiteral("character");
+            break;
+        case 7:
+            s.bucket = QStringLiteral("meta");
+            break;
+        case 0: // general
+        case 6: // invalid: deprecated/ambiguous, reads as general
+            s.bucket = QStringLiteral("general");
+            break;
+        default: // species, lore, contributor, anything newer: native
+            s.bucket = QStringLiteral("custom");
+            break;
+        }
+        out.append(s);
+    }
+    return takeCapped(out, 64);
+}
+
+QVector<TagSuggestion> parseAnimePictures(const QByteArray &body) {
+    // {tags: [{t (bold-wrapped), t2, c (numeric type), id}]} - types
+    // (Boorusama tagTypeFromInt): 1 character, 4 author, 3/5/6 copyright*,
+    // 2/7/0 general. Underscored to box tag form on the way in.
+    QVector<TagSuggestion> out;
+    QJsonParseError err;
+    const QJsonDocument doc = QJsonDocument::fromJson(body, &err);
+    if (err.error != QJsonParseError::NoError || !doc.isObject())
+        return out;
+    for (const QJsonValue &v :
+         doc.object().value(QStringLiteral("tags")).toArray()) {
+        if (!v.isObject())
+            continue;
+        const QJsonObject o = v.toObject();
+        QString name = o.value(QStringLiteral("t")).toString();
+        // Autocomplete highlights the match with <b> tags.
+        name.remove(QStringLiteral("<b>"));
+        name.remove(QStringLiteral("</b>"));
+        name = name.trimmed().simplified().replace(u' ', u'_');
+        if (name.isEmpty())
+            continue;
+        TagSuggestion s;
+        s.tag = name;
+        s.count = qMax(0, o.value(QStringLiteral("num")).toInt(
+                                o.value(QStringLiteral("count")).toInt(0)));
+        const int type = o.value(QStringLiteral("c")).toInt(0);
+        if (type == 1)
+            s.bucket = QStringLiteral("character");
+        else if (type == 4)
+            s.bucket = QStringLiteral("artist");
+        else if (type == 3 || type == 5 || type == 6)
+            s.bucket = QStringLiteral("copyright");
+        else
+            s.bucket = QStringLiteral("general");
+        out.append(s);
+    }
+    return takeCapped(out, 64);
+}
 } // namespace
 
 TagSuggester::TagSuggester(QObject *parent)
@@ -400,6 +487,25 @@ QUrl TagSuggester::urlFor(BooruEngine engine, const QString &baseUrl,
         QUrlQuery q;
         q.addQueryItem(QStringLiteral("q"), prefix + QStringLiteral("*"));
         q.addQueryItem(QStringLiteral("per_page"), QStringLiteral("64"));
+        url.setQuery(q);
+        return url;
+    }
+    if (engine == BooruEngine::E621) {
+        // [{name, post_count, category}] - e621 numbering (5 species,
+        // 7 meta, 8 lore); anonymous, same host.
+        QUrl url(baseUrl + QStringLiteral("/tags/autocomplete.json"));
+        QUrlQuery q;
+        q.addQueryItem(QStringLiteral("search[name_matches]"), prefix + u'*');
+        q.addQueryItem(QStringLiteral("limit"), QStringLiteral("64"));
+        url.setQuery(q);
+        return url;
+    }
+    if (engine == BooruEngine::AnimePictures) {
+        // {tags: [{t (bold-wrapped), t2, c (numeric type), id}]}.
+        QUrl url(RemotePosts::apiBaseUrl(engine, baseUrl) +
+                 QStringLiteral("/api/v3/tags:autocomplete"));
+        QUrlQuery q;
+        q.addQueryItem(QStringLiteral("tag"), prefix);
         url.setQuery(q);
         return url;
     }
@@ -698,6 +804,10 @@ QVector<TagSuggestion> TagSuggester::parse(BooruEngine engine,
         return parseHybooru(body);
     case Nuuru:
         return parseNuuru(body);
+    case E621:
+        return parseE621(body);
+    case AnimePictures:
+        return parseAnimePictures(body);
     case Philomena:
     case BooruOnRails:
         return parsePhilomenaTags(body, RemotePosts::philomenaListKey(engine));

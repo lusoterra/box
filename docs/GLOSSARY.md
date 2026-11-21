@@ -137,4 +137,11 @@
 - safe-search defaults = fresh installs ship Safebooru-only `browseSites`
   (`src/settings.h:64`); booru manager = prefs registry editor
   (`boorus/order` + `boorus/<key>`, `src/settings.cpp:265`).
+- e621 = furry booru (explicit; the engine also serves the e926 SFW
+  mirror, same database): flat tags, `order:score` server-side,
+  descriptive UA + 2 req/s limit. No account needed for search.
+- AnimePictures = SFW anime booru (`anime-pictures.net`, API on the `api.`
+  subdomain): tagless summaries hydrate through detail refresh
+  (HyBooru-style queue); detail tags carry numeric types mapped onto the
+  classic buckets. No account needed.
 - paranoia mode = retired (ini key removed on save, `src/settings.cpp:246`).

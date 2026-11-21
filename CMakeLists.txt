@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(Box VERSION 0.2.0 LANGUAGES C CXX)
+project(Box VERSION 0.3.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -36,6 +36,8 @@ add_executable(box
     src/engines/engine_hybooru.cpp
     src/engines/engine_nuuru.cpp
     src/engines/engine_philomena.cpp
+    src/engines/engine_e621.cpp
+    src/engines/engine_animepictures.cpp
     src/library/ugoioconvert.cpp
     src/library/miniz/miniz.c
     src/library/miniz/miniz_tdef.c

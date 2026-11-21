@@ -579,7 +579,7 @@ void MainWindow::scheduleHybooruHydration() {
         if (!p.isRemote || !p.tags.trimmed().isEmpty())
             continue;
         const BooruSite *entry = RemotePosts::entryForPost(p);
-        if (!entry || entry->engine != BooruEngine::Hybooru)
+        if (!entry || !RemotePosts::needsTagHydration(entry->engine))
             continue;
         const QString key = entry->key + u'#' + QString::number(p.id);
         if (m_hybooruTried.contains(key))

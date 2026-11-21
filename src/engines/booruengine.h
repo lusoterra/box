@@ -51,12 +51,27 @@ QString uniqueBooruKey(const QString &label, const QSet<QString> &taken);
 // buckets with natives preserved.
 Post fromHybooruSummary(const QJsonObject &o, const QString &baseUrl);
 Post fromHybooru(const QJsonObject &o, const QString &baseUrl);
+// Engines whose search summaries carry no tags: rows hydrate through
+// detail refresh (the HyBooru-named queue in MainWindow +
+// ViewerPage::maybeFetchHybooruDetail serve all of them).
+bool needsTagHydration(BooruEngine engine);
 // Nuuru (Soybooru) shapes: /api/booru/posts search/detail, native
 // Flag/Media/Meta/Series/Subvariant/Trend/Variant/Uncategorized taxonomy
 // preserved via customTags; plain fetches hit a PoW wall, so traffic
 // rides the browser-backed stack (powWall quirk).
 Post fromNuuruSummary(const QJsonObject &o, const QString &baseUrl);
 Post fromNuuru(const QJsonObject &o, const QString &baseUrl);
+// e621 (Danbooru fork, e621.net + e926.net mirror): /posts.json bare
+// array search, /posts/<id>.json detail. Tags arrive flat (no category
+// splits), everything general + untyped for the classifier waterfall.
+Post fromE621(const QJsonObject &o, const QString &baseUrl);
+// AnimePictures (anime-pictures.net, api.anime-pictures.net): /api/v3/posts
+// envelope search, /api/v3/posts/<id> detail. Summaries carry no tags
+// (HyBooru-style hydration via refresh); detail tags carry numeric types
+// (1 character, 2 reference, 3/5/6 copyright, 4 author, 7 object,
+// 0 unknown) mapped onto the classic buckets.
+Post fromAnimePicturesSummary(const QJsonObject &o, const QString &baseUrl);
+Post fromAnimePictures(const QJsonObject &o, const QString &baseUrl);
 // Philomena family: Philomena (Elixir; Derpibooru and other v1 hosts) and
 // BooruOnRails (Ruby; Twibooru and other v3 hosts) share the post fields
 // but differ in paths and envelope keys. One engine, two shapes.

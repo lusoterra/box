@@ -335,6 +335,8 @@ QString engineKey(BooruEngine engine) {
     case Nuuru: return QStringLiteral("nuuru");
     case Philomena: return QStringLiteral("philomena");
     case BooruOnRails: return QStringLiteral("booru-on-rails");
+    case E621: return QStringLiteral("e621");
+    case AnimePictures: return QStringLiteral("animepictures");
     case Safebooru: return QStringLiteral("gelbooru"); // dapi family
     }
     return QStringLiteral("danbooru");
@@ -359,6 +361,11 @@ BooruEngine engineForKey(const QString &key) {
     if (key == QStringLiteral("booru-on-rails") ||
         key == QStringLiteral("booruonrails") || key == QStringLiteral("twibooru"))
         return BooruEngine::BooruOnRails;
+    if (key == QStringLiteral("e621") || key == QStringLiteral("e926"))
+        return BooruEngine::E621;
+    if (key == QStringLiteral("animepictures") ||
+        key == QStringLiteral("anime-pictures"))
+        return BooruEngine::AnimePictures;
     return BooruEngine::Danbooru;
 }
 
@@ -374,6 +381,8 @@ QString engineLabel(BooruEngine engine) {
     case Nuuru: return QStringLiteral("Nuuru (Soybooru)");
     case Philomena: return QStringLiteral("Philomena");
     case BooruOnRails: return QStringLiteral("Booru-on-Rails");
+    case E621: return QStringLiteral("e621");
+    case AnimePictures: return QStringLiteral("AnimePictures");
     case Safebooru: return QStringLiteral("Safebooru");
     }
     return QStringLiteral("Danbooru");
@@ -476,6 +485,84 @@ QStringList translateSearchTags(const QStringList &tags, BooruEngine engine) {
                 head == QStringLiteral("sort") ||
                 head == QStringLiteral("order"))
                 continue;
+        } else if (engine == BooruEngine::AnimePictures) {
+            // Verified rewrites (Grabber model.ts): filetype:/width:/
+            // height:/ratio: have native spellings; rating:/safety:/sort:/
+            // order: would silently mis-filter, so drop them (the
+            // client-side net still filters). Negated media tokens drop
+            // too (no verified negated spelling server-side).
+            const qsizetype ci = tok.indexOf(u':');
+            QString head = (ci > 0 ? tok.left(ci) : QString()).toLower();
+            while (head.startsWith(u'-'))
+                head = head.mid(1);
+            const bool neg = tok.startsWith(u'-');
+            const QString value = ci > 0 ? tok.mid(ci + 1) : QString();
+            if (head == QStringLiteral("rating") ||
+                head == QStringLiteral("safety") ||
+                head == QStringLiteral("sort") ||
+                head == QStringLiteral("order"))
+                continue;
+            if (head == QStringLiteral("filetype") && !neg) {
+                // filetype:jpg,png -> ext_jpg=jpg&ext_png=png
+                QStringList exts;
+                for (const QString &e : value.split(u',')) {
+                    const QString c = e.trimmed().toLower();
+                    if (!c.isEmpty())
+                        exts << c;
+                }
+                if (exts.isEmpty())
+                    continue;
+                for (const QString &e : exts)
+                    out << QStringLiteral("ext_") + e + u'=' + e;
+                continue;
+            }
+            if ((head == QStringLiteral("width") ||
+                 head == QStringLiteral("height") ||
+                 head == QStringLiteral("ratio")) &&
+                !neg && !value.trimmed().isEmpty()) {
+                // Mirror Grabber's sizeToUrl (<=, >=, <, >).
+                const QString key = head == QStringLiteral("width")
+                                        ? QStringLiteral("res_x")
+                                        : head == QStringLiteral("height")
+                                              ? QStringLiteral("res_y")
+                                              : QStringLiteral("aspect");
+                QString v = value.trimmed();
+                int op = -1;
+                if (v.startsWith(QStringLiteral("<="))) {
+                    v = v.mid(2);
+                    op = 0;
+                } else if (v.startsWith(QStringLiteral(">="))) {
+                    v = v.mid(2);
+                    op = 1;
+                } else if (v.startsWith(u'<')) {
+                    bool ok = false;
+                    const int n = v.mid(1).toInt(&ok);
+                    v = ok ? QString::number(n - 1) : v.mid(1);
+                    op = 0;
+                } else if (v.startsWith(u'>')) {
+                    bool ok = false;
+                    const int n = v.mid(1).toInt(&ok);
+                    v = ok ? QString::number(n + 1) : v.mid(1);
+                    op = 1;
+                }
+                out << key + u'=' + v;
+                if (op >= 0)
+                    out << key + QStringLiteral("_n=") + QString::number(op);
+                continue;
+            }
+            if (head == QStringLiteral("filetype"))
+                continue; // negated: client-side net filters
+        } else if (engine == BooruEngine::E621) {
+            // sort: has no native spelling (e621 uses order:) - drop it
+            // (client-side sort still applies). rating:/order: pass
+            // through: s/q/e + safe spellings are native (live-verified),
+            // and anything unknown fails safe server-side.
+            const qsizetype ci = tok.indexOf(u':');
+            QString head = (ci > 0 ? tok.left(ci) : QString()).toLower();
+            while (head.startsWith(u'-'))
+                head = head.mid(1);
+            if (head == QStringLiteral("sort"))
+                continue;
         }
         if (engine != BooruEngine::Danbooru && isFiletypeToken(tok)) {
             // Only Danbooru's filetype: support is verified: elsewhere the
@@ -549,6 +636,8 @@ QString sortSearchTag(const QString &sort, BooruEngine engine) {
             return QStringLiteral("sort:score:desc");
         if (engine == BooruEngine::Nuuru)
             return QStringLiteral("sort:score_desc");
+        if (engine == BooruEngine::E621)
+            return QStringLiteral("order:score"); // live-verified
         return {};
     }
     if (sort == QStringLiteral("score-asc")) {
@@ -873,6 +962,10 @@ const BooruEngineOps *engineOps(BooruEngine engine) {
         return EngineInternal::philomenaOps();
     case BooruOnRails:
         return EngineInternal::booruOnRailsOps();
+    case E621:
+        return EngineInternal::e621Ops();
+    case AnimePictures:
+        return EngineInternal::animePicturesOps();
     case Danbooru:
         return EngineInternal::danbooruOps();
     }

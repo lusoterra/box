@@ -30,7 +30,7 @@ struct SearchResult {
 // Engine taxonomy (mirrors LoliSnatcher's BooruType for these families).
 // Named after the software, not the host: Philomena (Derpibooru et al.)
 // and BooruOnRails (Twibooru et al.) are different codebases.
-enum class BooruEngine { Danbooru, Gelbooru, Moebooru, Safebooru, Szurubooru, Shimmie, Hybooru, Nuuru, Philomena, BooruOnRails };
+enum class BooruEngine { Danbooru, Gelbooru, Moebooru, Safebooru, Szurubooru, Shimmie, Hybooru, Nuuru, Philomena, BooruOnRails, E621, AnimePictures };
 
 // What a post drag hands to other apps (Discord, file managers, ...).
 // Inherit is only valid on a booru entry: it follows the global mode.

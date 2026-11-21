@@ -62,6 +62,12 @@ QString defaultBadgeColor(const QString &baseUrl, BooruEngine engine) {
         subOf(QStringLiteral("safebooru.donmai.us")) ||
         subOf(QStringLiteral("safebooru.org")))
         return QStringLiteral("#daac82");
+    if (subOf(QStringLiteral("e621.net")))
+        return QStringLiteral("#1f67b2");
+    if (subOf(QStringLiteral("e926.net")))
+        return QStringLiteral("#2e9e5b");
+    if (subOf(QStringLiteral("anime-pictures.net")))
+        return QStringLiteral("#e08a3c");
     if (engine == BooruEngine::Shimmie)
         return QStringLiteral("#7f7f7f");
     return QStringLiteral("#3a7ec2");
@@ -76,6 +82,19 @@ QString apiBaseUrl(BooruEngine engine, const QString &baseUrl) {
     if (const SiteQuirk *q = quirkForUrl(baseUrl)) {
         if (!q->apiHost.isEmpty() && engine == BooruEngine::Gelbooru)
             return q->apiHost;
+    }
+    if (engine == BooruEngine::AnimePictures) {
+        // api. subdomain of the configured base host (Boorusama swaps
+        // https://anime-pictures. -> https://api.anime-pictures.;
+        // www. tolerated the same way).
+        QString base = baseUrl.trimmed();
+        while (base.endsWith(u'/') && base.size() > 1)
+            base.chop(1);
+        base.replace(QStringLiteral("://anime-pictures."),
+                     QStringLiteral("://api.anime-pictures."));
+        base.replace(QStringLiteral("://www.anime-pictures."),
+                     QStringLiteral("://api.anime-pictures."));
+        return base;
     }
     return baseUrl;
 }

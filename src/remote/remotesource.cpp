@@ -1017,6 +1017,8 @@ const BooruSite *entryForHost(const QString &hostIn) {
         {QStringLiteral("konachan.net"), QStringLiteral("konachan")},
         {QStringLiteral("rule34.xxx"), QStringLiteral("rule34")},
         {QStringLiteral("e621.net"), QStringLiteral("e621")},
+        {QStringLiteral("e926.net"), QStringLiteral("e926")},
+        {QStringLiteral("anime-pictures.net"), QStringLiteral("animepictures")},
         {QStringLiteral("soybooru.com"), QStringLiteral("soybooru")},
         {QStringLiteral("visuabusters.com"), QStringLiteral("visuabusters")},
         {QStringLiteral("aibooru.online"), QStringLiteral("aibooru")},
@@ -1075,6 +1077,8 @@ QString keyForLabel(const QString &siteLabel) {
         {QStringLiteral("shimmie"), QStringLiteral("shimmie")},
         {QStringLiteral("rule34"), QStringLiteral("rule34")},
         {QStringLiteral("e621"), QStringLiteral("e621")},
+        {QStringLiteral("e926"), QStringLiteral("e926")},
+        {QStringLiteral("animepictures"), QStringLiteral("animepictures")},
         {QStringLiteral("soybooru"), QStringLiteral("soybooru")},
         {QStringLiteral("visuabusters"), QStringLiteral("visuabusters")},
     };
@@ -1175,6 +1179,11 @@ QString postPageUrlFor(const BooruSite &site, qint64 id) {
         return base + QStringLiteral("/posts/") + QString::number(id);
     case Nuuru:
         return base + QStringLiteral("/post/view/") + QString::number(id);
+    case E621:
+        return base + QStringLiteral("/posts/") + QString::number(id);
+    case AnimePictures:
+        return base + QStringLiteral("/pictures/view_post/") +
+               QString::number(id);
     case Philomena:
         return base + QStringLiteral("/images/") + QString::number(id);
     case BooruOnRails:

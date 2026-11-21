@@ -28,6 +28,8 @@ set(REMOTE_SOURCES
     ../src/engines/engine_hybooru.cpp
     ../src/engines/engine_nuuru.cpp
     ../src/engines/engine_philomena.cpp
+    ../src/engines/engine_e621.cpp
+    ../src/engines/engine_animepictures.cpp
     ../src/remote/remotesource.cpp
     ../src/remote/powsolver.cpp)
 
@@ -180,6 +182,16 @@ target_link_libraries(test_gridwindow PRIVATE Qt6::WebEngineWidgets Qt6::WebEngi
 set_tests_properties(test_gridwindow PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_unit_test(test_nuuru test_nuuru.cpp ${REMOTE_SOURCES}
+              ../src/remote/tagsuggest.cpp ../src/library/tagtypes.cpp
+              ../src/library/tagcountcache.cpp
+              ../src/library/index.cpp ../src/library/metaparser.cpp
+              ../src/library/cache.cpp ../src/settings.cpp ${MIGRATION_SOURCES})
+add_unit_test(test_e621 test_e621.cpp ${REMOTE_SOURCES}
+              ../src/remote/tagsuggest.cpp ../src/library/tagtypes.cpp
+              ../src/library/tagcountcache.cpp
+              ../src/library/index.cpp ../src/library/metaparser.cpp
+              ../src/library/cache.cpp ../src/settings.cpp ${MIGRATION_SOURCES})
+add_unit_test(test_animepictures test_animepictures.cpp ${REMOTE_SOURCES}
               ../src/remote/tagsuggest.cpp ../src/library/tagtypes.cpp
               ../src/library/tagcountcache.cpp
               ../src/library/index.cpp ../src/library/metaparser.cpp

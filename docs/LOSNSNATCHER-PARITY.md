@@ -15,7 +15,7 @@ user; everything else follows the tags below.
 | Danbooru / Gelbooru / Moebooru / Shimmie / Szurubooru | yes | - |
 | Safebooru-as-dapi | yes (box concept, no losn equiv) | - |
 | HyBooru | yes (box concept) | - |
-| e621 | no | PICK: biggest missing engine (furry). |
+| e621 | yes (e621 + e926 SFW mirror) | adopted 2026-11-21; public search, no account (auth only for votes/faves). |
 | Philomena / Booru-on-Rails (Derpibooru, Twibooru, pony hosts) | yes (both API shapes) | - |
 | Sankaku (+Idol) | no | PICK: needs account + anti-bot handling. |
 | R34Hentai / R34US / Realbooru / RainBooru / AGNPH / InkBunny / WildCritters / NyanPals / WorldXYZ | no | PICK, mostly scrapers/meme hosts; box covers meme hosts via `skipAutoClassify` instead. |

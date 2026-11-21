@@ -194,6 +194,11 @@ bool isPhilomenaFamily(BooruEngine engine) {
            engine == BooruEngine::BooruOnRails;
 }
 
+bool needsTagHydration(BooruEngine engine) {
+    return engine == BooruEngine::Hybooru ||
+           engine == BooruEngine::AnimePictures;
+}
+
 QString philomenaApiRoot(BooruEngine engine) { return shapeFor(engine).apiRoot; }
 
 QString philomenaListKey(BooruEngine engine) { return shapeFor(engine).listKey; }

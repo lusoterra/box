@@ -3,8 +3,8 @@
 #include "remotesource.h"
 
 void ViewerPage::maybeFetchHybooruDetail() {
-    // HyBooru search summaries carry no tags: backfill them the first
-    // time such a post opens, through the normal single-post refresh
+    // Tagless search summaries (HyBooru, AnimePictures) backfill tags the
+    // first time such a post opens, through the normal single-post refresh
     // (tags paint on arrival via onRefreshDone). Session-guarded so
     // genuinely tagless posts never refetch.
     if (m_row < 0 || m_row >= m_posts.size())
@@ -13,7 +13,7 @@ void ViewerPage::maybeFetchHybooruDetail() {
     if (!p.isRemote || !p.tags.trimmed().isEmpty())
         return;
     const BooruSite *entry = RemotePosts::entryForPost(p);
-    if (!entry || entry->engine != BooruEngine::Hybooru)
+    if (!entry || !RemotePosts::needsTagHydration(entry->engine))
         return;
     const QString key = entry->key + u'#' + QString::number(p.id);
     if (m_detailFetched.contains(key) || m_detailInFlight.contains(key))

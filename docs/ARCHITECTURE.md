@@ -32,8 +32,8 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
   `parseSingle`/`applyAuth`; `engineOps()` at `:146`).
   - Pure shared helpers in `RemotePosts`: `translateSearchTags`,
     `sortSearchTag`, `isTransientSearchError`, `fromDanbooru/Gelbooru/Moebooru/
-    Szuru/Shimmie/Hybooru/Nuuru`, `fromPhilomenaFamily`, `parseShimmieXml`
-    (`src/engines/booruengine.h:25-95`). `engine_philomena.cpp`: the
+    Szuru/Shimmie/Hybooru/Nuuru/E621/AnimePictures`, `fromPhilomenaFamily`,
+    `parseShimmieXml` (`src/engines/booruengine.h:25-95`). `engine_philomena.cpp`: the
     Philomena family, one implementation with two `PhilomenaShape` rows -
     Philomena (Elixir; Derpibooru v1 `/api/v1/json/search/images|images/:id`,
     `{images}`/`{image}`) and Booru-on-Rails (Ruby; Twibooru v3
@@ -70,6 +70,17 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     open); `rating` is a star score (all posts read `general`, server
     `rating:`/`sort:` tokens stripped); files at `/files/f{sha}{ext}`,
     thumbs at `/files/t{sha}.thumbnail`, posts at `/posts/<id>`.
+    e621 notes (Danbooru fork; e926 is the SFW mirror, same DB): search is
+    a bare `/posts.json` array, detail `/posts/<id>.json`; tags arrive
+    flat (buckets via the shared classifier, species/lore stay native-
+    capable); `s/q/e` ratings, `order:score` server-side; descriptive
+    UA required, 2 req/s hard limit, auth (`login`+`api_key`) only for
+    private actions. AnimePictures notes: `/api/v3/posts` on the `api.`
+    subdomain (0-based pages, `search_tag`/`denied_tags`); summaries are
+    tagless (HyBooru-style hydration via refresh), detail carries numeric
+    tag types (1 character, 4 author, 3/5/6 copyright, else general);
+    media URLs reconstructed from md5 (`opreviews`/`oimages`); all-SFW
+    (`erotics` level folds to general/sensitive/questionable).
   - `sitequirks.h` = per-host quirks (api subdomain, cookies, PoW and
     Cloudflare browser-only API walls).
   - `boorutypes.h` = `BooruEngine` enum, `BooruSite`, `SiteCreds`,

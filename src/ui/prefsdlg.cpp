@@ -1160,6 +1160,10 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
                            RemotePosts::engineKey(BooruEngine::Hybooru));
     m_booruEngine->addItem(RemotePosts::engineLabel(BooruEngine::Nuuru),
                            RemotePosts::engineKey(BooruEngine::Nuuru));
+    m_booruEngine->addItem(RemotePosts::engineLabel(BooruEngine::E621),
+                           RemotePosts::engineKey(BooruEngine::E621));
+    m_booruEngine->addItem(RemotePosts::engineLabel(BooruEngine::AnimePictures),
+                           RemotePosts::engineKey(BooruEngine::AnimePictures));
     m_booruEngine->addItem(RemotePosts::engineLabel(BooruEngine::Philomena),
                            RemotePosts::engineKey(BooruEngine::Philomena));
     m_booruEngine->addItem(RemotePosts::engineLabel(BooruEngine::BooruOnRails),
