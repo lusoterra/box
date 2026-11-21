@@ -4,8 +4,9 @@
   `docs/TESTING.md` before building or testing.
 - Binary/config/cache/data use `box`: `build/box`, `~/.config/box`,
   `~/.local/share/box`, `~/.cache/box`. Never hardcode `booru-explorer`.
-- Verify by execution: run `make test` / targeted `ctest -R <name>` after
-  behavior changes; headless GUI work per `docs/TESTING.md`.
+- Verify by execution: run `ctest --test-dir build` / targeted
+  `ctest --test-dir build -R <name>` after behavior changes; headless GUI
+  work per `docs/TESTING.md`.
 - Do not modify code for doc-only tasks; do not build when told read-only.
 - Keep docs tight: short bullets, `file:line` refs, no essays, no emojis.
 - i18n: wrap new user-visible strings in `tr()`; keep `%1..%9` placeholders
@@ -19,6 +20,8 @@
 
 ## Feature log (every feature, even minor)
 
+- `docs/PENDING_TASKS.md` and `docs/DONE.md` are local-only logs (gitignored,
+  never committed).
 - Every new feature - no matter how small - gets a `docs/PENDING_TASKS.md`
   entry before coding: what it is supposed to do, where it lives
   (`file:line`), which tests cover it, and the `ctest` result. Minor

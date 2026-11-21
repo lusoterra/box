@@ -5,7 +5,8 @@ Read before touching code:
 - `docs/TESTING.md` - before building, testing, or headless GUI work
 - `docs/UI-TOUR.md` - what each menu/dialog contains
 
-Conventions: verify by execution (`make test` / `ctest -R <name>`); short
+Conventions: verify by execution (`ctest --test-dir build` / targeted
+`ctest -R <name>`); short
 bullets with `file:line` refs, no essays, no emojis. Binary/config/data
 use `box` (`build/box`, `~/.config/box`, `~/.local/share/box`,
 `~/.cache/box`) - never hardcode `booru-explorer` except legacy-dir fallbacks.
@@ -20,8 +21,11 @@ parallel one. It is a reference only - do not copy unrelated code or assets.
 
 Massive prompts and fast firing small prompts with bugs to fix etc, should be
 added to `docs/PENDING_TASKS.md` before and done one by one as to not get lost.
-The root `icon.png` is gone: the source icon is `assets/box.svg` (embedded as
-`:/icons/app.svg`); update the SVG, not a raster copy.
+`docs/PENDING_TASKS.md` and `docs/DONE.md` are local-only work logs: they are
+listed in `.gitignore` and must not be committed.
+The root `icon.png` is gone: the source icon is `assets/booru-explorer.svg`
+(embedded as `:/icons/app.svg`, installed as `booru-explorer.svg`); update the
+SVG, not a raster copy.
 
 Do not change hand-written things from README (first few paragraphs), and keep
 the License paragraph in the very bottom.

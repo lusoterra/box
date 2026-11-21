@@ -1,8 +1,8 @@
 build/
 build-asan/
+build-install/
 *.pkg.tar.zst
 *.db
-# Source tarball for the HiddenBooru engine task (user-supplied, not ours).
-hiddenbooru_v0.8.tar.gz
-
-build-install/
+# Local-only work logs: keep them out of the repository.
+docs/PENDING_TASKS.md
+docs/DONE.md
