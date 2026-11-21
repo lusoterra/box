@@ -3,6 +3,8 @@
 #include "tagcountcache.h"
 
 #include <QCoreApplication>
+#include <QSqlDatabase>
+#include <QSqlQuery>
 #include <QTemporaryDir>
 #include <QtTest>
 
@@ -87,6 +89,38 @@ private slots:
         QCOMPARE(out.size(), 1);
         QCOMPARE(out.at(0).tag, QStringLiteral("blonde_hair"));
         QCOMPARE(out.at(0).count, 120000);
+    }
+
+    void zeroCountPrunedOnOpen() {
+        // Aliases/empties reported with count 0 never complete a search:
+        // opening the cache drops them (anything real is re-reported
+        // with its count on next use; MAX() still protects live rows).
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString path = TagCountCache::dbPath(dir.path());
+        {
+            QSqlDatabase db =
+                QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"));
+            db.setDatabaseName(path);
+            QVERIFY(db.open());
+            QSqlQuery q(db);
+            QVERIFY(q.exec(QStringLiteral(
+                "CREATE TABLE tags (name TEXT PRIMARY KEY COLLATE NOCASE,"
+                "tag TEXT NOT NULL,bucket TEXT NOT NULL DEFAULT 'general',"
+                "count INTEGER NOT NULL DEFAULT 0,"
+                "updated INTEGER NOT NULL DEFAULT 0)")));
+            QVERIFY(q.exec(QStringLiteral(
+                "INSERT INTO tags VALUES "
+                "('junk', 'junk', 'general', 0, 1),"
+                "('real', 'real', 'general', 42, 1)")));
+            db.close();
+        }
+        QSqlDatabase::removeDatabase(QSqlDatabase::database().connectionName());
+        TagCountCache cache;
+        QVERIFY(cache.open(path));
+        QCOMPARE(cache.size(), 1);
+        QCOMPARE(cache.suggest(QStringLiteral("re"), 5).size(), 1);
+        QVERIFY(cache.suggest(QStringLiteral("ju"), 5).isEmpty());
     }
 
     void emptyInputsAreSafe() {

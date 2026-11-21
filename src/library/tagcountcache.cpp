@@ -73,6 +73,14 @@ bool TagCountCache::open(const QString &dbPath) {
         trim.addBindValue(rows - kMaxRows);
         trim.exec();
     }
+    // Drop zero-post rows: aliases/empties other engines reported with
+    // count 0 (and old unknown-count rows). They never complete a search;
+    // anything real is re-reported with its count on next use, and the
+    // newest spelling/bucket already won via upsert's MAX().
+    {
+        QSqlQuery q(db);
+        q.exec(QStringLiteral("DELETE FROM tags WHERE count <= 0"));
+    }
     return true;
 }
 

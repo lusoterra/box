@@ -78,6 +78,8 @@ QVector<TagSuggestion> parseDanbooru(const QByteArray &body) {
         s.tag = name;
         s.bucket = TagTypes::bucketForType(o.value(QStringLiteral("category")).toInt(0));
         s.count = o.value(QStringLiteral("post_count")).toInt(0);
+        if (s.count <= 0)
+            continue; // 0-post rows (aliases, empties) never complete a search
         out.append(s);
     }
     return takeCapped(out, 64);
@@ -110,6 +112,8 @@ QVector<TagSuggestion> parseGelbooru(const QByteArray &body) {
         s.tag = name;
         s.bucket = TagTypes::bucketForType(o.value(QStringLiteral("type")).toInt(0));
         s.count = o.value(QStringLiteral("count")).toInt(0);
+        if (s.count <= 0)
+            continue; // 0-post rows never complete a search
         out.append(s);
     }
     return takeCapped(out, 64);
@@ -136,6 +140,8 @@ QVector<TagSuggestion> parseGelbooruXmlList(const QByteArray &body) {
         s.tag = name;
         s.bucket = TagTypes::bucketForType(numOk ? type : 0);
         s.count = attrs.value(QLatin1String("count")).toString().toInt();
+        if (s.count <= 0)
+            continue; // 0-post rows never complete a search
         out.append(s);
         if (out.size() >= 64)
             break; // bounded (takeCapped trims to 12 below)
@@ -161,6 +167,8 @@ QVector<TagSuggestion> parseMoebooru(const QByteArray &body) {
         s.tag = name;
         s.bucket = TagTypes::bucketForType(o.value(QStringLiteral("type")).toInt(0));
         s.count = o.value(QStringLiteral("count")).toInt(0);
+        if (s.count <= 0)
+            continue; // 0-post rows never complete a search
         out.append(s);
     }
     return takeCapped(out, 64);
@@ -191,6 +199,8 @@ QVector<TagSuggestion> parseSzuru(const QByteArray &body) {
         s.tag = name;
         s.bucket = szuruBucket(o.value(QStringLiteral("category")).toString());
         s.count = o.value(QStringLiteral("usages")).toInt(0);
+        if (s.count <= 0)
+            continue; // 0-post rows never complete a search
         out.append(s);
     }
     return takeCapped(out, 64);
@@ -236,6 +246,8 @@ QVector<TagSuggestion> parseHybooru(const QByteArray &body) {
         if (s.tag.isEmpty())
             continue;
         s.count = it.value().toInt(0);
+        if (s.count <= 0)
+            continue; // 0-post rows never complete a search
         out.append(s);
     }
     return takeCapped(out, 64);
@@ -310,6 +322,8 @@ QVector<TagSuggestion> parsePhilomenaTags(const QByteArray &body,
         else if (cat == QStringLiteral("rating") || cat == QStringLiteral("spoiler"))
             s.bucket = QStringLiteral("meta");
         else s.bucket = QStringLiteral("general");
+        if (s.count <= 0)
+            continue; // 0-post rows never complete a search
         out.append(s);
     }
     return takeCapped(out, 64);
@@ -356,6 +370,8 @@ QVector<TagSuggestion> parseE621(const QByteArray &body) {
             s.bucket = QStringLiteral("custom");
             break;
         }
+        if (s.count <= 0)
+            continue; // 0-post rows (aliases, empties) never complete a search
         out.append(s);
     }
     return takeCapped(out, 64);
@@ -365,6 +381,9 @@ QVector<TagSuggestion> parseAnimePictures(const QByteArray &body) {
     // {tags: [{t (bold-wrapped), t2, c (numeric type), id}]} - types
     // (Boorusama tagTypeFromInt): 1 character, 4 author, 3/5/6 copyright*,
     // 2/7/0 general. Underscored to box tag form on the way in.
+    // NOTE: this endpoint reports no post counts, so zero-count rows are
+    // unknown-not-empty and must be kept (every other parser above drops
+    // count <= 0, which would empty this engine entirely).
     QVector<TagSuggestion> out;
     QJsonParseError err;
     const QJsonDocument doc = QJsonDocument::fromJson(body, &err);
@@ -541,6 +560,11 @@ void TagSuggester::suggest(const BooruSite &site, const SiteCreds &creds,
     QVector<TagSuggestion> cached;
     if (m_tagCache) {
         for (const CachedTag &c : m_tagCache->suggest(prefix, 40, m_favTags)) {
+            // 0-post rows never complete a search (stale aliases/empties
+            // other engines reported). AnimePictures reports no counts,
+            // so its rows are unknown, not empty - keep them.
+            if (c.count <= 0 && site.engine != BooruEngine::AnimePictures)
+                continue;
             TagSuggestion t;
             t.tag = c.tag;
             t.bucket = c.bucket;

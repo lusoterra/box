@@ -105,17 +105,22 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     pages still fail named; failed rows are clickable to their reason.
   - Also: `imagecache` (full-image fetch for viewer), `thumbloader`
     (grid thumbs), `tagsuggest` (per-engine autocomplete: favourites ->
-    cached by post count -> remote, merged into one ranked list),
-    `faviconcache`
+    cached by post count -> remote, merged into one ranked list;
+    zero-post rows are dropped at parse for count-reporting engines and
+    pruned from the cache on open, so stale aliases/empties never crowd
+    out ranked tags), `faviconcache`
     (site icons), `cookiegrab` (WebEngine cookie capture for walled hosts),
     `postmeta` (notes + comments + artist commentary for viewer; rows are
     scoped by `post_id` so an unscoped endpoint can never paint another
-    post's notes/comments). Notes sources: Danbooru `/notes.json`,
+    post's notes/comments). Notes sources: Danbooru/e621 `/notes.json`,
     Moebooru `/note.json`, dapi XML (`<note>` table) as fallback, Gelbooru/
     Safebooru public post-page HTML (`<article data-x…>` / `note-box`
     divs; the dapi `s=note` table answers empty on gelbooru.com),
     HyBooru `/api/post/<id>` (`notes[].rect` are percentages of the detail
-    `width`/`height`). On `browserApi` hosts (Donmai/CDN) all three parts
+    `width`/`height`); no endpoint on Szurubooru/Shimmie/Nuuru/Philomena/
+    BooruOnRails/AnimePictures (a 404 there would fail the whole fetch).
+    Parse failures on 2xx bodies report "Unparseable response" (never a
+    blank reason). On `browserApi` hosts (Donmai/CDN) all three parts
     ride the capture profile via `QtConcurrent` + `webFetcher`, since QNAM
     cannot use a browser-bound `cf_clearance`. Commentary = Danbooru
     `artist_commentary`, Philomena `description` (Philomena/Booru-on-Rails

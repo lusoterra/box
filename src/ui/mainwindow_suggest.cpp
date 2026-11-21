@@ -126,8 +126,12 @@ void MainWindow::onSearchEdited(const QString &text) {
     }
     // Popular vocabulary cached from earlier API answers (local tabs get
     // it too: a tag you use remotely is still a good completion here).
+    // Zero-post rows are junk (stale aliases/empties) - index rows carry
+    // the local truth.
     QVector<TagSuggestion> cached;
     for (const CachedTag &c : m_tagCache.suggest(bare, 40, favTagSet())) {
+        if (c.count <= 0)
+            continue;
         TagSuggestion t;
         t.tag = c.tag;
         t.bucket = c.bucket;

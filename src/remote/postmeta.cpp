@@ -158,9 +158,11 @@ void PostMetaFetcher::fetch(const QString &siteKey, const QString &baseUrl,
                     r->attribute(QNetworkRequest::HttpStatusCodeAttribute)
                         .toInt();
                 body = r->readAll();
-                if (r->error() == QNetworkReply::NoError && http / 100 == 2)
+                if (r->error() == QNetworkReply::NoError && http / 100 == 2) {
                     m_notes = PostMeta::parseNotes(body, &ok, m_postId);
-                else if (r->error() != QNetworkReply::NoError)
+                    if (!ok)
+                        m_notesErr = tr("Unparseable response");
+                } else if (r->error() != QNetworkReply::NoError)
                     m_notesErr = r->errorString();
                 else
                     m_notesErr = tr("HTTP %1").arg(http);
@@ -193,9 +195,11 @@ void PostMetaFetcher::fetch(const QString &siteKey, const QString &baseUrl,
                     // not a failure (avoids misleading "failed to load").
                     m_comments.clear();
                     ok = true;
-                } else if (r->error() == QNetworkReply::NoError && http / 100 == 2)
+                } else if (r->error() == QNetworkReply::NoError && http / 100 == 2) {
                     m_comments = PostMeta::parseComments(body, &ok, m_postId);
-                else if (r->error() != QNetworkReply::NoError)
+                    if (!ok)
+                        m_commentsErr = tr("Unparseable response");
+                } else if (r->error() != QNetworkReply::NoError)
                     m_commentsErr = r->errorString();
                 else
                     m_commentsErr = tr("HTTP %1").arg(http);
@@ -223,10 +227,12 @@ void PostMetaFetcher::fetch(const QString &siteKey, const QString &baseUrl,
                     r->attribute(QNetworkRequest::HttpStatusCodeAttribute)
                         .toInt();
                 body = r->readAll();
-                if (r->error() == QNetworkReply::NoError && http / 100 == 2)
+                if (r->error() == QNetworkReply::NoError && http / 100 == 2) {
                     m_commentary =
                         PostMeta::parseCommentary(m_engine, body, &ok);
-                else if (r->error() != QNetworkReply::NoError)
+                    if (!ok)
+                        m_commentaryErr = tr("Unparseable response");
+                } else if (r->error() != QNetworkReply::NoError)
                     m_commentaryErr = r->errorString();
                 else
                     m_commentaryErr = tr("HTTP %1").arg(http);
@@ -382,7 +388,8 @@ QUrl notesUrl(BooruEngine engine, const QString &baseUrl, qint64 postId,
         // image annotations, rect-null rows are commentary.
         return QUrl(baseUrl + QStringLiteral("/api/post/") + id);
     }
-    if (engine == BooruEngine::Danbooru) {
+    if (engine == BooruEngine::Danbooru || engine == BooruEngine::E621) {
+        // e621 is a Danbooru fork: same notes shape (verified live).
         QUrl url(baseUrl + QStringLiteral("/notes.json"));
         QUrlQuery q;
         q.addQueryItem(QStringLiteral("search[post_id]"), id);
@@ -406,7 +413,11 @@ QUrl notesUrl(BooruEngine engine, const QString &baseUrl, qint64 postId,
         url.setQuery(q);
         return url;
     }
-    // Moebooru family.
+    // Moebooru family. AnimePictures exposes no note API at all: it
+    // must not fall through to Moebooru's URL (a 404 would fail the
+    // whole meta fetch for posts that simply have no notes).
+    if (engine == BooruEngine::AnimePictures)
+        return {};
     return QUrl(baseUrl + QStringLiteral("/note.json?post_id=") + id);
 }
 
@@ -436,7 +447,8 @@ QUrl commentsUrl(BooruEngine engine, const QString &baseUrl, qint64 postId,
         url.setQuery(q);
         return url;
     }
-    if (engine == BooruEngine::Danbooru) {
+    if (engine == BooruEngine::Danbooru || engine == BooruEngine::E621) {
+        // e621 is a Danbooru fork: same comments shape (verified live).
         QUrl url(baseUrl + QStringLiteral("/comments.json"));
         QUrlQuery q;
         q.addQueryItem(QStringLiteral("search[post_id]"), id);
@@ -462,6 +474,8 @@ QUrl commentsUrl(BooruEngine engine, const QString &baseUrl, qint64 postId,
         url.setQuery(q);
         return url;
     }
+    if (engine == BooruEngine::AnimePictures)
+        return {}; // no comment API either (same 404-poisons-meta reason)
     return QUrl(baseUrl + QStringLiteral("/comment.json?post_id=") + id);
 }
 

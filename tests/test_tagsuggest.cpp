@@ -61,6 +61,37 @@ private slots:
         QVERIFY(TagSuggester::parse(BooruEngine::Shimmie, QByteArray("[{}]")).isEmpty());
     }
 
+    void zeroCountDropped() {
+        // 0-post rows (aliases, empties) never complete a search - they
+        // are dropped at parse for every engine that reports counts.
+        const auto dan = TagSuggester::parse(
+            BooruEngine::Danbooru,
+            QByteArray(R"([{"name":"real","category":0,"post_count":5},)"
+                       R"({"name":"alias","category":0,"post_count":0}])"));
+        QCOMPARE(dan.size(), 1);
+        QCOMPARE(dan.at(0).tag, QStringLiteral("real"));
+        const auto gel = TagSuggester::parse(
+            BooruEngine::Gelbooru,
+            QByteArray(R"({"tag":[{"name":"real","type":0,"count":3},)"
+                       R"({"name":"junk","type":0,"count":0}]})"));
+        QCOMPARE(gel.size(), 1);
+        QCOMPARE(gel.at(0).tag, QStringLiteral("real"));
+        const auto e6 = TagSuggester::parse(
+            BooruEngine::E621,
+            QByteArray(R"([{"name":"real","category":0,"post_count":9},)"
+                       R"({"name":"junk","category":5,"post_count":0}])"));
+        QCOMPARE(e6.size(), 1);
+        QCOMPARE(e6.at(0).tag, QStringLiteral("real"));
+        // AnimePictures reports no counts: zero there means unknown,
+        // not empty - those rows must survive.
+        const auto ap = TagSuggester::parse(
+            BooruEngine::AnimePictures,
+            QByteArray(R"({"tags":[{"t":"long hair","c":2,"id":1}]})"));
+        QCOMPARE(ap.size(), 1);
+        QCOMPARE(ap.at(0).tag, QStringLiteral("long_hair"));
+        QCOMPARE(ap.at(0).count, 0);
+    }
+
     void metaForNuuruSorts() {
         auto tags = [](const QVector<TagSuggestion> &v) {
             QStringList out;

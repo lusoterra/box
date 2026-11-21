@@ -10,8 +10,10 @@
 //
 // `count` is the booru's post count and never shrinks: a later answer
 // with a smaller count (or none) keeps the higher value, so a tag that is
-// genuinely popular stays at the top. Rows are keyed by the lowercase
-// spelling and trimmed back when the table grows past its cap.
+// genuinely popular stays at the top. Rows keyed by the lowercase
+// spelling and trimmed back when the table grows past its cap. Zero-post
+// rows are pruned on open (aliases/empties reported with count 0 never
+// complete a search; anything real is re-reported with its count).
 #include <QSet>
 #include <QString>
 #include <QVector>

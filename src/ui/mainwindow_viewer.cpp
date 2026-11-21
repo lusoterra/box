@@ -145,12 +145,18 @@ void MainWindow::setViewerFullscreen(bool on) {
         m_tabBar->setVisible(!on);
     if (m_plusBtn)
         m_plusBtn->setVisible(!on);
+    // The omnibar/pills only exist on the grid: leaving fullscreen stays
+    // on the viewer page (setCurrentIndex(1) below), so restoring them
+    // here would put search chrome over the post (backToGrid re-shows
+    // them when the grid actually returns).
+    const bool onGrid = m_pages && m_pages->currentIndex() == 0;
     if (m_omniBar)
-        m_omniBar->setVisible(!on);
+        m_omniBar->setVisible(!on && onGrid);
     if (m_sideBar)
         m_sideBar->setVisible(!on);
     if (m_pillBar)
-        m_pillBar->setVisible(!on && m_pills && m_pills->count() > 0);
+        m_pillBar->setVisible(!on && onGrid && m_pills &&
+                               m_pills->count() > 0);
     statusBar()->setVisible(!on);
     if (on) {
         m_pendingFullscreenMaximize = false;

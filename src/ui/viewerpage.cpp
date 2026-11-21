@@ -100,6 +100,12 @@ ViewerPage::ViewerPage(QWidget *parent) : QWidget(parent) {
     m_postBtn = new QPushButton(tr("Open post"), this);
     m_postBtn->setIcon(UiIcons::icon(QStringLiteral("external-link")));
     m_postBtn->setIconSize(QSize(15, 15));
+    m_metaBtn = new QPushButton(tr("Metadata"), this);
+    m_metaBtn->setToolTip(tr("Sidecar/API record for the current post"));
+    connect(m_metaBtn, &QPushButton::clicked, this, [this] {
+        if (m_row >= 0 && m_row < m_posts.size())
+            emit metadataRequested(m_posts.at(m_row));
+    });
     m_openExtBtn = new QPushButton(tr("Open externally"), this);
     m_openExtBtn->setIcon(UiIcons::icon(QStringLiteral("external-link")));
     m_openExtBtn->setIconSize(QSize(15, 15));
@@ -261,6 +267,7 @@ ViewerPage::ViewerPage(QWidget *parent) : QWidget(parent) {
     bar->addStretch(1);
     bar->addWidget(m_variantsBtn);
     bar->addWidget(m_postBtn);
+    bar->addWidget(m_metaBtn);
     bar->addWidget(m_openExtBtn);
     bar->addWidget(m_imgSearchBtn);
     bar->addWidget(m_refreshBtn);

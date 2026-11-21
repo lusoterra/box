@@ -36,11 +36,19 @@ private slots:
         // HyBooru annotations ride the single-post detail object.
         QCOMPARE(PostMeta::notesUrl(BooruEngine::Hybooru, kDan, 42).toString(),
                  kDan + QStringLiteral("/api/post/42"));
-        // No separate notes endpoint here.
+        // e621 is a Danbooru fork: same /notes.json (verified live).
+        QCOMPARE(PostMeta::notesUrl(BooruEngine::E621,
+                                   QStringLiteral("https://e621.net"), 42)
+                     .toString(),
+                 QStringLiteral("https://e621.net/notes.json?"
+                                "search[post_id]=42&limit=100"));
+        // No separate notes endpoint here (AnimePictures must not fall
+        // through to Moebooru's URL: a 404 would fail the whole fetch).
         QVERIFY(PostMeta::notesUrl(BooruEngine::Szurubooru, kDan, 1).isEmpty());
         QVERIFY(PostMeta::notesUrl(BooruEngine::Shimmie, kDan, 1).isEmpty());
         QVERIFY(PostMeta::notesUrl(BooruEngine::Philomena, kDan, 1).isEmpty());
         QVERIFY(PostMeta::notesUrl(BooruEngine::BooruOnRails, kDan, 1).isEmpty());
+        QVERIFY(PostMeta::notesUrl(BooruEngine::AnimePictures, kDan, 1).isEmpty());
     }
 
     void commentsUrls() {
@@ -64,6 +72,13 @@ private slots:
         QVERIFY(PostMeta::commentsUrl(BooruEngine::Hybooru, kDan, 1).isEmpty());
         QVERIFY(PostMeta::commentsUrl(BooruEngine::Philomena, kDan, 1).isEmpty());
         QVERIFY(PostMeta::commentsUrl(BooruEngine::BooruOnRails, kDan, 1).isEmpty());
+        // e621 shares Danbooru's /comments.json (verified live);
+        // AnimePictures has no comment API (no Moebooru fallthrough).
+        QVERIFY(PostMeta::commentsUrl(BooruEngine::E621,
+                                     QStringLiteral("https://e621.net"), 7)
+                    .toString()
+                    .contains(QStringLiteral("/comments.json")));
+        QVERIFY(PostMeta::commentsUrl(BooruEngine::AnimePictures, kDan, 1).isEmpty());
     }
 
     void commentaryUrlPerEngine() {
@@ -317,6 +332,34 @@ private slots:
         QCOMPARE(notes.at(0).w, 57);
         QCOMPARE(notes.at(0).h, 749);
         QCOMPARE(notes.at(0).body, QStringLiteral("Her both arms & more"));
+    }
+
+    void parseNotesGelbooruLiveShape() {
+        // Live gelbooru.com post 15305371 (2026-11): section carries the
+        // notes, bodies are entity-encoded, one spans lines. Guards the
+        // "notes don't show" class against markup drift.
+        const QByteArray live = QByteArrayLiteral(
+            "<section class=\"image-container note-container\">"
+            "<div id=\"note-preview\"></div></section>"
+            "<section id=\"notes\" style=\"display: none;\">"
+            "<article data-width=\"137\" data-height=\"320\" data-x=\"3090\" "
+            "data-y=\"1921\" data-id=\"925073\" "
+            "data-body=\"I&#039;m cumming...&hearts;\">x</article>"
+            "<article data-width=\"424\" data-height=\"965\" data-x=\"2786\" "
+            "data-y=\"2939\" data-id=\"925080\" "
+            "data-body=\"Hiratsuka-sensei...!?\nYou-... what are you doing...?\">"
+            "y</article></section>");
+        bool ok = false;
+        const auto notes = PostMeta::parseNotes(live, &ok, 15305371);
+        QVERIFY(ok);
+        QCOMPARE(notes.size(), 2);
+        QCOMPARE(notes.at(0).x, 3090);
+        QCOMPARE(notes.at(0).y, 1921);
+        QCOMPARE(notes.at(0).w, 137);
+        QCOMPARE(notes.at(0).h, 320);
+        QCOMPARE(notes.at(0).body,
+                 QStringLiteral("I'm cumming...\u2665"));
+        QVERIFY(notes.at(1).body.contains(QStringLiteral("Hiratsuka-sensei")));
     }
 
     void parseCommentsShapes() {

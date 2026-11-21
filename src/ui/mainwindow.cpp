@@ -1426,6 +1426,8 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     m_viewer->setWebBackend(webDownloads);
     connect(m_viewer, &ViewerPage::variantsRequested, this,
             &MainWindow::searchVariants);
+    connect(m_viewer, &ViewerPage::metadataRequested, this,
+            &MainWindow::showPostMetadata);
     connect(m_viewer, &ViewerPage::downloadRequested, this, [this](const Post &p) {
         // Explicit download lifts the veto (see m_unfavVeto).
         const auto [site, pid] = favIdentity(p);

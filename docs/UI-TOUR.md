@@ -251,7 +251,8 @@ still closes it.
 ## 11-viewer - same-window post viewer (`ViewerPage`, `src/ui/viewerpage.cpp`)
 Toolbar: `Back`, `‹ 8 / 40 ›` stepping, `Fit`, `100%`, `Variants`
 (parent/child family search; shown only when the API exposes variants),
-`Open post` (site page, http(s) only), `Image search` (SauceNAO, Yandex, Google
+`Open post` (site page, http(s) only), `Metadata` (sidecar/API record for
+the current post, same as the grid's `View metadata…`), `Image search` (SauceNAO, Yandex, Google
 Lens, IQDB, trace.moe - needs a remote file URL), download icon (toggles to
 delete once the file is on disk, like the heart button), reload-everything (icon:
 tags, comments, media), `Notes`

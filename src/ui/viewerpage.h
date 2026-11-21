@@ -360,6 +360,7 @@ signals:
     void downloadRequested(const Post &post);
     void variantsRequested(const Post &post); // search parent/child family
     void deleteRequested(const Post &post); // button acts as delete toggle
+    void metadataRequested(const Post &post); // viewer Metadata button
     void favouriteRequested(const Post &post);
     void refreshRequested(const Post &post);
     void pastEnd(); // nav stepped past the last loaded post
@@ -437,7 +438,7 @@ private:
     QLabel *m_posLabel;
     QLabel *m_idLabel, *m_titleLabel, *m_dateLabel, *m_pathLabel;
     QLabel *m_scoreLabel, *m_ratingLabel, *m_sizeLabel, *m_extLabel, *m_srcLabel;
-    QPushButton *m_prevBtn, *m_nextBtn, *m_postBtn, *m_openExtBtn, *m_fitBtn, *m_zoomBtn;
+    QPushButton *m_prevBtn, *m_nextBtn, *m_postBtn, *m_metaBtn, *m_openExtBtn, *m_fitBtn, *m_zoomBtn;
     QPushButton *m_imgSearchBtn = nullptr; // reverse image search menu
     QPushButton *m_downloadBtn = nullptr;
     QPushButton *m_favBtn = nullptr;

@@ -14,10 +14,12 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLabel>
+#include <QLineEdit>
 #include <QMenu>
 #include <QMenuBar>
 #include <QPainter>
 #include <QPixmap>
+#include <QPushButton>
 #include <QScrollBar>
 #include <QStandardItemModel>
 #include <QTemporaryDir>
@@ -600,6 +602,92 @@ private slots:
                  qPrintable(QStringLiteral("placeholder rows=%1").arg(top)));
         // The bottom row is on screen: it must carry a real thumb.
         QVERIFY2(lastKey != 0, "last row has no pixmap");
+    }
+
+    // Fullscreen must not leak grid chrome onto the post: leaving it
+    // while still on the viewer keeps the omnibar hidden (backToGrid
+    // is what brings it back).
+    void viewerFullscreenKeepsOmnibarHidden() {
+        QTemporaryDir xdg;
+        QVERIFY(xdg.isValid());
+        qputenv("XDG_CONFIG_HOME", xdg.filePath("config").toUtf8());
+        qputenv("XDG_DATA_HOME", xdg.filePath("data").toUtf8());
+        qputenv("XDG_CACHE_HOME", xdg.filePath("cache").toUtf8());
+        bool ok = false;
+        const QString root = makeArchive(3, ok);
+        QVERIFY(ok);
+        MainWindow w(root, true);
+        w.show();
+        GridView *grid = w.findChild<GridView *>();
+        QVERIFY(grid);
+        bool filled = false;
+        for (int i = 0; i < 200 && !filled; ++i) {
+            QTest::qWait(20);
+            filled = rowCount(grid) >= 3;
+        }
+        QVERIFY(filled);
+        QLineEdit *search = nullptr;
+        for (QLineEdit *e : w.findChildren<QLineEdit *>()) {
+            if (e->placeholderText().contains(QStringLiteral("Search tags"))) {
+                search = e;
+                break;
+            }
+        }
+        QVERIFY(search);
+        QWidget *omni = search->parentWidget();
+        QVERIFY(omni);
+        QVERIFY(omni->isVisible());
+        QItemSelectionModel *sel = grid->selectionModel();
+        QVERIFY(sel);
+        sel->clearSelection();
+        sel->select(grid->model()->index(2, 0), QItemSelectionModel::Select);
+        QVERIFY(QMetaObject::invokeMethod(
+            &w, "onGridActivated",
+            Q_ARG(QModelIndex, grid->model()->index(2, 0))));
+        QTest::qWait(50);
+        QVERIFY(!omni->isVisible());
+        QVERIFY(QMetaObject::invokeMethod(&w, "setViewerFullscreen",
+                                          Q_ARG(bool, true)));
+        QTest::qWait(50);
+        QVERIFY(!omni->isVisible());
+        QVERIFY(QMetaObject::invokeMethod(&w, "setViewerFullscreen",
+                                          Q_ARG(bool, false)));
+        QTest::qWait(50);
+        QVERIFY2(!omni->isVisible(), "omnibar leaked onto the viewer page");
+        QVERIFY(QMetaObject::invokeMethod(&w, "backToGrid"));
+        QTest::qWait(50);
+        QVERIFY(omni->isVisible());
+    }
+
+    void viewerHasMetadataButton() {
+        // The side panel is 290px of tags; the record behind the post
+        // (sidecar/API JSON) gets a first-class button next to Open post
+        // instead of living only in the right-click menu.
+        QTemporaryDir xdg;
+        QVERIFY(xdg.isValid());
+        qputenv("XDG_CONFIG_HOME", xdg.filePath("config").toUtf8());
+        qputenv("XDG_DATA_HOME", xdg.filePath("data").toUtf8());
+        qputenv("XDG_CACHE_HOME", xdg.filePath("cache").toUtf8());
+        bool ok = false;
+        const QString root = makeArchive(1, ok);
+        QVERIFY(ok);
+        MainWindow w(root, true);
+        w.show();
+        auto *viewer = w.findChild<ViewerPage *>();
+        QVERIFY(viewer);
+        QPushButton *openPost = nullptr;
+        QPushButton *meta = nullptr;
+        for (QPushButton *b : viewer->findChildren<QPushButton *>()) {
+            if (b->text() == QStringLiteral("Open post"))
+                openPost = b;
+            else if (b->text() == QStringLiteral("Metadata"))
+                meta = b;
+        }
+        QVERIFY(openPost);
+        QVERIFY(meta);
+        // Neighbours in the toolbar, in order.
+        const auto buttons = viewer->findChildren<QPushButton *>();
+        QVERIFY(buttons.indexOf(openPost) + 1 == buttons.indexOf(meta));
     }
 };
 
