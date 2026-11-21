@@ -105,6 +105,8 @@ add_executable(box
     src/ui/mainwindow_misc2.cpp
     src/ui/mainwindow_metadata.cpp
     src/ui/metadatadialog.cpp
+    src/ui/statsdialog.cpp
+    src/ui/mainwindow_stats.cpp
     src/ui/mainwindow_back.cpp
     src/ui/mainwindow_viewer.cpp
     src/ui/mainwindow_sidebar2.cpp

@@ -4,6 +4,7 @@
 // asserts far rows share the single placeholder pixmap (one cache key)
 // while near rows carry real thumbs - i.e. memory stays flat.
 #include "mainwindow.h"
+#include "statsdialog.h"
 
 #include <QApplication>
 #include <QComboBox>
@@ -13,11 +14,14 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLabel>
+#include <QMenu>
+#include <QMenuBar>
 #include <QPainter>
 #include <QPixmap>
 #include <QScrollBar>
 #include <QStandardItemModel>
 #include <QTemporaryDir>
+#include <QTextBrowser>
 #include <QtTest>
 
 namespace {
@@ -337,6 +341,59 @@ private slots:
         QVERIFY(waitRows());
         QTest::qWait(20);
         QVERIFY2(!veil->isVisible(), "loading veil outlived the tab switch");
+    }
+
+    // Info menu: the old Help dropdown was renamed, and its first action
+    // opens the Statistics popup with the rendered report.
+    void infoMenuOpensStatistics() {
+        QTemporaryDir xdg;
+        QVERIFY(xdg.isValid());
+        qputenv("XDG_CONFIG_HOME", xdg.filePath("config").toUtf8());
+        qputenv("XDG_DATA_HOME", xdg.filePath("data").toUtf8());
+        qputenv("XDG_CACHE_HOME", xdg.filePath("cache").toUtf8());
+
+        bool ok = false;
+        const QString archive = makeTaggedArchive(ok);
+        QVERIFY(ok);
+        MainWindow w(archive, true);
+        w.show();
+        QTest::qWait(150);
+
+        QAction *info = nullptr;
+        for (QAction *a : w.menuBar()->actions()) {
+            QString text = a->text();
+            if (text.remove(u'&') == QStringLiteral("Info"))
+                info = a;
+        }
+        QVERIFY2(info, "Info menu missing");
+        QVERIFY(info->menu());
+        QAction *stats = nullptr;
+        for (QAction *a : info->menu()->actions()) {
+            if (a->text().contains(QStringLiteral("Statistics")))
+                stats = a;
+        }
+        QVERIFY2(stats, "Statistics action missing");
+        stats->trigger();
+
+        StatsDialog *dlg = nullptr;
+        for (int i = 0; i < 300 && !dlg; ++i) {
+            QTest::qWait(10);
+            for (QWidget *top : QApplication::topLevelWidgets()) {
+                if (auto *d = qobject_cast<StatsDialog *>(top)) {
+                    dlg = d;
+                    break;
+                }
+            }
+        }
+        QVERIFY2(dlg, "Statistics dialog did not open");
+        auto *view = dlg->findChild<QTextBrowser *>();
+        QVERIFY(view);
+        const QString text = view->toPlainText();
+        QVERIFY2(text.contains(QStringLiteral("Library statistics")),
+                 qPrintable(text));
+        QVERIFY(text.contains(QStringLiteral("Favourited posts")));
+        dlg->close();
+        QTest::qWait(50);
     }
 
     void noFloatingAspectCombo() {

@@ -181,6 +181,7 @@ private slots:
     void applyPreferences(const AppSettings &app);
     void offerRestartForLanguage(const QString &previous);
     void showAbout();
+    void showStatistics(); // Info menu: library/cache/tag stats popup
     void runClassifyPopup();
     void reload();
     void relinkFavourites(); // match unlinked favs to files on disk

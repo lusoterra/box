@@ -194,8 +194,15 @@ download dir (Syncthing-safe).
 `Preferences…` (`Ctrl+,`, tabbed dialog shots 12–16), `Load Custom
 Stylesheet…` (`.qss` overlay).
 
-## 07-help-menu / 08-about - Help
-`About Box` (version, tagline, repo URL, copyright, license AGPLv3 or
+## 07-info-menu / 08-about - Info
+`Statistics…` (popup report: favourited/downloaded post counts and disk
+usage, cache size split into thumbnails/full images/scan indexes, cached
+tag-vocabulary rows, the most common tags plus top artists, characters and
+series, a booru ranking by post count, rating breakdown and - when a
+plain local archive tab is open - that archive's post count and top tags;
+the DB side renders immediately and the download/cache walk fills in a
+moment later), `About Box` (version, tagline, repo URL, copyright,
+license AGPLv3 or
 later, contact email `lev@lusosterone.net`, PGP fingerprint
 `13EA3CFB9ABC093823509BD668C62637ED987692`, Qt version plus third-party
 credits: miniz, Lucide icons, FFmpeg via Qt Multimedia), `Keyboard

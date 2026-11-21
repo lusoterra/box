@@ -940,12 +940,14 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
         }
     });
 
-    auto *helpMenu = menuBar()->addMenu(tr("&Help"));
-    helpMenu->addAction(tr("&About Box"), this, &MainWindow::showAbout);
-    QAction *helpAct = helpMenu->addAction(tr("&Keyboard shortcuts…"), this,
+    auto *infoMenu = menuBar()->addMenu(tr("&Info"));
+    infoMenu->addAction(tr("&Statistics…"), this, &MainWindow::showStatistics);
+    infoMenu->addSeparator();
+    infoMenu->addAction(tr("&About Box"), this, &MainWindow::showAbout);
+    QAction *helpAct = infoMenu->addAction(tr("&Keyboard shortcuts…"), this,
                                            &MainWindow::showKeyboardHelp);
     helpAct->setShortcut(QKeySequence(Qt::Key_F1));
-    helpMenu->addAction(tr("&Documentation…"), this, [this] {
+    infoMenu->addAction(tr("&Documentation…"), this, [this] {
         QDesktopServices::openUrl(QUrl("https://github.com/lusoterra/box"));
     });
     // Keyboard: arrows navigate the grid natively, Enter opens.

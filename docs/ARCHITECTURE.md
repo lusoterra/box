@@ -172,6 +172,10 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     with http(s)/mailto-only links, relative targets resolved per entry;
     used by the commentary popup and comment bodies);
     `prefsdlg` (tabbed preferences; booru editor/detect/probe + swatches/`harvestInto` split to `src/ui/prefsdlg_booru.cpp`); `straydialog` (Download/Add Stray);
+    `statsdialog` (Info -> Statistics: favourites/download sizes, cache
+    tree, tag vocabulary and ranked tags/artists/characters/series/boorus;
+    DB side read on the UI thread, download/cache walk on a worker via
+    `QFutureWatcher` in `mainwindow_stats.cpp`);
     `flowlayout` (filter pills), `tabbar` (marquee tabs, browser-style
     drag-reorder: opaque grab shown in a raised overlay child of the
     window, sliding horizontally only, with welcome pinned first),
