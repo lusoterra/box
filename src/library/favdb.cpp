@@ -1,5 +1,6 @@
 #include "favdb.h"
 #include "explicittags.h"
+#include "migrations/migrations.h"
 #include "settings.h"
 
 #include <QDateTime>
@@ -125,77 +126,6 @@ qint64 FavDb::pidFor(const Post &post) {
     return stableId(post.fileUrl.isEmpty() ? post.absFile : post.fileUrl);
 }
 
-void FavDb::migrateHashIds() {
-    // One-time healing: rows keyed by unstable identities get stable ones.
-    // (site,0) rows predate URL-hash identity; qHash-based rows predate
-    // the SHA1 scheme. True API ids never change. True duplicates created
-    // by the rewrite collapse to one row.
-    QSqlDatabase db = QSqlDatabase::database(m_conn);
-    QSqlQuery sel(db);
-    if (!sel.exec(QStringLiteral(
-            "SELECT site, post_id, file_url, post_url FROM favourites")))
-        return;
-    struct Fix {
-        QString site;
-        qint64 from = 0;
-        qint64 to = 0;
-    };
-    QVector<Fix> fixes;
-    while (sel.next()) {
-        const QString site = sel.value(0).toString();
-        const qint64 pid = sel.value(1).toLongLong();
-        const QString fileUrl = sel.value(2).toString();
-        const QString postUrl = sel.value(3).toString();
-        Post probe;
-        probe.isRemote = site != QStringLiteral("local");
-        if (probe.isRemote)
-            probe.siteName = site;
-        probe.id = pid;
-        probe.fileUrl = fileUrl;
-        if (!probe.isRemote)
-            probe.absFile = postUrl;
-        const qint64 want = pidFor(probe);
-        if (want != pid)
-            fixes.append({site, pid, want});
-    }
-    if (fixes.isEmpty())
-        return;
-    if (!db.transaction())
-        return;
-    QSqlQuery upd(db);
-    upd.prepare(QStringLiteral(
-        "UPDATE favourites SET post_id=? WHERE site=? AND post_id=?"));
-    QSqlQuery del(db);
-    del.prepare(QStringLiteral(
-        "DELETE FROM favourites WHERE site=? AND post_id=?"));
-    for (const Fix &f : fixes) {
-        upd.bindValue(0, f.to);
-        upd.bindValue(1, f.site);
-        upd.bindValue(2, f.from);
-        if (upd.exec())
-            continue;
-        // Target id already taken (same file favourited twice under two
-        // identity schemes): the twin survives, this redundant row goes.
-        // Anything else (locked DB, I/O) leaves the row for next launch.
-        const QString err = upd.lastError().databaseText();
-        if (!err.contains(QStringLiteral("UNIQUE"), Qt::CaseInsensitive) &&
-            !err.contains(QStringLiteral("PRIMARY"), Qt::CaseInsensitive))
-            continue;
-        QSqlQuery twin(db);
-        twin.prepare(QStringLiteral(
-            "SELECT 1 FROM favourites WHERE site=? AND post_id=?"));
-        twin.bindValue(0, f.site);
-        twin.bindValue(1, f.to);
-        if (twin.exec() && twin.next()) {
-            del.bindValue(0, f.site);
-            del.bindValue(1, f.from);
-            del.exec();
-        }
-    }
-    if (!db.commit())
-        db.rollback();
-}
-
 bool FavDb::open(const QString &dirIn) {
     close();
     QString dir = dirIn.isEmpty() ? defaultDataDir() : dirIn;
@@ -212,34 +142,23 @@ bool FavDb::open(const QString &dirIn) {
         m_conn.clear();
         return false;
     }
-    QSqlQuery q(db);
-    if (!q.exec(QStringLiteral("CREATE TABLE IF NOT EXISTS favourites ("
-                               "site TEXT, post_id INTEGER, rating TEXT, score INTEGER, "
-                               "ext TEXT, tags TEXT, tags_artist TEXT, tags_character TEXT, "
-                               "tags_copyright TEXT, tags_general TEXT, tags_meta TEXT, "
-                               "file_url TEXT, sample_url TEXT, preview_url TEXT, "
-                               "post_url TEXT, width INTEGER, height INTEGER, "
-                               "added INTEGER, local_path TEXT, untyped TEXT, "
-                               "custom TEXT, PRIMARY KEY (site, post_id))"))) {
+    // One-time schema upgrades live in src/migrations/ (m_favdb_schema,
+    // m_favdb_hash_ids): the boot runner performs them with progress, and
+    // open() keeps the same idempotent helpers for temp DBs and data dirs
+    // the runner never saw.
+    if (!Migrations::ensureFavDbSchema(db)) {
         close();
         return false;
     }
-    QSqlQuery alter(db);
-    alter.exec(QStringLiteral(
-        "ALTER TABLE favourites ADD COLUMN local_path TEXT"));
-    alter.exec(QStringLiteral(
-        "ALTER TABLE favourites ADD COLUMN untyped TEXT"));
-    alter.exec(QStringLiteral(
-        "ALTER TABLE favourites ADD COLUMN custom TEXT"));
-    Q_UNUSED(alter); // fails when the columns already exist: fine
-    // Backfill: rows predating the column get their current general tags
-    // as untyped. Correct in both cases: never-classified rows keep the
-    // whole blob, and classified rows already moved resolved tags out of
-    // general, leaving exactly the still-untyped remainder.
-    QSqlQuery backfill(db);
-    backfill.exec(QStringLiteral(
-        "UPDATE favourites SET untyped=tags_general WHERE untyped IS NULL"));
-    migrateHashIds();
+    // Safety net: heal only when a legacy (site,0) row is still present
+    // (indexed probe, microseconds when clean).
+    {
+        QSqlQuery probe(db);
+        if (probe.exec(QStringLiteral(
+                "SELECT 1 FROM favourites WHERE post_id=0 LIMIT 1")) &&
+            probe.next())
+            Migrations::healFavDbHashIds(db);
+    }
     m_open = true;
     return true;
 }

@@ -41,6 +41,20 @@ set(UGOIRA_SOURCES
     ../src/library/miniz/miniz_zip.c)
 include_directories(${CMAKE_SOURCE_DIR}/src/library/miniz)
 
+# Boot migrations (src/migrations/): one file per one-time upgrade.
+# Any test linking settings.cpp, favdb.cpp, cachejanitor.cpp,
+# faviconcache.cpp or mainwindow*.cpp must also link these (those units
+# delegate their inline upgrades to the migration helpers).
+set(MIGRATION_SOURCES
+    ../src/migrations/runner.cpp
+    ../src/migrations/m_settings_keys.cpp
+    ../src/migrations/m_booru_credentials.cpp
+    ../src/migrations/m_favdb_schema.cpp
+    ../src/migrations/m_favdb_hash_ids.cpp
+    ../src/migrations/m_janitor_columns.cpp
+    ../src/migrations/m_cache_layout.cpp
+    ../src/migrations/m_favicon_adopt.cpp)
+
 add_unit_test(test_explicittags test_explicittags.cpp)
 add_unit_test(test_filehash test_filehash.cpp)
 add_unit_test(test_csvbackup test_csvbackup.cpp ../src/library/csvbackup.cpp)
@@ -48,7 +62,7 @@ add_unit_test(test_metaparser test_metaparser.cpp ../src/library/metaparser.cpp)
 add_unit_test(test_losnimport test_losnimport.cpp ../src/library/losnimport.cpp
               ../src/remote/downloadmanager.cpp ../src/remote/downloadqueue.cpp ../src/remote/webdlbackend.h ${REMOTE_SOURCES}
               ../src/remote/imagecache.cpp ../src/library/cachejanitor.cpp
-              ${UGOIRA_SOURCES}
+              ${UGOIRA_SOURCES} ${MIGRATION_SOURCES}
               ../src/library/favdb.cpp ../src/settings.cpp ../src/library/metaparser.cpp
               ../src/ui/progressbar.cpp)
 add_unit_test(test_remotesource test_remotesource.cpp ${REMOTE_SOURCES})
@@ -58,18 +72,25 @@ set_tests_properties(test_strayresolve PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_unit_test(test_downloadplan test_downloadplan.cpp ../src/remote/downloadmanager.cpp
               ../src/remote/downloadqueue.cpp ../src/remote/webdlbackend.h ${REMOTE_SOURCES} ${UGOIRA_SOURCES} ../src/ui/progressbar.cpp
-              ../src/remote/imagecache.cpp ../src/library/cachejanitor.cpp ../src/settings.cpp)
+              ../src/remote/imagecache.cpp ../src/library/cachejanitor.cpp ../src/settings.cpp ${MIGRATION_SOURCES})
+add_unit_test(test_migrations test_migrations.cpp ${MIGRATION_SOURCES}
+              ../src/settings.cpp ../src/library/favdb.cpp
+              ${REMOTE_SOURCES})
+set_tests_properties(test_migrations PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_unit_test(test_settings test_settings.cpp ../src/settings.cpp
-              ${REMOTE_SOURCES})
+              ${REMOTE_SOURCES} ${MIGRATION_SOURCES})
 add_unit_test(test_configmove test_configmove.cpp ../src/settings.cpp
-              ${REMOTE_SOURCES})
+              ${REMOTE_SOURCES} ${MIGRATION_SOURCES})
 set_tests_properties(test_configmove PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-add_unit_test(test_favdb test_favdb.cpp ../src/library/favdb.cpp)
+add_unit_test(test_favdb test_favdb.cpp ../src/library/favdb.cpp
+              ../src/migrations/m_favdb_schema.cpp
+              ../src/migrations/m_favdb_hash_ids.cpp)
 add_unit_test(test_cachejanitor test_cachejanitor.cpp ../src/library/cachejanitor.cpp
-              ../src/settings.cpp ${REMOTE_SOURCES})
+              ../src/settings.cpp ${REMOTE_SOURCES} ${MIGRATION_SOURCES})
 add_unit_test(test_cache test_cache.cpp ../src/library/cache.cpp
-              ../src/settings.cpp ${REMOTE_SOURCES})
+              ../src/settings.cpp ${REMOTE_SOURCES} ${MIGRATION_SOURCES})
 set_tests_properties(test_cache PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_unit_test(test_cachepolicy test_cachepolicy.cpp)
 add_unit_test(test_stray test_stray.cpp)
@@ -84,14 +105,15 @@ add_unit_test(test_tagsuggest test_tagsuggest.cpp ../src/remote/tagsuggest.cpp
               ${REMOTE_SOURCES} ../src/library/tagtypes.cpp
               ../src/library/tagcountcache.cpp
               ../src/library/index.cpp ../src/library/metaparser.cpp
-              ../src/library/cache.cpp ../src/settings.cpp)
+              ../src/library/cache.cpp ../src/settings.cpp ${MIGRATION_SOURCES})
 add_unit_test(test_favicon test_favicon.cpp ../src/remote/faviconcache.cpp
-              ${REMOTE_SOURCES})
+              ../src/settings.cpp
+              ${REMOTE_SOURCES} ${MIGRATION_SOURCES})
 add_unit_test(test_sidecarrefresh test_sidecarrefresh.cpp ../src/library/sidecarrefresh.cpp
               ${REMOTE_SOURCES})
 add_unit_test(test_thumbloader test_thumbloader.cpp ../src/remote/thumbloader.cpp
               ../src/remote/webdlbackend.h
-              ../src/library/cachejanitor.cpp ${REMOTE_SOURCES} ../src/settings.cpp ../src/remote/tempmedia.cpp)
+              ../src/library/cachejanitor.cpp ${REMOTE_SOURCES} ../src/settings.cpp ../src/remote/tempmedia.cpp ${MIGRATION_SOURCES})
 target_compile_definitions(test_thumbloader PRIVATE
     TESTFILES_DIR="${CMAKE_SOURCE_DIR}/tests/files")
 add_unit_test(test_gifview test_gifview.cpp ../src/ui/viewerpage.cpp ../src/ui/viewerpage_mediaviews.cpp ../src/ui/viewerpage_meta.cpp ../src/ui/viewerpage_tags.cpp ../src/ui/viewerpage_load.cpp ../src/ui/viewerpage_setters.cpp ../src/ui/viewerpage_detail.cpp ../src/ui/viewerpage_nav.cpp
@@ -99,7 +121,7 @@ add_unit_test(test_gifview test_gifview.cpp ../src/ui/viewerpage.cpp ../src/ui/v
               ../src/remote/webdlbackend.h ../src/library/cachejanitor.cpp
               ../src/ui/progressbar.cpp ../src/ui/flowlayout.cpp
               ../src/ui/metatext.cpp
-              ${REMOTE_SOURCES} ../src/settings.cpp ../src/remote/tempmedia.cpp)
+              ${REMOTE_SOURCES} ../src/settings.cpp ../src/remote/tempmedia.cpp ${MIGRATION_SOURCES})
 target_compile_definitions(test_gifview PRIVATE
     TESTFILES_DIR="${CMAKE_SOURCE_DIR}/tests/files")
 set_tests_properties(test_gifview PROPERTIES
@@ -109,7 +131,7 @@ add_unit_test(test_metathread test_metathread.cpp ../src/ui/viewerpage.cpp ../sr
               ../src/remote/webdlbackend.h ../src/library/cachejanitor.cpp
               ../src/ui/progressbar.cpp ../src/ui/flowlayout.cpp
               ../src/ui/metatext.cpp
-              ${REMOTE_SOURCES} ../src/settings.cpp ../src/remote/tempmedia.cpp)
+              ${REMOTE_SOURCES} ../src/settings.cpp ../src/remote/tempmedia.cpp ${MIGRATION_SOURCES})
 set_tests_properties(test_metathread PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_unit_test(test_videopane test_videopane.cpp ../src/ui/viewerpage.cpp ../src/ui/viewerpage_mediaviews.cpp ../src/ui/viewerpage_meta.cpp ../src/ui/viewerpage_tags.cpp ../src/ui/viewerpage_load.cpp ../src/ui/viewerpage_setters.cpp ../src/ui/viewerpage_detail.cpp ../src/ui/viewerpage_nav.cpp
@@ -117,7 +139,7 @@ add_unit_test(test_videopane test_videopane.cpp ../src/ui/viewerpage.cpp ../src/
               ../src/remote/webdlbackend.h ../src/library/cachejanitor.cpp
               ../src/ui/progressbar.cpp ../src/ui/flowlayout.cpp
               ../src/ui/metatext.cpp
-              ${REMOTE_SOURCES} ../src/settings.cpp ../src/remote/tempmedia.cpp)
+              ${REMOTE_SOURCES} ../src/settings.cpp ../src/remote/tempmedia.cpp ${MIGRATION_SOURCES})
 target_compile_definitions(test_videopane PRIVATE
     TESTFILES_DIR="${CMAKE_SOURCE_DIR}/tests/files")
 set_tests_properties(test_videopane PROPERTIES
@@ -153,7 +175,7 @@ add_unit_test(test_gridwindow test_gridwindow.cpp
               ../src/remote/faviconcache.cpp ../src/library/sidecarrefresh.cpp
               ../src/library/index.cpp ../src/library/cachejanitor.cpp
               ../src/settings.cpp ${REMOTE_SOURCES} ${UGOIRA_SOURCES}
-              ../src/library/settingsexport.cpp ../src/remote/tempmedia.cpp)
+              ../src/library/settingsexport.cpp ../src/remote/tempmedia.cpp ${MIGRATION_SOURCES})
 target_link_libraries(test_gridwindow PRIVATE Qt6::WebEngineWidgets Qt6::WebEngineCore)
 set_tests_properties(test_gridwindow PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
@@ -161,24 +183,24 @@ add_unit_test(test_nuuru test_nuuru.cpp ${REMOTE_SOURCES}
               ../src/remote/tagsuggest.cpp ../src/library/tagtypes.cpp
               ../src/library/tagcountcache.cpp
               ../src/library/index.cpp ../src/library/metaparser.cpp
-              ../src/library/cache.cpp ../src/settings.cpp)
+              ../src/library/cache.cpp ../src/settings.cpp ${MIGRATION_SOURCES})
 add_unit_test(test_philomena test_philomena.cpp ${REMOTE_SOURCES}
               ../src/remote/tagsuggest.cpp ../src/library/tagtypes.cpp
               ../src/library/tagcountcache.cpp
               ../src/library/index.cpp ../src/library/metaparser.cpp
-              ../src/library/cache.cpp ../src/settings.cpp)
+              ../src/library/cache.cpp ../src/settings.cpp ${MIGRATION_SOURCES})
 set_tests_properties(test_philomena PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_unit_test(test_commentmarks test_commentmarks.cpp ${REMOTE_SOURCES}
               ../src/remote/tagsuggest.cpp ../src/library/tagtypes.cpp
               ../src/library/tagcountcache.cpp
               ../src/library/index.cpp ../src/library/metaparser.cpp
-              ../src/library/cache.cpp ../src/settings.cpp)
+              ../src/library/cache.cpp ../src/settings.cpp ${MIGRATION_SOURCES})
 add_unit_test(test_hybooru test_hybooru.cpp ${REMOTE_SOURCES}
               ../src/remote/tagsuggest.cpp ../src/library/tagtypes.cpp
               ../src/library/tagcountcache.cpp
               ../src/library/index.cpp ../src/library/metaparser.cpp
-              ../src/library/cache.cpp ../src/settings.cpp)
+              ../src/library/cache.cpp ../src/settings.cpp ${MIGRATION_SOURCES})
 add_unit_test(test_postmeta test_postmeta.cpp ../src/remote/postmeta.cpp
               ${REMOTE_SOURCES})
 add_unit_test(test_metatext test_metatext.cpp ../src/ui/metatext.cpp)
@@ -187,7 +209,7 @@ add_unit_test(test_powsolver test_powsolver.cpp ../src/remote/powsolver.cpp
               ${REMOTE_SOURCES})
 add_unit_test(test_settingsexport test_settingsexport.cpp
               ../src/library/settingsexport.cpp ../src/settings.cpp ../src/library/favdb.cpp
-              ${REMOTE_SOURCES})
+              ${REMOTE_SOURCES} ${MIGRATION_SOURCES})
 add_unit_test(test_ugoira test_ugoira.cpp ../src/library/ugoioconvert.cpp
               ../src/library/miniz/miniz.c ../src/library/miniz/miniz_tdef.c
               ../src/library/miniz/miniz_tinfl.c ../src/library/miniz/miniz_zip.c)
@@ -213,7 +235,7 @@ set_tests_properties(test_theme PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_unit_test(test_scanner test_scanner.cpp ../src/library/scanner.cpp
               ../src/library/metaparser.cpp ../src/library/cache.cpp
-              ../src/settings.cpp ${REMOTE_SOURCES})
+              ../src/settings.cpp ${REMOTE_SOURCES} ${MIGRATION_SOURCES})
 add_unit_test(test_security test_security.cpp ${REMOTE_SOURCES}
               ../src/library/metaparser.cpp ../src/library/losnimport.cpp
               ../src/library/favdb.cpp ../src/settings.cpp
@@ -223,7 +245,7 @@ add_unit_test(test_security test_security.cpp ${REMOTE_SOURCES}
               ../src/remote/webdlbackend.h
               ../src/remote/imagecache.cpp ../src/library/cachejanitor.cpp
               ${UGOIRA_SOURCES}
-              ../src/ui/progressbar.cpp)
+              ../src/ui/progressbar.cpp ${MIGRATION_SOURCES})
 
 find_package(Python3 COMPONENTS Interpreter)
 if(Python3_FOUND)

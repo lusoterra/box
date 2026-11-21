@@ -1,5 +1,6 @@
 #include "settings.h"
 #include "cachepolicy.h"
+#include "migrations/migrations.h"
 #include "tagtypes.h"
 
 #include <QDir>
@@ -653,45 +654,16 @@ QList<BooruSite> loadBoorus(QSettings &c) {
     }
     if (!out.isEmpty())
         return out;
-    // Seed presets, migrating legacy credentials/bases onto them.
-    out = RemoteSource::presetBoorus();
-    auto migrateCreds = [&](const QString &key, const QString &userKey,
-                            const QString &secretKey) {
-        const QString user = c.value(userKey).toString();
-        const QString secret = c.value(secretKey).toString();
-        for (BooruSite &b : out) {
-            if (b.key == key) {
-                b.user = user;
-                b.secret = secret;
-            }
-        }
-    };
-    migrateCreds(QStringLiteral("danbooru"), QStringLiteral("danbooru/user"),
-                 QStringLiteral("danbooru/key"));
-    migrateCreds(QStringLiteral("gelbooru"), QStringLiteral("gelbooru/user"),
-                 QStringLiteral("gelbooru/key"));
-    migrateCreds(QStringLiteral("yandere"), QStringLiteral("yandere/user"),
-                 QStringLiteral("yandere/pass"));
-    migrateCreds(QStringLiteral("konachan"), QStringLiteral("konachan/user"),
-                 QStringLiteral("konachan/pass"));
-    migrateCreds(QStringLiteral("szurubooru"), QStringLiteral("szurubooru/user"),
-                 QStringLiteral("szurubooru/token"));
-    for (BooruSite &b : out) {
-        if (b.key == QStringLiteral("szurubooru"))
-            b.baseUrl = c.value(QStringLiteral("szurubooru/base")).toString();
-        else if (b.key == QStringLiteral("shimmie"))
-            b.baseUrl = c.value(QStringLiteral("shimmie/base")).toString();
-    }
-    for (const QString &legacy :
-         {QStringLiteral("danbooru/user"), QStringLiteral("danbooru/key"),
-          QStringLiteral("gelbooru/user"), QStringLiteral("gelbooru/key"),
-          QStringLiteral("yandere/user"), QStringLiteral("yandere/pass"),
-          QStringLiteral("konachan/user"), QStringLiteral("konachan/pass"),
-          QStringLiteral("szurubooru/base"), QStringLiteral("szurubooru/user"),
-          QStringLiteral("szurubooru/token"), QStringLiteral("shimmie/base")})
-        c.remove(legacy);
-    saveBoorus(c, out);
-    return out;
+    // First run: seed the presets, folding legacy per-site credentials.
+    // The one-time upgrade lives in src/migrations/m_booru_credentials.cpp
+    // (the boot runner performs it with progress); this fallback keeps
+    // temp-config unit tests seeding identically without the runner.
+    if (Migrations::applyLegacyBooruCredentials(c) &&
+        !c.value(QStringLiteral("boorus/order")).toStringList().isEmpty())
+        return loadBoorus(c);
+    // The write failed (read-only config?): serve the presets in memory
+    // so first run still works; the next launch retries the migration.
+    return RemoteSource::presetBoorus();
 }
 
 void saveBoorus(QSettings &c, const QList<BooruSite> &boorus) {

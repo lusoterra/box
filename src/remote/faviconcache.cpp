@@ -1,10 +1,12 @@
 #include "faviconcache.h"
 
+#include "migrations/migrations.h"
 #include "remotesource.h"
 
 #include <QDir>
 #include <QFile>
 #include <QGuiApplication>
+#include <QSet>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
@@ -40,29 +42,30 @@ void FaviconCache::setCustomDir(const QString &dir) {
     m_customDir = dir;
     if (m_customDir.isEmpty())
         return;
-    // Portable storage: adopt auto-fetched icons into the backup folder,
-    // migrating legacy cache-dir files (and their in-memory entries).
-    QDir().mkpath(m_customDir + QStringLiteral("/auto"));
+    // Portable storage: adopt auto-fetched icons into the backup folder.
+    // The one-time move lives in src/migrations/m_favicon_adopt.cpp (the
+    // boot runner performs it with progress); fix up the in-memory
+    // entries to the new paths afterwards.
     QDir cacheDir(m_dir);
+    QSet<QString> moved;
     for (const QString &f :
-         cacheDir.entryList({QStringLiteral("*.png")}, QDir::Files)) {
-        const QString key = f.left(f.size() - 4);
+         cacheDir.entryList({QStringLiteral("*.png")}, QDir::Files))
+        moved.insert(f.left(f.size() - 4));
+    Migrations::applyFaviconAdopt(m_dir, m_customDir);
+    for (const QString &key : moved) {
         const QString dest = autoPathFor(key);
-        if (dest.isEmpty() || QFile::exists(dest))
+        if (dest.isEmpty() || !QFile::exists(dest))
             continue;
-        const QString src = m_dir + u'/' + f;
-        if (QFile::rename(src, dest)) {
-            if (m_files.value(key) == src)
-                m_files.insert(key, dest);
-            if (m_icons.contains(key)) {
-                // QIcons hold their file path: re-point at the moved
-                // file (GUI only - headless/test use re-resolves later).
-                if (qobject_cast<QGuiApplication *>(
-                        QCoreApplication::instance()))
-                    m_icons.insert(key, QIcon(dest));
-                else
-                    m_icons.remove(key);
-            }
+        if (m_files.value(key) == m_dir + u'/' + key + QStringLiteral(".png"))
+            m_files.insert(key, dest);
+        if (m_icons.contains(key)) {
+            // QIcons hold their file path: re-point at the moved
+            // file (GUI only - headless/test use re-resolves later).
+            if (qobject_cast<QGuiApplication *>(
+                    QCoreApplication::instance()))
+                m_icons.insert(key, QIcon(dest));
+            else
+                m_icons.remove(key);
         }
     }
     QDir autoDir(m_customDir + QStringLiteral("/auto"));

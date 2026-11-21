@@ -81,9 +81,8 @@ public:
     void clear();
 
 private:
-    // One-time healing of hash-based identities (see pidFor): rewrites
-    // unstable (site,0)/qHash rows to stable ids, collapsing duplicates.
-    void migrateHashIds();
+    // One-time identity healing lives in src/migrations/m_favdb_hash_ids.cpp
+    // (healFavDbHashIds); open() calls it when the (site,0) probe hits.
 
     bool m_open = false;
     QString m_conn;

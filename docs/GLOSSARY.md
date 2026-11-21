@@ -124,6 +124,10 @@
   `TempMedia` (`/tmp/box-ext`) first, then the clipboard gets file URLs.
 - relink = `relinkFavourites()`: match unlinked fav rows to files on disk
   (`src/ui/mainwindow.cpp:2642`).
+- migration = one-time schema/config/layout upgrade in
+  `src/migrations/` (one file per migration, run once at boot with a
+  `Running migrations…` dialog when work is pending); see
+  `docs/MIGRATIONS.md`.
 - refresh-tags / update sidecars = `PostRefresher` single-post re-fetch
   (`src/remote/remotesource.h:193`); bulk = `SidecarBatch`
   (`src/library/sidecarrefresh.h:29`).

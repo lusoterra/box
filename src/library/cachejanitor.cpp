@@ -1,4 +1,5 @@
 #include "cachejanitor.h"
+#include "migrations/migrations.h"
 #include "settings.h"
 
 #include <QDateTime>
@@ -62,29 +63,10 @@ QSqlDatabase janitorDb() {
     t_db.setDatabaseName(CacheJanitor::dbPath());
     if (!t_db.open())
         return QSqlDatabase();
-    QSqlQuery q(t_db);
-    if (!q.exec(QStringLiteral("CREATE TABLE IF NOT EXISTS files ("
-                               "path TEXT PRIMARY KEY, size INTEGER, seen INTEGER,"
-                               "nsfw INTEGER DEFAULT -1, site TEXT DEFAULT '')")))
+    // One-time upgrade for pre-cache-policy tracking DBs (missing
+    // nsfw/site columns) lives in src/migrations/m_janitor_columns.cpp.
+    if (!Migrations::ensureJanitorColumns(t_db))
         return QSqlDatabase();
-    // Older tracking DBs (pre-cache-policy) lack the media columns.
-    // SQLite has no IF NOT EXISTS for columns: probe, then add once.
-    bool hasNsfw = false;
-    bool hasSite = false;
-    if (QSqlQuery info(t_db);
-        info.exec(QStringLiteral("PRAGMA table_info(files)"))) {
-        while (info.next()) {
-            const QString colName = info.value(1).toString();
-            hasNsfw = hasNsfw || colName == QStringLiteral("nsfw");
-            hasSite = hasSite || colName == QStringLiteral("site");
-        }
-    }
-    if (!hasNsfw)
-        QSqlQuery(t_db).exec(
-            QStringLiteral("ALTER TABLE files ADD COLUMN nsfw INTEGER DEFAULT -1"));
-    if (!hasSite)
-        QSqlQuery(t_db).exec(
-            QStringLiteral("ALTER TABLE files ADD COLUMN site TEXT DEFAULT ''"));
     return t_db;
 }
 

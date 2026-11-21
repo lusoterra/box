@@ -18,6 +18,29 @@
   same session (`docs/UI-TOUR.md` for visible changes).
 - No screenshots: describe UI textually (element names + purposes).
 
+## Migrations (one-time upgrades)
+
+- One-time schema/config/layout upgrades live in `src/migrations/`, one
+  file per migration - never inline in constructors or `open()` paths.
+  Read `docs/MIGRATIONS.md` before adding or changing one: cheap
+  idempotent `needs*` probe, re-runnable `apply*`, register in
+  `buildSteps()` (`src/migrations/runner.cpp`), keep the thin fallback
+  at the original call site, cover with `test_migrations`.
+- The boot dialog (`Running migrations…` / `Migrating vX → vY…`) only
+  shows when work is pending; never block startup on it.
+
+## Versioning (semantic, automatic)
+
+- The version lives in one place: `project(Box VERSION x.y.z)` in
+  `CMakeLists.txt:2` (`BOX_VERSION` flows to About Box via
+  `src/appinfo.h`). Current: `0.2.0`.
+- Every behavior-affecting change bumps it in the same commit:
+  bugfix -> patch (`x.y.z+1`), backwards-compatible feature -> minor
+  (`x.y+1.0`, patch reset to 0). Docs-only / test-only / refactor-only
+  changes do not bump.
+- Never ever bump the major version (`x`) unless the user explicitly
+  asks for it or approves it.
+
 ## Feature log (every feature, even minor)
 
 - `docs/PENDING_TASKS.md` and `docs/DONE.md` are local-only logs (gitignored,

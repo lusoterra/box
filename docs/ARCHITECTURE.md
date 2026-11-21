@@ -132,7 +132,8 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     Enter/pill commit (negation flips a pill, duplicates ignored).
   - `favdb.h:12` `FavDb` (`store.db`): identity `pidFor`/`siteFor` (`:24`),
     `open/add/addMany/remove/list` (`:33-52`), `unlinked()` (`:61`),
-    `setTagSplits()` (`:68`); `migrateHashIds()` (`:74`).
+    `setTagSplits()` (`:68`); schema + identity upgrades live in
+    `src/migrations/` (`m_favdb_schema`, `m_favdb_hash_ids`).
   - `settingsexport.h` (`src/library/`): JSON backup/restore of
     portable settings + favourites (`exportJson`/`importJson`;
     boorus merge by key, favourites addMany skips duplicates).
@@ -157,6 +158,13 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
 - `tagcategories.h`: per-booru category merge/rename rules
   (`TagCategoryMerge`, source aliases + classic/custom target); consumed
   by the browse sidebar, filter pills and viewer tag groups.
+- `src/migrations/`: one-time schema/config/layout upgrades, one file
+  per migration (`migrations.h` contract, `runner.h`
+  `MigrationRunner::runPending`). Run at boot with a `Running
+  migrations…` dialog only when work is pending; applied ids (+ schema
+  generation) persist in `settings.ini` (`migrations/done`,
+  `migrations/version`), so later boots skip them. Details in
+  `docs/MIGRATIONS.md`.
 - `src/ui/` - `mainwindow.h:105` `MainWindow` (all tabs, all searches);
   `BrowserTab` session state (`:47-61`); `PendingSite` OR fan-out (`:342-350`).
   - `viewerpage.h:170` `ViewerPage` (same-window viewer; member defs split across `src/ui/viewerpage.cpp`, `viewerpage_mediaviews.cpp` (`ImageView`/`GifView`/`VideoView`), `viewerpage_nav.cpp` navigation/prefetch, `viewerpage_meta.cpp` metadata/notes/comments/commentary popups+reload, `viewerpage_tags.cpp` tag rendering, `viewerpage_load.cpp` notes/cache/web load, `viewerpage_setters.cpp` state/setters/badges, `viewerpage_detail.cpp` Hybooru detail fetch; `ImageView` `:33`,
@@ -277,8 +285,9 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
   waiting on is pinned against navigation-time `cancelUrl()`.
 - Favourites (`src/library/favdb.h`):
   - Identity = site+id (`pidFor`, `:24`); id-less strays key by URL hash,
-    pure-local rows by path hash; `migrateHashIds()` heals unstable rows
-    (`favdb.cpp:80`).
+    pure-local rows by path hash; the `favdb-hash-ids` boot migration
+    (`src/migrations/`) heals unstable rows once, `FavDb::open()` keeps a
+    cheap probe as a safety net.
   - `relinkFavourites()` (`mainwindow.cpp:2642`, once per launch at `:1485`)
     matches `unlinked()` rows to files on disk via `setLocalPaths`;
     `rowToPost` serves favs as local posts when the file exists

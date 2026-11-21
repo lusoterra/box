@@ -8,7 +8,9 @@
 #include "filehash.h"
 #include "imagecache.h"
 #include "losnimport.h"
+
 #include "metaparser.h"
+#include "migrations/migrations.h"
 #include "multipickmenu.h"
 #include "prefsdlg.h"
 #include "progressbar.h"
@@ -794,34 +796,11 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
         restoreGeometry(m_settings.geometry);
 
     applyThemeFromSettings();
-    // One-time layout moves: the pre-rename cache tree nested twice
-    // (~/.cache/booru-explorer/booru-explorer) and cache.db lived in the
-    // data dir. Carry both over when the new spots are still empty.
-    {
-        const QString base = appCacheDir();
-        const QString oldBase =
-            QStandardPaths::writableLocation(QStandardPaths::CacheLocation) +
-            QStringLiteral("/booru-explorer");
-        for (const QString &sub :
-             {QStringLiteral("thumbs"), QStringLiteral("roots"),
-              QStringLiteral("favicons")}) {
-            const QString dst = base + u'/' + sub;
-            const QString src =
-                oldBase + QStringLiteral("/booru-explorer/") + sub;
-            if (!QDir(dst).exists() && QDir(src).exists()) {
-                QDir().mkpath(base);
-                QDir().rename(src, dst);
-            }
-        }
-        const QString newDb = base + QStringLiteral("/cache.db");
-        const QString oldDb =
-            effectiveDataDir(m_settings) + QStringLiteral("/cache.db");
-        if (!QFile::exists(newDb) && QFile::exists(oldDb)) {
-            QDir().mkpath(base);
-            if (!QFile::rename(oldDb, newDb) && QFile::copy(oldDb, newDb))
-                QFile::remove(oldDb); // cross-device fallback (tmpfs cache)
-        }
-    }
+    // One-time layout moves (pre-rename cache tree, data-dir cache.db):
+    // the upgrade lives in src/migrations/m_cache_layout.cpp (the boot
+    // runner performs it with progress); this stays as an idempotent
+    // fallback for data dirs the runner never saw.
+    Migrations::applyCacheLayout(appCacheDir(), effectiveDataDir(m_settings));
     CacheJanitor::configure(
         appCacheDir(), qint64(m_settings.cacheLimitMB) * 1024 * 1024);
     // Thumbnail/full disk caches live in the platform cache dir; the

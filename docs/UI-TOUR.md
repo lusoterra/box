@@ -6,6 +6,19 @@ every theme (`Theme::statusBarBackground/statusBarText`, native too),
 with contrast-checked text, so it reads as chrome rather than page
 content even where the mascot passes behind it.
 
+## 00-startup - launch + one-time migrations
+First paint is the home tab (`01-welcome` below). Before the main window
+opens its databases, the app runs pending one-time upgrades
+(`src/migrations/`, `docs/MIGRATIONS.md`): legacy settings keys, the
+booru registry, the favourites schema/identities, cache tracking and
+on-disk layout moves. When work is pending a small modal dialog -
+`Running migrations…` (or `Migrating vX → vY…` across schema
+generations) with a progress bar and the current step - covers startup;
+with nothing to do there is no dialog and boot is unchanged. A missing
+configured storage folder still warns first (Use defaults / Change
+folders / Quit), and a moved data folder re-runs the upgrades for the
+new location on Apply.
+
 ## 01-welcome - home tab (`WelcomePage`, `src/ui/welcomepage.cpp`)
 Tab 0, shown when no tab is active. From top: app icon + `Box` title,
 tagline + version, four big buttons - `Back to last session` (only when

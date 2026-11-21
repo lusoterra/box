@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(Box VERSION 0.1.0 LANGUAGES C CXX)
+project(Box VERSION 0.2.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -59,6 +59,14 @@ add_executable(box
     src/library/losnimport.cpp
     src/library/csvbackup.cpp
     src/library/queryor.cpp
+    src/migrations/runner.cpp
+    src/migrations/m_settings_keys.cpp
+    src/migrations/m_booru_credentials.cpp
+    src/migrations/m_favdb_schema.cpp
+    src/migrations/m_favdb_hash_ids.cpp
+    src/migrations/m_janitor_columns.cpp
+    src/migrations/m_cache_layout.cpp
+    src/migrations/m_favicon_adopt.cpp
     src/remote/cookiegrab.cpp
     src/ui/progressbar.cpp
     src/ui/gridloadingoverlay.cpp

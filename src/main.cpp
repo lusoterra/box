@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "applog.h"
+#include "migrations/runner.h"
 #include "settings.h"
 #include "theme.h"
 
@@ -260,6 +261,10 @@ int main(int argc, char *argv[]) {
         }
     }
     QDir().mkpath(effectiveDataDir(settings));
+    // One-time upgrades (schemas, registry, on-disk layout): each runs at
+    // most once - see src/migrations/ + docs/MIGRATIONS.md. A small
+    // "Running migrations…" dialog shows only when work is pending.
+    MigrationRunner::runPending(nullptr, settings);
     AppLog::install(effectiveDataDir(settings) + QStringLiteral("/box.log"));
     applyStartupTheme(app, settings, cli.value(styleOpt), cli.isSet(nativeOpt));
 

@@ -9,6 +9,7 @@
 #include "imagecache.h"
 #include "losnimport.h"
 #include "metaparser.h"
+#include "migrations/runner.h"
 #include "prefsdlg.h"
 #include "progressbar.h"
 #include "queryor.h"
@@ -215,6 +216,9 @@ void MainWindow::applyPreferences(const AppSettings &app) {
     // where they were unless moved over.
     if (effectiveDataDir(m_settings) != oldDataDir) {
         QDir().mkpath(effectiveDataDir(m_settings));
+        // A moved/copied-in data dir may hold pre-migration DBs: run the
+        // one-time upgrades for the new location (no-ops when current).
+        MigrationRunner::runPending(this, m_settings);
         m_favDb.open(effectiveDataDir(m_settings));
         // Tag vocabulary follows the data folder too: suggestions keep
         // their counts in the new location (fresh DB until one is moved).

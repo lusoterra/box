@@ -138,8 +138,8 @@ struct AppSettings {
     SavedTab lastPlace;
     bool hasLastPlace = false;
     // Configured boorus (LoliSnatcher-style): presets for the popular ones
-    // plus user-added instances. First run seeds the presets and migrates
-    // the legacy per-site credentials into them.
+    // plus user-added instances. First run seeds the presets, folding the
+    // legacy per-site credentials into them (src/migrations/).
     QList<BooruSite> boorus;
     // Explicit-detection tags (one per line in Preferences). Defaults to the
     // built-in set; saved once the dialog runs.
@@ -350,7 +350,8 @@ AppSettings loadSettings();
 void saveSettings(const AppSettings &s);
 
 // Booru registry persistence (order + per-key groups). First call seeds
-// presets and migrates legacy per-site credentials. Declared here so the
+// presets and folds legacy per-site credentials (one-time upgrade in
+// src/migrations/m_booru_credentials.cpp). Declared here so the
 // preferences dialog and tests share the same load/save path.
 class QSettings;
 QList<BooruSite> loadBoorus(QSettings &c);
