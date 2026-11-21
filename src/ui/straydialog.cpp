@@ -35,7 +35,7 @@ StrayDialog::StrayDialog(bool autoFav, QWidget *parent) : QDialog(parent) {
     lay->addWidget(m_status);
     m_autoFav =
         new QCheckBox(tr("Auto-favourite downloaded/imported strays"), this);
-    m_autoFav->setToolTip(tr("They also land in ♥ Favourites"));
+    m_autoFav->setToolTip(tr("They also land in Favourites"));
     m_autoFav->setChecked(autoFav);
     connect(m_autoFav, &QCheckBox::toggled, this,
             &StrayDialog::autoFavChanged);
@@ -66,7 +66,7 @@ StrayDialog::StrayDialog(bool autoFav, QWidget *parent) : QDialog(parent) {
     });
     auto *favBtn = new QPushButton(tr("Favourite only"), this);
     favBtn->setToolTip(
-        tr("Add the links to ♥ Favourites without downloading the media"));
+        tr("Add the links to Favourites without downloading the media"));
     connect(favBtn, &QPushButton::clicked, this, [this, collect] {
         const QStringList urls = collect();
         if (urls.isEmpty())

@@ -4,7 +4,12 @@
 // icons.qrc. Lucide strokes render black by default, so every icon is
 // tinted for the dark palette at load.
 #include <QColor>
+#include <QHash>
 #include <QIcon>
+#include <QImage>
+#include <QImageReader>
+#include <QMutex>
+#include <QMutexLocker>
 #include <QPainter>
 #include <QPainterPath>
 #include <QPixmap>
@@ -91,17 +96,62 @@ inline QColor filterTagColor(const QString &token) {
     return QColor(0x7c, 0x9e, 0xf8); // other prefix: accent
 }
 
+// Tinted Lucide art as a QImage. Worker threads (thumbnail placeholders)
+// need this form: a QPixmap may only be built on the GUI thread. Cached by
+// name/colour/size; thumb jobs render concurrently, hence the mutex.
+inline QImage image(const QString &name, const QColor &color, int px) {
+    static QMutex mutex;
+    static QHash<QString, QImage> cache;
+    const QString key = name + u'|' + color.name(QColor::HexArgb) + u'|' +
+                        QString::number(px);
+    {
+        QMutexLocker lock(&mutex);
+        const auto it = cache.constFind(key);
+        if (it != cache.constEnd())
+            return it.value();
+    }
+    QImage img;
+    QImageReader reader(QStringLiteral(":/icons/ui/") + name +
+                        QStringLiteral(".svg"));
+    if (reader.canRead()) {
+        const QSize src = reader.size();
+        if (src.isValid())
+            reader.setScaledSize(src.scaled(px, px, Qt::KeepAspectRatio));
+        img = reader.read();
+    }
+    if (!img.isNull()) {
+        img = img.convertToFormat(QImage::Format_ARGB32_Premultiplied);
+        QPainter p(&img);
+        p.setCompositionMode(QPainter::CompositionMode_SourceIn);
+        p.fillRect(img.rect(), color);
+        p.end();
+    }
+    QMutexLocker lock(&mutex);
+    cache.insert(key, img);
+    return img;
+}
+
+inline QPixmap pixmap(const QString &name, const QColor &color, int px) {
+    const QImage img = image(name, color, px);
+    return img.isNull() ? QPixmap() : QPixmap::fromImage(img);
+}
+
+// Painted badges (grid marks, overview cards) draw the same art centred in
+// a rect instead of relying on a font glyph.
+inline void draw(QPainter *p, const QRect &rect, const QString &name,
+                 const QColor &color) {
+    const int px = qMax(1, qMin(rect.width(), rect.height()));
+    const QImage img = image(name, color, px);
+    if (img.isNull())
+        return;
+    QRect dst(QPoint(0, 0), img.size());
+    dst.moveCenter(rect.center());
+    p->drawImage(dst, img);
+}
+
 inline QIcon icon(const QString &name, const QColor &color, int px = 44) {
-    QPixmap pm(QStringLiteral(":/icons/ui/") + name + QStringLiteral(".svg"));
-    if (pm.isNull())
-        return {};
-    QPixmap scaled =
-        pm.scaled(px, px, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-    QPainter p(&scaled);
-    p.setCompositionMode(QPainter::CompositionMode_SourceIn);
-    p.fillRect(scaled.rect(), color);
-    p.end();
-    return QIcon(scaled);
+    const QPixmap pm = pixmap(name, color, px);
+    return pm.isNull() ? QIcon() : QIcon(pm);
 }
 
 inline QIcon icon(const QString &name) {
@@ -110,12 +160,10 @@ inline QIcon icon(const QString &name) {
 
 // Solid heart (Lucide only ships the outline): two lobes + a triangle,
 // united with a winding fill. Used for every favourite mark.
-inline QIcon heart(const QColor &color, bool filled, int px = 44) {
-    if (!filled)
-        return icon(QStringLiteral("heart"), color, px);
-    QPixmap pm(px, px);
-    pm.fill(Qt::transparent);
-    QPainter p(&pm);
+inline QImage heartImage(const QColor &color, int px = 44) {
+    QImage img(px, px, QImage::Format_ARGB32_Premultiplied);
+    img.fill(Qt::transparent);
+    QPainter p(&img);
     p.setRenderHint(QPainter::Antialiasing);
     p.setPen(Qt::NoPen);
     p.setBrush(color);
@@ -130,6 +178,12 @@ inline QIcon heart(const QColor &color, bool filled, int px = 44) {
     path.addPolygon(tri);
     p.drawPath(path);
     p.end();
-    return QIcon(pm);
+    return img;
+}
+
+inline QIcon heart(const QColor &color, bool filled, int px = 44) {
+    if (!filled)
+        return icon(QStringLiteral("heart"), color, px);
+    return QIcon(QPixmap::fromImage(heartImage(color, px)));
 }
 } // namespace UiIcons

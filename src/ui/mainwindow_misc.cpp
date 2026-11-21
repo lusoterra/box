@@ -376,7 +376,7 @@ void MainWindow::applyManualBuckets(BrowserTab *t,
         if (current && gridShowing) {
             // In-memory refresh only: a DB re-list here would drop the
             // just-applied buckets (they are stored now for next time).
-            setWindowTitle(QStringLiteral("Box - ♥ Favourites"));
+            setWindowTitle(QStringLiteral("Box - Favourites"));
             commitFilter();
         }
     } else {

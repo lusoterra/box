@@ -73,7 +73,7 @@ struct BrowserTab {
     QString root;              // local
     QStringList sites;         // remote site keys
     QStringList activeTags;
-    QSet<QString> droppedDefaults; // entry defaultTags disabled via pill ×
+    QSet<QString> droppedDefaults; // entry defaultTags disabled via pill x
     QString searchQuery;
     QString rating = QStringLiteral("all");
     QString category;
@@ -266,8 +266,9 @@ private slots:
     bool isFavMarked(const Post &p,
                      const QHash<QPair<QString, qint64>, QString> &favLocal,
                      const QHash<QString, QList<QPair<QString, qint64>>> &byPath) const;
-    // Recompute the current tab's ♥/↓ marks in place (bulk fav/unfav must
-    // not wait for the next refill) and refresh the viewer badges.
+    // Recompute the current tab's favourite/download marks in place (bulk
+    // fav/unfav must not wait for the next refill) and refresh the viewer
+    // badges.
     void repaintFavMarks();
     // Viewer-fetched notes/comments OR into the grid pills in place.
     void onMetaMarksChanged(const QString &siteKey, qint64 postId,
@@ -383,7 +384,7 @@ private:
     bool isBrowse() const;
     // True for tabs backed by the download folder: the local `Browse
     // Downloads` tab and browse tabs whose sources include the virtual
-    // `⭳ Downloads` entry.
+    // `Downloads` entry.
     bool isDownloadsTab();
     BrowserTab *currentTab();
     void doBrowseSearch(bool append = false);
@@ -408,7 +409,7 @@ private:
     // True when the media actually exists under the download folder:
     // local posts by path, remote posts by content md5 (or the planned
     // host-folder filename when the post has no hash). Purely filesystem
-    // based, so stale DB local_paths never fake or hide a ↓ badge.
+    // based, so stale DB local_paths never fake or hide a download badge.
     bool isPostDownloaded(const Post &post);
     // Download-folder scan backing isPostDownloaded(): md5 stems and
     // complete file stems. Rescans when the folder's mtime changes or
@@ -563,7 +564,7 @@ private:
     // download tree: once per launch is enough (downloads/strays store
     // their new paths directly, imports link their own rows).
     bool m_favRelinked = false;
-    // Download-folder inventory for the ↓ badge (see downloadDiskIndex).
+    // Download-folder inventory for the download badge (see downloadDiskIndex).
     DownloadedIndex m_dlIndex;
     // Explicit-unfavourite vetoes (site#pid): an in-flight or future
     // download finishing must not re-favourite the row. Cleared by an

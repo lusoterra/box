@@ -24,6 +24,7 @@
 #include "sidecarrefresh.h"
 #include "tagsuggest.h"
 #include "theme.h"
+#include "uicons.h"
 #include "tempmedia.h"
 #include "scanner.h"
 #include "tagtypes.h"
@@ -271,8 +272,10 @@ void MainWindow::showViewerContextMenu(const Post &post,
     if (post.isRemote && hasFileLink) {
         const bool downloaded =
             !m_favDb.localPaths().value(favIdentity(post)).isEmpty();
-        QAction *dl = menu.addAction(downloaded ? tr("Delete from disk…")
-                                                : tr("⭳ Download"));
+        QAction *dl = menu.addAction(
+            downloaded ? UiIcons::icon(QStringLiteral("trash-2"))
+                       : UiIcons::icon(QStringLiteral("download")),
+            downloaded ? tr("Delete from disk…") : tr("Download"));
         connect(dl, &QAction::triggered, this, [this, post, downloaded] {
             if (!downloaded) {
                 const auto [site, pid] = favIdentity(post);
@@ -299,8 +302,9 @@ void MainWindow::showViewerContextMenu(const Post &post,
     menu.addSeparator();
     const auto [site, pid] = favIdentity(post);
     const bool fav = m_favDb.isFavourite(site, pid);
-    QAction *favAction = menu.addAction(fav ? tr("♡ Unfavourite")
-                                            : tr("♥ Favourite"));
+    QAction *favAction = menu.addAction(
+        UiIcons::heart(UiIcons::favRed(), fav),
+        fav ? tr("Unfavourite") : tr("Favourite"));
     connect(favAction, &QAction::triggered, this, [this, post, fav] {
         if (fav) {
             const auto [s, id] = favIdentity(post);

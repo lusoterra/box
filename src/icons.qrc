@@ -4,10 +4,14 @@
         <file alias="マニフェスト.jpg">../assets/マニフェスト.jpg</file>
     </qresource>
     <qresource prefix="/icons/ui">
+        <file alias="arrow-down.svg">../assets/icons/arrow-down.svg</file>
         <file alias="arrow-left.svg">../assets/icons/arrow-left.svg</file>
+        <file alias="arrow-right.svg">../assets/icons/arrow-right.svg</file>
+        <file alias="arrow-up.svg">../assets/icons/arrow-up.svg</file>
         <file alias="check.svg">../assets/icons/check.svg</file>
         <file alias="chevron-left.svg">../assets/icons/chevron-left.svg</file>
         <file alias="chevron-right.svg">../assets/icons/chevron-right.svg</file>
+        <file alias="circle.svg">../assets/icons/circle.svg</file>
         <file alias="copy.svg">../assets/icons/copy.svg</file>
         <file alias="download.svg">../assets/icons/download.svg</file>
         <file alias="external-link.svg">../assets/icons/external-link.svg</file>
@@ -20,6 +24,7 @@
         <file alias="history.svg">../assets/icons/history.svg</file>
         <file alias="house.svg">../assets/icons/house.svg</file>
         <file alias="image.svg">../assets/icons/image.svg</file>
+        <file alias="minus.svg">../assets/icons/minus.svg</file>
         <file alias="pause.svg">../assets/icons/pause.svg</file>
         <file alias="play.svg">../assets/icons/play.svg</file>
         <file alias="plus.svg">../assets/icons/plus.svg</file>

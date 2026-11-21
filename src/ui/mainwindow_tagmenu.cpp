@@ -129,8 +129,8 @@ void MainWindow::toggleFavTag(const QString &tag) {
     saveSettings(m_settings);
     m_suggester->setFavTags(favTagSet());
     statusBar()->showMessage(
-        wasFav ? tr("★ %1 removed from favourite tags").arg(clean)
-               : tr("★ %1 added to favourite tags").arg(clean),
+        wasFav ? tr("Removed %1 from favourite tags").arg(clean)
+               : tr("Added %1 to favourite tags").arg(clean),
         3000);
 }
 
@@ -153,8 +153,9 @@ void MainWindow::onTagContextMenu(const QPoint &pos) {
     });
     const bool fav = isFavTag(tag);
     QAction *favAct = menu.addAction(
-        fav ? tr("★ Remove from favourite tags")
-            : tr("★ Add to favourite tags"));
+        UiIcons::icon(QStringLiteral("star")),
+        fav ? tr("Remove from favourite tags")
+            : tr("Add to favourite tags"));
     connect(favAct, &QAction::triggered, this,
             [this, tag] { toggleFavTag(tag); });
     if (!sourceCategory.isEmpty()) {

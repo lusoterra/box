@@ -74,7 +74,7 @@ struct AppSettings {
     // instead of just offering the wall menu (opt out in Preferences).
     bool wallAutoPopup = true;
     // Favourite tags (starred via sidebar/viewer right-click): they rank
-    // first in search suggestions and sit behind the omnibar ★ menu.
+    // first in search suggestions and sit behind the omnibar star menu.
     QStringList favTags;
     // Online tag-category lookup for untyped tags (cached forever).
     bool classifyTags = false;

@@ -85,7 +85,7 @@
 #include <algorithm>
 
 void MainWindow::maybeClassifyBrowse(BrowserTab *t) {
-    // Same cached pass for remote grids and ♥ Favourites: both carry
+    // Same cached pass for remote grids and Favourites: both carry
     // category-less tags (LOSN rows, flat API blobs) that live in
     // `untyped` until a verdict exists.
     if (!t || (!t->isRemote && !t->isFavourites) || !m_settings.classifyTags)

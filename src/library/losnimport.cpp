@@ -598,7 +598,7 @@ void LosnImportDialog::buildUi(const QString &title,
     m_target->setWordWrap(true);
     lay->addWidget(m_target);
 
-    auto *favsBox = new QGroupBox(tr("Favourited entries (♥)"), this);
+    auto *favsBox = new QGroupBox(tr("Favourited entries"), this);
     auto *favsLay = new QVBoxLayout(favsBox);
     m_importFavs = new QCheckBox(tr("Import to Favourites"), this);
     m_importFavs->setChecked(true);
@@ -625,10 +625,10 @@ void LosnImportDialog::buildUi(const QString &title,
     favsLay->addWidget(appendNote);
     lay->addWidget(favsBox);
 
-    auto *opts = new QGroupBox(tr("Downloaded entries (↓)"), this);
+    auto *opts = new QGroupBox(tr("Downloaded entries"), this);
     auto *optsLay = new QVBoxLayout(opts);
     m_snatchedDownload =
-        new QRadioButton(tr("Download files and keep the ↓ mark"), this);
+        new QRadioButton(tr("Download files and keep them marked as downloaded"), this);
     m_snatchedFav = new QRadioButton(
         tr("Import as favourites only (no files; use after the originals "
            "were deleted)"),
@@ -771,7 +771,7 @@ void LosnImportDialog::onStart() {
                                    : r.fileUrl;
     };
     // Selection matrix: favourite rows and downloaded rows are separate
-    // LOSN flags, and Android often leaves the ↓ flag behind after the
+    // LOSN flags, and Android often leaves the download flag behind after the
     // file was deleted. Each side can be imported, crossed, or skipped.
     QList<LosnRow> favRows;
     if (m_importFavs->isChecked()) {
@@ -822,7 +822,7 @@ void LosnImportDialog::onStart() {
             favs.append(p);
             // Link only files that actually exist: a target path for a
             // never-downloaded row would later look like a deleted
-            // download (redownload prompt / stale ↓ flag).
+            // download (redownload prompt / stale download flag).
             const QString target = onDiskPath(r);
             if (!target.isEmpty())
                 paths.insert({r.siteLabel, r.postId}, target);

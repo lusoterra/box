@@ -423,21 +423,28 @@ void GalleryDelegate::paint(QPainter *painter, const QStyleOptionViewItem &optio
         painter->setPen(Qt::NoPen);
         painter->setBrush(QColor(0, 0, 0, 180));
         painter->drawRoundedRect(kb, 4, 4);
-        painter->setPen(accent);
-        painter->drawText(kb, Qt::AlignCenter, kind);
+        if (kind == QStringLiteral("video")) {
+            UiIcons::draw(painter, kb, QStringLiteral("play"), accent);
+        } else {
+            painter->setPen(accent);
+            painter->drawText(kb, Qt::AlignCenter, kind);
+        }
     }
 
     // Status boxes, top-left over the image, left to right: purple
     // robot = AI-generated, red heart = favourited, green down
     // arrow = downloaded. Same marks as the viewer title badges.
     int markX = imgR.left() + 4;
-    auto markBox = [&](const QColor &bg, const QString &glyph) {
+    auto markBox = [&](const QColor &bg, const QImage &art) {
         const QRect mb(markX, imgR.top() + 4, 30, 18);
         painter->setPen(Qt::NoPen);
         painter->setBrush(bg);
         painter->drawRoundedRect(mb, 4, 4);
-        painter->setPen(Qt::white);
-        painter->drawText(mb, Qt::AlignCenter, glyph);
+        if (!art.isNull()) {
+            QRect dst(QPoint(0, 0), art.size());
+            dst.moveCenter(mb.center());
+            painter->drawImage(dst, art);
+        }
         markX += 34;
     };
     // AI badge (top-left over image, mirrors the kind badge):
@@ -467,9 +474,10 @@ void GalleryDelegate::paint(QPainter *painter, const QStyleOptionViewItem &optio
     if (index.data(Qt::UserRole + 12).toBool())
         markBox(QColor(UiIcons::favRed().red(), UiIcons::favRed().green(),
                       UiIcons::favRed().blue(), 210),
-                QStringLiteral("\u2665"));
+                UiIcons::heartImage(Qt::white, 13));
     if (index.data(Qt::UserRole + 13).toBool())
-        markBox(QColor(0x2e, 0x8b, 0x6e, 210), QStringLiteral("\u2193"));
+        markBox(QColor(0x2e, 0x8b, 0x6e, 210),
+                UiIcons::image(QStringLiteral("download"), Qt::white, 13));
     // Comments: steel-blue bubble with three white dots + tail (hand-drawn:
     // emoji speech balloons are font-dependent tofu on minimal installs).
     if (index.data(Qt::UserRole + 14).toBool()) {
@@ -1341,7 +1349,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     });
     connect(m_downloads, &DownloadManager::finished, this,
             [this](const DownloadSummary &s) {
-                invalidateDownloadIndex(); // new bytes = new ↓ badges
+                invalidateDownloadIndex(); // new bytes = new download badges
                 if (!m_favDb.isOpen())
                     return;
                 const QString dest =
@@ -1377,8 +1385,9 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
                     }
                 }
                 // New (or newly linked) favourites must show up in any
-                // open favourites tab immediately, not after a manual ↺.
-                // Grid ♥/↓ + viewer heart repaint too: the landing may
+                // open favourites tab immediately, not after a manual reload.
+                // Grid favourite/download + viewer heart repaint too: the
+                // landing may
                 // have auto-favourited (repaintFavMarks covers the viewer
                 // badges as well).
                 if (touched) {

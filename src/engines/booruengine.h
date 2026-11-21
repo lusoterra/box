@@ -74,7 +74,7 @@ Post fromPhilomenaFamily(BooruEngine engine, const QJsonObject &o,
 QString classicBucketForCategory(const QString &category);
 
 // Entry default tags onto a query: space-split, appended in order,
-// minus tab-dropped tokens (pill ×). Pure: unit-tested.
+// minus tab-dropped tokens (pill x). Pure: unit-tested.
 QStringList defaultTagsFor(const QStringList &base, const QString &defaults,
                            const QSet<QString> &dropped);
 // Per-engine API-object -> Post mapping (pure, unit-tested).

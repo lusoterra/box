@@ -1420,7 +1420,7 @@ They rebuild on the next scan.</source>
     </message>
     <message>
         <location filename="../src/prefsdlg.cpp" line="644"/>
-        <source>✗ %1 needs an instance URL first</source>
+        <source>%1 needs an instance URL first</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

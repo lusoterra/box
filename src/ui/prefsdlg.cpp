@@ -6,6 +6,7 @@
 #include "flowlayout.h"
 #include "tagtypes.h"
 #include "theme.h"
+#include "uicons.h"
 
 #include <QAbstractItemView>
 #include <QApplication>
@@ -841,7 +842,10 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     auto *mergeDel = new QPushButton(tr("Remove"), this);
     mergeRow->addWidget(m_mergeScope);
     mergeRow->addWidget(m_mergeSources, 2);
-    mergeRow->addWidget(new QLabel(QStringLiteral("→"), this));
+    auto *arrowLabel = new QLabel(this);
+    arrowLabel->setPixmap(
+        UiIcons::pixmap(QStringLiteral("arrow-right"), UiIcons::normal(), 16));
+    mergeRow->addWidget(arrowLabel);
     mergeRow->addWidget(m_mergeTarget, 1);
     mergeRow->addWidget(mergeAdd);
     mergeRow->addWidget(mergeDel);
@@ -1094,9 +1098,11 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
         refreshBooruList();
         updateApplyState();
     });
-    auto *booruUp = new QPushButton(tr("↑"), this);
+    auto *booruUp = new QPushButton(this);
+    booruUp->setIcon(UiIcons::icon(QStringLiteral("arrow-up")));
     booruUp->setToolTip(tr("Move this booru up"));
-    auto *booruDown = new QPushButton(tr("↓"), this);
+    auto *booruDown = new QPushButton(this);
+    booruDown->setIcon(UiIcons::icon(QStringLiteral("arrow-down")));
     booruDown->setToolTip(tr("Move this booru down"));
     auto moveBooru = [this](int delta) {
         const int row = m_booruList->currentRow();
@@ -1291,8 +1297,9 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
         if (!e)
             return;
         if (e->baseUrl.isEmpty()) {
-            m_accStatus->setText(
-                tr("✗ %1 needs an instance URL first").arg(e->label));
+            showAccountStatus(
+                StatusError,
+                tr("%1 needs an instance URL first").arg(e->label));
             return;
         }
         QString dataDir = m_dataDir->text().trimmed();
@@ -1305,8 +1312,10 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
                                                        dlg.cookies());
             updateCookieLabel();
             updateApplyState();
-            m_accStatus->setText(
-                tr("✓ %1: %2 cookie(s) captured").arg(e->label).arg(e->cookies.size()));
+            showAccountStatus(
+                StatusOk, tr("%1: %2 cookie(s) captured")
+                              .arg(e->label)
+                              .arg(e->cookies.size()));
         }
     });
     auto *cookieRefresh = new QPushButton(tr("Refresh"), this);
@@ -1320,8 +1329,9 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
         if (!e)
             return;
         if (e->baseUrl.isEmpty()) {
-            m_accStatus->setText(
-                tr("✗ %1 needs an instance URL first").arg(e->label));
+            showAccountStatus(
+                StatusError,
+                tr("%1 needs an instance URL first").arg(e->label));
             return;
         }
         QString dataDir = m_dataDir->text().trimmed();
@@ -1335,22 +1345,21 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
         const QString baseUrl = e->baseUrl;
         const QString label = e->label;
         cookieRefresh->setEnabled(false);
-        m_accStatus->setText(tr("↻ %1: reloading session…").arg(label));
+        showAccountStatus(StatusInfo,
+                          tr("%1: reloading session…").arg(label));
         CookieGrabDialog::refreshSilent(
             baseUrl, QUrl(baseUrl).host(),
             dataDir + QStringLiteral("/webprofile"),
             [self, btn, entryKey, label](const QStringList &fresh) {
                 PrefsDialog *dlg = self.data();
-                if (!dlg)
-                    return;
-                QLabel *status = dlg->m_accStatus;
-                if (!status)
+                if (!dlg || !dlg->m_accStatus)
                     return;
                 if (!btn.isNull())
                     btn->setEnabled(true);
                 if (fresh.isEmpty()) {
-                    status->setText(
-                        tr("✗ %1: still challenged - open Capture in "
+                    dlg->showAccountStatus(
+                        StatusError,
+                        tr("%1: still challenged - open Capture in "
                            "browser… and solve it.").arg(label));
                     return;
                 }
@@ -1367,9 +1376,11 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
                                                              fresh);
                 dlg->updateCookieLabel();
                 dlg->updateApplyState();
-                status->setText(
-                    tr("✓ %1: %2 cookie(s) refreshed - Apply to save.")
-                        .arg(label).arg(fresh.size()));
+                dlg->showAccountStatus(
+                    StatusOk,
+                    tr("%1: %2 cookie(s) refreshed - Apply to save.")
+                        .arg(label)
+                        .arg(fresh.size()));
             });
     });
     // Wrapping layout: three fixed-size buttons + the "N set"/"none"

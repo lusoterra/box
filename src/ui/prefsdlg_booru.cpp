@@ -197,6 +197,18 @@ BooruSite *PrefsDialog::currentBooruEntry() {
     return nullptr;
 }
 
+void PrefsDialog::showAccountStatus(AccountStatus state, const QString &text) {
+    if (!m_accStatus)
+        return;
+    const QString color =
+        state == StatusError   ? QStringLiteral("#e05561")
+        : state == StatusOk    ? QStringLiteral("#43d17c")
+                               : QStringLiteral("#4a5068");
+    m_accStatus->setStyleSheet(QStringLiteral("color:%1;font-size:11px;")
+                                   .arg(color));
+    m_accStatus->setText(text);
+}
+
 void PrefsDialog::updateCookieLabel() {
     if (!m_booruCookieLabel)
         return;
@@ -396,15 +408,16 @@ void PrefsDialog::commitPendingFavicons() {
         }
         QImage img(it.value());
         if (img.isNull()) {
-            m_accStatus->setText(
-                tr("✗ favicon image unreadable: %1").arg(it.value()));
+            showAccountStatus(StatusError,
+                              tr("Favicon image unreadable: %1")
+                                  .arg(it.value()));
             continue;
         }
         if (!img.scaled(32, 32, Qt::KeepAspectRatio,
                         Qt::SmoothTransformation)
                  .save(dest, "PNG")) {
-            m_accStatus->setText(
-                tr("✗ cannot write favicon: %1").arg(dest));
+            showAccountStatus(StatusError,
+                              tr("Cannot write favicon: %1").arg(dest));
         }
     }
     m_pendingFavicons.clear();
@@ -553,11 +566,11 @@ void PrefsDialog::detectBooruEngine(QPushButton *detectBtn) {
     saveBooruEditor();
     BooruSite *e = currentBooruEntry();
     if (!e || e->baseUrl.isEmpty()) {
-        m_accStatus->setText(tr("✗ set an instance URL first"));
+        showAccountStatus(StatusError, tr("Set an instance URL first"));
         return;
     }
     detectBtn->setEnabled(false);
-    m_accStatus->setText(tr("Detecting engine…"));
+    showAccountStatus(StatusInfo, tr("Detecting engine…"));
     const QString base = e->baseUrl;
     QFutureWatcher<QPair<int, QString>> *watcher =
         new QFutureWatcher<QPair<int, QString>>(this);
@@ -567,8 +580,9 @@ void PrefsDialog::detectBooruEngine(QPushButton *detectBtn) {
                 detectBtn->setEnabled(true);
                 watcher->deleteLater();
                 if (found < 0) {
-                    m_accStatus->setText(
-                        tr("✗ engine not recognized - pick it manually"));
+                    showAccountStatus(
+                        StatusError,
+                        tr("Engine not recognized - pick it manually"));
                     return;
                 }
                 if (!usedBase.isEmpty() && usedBase != m_booruBase->text()) {
@@ -582,9 +596,9 @@ void PrefsDialog::detectBooruEngine(QPushButton *detectBtn) {
                            RemotePosts::engineKey(engine))));
                 saveBooruEditor();
                 updateApplyState();
-                m_accStatus->setText(
-                    tr("✓ detected: %1")
-                        .arg(RemotePosts::engineLabel(engine)));
+                showAccountStatus(
+                    StatusOk, tr("Detected: %1")
+                                  .arg(RemotePosts::engineLabel(engine)));
             });
     watcher->setFuture(QtConcurrent::run([base] {
         return detectEngineFor(base);
@@ -593,11 +607,12 @@ void PrefsDialog::detectBooruEngine(QPushButton *detectBtn) {
 
 void PrefsDialog::testSite(const BooruSite &probed) {
     if (probed.baseUrl.isEmpty()) {
-        m_accStatus->setText(
-            tr("✗ %1 needs an instance URL first").arg(probed.label));
+        showAccountStatus(
+            StatusError,
+            tr("%1 needs an instance URL first").arg(probed.label));
         return;
     }
-    m_accStatus->setText(tr("Testing %1…").arg(probed.label));
+    showAccountStatus(StatusInfo, tr("Testing %1…").arg(probed.label));
     m_accStatus->setCursor(Qt::ArrowCursor);
     m_accStatus->setToolTip(QString());
     m_lastProbeValid = false;
@@ -623,10 +638,8 @@ void PrefsDialog::testSite(const BooruSite &probed) {
                 static constexpr int kMaxMsg = 240;
                 if (msg.size() > kMaxMsg)
                     msg = msg.left(kMaxMsg) + QStringLiteral("…");
-                m_accStatus->setText(
-                    tr("%1 %2: %3").arg(ok ? QStringLiteral("✓")
-                                           : QStringLiteral("✗"),
-                                      label, msg));
+                showAccountStatus(ok ? StatusOk : StatusError,
+                                  tr("%1: %2").arg(label, msg));
                 watcher->deleteLater();
             });
     watcher->setFuture(QtConcurrent::run([site, creds] {

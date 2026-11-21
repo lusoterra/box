@@ -1597,8 +1597,8 @@ Ils seront reconstruits à la prochaine analyse.</translation>
     </message>
     <message>
         <location filename="../src/prefsdlg.cpp" line="644" />
-        <source>✗ %1 needs an instance URL first</source>
-        <translation type="unfinished">✗ %1 nécessite d'abord une URL d'instance</translation>
+        <source>%1 needs an instance URL first</source>
+        <translation type="unfinished">%1 nécessite d'abord une URL d'instance</translation>
     </message>
     <message>
         <location filename="../src/prefsdlg.cpp" line="658" />

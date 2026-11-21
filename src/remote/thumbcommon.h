@@ -2,6 +2,7 @@
 
 // Shared thumbnail shaping: center-crop to a uniform aspect, scale the
 // longest side down, painted fallback for undecodable videos.
+#include "uicons.h"
 #include <QColor>
 #include <QFont>
 #include <QImage>
@@ -52,14 +53,18 @@ inline QImage videoPlaceholder(const QString &ext, double want, int longSide) {
     img.fill(QColor(0x1e, 0x21, 0x30));
     QPainter p(&img);
     p.setRenderHint(QPainter::Antialiasing);
-    p.setPen(QColor(0x7c, 0x9e, 0xf8));
+    const int side = qMax(12, qMin(ts.width(), ts.height()) / 3);
+    const QImage play = UiIcons::image(QStringLiteral("play"),
+                                       QColor(0x7c, 0x9e, 0xf8), side);
+    if (!play.isNull()) {
+        QRect dst(QPoint(0, 0), play.size());
+        dst.moveCenter(img.rect().center());
+        p.drawImage(dst, play);
+    }
+    p.setPen(QColor(0x78, 0x80, 0xa0));
     QFont f = p.font();
-    f.setPixelSize(qMin(ts.width(), ts.height()) / 3);
-    p.setFont(f);
-    p.drawText(img.rect(), Qt::AlignCenter, QStringLiteral("▶"));
     f.setPixelSize(14);
     p.setFont(f);
-    p.setPen(QColor(0x78, 0x80, 0xa0));
     p.drawText(img.rect().adjusted(0, 0, -8, -8), Qt::AlignRight | Qt::AlignBottom,
                ext.toUpper());
     return img;

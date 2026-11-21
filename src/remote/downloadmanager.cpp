@@ -5,6 +5,7 @@
 #include "progressbar.h"
 #include "remotesource.h"
 #include "ugoioconvert.h"
+#include "uicons.h"
 #include "webdlbackend.h"
 
 #include <QDesktopServices>
@@ -1110,8 +1111,13 @@ DownloadsDialog::DownloadsDialog(DownloadManager *manager, const QString &destDi
         m_manager->cancel();
         m_cancelled = true;
         for (auto it = m_rows.begin(); it != m_rows.end(); ++it) {
-            if (it.value() && it.value()->text().startsWith(QStringLiteral("↓")))
-                it.value()->setText(tr("○ %1 (cancelled)").arg(it.key()));
+            if (it.value() &&
+                !it.value()->data(Qt::UserRole + 1).toString().isEmpty()) {
+                it.value()->setData(Qt::UserRole + 1, QVariant());
+                it.value()->setIcon(UiIcons::icon(
+                    QStringLiteral("circle"), UiIcons::normal(), 32));
+                it.value()->setText(tr("%1 (cancelled)").arg(it.key()));
+            }
         }
         m_current->setText(tr("Cancelled."));
         m_cancelBtn->setEnabled(false);
@@ -1153,12 +1159,14 @@ void DownloadsDialog::onProgress(int done, int total, const QString &current) {
         m_current->setText(current);
 }
 
-void DownloadsDialog::addRow(const QString &fileName, const QString &text) {
+void DownloadsDialog::addRow(const QString &fileName, const QString &text,
+                            const QIcon &icon) {
     QListWidgetItem *item = m_rows.value(fileName, nullptr);
     if (item) {
         item->setText(text);
+        item->setIcon(icon);
     } else {
-        item = new QListWidgetItem(text, m_log);
+        item = new QListWidgetItem(icon, text, m_log);
         m_rows.insert(fileName, item);
     }
     m_log->scrollToBottom();
@@ -1167,7 +1175,10 @@ void DownloadsDialog::addRow(const QString &fileName, const QString &text) {
 void DownloadsDialog::onFileStarted(const QString &fileName) {
     if (fileName.isEmpty())
         return;
-    addRow(fileName, tr("↓ %1").arg(fileName));
+    addRow(fileName, fileName,
+           UiIcons::icon(QStringLiteral("download"), UiIcons::accent(), 32));
+    if (QListWidgetItem *item = m_rows.value(fileName, nullptr))
+        item->setData(Qt::UserRole + 1, QStringLiteral("active"));
     m_current->setText(tr("Downloading %1…").arg(fileName));
 }
 
@@ -1176,13 +1187,19 @@ void DownloadsDialog::onFileFinished(const QString &fileName, bool ok,
     if (fileName.isEmpty())
         return;
     if (ok) {
-        addRow(fileName, tr("✓ %1").arg(fileName));
+        addRow(fileName, fileName,
+               UiIcons::icon(QStringLiteral("check"), QColor(0x43, 0xd1, 0x7c),
+                             32));
+        if (QListWidgetItem *item = m_rows.value(fileName, nullptr))
+            item->setData(Qt::UserRole + 1, QVariant());
         m_current->setText(tr("Saved %1").arg(fileName));
     } else {
         const QString why = error.isEmpty() ? fileName : error;
-        addRow(fileName, tr("✗ %1 - %2").arg(fileName, why));
+        addRow(fileName, tr("%1 - %2").arg(fileName, why),
+               UiIcons::icon(QStringLiteral("x"), QColor(0xe0, 0x55, 0x61), 32));
         if (QListWidgetItem *item = m_rows.value(fileName, nullptr)) {
             item->setData(Qt::UserRole, why);
+            item->setData(Qt::UserRole + 1, QVariant());
             item->setToolTip(why);
             item->setForeground(QColor(0xe0, 0x55, 0x55));
         }
@@ -1193,7 +1210,8 @@ void DownloadsDialog::onFileFinished(const QString &fileName, bool ok,
 void DownloadsDialog::onFileSkipped(const QString &fileName) {
     if (fileName.isEmpty())
         return;
-    addRow(fileName, tr("- %1 (already on disk)").arg(fileName));
+    addRow(fileName, tr("%1 (already on disk)").arg(fileName),
+           UiIcons::icon(QStringLiteral("minus"), UiIcons::normal(), 32));
 }
 
 void DownloadsDialog::onFileRenamed(const QString &oldName, const QString &newName) {
@@ -1202,7 +1220,7 @@ void DownloadsDialog::onFileRenamed(const QString &oldName, const QString &newNa
         return;
     QListWidgetItem *item = it.value();
     m_rows.erase(it);
-    item->setText(tr("↓ %1").arg(newName));
+    item->setText(newName);
     m_rows.insert(newName, item);
     if (m_current->text().contains(oldName))
         m_current->setText(m_current->text().replace(oldName, newName));

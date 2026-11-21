@@ -195,7 +195,7 @@ void MainWindow::solveWallInBrowser(const QString &siteKey,
         RemoteSource::setConfiguredBoorus(m_settings.boorus);
         applyBooruCreds();
         statusBar()->showMessage(
-            tr("✓ %1: %2 cookie(s) captured - retrying")
+            tr("%1: %2 cookie(s) captured - retrying")
                 .arg(entry.label)
                 .arg(entry.cookies.size()),
             6000);

@@ -440,8 +440,9 @@ void MainWindow::showViewerTagMenu(const QString &tag, const QPoint &globalPos) 
     QMenu menu;
     const bool fav = isFavTag(tag);
     QAction *favAct = menu.addAction(
-        fav ? tr("★ Remove from favourite tags")
-            : tr("★ Add to favourite tags"));
+        UiIcons::icon(QStringLiteral("star")),
+        fav ? tr("Remove from favourite tags")
+            : tr("Add to favourite tags"));
     connect(favAct, &QAction::triggered, this,
             [this, tag] { toggleFavTag(tag); });
     menu.addSeparator();

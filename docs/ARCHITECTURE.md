@@ -194,11 +194,11 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     client-side sorts.
   - Infinite scroll: near-bottom in browse tab calls `loadNextPage()`
     (`:960-966,1799`); append path skips dupes (`:2113`), throttled vs 429s;
-    `♥ Favourites` + `⭳ Downloads` join merges as virtual sources
+    `Favourites` + `Downloads` join merges as virtual sources
     (`mainwindow.cpp:221`).
   - Downloads media picker (`m_mediaBox`, `onMediaChanged`): All /
     Images / GIFs / Animated / Videos, extension-only. Shown on the
-    `⭳ Downloads` source and the local `Browse Downloads` tab
+    `Downloads` source and the local `Browse Downloads` tab
     (`MainWindow::isDownloadsTab`); filters download-root rows in
     `applyBrowseFilter`/`applyFilter` (`mediaFilterMatchesExt`,
     `src/post.h`). Rating + sort are shown on browse, favourites and both
@@ -234,7 +234,7 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     file/post URLs recorded in existing sidecars (rows the backup cannot
     hash, hashed-renamed imports), migrating old app-made `<Label>/` files
     once.
-    Grid/viewer `↓` marks are filesystem-only (`mainwindow_heal.cpp:102`
+    Grid/viewer download marks are filesystem-only (`mainwindow_heal.cpp:102`
     `downloadDiskIndex` + `isPostDownloaded`, md5 then planned filename).
   - Download/Add Stray (`strayresolve.h`): direct media passes through;
     recognised post pages probe their API (`parseBooruPostUrl` ->

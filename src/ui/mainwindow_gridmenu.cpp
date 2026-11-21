@@ -217,7 +217,8 @@ void MainWindow::showGridMenu(const QPoint &pos) {
     anyFiles.removeDuplicates();
     QMenu menu(this);
     if (allFav) {
-        QAction *unfav = menu.addAction(tr("♡ Unfavourite"));
+        QAction *unfav = menu.addAction(
+            UiIcons::heart(UiIcons::favRed(), false), tr("Unfavourite"));
         connect(unfav, &QAction::triggered, this, [this, targets, byPath] {
             if (targets.size() > 1) {
                 QString question = tr("Remove %1 posts from favourites?")
@@ -280,7 +281,8 @@ void MainWindow::showGridMenu(const QPoint &pos) {
                                      4000);
         });
     } else {
-        QAction *fav = menu.addAction(tr("♥ Favourite"));
+        QAction *fav = menu.addAction(UiIcons::heart(UiIcons::favRed(), true),
+                                      tr("Favourite"));
         connect(fav, &QAction::triggered, this, [this, targets, byPath] {
             int added = 0;
             for (const Post &p : targets) {
@@ -303,10 +305,11 @@ void MainWindow::showGridMenu(const QPoint &pos) {
             refreshFavTabs();
             repaintFavMarks();
             statusBar()->showMessage(
-                tr("♥ Favourited %1").arg(added), 4000);
+                tr("Favourited %1").arg(added), 4000);
         });
     }
-    QAction *dl = menu.addAction(tr("⭳ Download"));
+    QAction *dl = menu.addAction(UiIcons::icon(QStringLiteral("download")),
+                                 tr("Download"));
     dl->setEnabled(anyRemote && !allDownloaded); // downloaded rows delete instead
     connect(dl, &QAction::triggered, this, [this, targets] {
         QVector<Post> remote;

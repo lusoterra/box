@@ -9,8 +9,9 @@ tagline + version, four big buttons - `Back to last session` (only when
 a session was saved: restores every tab, lands on the saved current
 one, and returns to its post/scroll; if every tab was closed it warns
 "Nothing to resume" instead of resurrecting one), `New browse tab` (restores the session first when empty, then
-opens the Default-tab booru or the default boorus), `♥
-Favourites`, `⭳ Downloads` - and the `Always load last session on
+opens the Default-tab booru or the default boorus), `Favourites`
+(filled heart icon), `Downloads` (download icon) - and the `Always load
+last session on
 startup` checkbox (mirrors Preferences → General). Tabs → `Start fresh
 session` closes everything and forgets the session. Optional mascot image
 pins bottom-right behind everything (shipped default `マニフェスト.jpg`;
@@ -61,7 +62,7 @@ within minutes are suppressed (the button stays).
 Left to right: tag search box (placeholder `Search tags…`, `/` focuses)
 → rating dropdown (`All`/`General`/`Sensitive`/`Questionable`/`Explicit`; shown on browse, favourites and both downloads views - server-side on remote tabs, client-side on local/favourites) → media dropdown
 (`All media` / `Images` / `GIFs` / `Anything animated` / `Videos`, shown only on
-tabs backed by the download folder (`⭳ Downloads` source or `File → Browse Downloads`);
+tabs backed by the download folder (`Downloads` source or `File → Browse Downloads`);
 filters files under the download folder by extension - a `GIFs` choice covers gif/animated webp/jxl, `Anything animated`
 adds mp4/webm; no tags or MIME sniffing) → sort dropdown (`Recently added`/`Newest`/`Oldest`/`Top
 Rated`/`Low Rated`/`Random`; shown on browse, favourites and downloads - server-side via translated tags where the
@@ -71,7 +72,8 @@ themselves per tab, `Recently added`/`Newest` never reorder on remote) →
 toggle in place and keep the menu open) → `AI` (one-click
 filter hiding AI-generated posts) → `Download (N)`
 (batch-downloads the selection) → `Clear` (resets pills/query) → reload
-`↺` (`Rescan folder` locally, re-search remotely) → `Page 1 · 40 results`
+reload button (circular-arrows icon; `Rescan folder` locally,
+re-search remotely) → `Page 1 · 40 results`
 → grid-zoom slider (far right).
 
 Omnibar suggestions: clicking (or tab-focusing) the empty box opens the
@@ -88,18 +90,24 @@ direction), so `-tag other` flips `tag` and adds `other` in one go.
 Below: filter pills - typed tags
 (including `rating:` and `filetype:` media kinds), query
 groups, rating/source, plus each booru entry's `defaultTags` as removable
-cards (× drops the default for that tab and re-searches). The
-rating/category dropdowns are shortcuts for typing: a rating choice renders
-as a `rating:<value>` pill, a source choice as a plain pill - same look and
-× behavior as typed tags (typing a `rating:` tag clears the box to `All`
-so the two never stack). Every omnibar dropdown carries a hover tooltip
+cards (the trailing x icon drops the default for that tab and re-searches).
+The rating/category dropdowns are shortcuts for typing: a rating choice
+renders as a `rating:<value>` pill, a source choice as a plain pill - same
+look and x behavior as typed tags (typing a `rating:` tag clears the box
+to `All` so the two never stack). The plain-text remainder pill carries a
+search icon. Every omnibar dropdown carries a hover tooltip
 naming what it filters or sorts (rating, source, downloads media type,
 sort order) before you open it.
 
+UI art is bundled Lucide SVG (`assets/icons/`, `src/ui/uicons.h`), never a
+font glyph: a missing font on another platform must not turn a mark into a
+tofu box or a differently sized symbol.
+
 ## Grid card anatomy (see 19-badge-closeup)
-Thumbnail with, overlaid: top-right media kind (`▶` video / `GIF`);
-top-left status boxes, left to right: purple robot = AI-generated
-(`isAiPost`), red `♥` = favourited, green `↓` = the media file is
+Thumbnail with, overlaid: top-right media kind (play icon = video, `GIF`
+text = animation); top-left status boxes, left to right: purple robot =
+AI-generated (`isAiPost`), red heart icon = favourited, green download
+icon = the media file is
 actually present under the download folder (filesystem scan by md5, not
 a stale favourites DB link),
 blue speech bubble = has comments, amber note = has annotations
@@ -117,7 +125,7 @@ below, info card with rating chip (`G`), score
 middle, so hovering just that line shows the untruncated name in a
 tooltip. The viewer link stays on the booru post page after a download
 (strays keep the local file). Right-click menu resolves the on-disk file behind downloaded
-remote rows too: `⭳ Download` disables once everything selected is on
+remote rows too: `Download` disables once everything selected is on
 disk, `Delete from disk…` enables, `Set as mascot` shows, and `Copy post
 link` / `Copy media link` / `Copy file path` / `Copy file (clipboard)`
 put the selected rows on the clipboard (stills, GIFs and videos alike).
@@ -172,7 +180,7 @@ navigation cannot abort it.
 
 ## 05-tabs-menu - Tabs
 `Close Folder`, `Start fresh session` (closes every tab, forgets the
-saved session, shows home), `♥ Favourites` (database-only tab),
+saved session, shows home), `Favourites` (database-only tab, heart icon),
 `Reload` (`F5` / `Ctrl+R` - rescan locally, re-search remotely). Tab keys:
 `Ctrl+T` opens a new default tab (Default tab booru, else the default
 boorus), `Ctrl+W` closes the current tab, `Ctrl+Shift+T` reopens closed
@@ -204,8 +212,8 @@ Copyright, General, Meta, then native categories from unusual boorus.
 `Boorus…`.
 
 ## 10-boorus-menu - Boorus… per-tab picker (`m_sitesMenu`)
-Checkable entries: configured sites by label, then virtual sources `♥
-Favourites` and `⭳ Downloads` (merged locally, page 1 only). Checking a
+Checkable entries: configured sites by label, then virtual sources
+`Favourites` and `Downloads` (merged locally, page 1 only). Checking a
 set re-searches immediately (`onSitesChanged`). The popup stays open
 while entries are clicked or toggled with `Space` (`MultiPickMenu`,
 `src/ui/multipickmenu.h`), so several sources can be picked without
@@ -217,7 +225,7 @@ Toolbar: `Back`, `‹ 8 / 40 ›` stepping, `Fit`, `100%`, `Variants`
 (parent/child family search; shown only when the API exposes variants),
 `Open post` (site page, http(s) only), `Image search` (SauceNAO, Yandex, Google
 Lens, IQDB, trace.moe - needs a remote file URL), download icon (toggles to
-delete once the file is on disk, like the ♥ button), reload-everything (icon:
+delete once the file is on disk, like the heart button), reload-everything (icon:
 tags, comments, media), `Notes`
 (translation overlays on the image, on by default; left-click a note marker
 opens a larger `Annotation note` popup with selectable text instead of a
@@ -260,7 +268,7 @@ bar. The omnibar and filter pills
 hide in post view (grid tools would
 misclick); they return with the grid. A failed comments/notes fetch shows
 a clickable warning (`click for details`) opening the same diagnostics
-dialog as media failures. Below the title: `AI` / `♥` / `↓`
+dialog as media failures. Below the title: `AI` / heart / download
 badges mirroring the grid marks. Downloading or (un)favouriting from
 the viewer never leaves it; the grid refreshes behind and the viewer
 follows it (removed rows resolve to the nearest surviving post,
@@ -328,7 +336,7 @@ the proxy like curl, per-booru proxy overrides it, `direct` bypasses;
 the embedded browser - capture, PoW walls, onion sites - reads it at
 startup, so restart after changing it),
 Booru
-manager: entry list with `↑`/`↓` reorder + `Name`/`Enabled` (off keeps
+manager: entry list with up/down arrow buttons to reorder + `Name`/`Enabled` (off keeps
 the config but hides the booru from every picker)/`short` (grid badge text)/`Badge color`
 (known hosts get house colors: gelbooru blue, rule34 green, aibooru green,
 danbooru/safebooru tan, shimmie gray; editable anytime)/`Base
@@ -372,7 +380,7 @@ Tab title joins sources (`Safebooru + Danbooru + Favourites`); grid mixes
 per-site results, each card keeping its own origin badge; one failing
 site shows a status-bar error while the rest render.
 
-## 18-favourites - ♥ tabs (empty state)
+## 18-favourites - Favourites tabs (empty state)
 Every `Favourites` action opens a fresh tab; keep several with different
 tags/filters side by side (titles show their filters). Same chrome over
 `store.db` rows (no files): star posts to fill it, then

@@ -170,7 +170,7 @@ void MainWindow::fillModel() {
         item->setData(p.rating, Qt::UserRole + 1);
         QString kind;
         if (isVideoExt(p.ext))
-            kind = QStringLiteral("▶");
+            kind = QStringLiteral("video");
         else if (p.ext == QStringLiteral("gif"))
             kind = QStringLiteral("GIF");
         item->setData(kind, Qt::UserRole + 2);

@@ -13,7 +13,7 @@
   values `all/images/gifs/animated/videos` (`All media`/`Images`/`GIFs`/
   `Anything animated`/`Videos`), filtered by file extension
   (`mediaFilterMatchesExt`, `src/post.h`) for rows under the download root;
-  shown on the `⭳ Downloads` source and the local `Browse Downloads` tab.
+  shown on the `Downloads` source and the local `Browse Downloads` tab.
 - pills = filter pills in `m_pillBar`/`FlowLayout` (`src/ui/mainwindow.h:281`,
   `src/ui/flowlayout.h`); removable active-filter chips. cards = grid cells
   painted by `GalleryDelegate` (`src/ui/mainwindow.h:67`). Entering a query
@@ -65,7 +65,7 @@
   restores the default; any grid file can replace it, rendered by
   `WelcomePage`.
 - multibooru = one browse tab over several `sites` (`BrowserTab.sites`);
-  results merged client-side; `♥ Favourites` + `⭳ Downloads` join as virtual
+  results merged client-side; `Favourites` + `Downloads` join as virtual
   sources (`src/ui/mainwindow.cpp:221`).
 - sidecar = `<media>.json` next to a file: gallery-dl native/flat object or
   LOSN `<stem>.json`; parsed by `MetaParser`. Download sidecars =

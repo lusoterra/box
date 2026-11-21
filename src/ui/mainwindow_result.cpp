@@ -84,6 +84,31 @@
 #include <utility>
 #include <algorithm>
 
+namespace {
+// Flat filter pill. QPushButton only places an icon on the left, so the
+// remove "x" is painted at the right edge (the stylesheet reserves the
+// room); the leading icon still comes from QPushButton::setIcon.
+class PillButton : public QPushButton {
+public:
+    PillButton(const QString &text, const QColor &color, QWidget *parent)
+        : QPushButton(text, parent), m_color(color) {}
+
+protected:
+    void paintEvent(QPaintEvent *e) override {
+        QPushButton::paintEvent(e);
+        QPainter p(this);
+        QColor c = m_color;
+        c.setAlpha(190);
+        const int side = 12;
+        const QRect r(width() - side - 5, (height() - side) / 2, side, side);
+        UiIcons::draw(&p, r, QStringLiteral("x"), c);
+    }
+
+private:
+    QColor m_color;
+};
+} // namespace
+
 void MainWindow::updateResultLabel() {
     int flagged = 0;
     for (const Post &p : m_current) {
@@ -99,22 +124,27 @@ void MainWindow::updateResultLabel() {
     const QColor accent(0x7c, 0x9e, 0xf8);
     auto addPill = [this](const QString &pillText, const QString &tip,
                           const QColor &color, auto &&onClick,
-                          const QString &favTag = {}) {
-        auto *b = new QPushButton(pillText, this);
+                          const QString &favTag = {},
+                          const QString &iconName = {}) {
+        auto *b = new PillButton(pillText, color, this);
         b->setFlat(true);
         b->setCursor(Qt::PointingHandCursor);
         b->setToolTip(tip);
+        if (!iconName.isEmpty()) {
+            b->setIcon(UiIcons::icon(iconName, color, 24));
+            b->setIconSize(QSize(12, 12));
+        }
         b->setStyleSheet(
             QStringLiteral("background:rgba(%1,%2,%3,.15);border:1px solid "
-                           "rgba(%1,%2,%3,.4);border-radius:4px;padding:2px 7px;"
-                           "color:#%4;")
+                           "rgba(%1,%2,%3,.4);border-radius:4px;"
+                           "padding:2px 20px 2px 7px;color:#%4;")
                 .arg(color.red())
                 .arg(color.green())
                 .arg(color.blue())
                 .arg(color.rgb() & 0xffffff, 6, 16, QChar(u'0')));
         connect(b, &QPushButton::clicked, this, onClick);
         if (!favTag.isEmpty()) {
-            // Right-click stars/unstars the tag (same ★ menu as the
+            // Right-click stars/unstars the tag (same star menu as the
             // sidebar and viewer tags); left-click still removes it.
             b->setContextMenuPolicy(Qt::CustomContextMenu);
             connect(b, &QPushButton::customContextMenuRequested, this,
@@ -122,8 +152,9 @@ void MainWindow::updateResultLabel() {
                         QMenu menu;
                         const bool fav = isFavTag(favTag);
                         QAction *favAct = menu.addAction(
-                            fav ? tr("★ Remove from favourite tags")
-                                : tr("★ Add to favourite tags"));
+                            UiIcons::icon(QStringLiteral("star")),
+                            fav ? tr("Remove from favourite tags")
+                                : tr("Add to favourite tags"));
                         connect(favAct, &QAction::triggered, this,
                                 [this, favTag] { toggleFavTag(favTag); });
                         auto *src =
@@ -225,7 +256,7 @@ void MainWindow::updateResultLabel() {
         // System operators read as operators: metatag hues win over the
         // bucket white (rating:g, sort:random, score:>10, ...).
         const QColor meta = UiIcons::filterTagColor(clean);
-        addPill(QStringLiteral("%1 ×").arg(t), tr("Remove filter"),
+        addPill(QStringLiteral("%1").arg(t), tr("Remove filter"),
                 meta.isValid() ? meta : UiIcons::tagBucketColor(pillBucket(clean)),
                 [this, t] {
                     m_activeTags.removeAll(t);
@@ -236,7 +267,7 @@ void MainWindow::updateResultLabel() {
     }
     if (isBrowse()) {
         // Entry defaults as removable cards: one per unique token across
-        // the tab's sites (minus tab-dropped ones). × drops the token for
+        // the tab's sites (minus tab-dropped ones). The x drops the token for
         // this tab (kept in droppedDefaults, skipped by siteAndBase) and
         // re-searches; typing it again re-adds it as a normal tag.
         if (const BrowserTab *bt = currentTab(); bt && bt->isRemote) {
@@ -256,7 +287,7 @@ void MainWindow::updateResultLabel() {
                 const QString clean =
                     tok.startsWith(u'-') && tok.size() > 1 ? tok.mid(1) : tok;
                 const QColor meta = UiIcons::filterTagColor(clean);
-                addPill(QStringLiteral("%1 ×").arg(tok),
+                addPill(QStringLiteral("%1").arg(tok),
                         tr("Remove default filter"),
                         meta.isValid()
                             ? meta
@@ -297,20 +328,22 @@ void MainWindow::updateResultLabel() {
                                   ? alts.first().mid(1)
                                   : alts.first())
                     : QString();
-            addPill(label + QStringLiteral(" ×"), tr("Remove group"), gcolor,
+            addPill(label, tr("Remove group"), gcolor,
                     [this, gi] { removeQueryGroup(gi); }, singleFav);
             ++gi;
         }
         if (!qpq.andTokens.isEmpty()) {
-            addPill(QStringLiteral("⌕“%1” ×").arg(qpq.andTokens.join(u' ')),
-                    tr("Clear search"), accent, [this] {
+            addPill(QStringLiteral("“%1”").arg(qpq.andTokens.join(u' ')),
+                    tr("Clear search"), accent,
+                    [this] {
                         // Drop the plain remainder, keep any group cards.
                         m_searchQuery = canonicalQuery(
                             {}, QueryOr::parse(m_searchQuery).groups);
                         m_searchEdit->clear();
                         updateResultLabel();
                         commitSearch();
-                    });
+                    },
+                    QString(), QStringLiteral("search"));
         }
     }
     if (m_rating != QStringLiteral("all")) {
@@ -318,7 +351,7 @@ void MainWindow::updateResultLabel() {
         // only a shortcut that sets the same filter.
         const QString tok = QStringLiteral("rating:") + m_rating;
         const QColor meta = UiIcons::filterTagColor(tok);
-        addPill(tok + QStringLiteral(" ×"), tr("Clear rating"),
+        addPill(tok, tr("Clear rating"),
                 meta.isValid() ? meta : accent, [this] {
                     m_rating = QStringLiteral("all");
                     updateResultLabel();
@@ -330,8 +363,8 @@ void MainWindow::updateResultLabel() {
     }
     if (!m_category.isEmpty()) {
         // Source filter dressed as a plain tag pill (there is no tag
-        // syntax for origins): same look, same × behavior.
-        addPill(m_category + QStringLiteral(" ×"),
+        // syntax for origins): same look, same x behavior.
+        addPill(m_category,
                 tr("Clear source"),
                 UiIcons::tagBucketColor(QStringLiteral("general")), [this] {
                     m_category.clear();

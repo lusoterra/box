@@ -72,7 +72,7 @@ Share-to-Hydrus: WONT-DO (no Hydrus target on desktop; Open post covers it).
 - Backup import: favourite (`isFavourite`) and downloaded (`isSnatched`)
   flags are independent. Box's import dialog supports favs → favs,
   favs → download, downloads → downloads, downloads → favourites-only
-  (for Android rows whose files were deleted but the ↓ flag stayed) and
+  (for Android rows whose files were deleted but the download flag stayed) and
   skipping each side, with optional cross-coupling.
 
 ## Settings / theming

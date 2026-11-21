@@ -24,6 +24,7 @@
 #include "post.h"
 
 class QNetworkAccessManager;
+class QIcon;
 class WebDownloadBackend; // webdlbackend.h (injected by the app)
 class DownloadQueueStore; // downloadqueue.h
 
@@ -207,7 +208,9 @@ signals:
 
 private:
     // Append a log row for a file, or refresh its in-flight row in place.
-    void addRow(const QString &fileName, const QString &text);
+    // The row icon mirrors the state with Lucide art (no font glyphs).
+    void addRow(const QString &fileName, const QString &text,
+                const QIcon &icon = {});
 
 private:
     DownloadManager *m_manager;

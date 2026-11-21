@@ -1449,8 +1449,8 @@ They rebuild on the next scan.</translation>
     </message>
     <message>
         <location filename="../src/prefsdlg.cpp" line="644" />
-        <source>✗ %1 needs an instance URL first</source>
-        <translation>✗ %1 needs an instance URL first</translation>
+        <source>%1 needs an instance URL first</source>
+        <translation>%1 needs an instance URL first</translation>
     </message>
     <message>
         <location filename="../src/prefsdlg.cpp" line="93" />

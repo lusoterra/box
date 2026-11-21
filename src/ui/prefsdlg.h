@@ -41,6 +41,10 @@ signals:
     void applyRequested();
 
 private:
+    // Booru account line under the editor: plain words (no check/cross glyphs)
+    // plus a colour cue instead of font-dependent marks.
+    enum AccountStatus { StatusInfo, StatusOk, StatusError };
+    void showAccountStatus(AccountStatus state, const QString &text);
     bool eventFilter(QObject *o, QEvent *e) override;
     void harvest();
     void harvestInto(AppSettings &out); // UI widgets over out (keeps history/session)

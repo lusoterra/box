@@ -332,7 +332,7 @@ void MainWindow::updateTabTitle(int tabIdx) {
         t->title = tr("Favourites");
         if (!tags.isEmpty())
             t->title += QStringLiteral(" · ") + tags.join(u' ');
-        // Solid red heart icon carries the mark (a ♥ glyph in the title
+        // Solid red heart icon carries the mark (a glyph in the title
         // would double it and can't be colored).
         m_tabBar->setTabIcon(tabIdx + 1,
                               UiIcons::heart(UiIcons::favRed(), true));
@@ -356,7 +356,7 @@ void MainWindow::updateTabTitle(int tabIdx) {
     // Keep the OS title in lockstep when this is the visible tab.
     if (tabIdx == m_curTab) {
         if (t->isFavourites)
-            setWindowTitle(QStringLiteral("Box - ♥ Favourites"));
+            setWindowTitle(QStringLiteral("Box - Favourites"));
         else
             setWindowTitle(QStringLiteral("Box - ") + t->title);
     }
@@ -559,7 +559,7 @@ void MainWindow::activateTab(int tabIdx) {
     // scan/search (that read as a stale title for a second on every switch).
     updateTabTitle(tabIdx);
     if (t->isFavourites)
-        setWindowTitle(QStringLiteral("Box - ♥ Favourites"));
+        setWindowTitle(QStringLiteral("Box - Favourites"));
     else if (t->isRemote)
         setWindowTitle(QStringLiteral("Box - ") +
                        (t->title.isEmpty() ? tr("Browse") : t->title));
@@ -642,7 +642,7 @@ void MainWindow::finishActivateTab(int tabIdx) {
         // tab switch must not pay a full decode of every row.
         if (t->localPosts.isEmpty())
             t->localPosts = m_favDb.list();
-        setWindowTitle(QStringLiteral("Box - ♥ Favourites"));
+        setWindowTitle(QStringLiteral("Box - Favourites"));
         m_rating = t->rating;
         m_category = t->category;
         m_sort = t->sort;

@@ -197,8 +197,9 @@ bool MainWindow::isFavMarked(
 }
 
 void MainWindow::repaintFavMarks() {
-    // Recompute the current tab's ♥/↓ marks in place (bulk fav/unfav must
-    // not wait for the next refill) and refresh the viewer badges + fav
+    // Recompute the current tab's favourite/download marks in place (bulk
+    // fav/unfav must not wait for the next refill) and refresh the viewer
+    // badges + fav
     // toggle for whatever post is on screen.
     if (!m_favDb.isOpen() || !m_model)
         return;
@@ -302,7 +303,7 @@ void MainWindow::toggleFavourite(const Post &post) {
             m_unfavVeto.remove(favVetoKey(key.first, key.second));
         m_viewer->setFaved(true);
         updateViewerBadges();
-        statusBar()->showMessage(tr("♥ Favourited"), 3000);
+        statusBar()->showMessage(tr("Favourited"), 3000);
         if (m_settings.favAutoDownload && post.isRemote && !post.fileUrl.isEmpty())
             downloadPosts({post});
     }
