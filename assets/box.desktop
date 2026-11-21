@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
-Version=1.0
+Version=0.1
 Name=Box
-GenericName=Booru Client
+GenericName=Booru Explorer
 Comment=Booru client for local archives and online boorus
 Exec=box %F
 # Unique icon key: stock themes already ship a generic "box" action icon

@@ -147,11 +147,11 @@ qt_add_resources(box "app_translations"
     FILES ${APP_QM_FILES}
 )
 
-# Themes: drop a new `themes/<key>.ini` in place and reconfigure; it is
-# embedded as :/themes/<key>.ini and appears in Preferences. User copies
+# Themes: drop a new `assets/themes/<key>.ini` in place and reconfigure; it
+# is embedded as :/themes/<key>.ini and appears in Preferences. User copies
 # under ~/.config/box/themes/ are discovered at runtime without a rebuild.
 file(GLOB APP_THEME_FILES CONFIGURE_DEPENDS
-     ${CMAKE_CURRENT_SOURCE_DIR}/themes/*.ini)
+     ${CMAKE_CURRENT_SOURCE_DIR}/assets/themes/*.ini)
 if(APP_THEME_FILES)
     foreach(theme IN LISTS APP_THEME_FILES)
         get_filename_component(theme_name "${theme}" NAME)
@@ -170,6 +170,14 @@ add_subdirectory(tests)
 install(TARGETS box RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(FILES assets/box.desktop
         DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
-install(FILES assets/box.svg
-        DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps
-        RENAME booru-explorer.svg)
+install(FILES assets/booru-explorer.svg
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps)
+install(FILES docs/box.1
+        DESTINATION ${CMAKE_INSTALL_MANDIR}/man1)
+install(FILES assets/completions/box.bash
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/bash-completion/completions
+        RENAME box)
+install(FILES assets/completions/_box
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/zsh/site-functions)
+install(FILES assets/completions/box.fish
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/fish/vendor_completions.d)

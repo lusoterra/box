@@ -5,7 +5,7 @@ Box (**Bo**oru e**x**plorer) is a Booru client for online boorus and local
 of downloaded posts, browse Danbooru/Gelbooru and more online, download in full
 quality, and keep favourites.
 
-![env](environment.jxl)
+![env](docs/img/environment.jxl)
 
 ## Supported boorus
 
@@ -59,11 +59,12 @@ JXL); everything else degrades gracefully without them.
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j"$(nproc)"   # -> build/box
 cmake --install build --prefix ~/.local
-make test   # or: ctest --test-dir build --output-on-failure
+ctest --test-dir build --output-on-failure
 ```
 
-Debug builds: `-DCMAKE_BUILD_TYPE=Debug`. `make install` / `make uninstall` /
-`make clean` wrap the obvious CMake steps.
+Debug builds: `-DCMAKE_BUILD_TYPE=Debug`. `cmake --install` also installs
+the desktop entry, the `booru-explorer` icon, `box(1)` and the bash, zsh
+and fish completions.
 
 For a local system install that always replaces older package/manual
 copies (and removes a stale `/usr/local/bin/box` that would shadow
@@ -94,12 +95,12 @@ have. The `--write-info-json` is also useful.
 
 ## Themes
 
-Bundled themes live in `themes/*.ini` and are embedded into the binary
+Bundled themes live in `assets/themes/*.ini` and are embedded into the binary
 (reconfigure after adding one). You can also drop a file into
 `~/.config/box/themes/` to add or override a theme without rebuilding.
 Each file is a tiny `[theme]` INI with `name`, `order`, `dark`, and hex
 colours (`window`, `base`, `alternate`, `button`, `text`, `dim`,
-`disabled`, `border`, `accent`); see `themes/nord.ini` for the shape.
+`disabled`, `border`, `accent`); see `assets/themes/nord.ini` for the shape.
 
 ## License
 

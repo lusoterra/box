@@ -1,0 +1,11 @@
+#compdef box
+# zsh completion for box (BOoru eXplorer)
+# Install: cp assets/completions/_box /usr/share/zsh/site-functions/_box
+
+_arguments -s -S \
+	'--stylesheet[apply a custom Qt stylesheet for this run]:stylesheet file:_files -g "*.qss *.css"' \
+	'--native-theme[use the desktop Qt theme instead of the built-in one]' \
+	'(-h --help)--help[show help and exit]' \
+	'--help-all[show help including Qt options and exit]' \
+	'1:folder to scan:_files -/' \
+	'*:folder to scan:_files -/'

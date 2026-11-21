@@ -98,7 +98,7 @@
   or all; a classic target joins/renames that bucket, anything else is
   one custom group. `*` matches every category.
 - themes = `Theme::availableThemes/colorsFor` (`src/ui/theme.cpp`): INI
-  files in `themes/` (embedded) or `~/.config/box/themes/` (drop-in),
+  files in `assets/themes/` (embedded) or `~/.config/box/themes/` (drop-in),
   plus native. See `docs/UI-TOUR.md` for the key list.
 - media cache / cache nothing = on-disk thumbnails + full-quality browsing
   files controlled by `MediaCache` (`src/library/cachepolicy.h`): global

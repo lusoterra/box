@@ -1,0 +1,80 @@
+.\" Manual page for box
+.TH BOX 1 "2026-11-21" "box 0.1.0" "User Commands"
+.SH NAME
+box \- browse local image archives and online boorus
+.SH SYNOPSIS
+.B box
+[\fIOPTIONS\fR] [\fIROOT\fR]
+.SH DESCRIPTION
+.B box
+(BOoru eXplorer) is a native Qt6 client for online boorus and for local
+image archives written by gallery\-dl or similar tools.
+It reads per\-file sidecar metadata from local folders, browses Danbooru,
+Gelbooru, Moebooru, Szurubooru, Shimmie, HyBooru, Nuuru, Philomena and
+Booru\-on\-Rails instances, downloads posts in full quality and keeps
+favourites in a local SQLite store.
+.PP
+Booru instances, storage folders, themes and download behaviour are managed
+from the graphical Preferences dialog; settings persist in
+.IR settings.ini .
+.PP
+Only one instance runs at a time. A second copy exits with a message.
+.SH OPTIONS
+.TP
+.B \-\-stylesheet \fIfile.qss\fR
+Apply a custom Qt stylesheet on top of the selected theme for this run.
+.TP
+.B \-\-native\-theme
+Use the desktop environment's Qt theme instead of the built\-in theme.
+.TP
+.B \-h, \-\-help
+Show a short help summary and exit.
+.TP
+.B \-\-help\-all
+Include Qt's own command line options in the help output.
+.SH ARGUMENTS
+.TP
+.I ROOT
+Folder to scan on startup. Without it
+.B box
+opens the last used tab, or the welcome page on first launch.
+.SH FILES
+.TP
+.I ~/.config/box/settings.ini
+User settings (booru list, theme, storage folders, UI state).
+.TP
+.I ~/.config/box/themes/
+Optional theme drop\-ins, one INI file per theme. A file with the same name
+as a bundled theme overrides it.
+.TP
+.I ~/.local/share/box/
+Data folder: favourites store, tag category database, cache bookkeeping
+database, default downloads and the rotating
+.IR box.log .
+.TP
+.I ~/.cache/box/
+Thumbnail and media caches.
+.SH ENVIRONMENT
+.TP
+.B BOX_CONFIG_DIR
+Use this folder instead of
+.I ~/.config/box
+for settings and theme drop\-ins.
+.TP
+.B XDG_CONFIG_HOME, XDG_DATA_HOME, XDG_CACHE_HOME
+Standard XDG base directories used when
+.B BOX_CONFIG_DIR
+is unset and no custom storage folders were configured in the app.
+.SH EXIT STATUS
+.TP
+.B 0
+Normal termination.
+.TP
+.B 1
+Startup failure (for example another instance is already running, or a
+configured storage folder is unavailable).
+.SH SEE ALSO
+.BR gallery\-dl (1),
+.BR ffmpeg (1)
+.PP
+Project home: https://github.com/lusoterra/box

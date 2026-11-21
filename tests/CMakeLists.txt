@@ -1,5 +1,5 @@
 # Unit tests (Qt Test, headless: QCoreApplication only, temp dirs, no
-# network). Run with `make test` or `ctest --test-dir build`.
+# network). Run with `ctest --test-dir build` or a single `-R` case.
 find_package(Qt6 REQUIRED COMPONENTS Test)
 
 function(add_unit_test name)

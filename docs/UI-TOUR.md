@@ -448,8 +448,8 @@ file to every listed stray, `Save all` writes `tags` + `tags_*` sidecars
 - [ ] Search-errors inspector (status-bar probe popup)
 
 ## 19-theme-files - adding a theme
-Themes are data files, like translations: copy `themes/<key>.ini` to a
-new `themes/<your-key>.ini` in the repo (reconfigure/build) or drop it
+Themes are data files, like translations: copy `assets/themes/<key>.ini` to a
+new `assets/themes/<your-key>.ini` in the repo (reconfigure/build) or drop it
 into `~/.config/box/themes/` for runtime discovery. `[theme]` keys:
 `name`, `order`, `dark`, `window`, `base`, `alternate`, `button`, `text`,
 `dim`, `disabled`, `border`, `accent`. The Preferences combo rebuilds

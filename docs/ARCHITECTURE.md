@@ -376,7 +376,7 @@ thumbSize), `library/` (root, history), `app/` (restoreSession, language),
 Startup safeguard (`main.cpp`): if a configured `storage/dataDir`, `cache/dir`, or `downloads/dir` does not exist (disk not mounted), the app warns and offers Use defaults / Change folders / Quit, and never creates files at that path.
 
 `storage/dataDir`, `startup/defaultTab`, `window/`, `boorus/` (+ per-entry
-`cacheMode`), `explicit/tags`, `theme/` (values are `themes/*.ini` keys),
+`cacheMode`), `explicit/tags`, `theme/` (values are `assets/themes/*.ini` keys),
 `home/mascot*` (default embedded `マニフェスト.jpg`), `grid/`, `viewer/`.
 Never a group named `General` (QSettings reserves it; see
 `src/settings.cpp:39-43`).

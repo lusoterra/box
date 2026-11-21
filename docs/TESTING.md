@@ -2,12 +2,13 @@
 
 ## Build / test
 
-- `make` (configure + compile -> `build/box`; `Makefile:24-31`).
-- `make test` = build + `ctest --test-dir build --output-on-failure`
-  (`Makefile:36-37`). Direct: `cmake -B build -DCMAKE_BUILD_TYPE=Release`
-  + `cmake --build build -j"$(nproc)"` + `ctest --test-dir build`.
-- `make run ARGS=...`, `make install PREFIX=~/.local`, `make uninstall`,
-  `make clean` (`Makefile:33-52`).
+- Configure + compile: `cmake -B build -DCMAKE_BUILD_TYPE=Release` then
+  `cmake --build build -j"$(nproc)"` -> `build/box`.
+- Tests: `ctest --test-dir build --output-on-failure`; single case:
+  `ctest --test-dir build -R <name>`.
+- Run from the build tree: `./build/box [ROOT]`.
+- Install: `cmake --install build` (prefix set at configure time);
+  uninstall by removing the paths listed in `build/install_manifest.txt`.
 - Do NOT build in doc-writing sessions unless asked (read-only + docs).
 
 ## Test layout
