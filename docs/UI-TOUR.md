@@ -16,11 +16,12 @@ startup` checkbox (mirrors Preferences → General). Tabs → `Start fresh
 session` closes everything and forgets the session. Optional mascot image
 pins bottom-right behind everything (shipped default `マニフェスト.jpg`;
 double-click cycles size; `home/mascot*`). Leaving the home tab idle for
-180 s makes the mascot bounce around the page like a DVD logo; shift+left
-click starts it immediately (easter egg/testing), and any click, key,
-wheel or window resize snaps it back to the corner (moving the window
-does not count). File > Open lists the last folders (plus a full-history
-picker) for mouse-driven reopening.
+180 s shrinks the mascot to the small preset and makes it bounce around
+the page like a DVD logo; shift+left click starts it immediately (easter
+egg/testing), and any click, key, wheel or window resize snaps it back
+to the corner at the chosen size (moving the window does not count).
+File > Open lists the last folders (plus a full-history picker) for
+mouse-driven reopening.
 
 ## 02-browse-grid - booru tab (browse mode, `MainWindow`, `src/ui/mainwindow.cpp`)
 One tab per archive/site set. Tab bar button shows favicon + label + ✕.

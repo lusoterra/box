@@ -63,8 +63,9 @@
 - mascot = home-page image (`home/mascot*`, `src/settings.h`); shipped
   default is `マニフェスト.jpg` (empty path), Remove hides it, Reset
   restores the default; any grid file can replace it, rendered by
-  `WelcomePage`. After 180 s idle on the home tab it bounces around the
-  page (DVD-logo style); shift+left click triggers it, activity resets it.
+  `WelcomePage`. After 180 s idle on the home tab it shrinks to the small
+  preset and bounces around the page (DVD-logo style); shift+left click
+  triggers it, activity resets it to the corner at the chosen size.
 - multibooru = one browse tab over several `sites` (`BrowserTab.sites`);
   results merged client-side; `Favourites` + `Downloads` join as virtual
   sources (`src/ui/mainwindow.cpp:221`).

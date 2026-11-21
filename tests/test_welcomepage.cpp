@@ -66,12 +66,17 @@ void TestWelcomePage::idleStartsBounceAndActivityResets() {
     QCOMPARE(idle->interval(), 180 * 1000); // long idle by default
 
     const QPoint corner = mascot->pos();
+    const QSize chosen = mascot->size();
     idle->start(30);
     QTRY_VERIFY_WITH_TIMEOUT(mascot->pos() != corner, 2000);
+    // DVD mode uses the small preset, not the user's chosen size.
+    QVERIFY(mascot->height() < chosen.height());
 
-    // A key press anywhere on the home page is activity: snap back.
+    // A key press anywhere on the home page is activity: snap back to
+    // the corner at the chosen size.
     QTest::keyClick(&page, Qt::Key_A);
     QCOMPARE(mascot->pos(), corner);
+    QCOMPARE(mascot->size(), chosen);
     // The idle wait starts over after the activity.
     QVERIFY(idle->isActive());
 }
@@ -91,13 +96,16 @@ void TestWelcomePage::shiftClickStartsBounce() {
     QLabel *mascot = mascotOf(&page);
     QVERIFY(mascot);
     const QPoint corner = mascot->pos();
+    const QSize chosen = mascot->size();
 
     QTest::mousePress(mascot, Qt::LeftButton, Qt::ShiftModifier, QPoint(8, 8));
     QTRY_VERIFY_WITH_TIMEOUT(mascot->pos() != corner, 2000);
+    QVERIFY(mascot->height() < chosen.height());
 
-    // Plain activity stops the easter egg again.
+    // Plain activity stops the easter egg again and restores the size.
     QTest::mousePress(&page, Qt::LeftButton, Qt::NoModifier, QPoint(4, 4));
     QCOMPARE(mascot->pos(), corner);
+    QCOMPARE(mascot->size(), chosen);
 }
 
 void TestWelcomePage::resizeCountsAsActivity() {

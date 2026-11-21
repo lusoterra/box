@@ -30,6 +30,9 @@ namespace {
 // someone leaving the home tab open.
 constexpr int kMascotIdleMs = 180 * 1000;
 constexpr int kMascotBounceMs = 16;
+// DVD mode always uses the small preset; the user's chosen size comes
+// back as soon as activity resets it to the corner.
+constexpr double kMascotBounceScale = 0.25;
 // Roughly 130 x 110 px/s at the 60 fps tick above: a lazy DVD drift.
 constexpr qreal kMascotSpeedX = 2.2;
 constexpr qreal kMascotSpeedY = 1.8;
@@ -236,11 +239,13 @@ void WelcomePage::noteActivity() {
 void WelcomePage::startMascotBounce() {
     if (m_mascotFull.isNull() || !isVisible() || m_mascotBouncing)
         return;
+    m_mascotBouncing = true; // layoutMascot picks the small bounce preset
     layoutMascot();
-    if (!m_mascot->isVisible())
+    if (!m_mascot->isVisible()) {
+        m_mascotBouncing = false;
         return;
+    }
     m_mascotIdle->stop();
-    m_mascotBouncing = true;
     m_mascotPos = m_mascot->pos();
     // Head up-left so leaving the corner reads as a DVD-logo hop.
     m_mascotVel = QPointF(-kMascotSpeedX, -kMascotSpeedY);
@@ -299,7 +304,11 @@ void WelcomePage::layoutMascot() {
     }
     const int right = width() - m_mascotMargin;
     const int bottom = height() + strip - m_mascotMargin;
-    if (m_mascotScale >= 1.99) {
+    // DVD mode shrinks to the small preset so it reads as a logo; the
+    // chosen size is restored when the bounce stops.
+    const double scale =
+        m_mascotBouncing ? kMascotBounceScale : m_mascotScale;
+    if (scale >= 1.99) {
         // Full width: window wide, overflow cropped top.
         const QPixmap scaled = m_mascotFull.scaledToWidth(
             qMax(1, right), Qt::SmoothTransformation);
@@ -308,9 +317,9 @@ void WelcomePage::layoutMascot() {
                               scaled.height());
     } else {
         // Height fraction, or max height at 1.0.
-        const int h = m_mascotScale >= 0.99
+        const int h = scale >= 0.99
                           ? height() + strip
-                          : qMax(64, int(height() * m_mascotScale));
+                          : qMax(64, int(height() * scale));
         const QPixmap scaled = m_mascotFull.scaledToHeight(
             h, Qt::SmoothTransformation);
         m_mascot->setPixmap(scaled);
