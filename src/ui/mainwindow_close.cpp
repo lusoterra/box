@@ -221,6 +221,22 @@ bool MainWindow::eventFilter(QObject *o, QEvent *e) {
     // Clicking a suggestion appends it and keeps the dropdown open so a
     // whole query can be assembled with the mouse.
     if (o == m_searchEdit && m_searchEdit) {
+        // Enter with the suggestion dropdown open must commit exactly the
+        // highlighted row. Letting both the popup and QLineEdit handle the
+        // key committed twice (the typed prefix as a pill, then the picked
+        // tag) - "Enter selects multiple tags".
+        if (e->type() == QEvent::KeyPress && m_completer &&
+            m_completer->popup() && m_completer->popup()->isVisible()) {
+            const auto *ke = static_cast<QKeyEvent *>(e);
+            if (ke->key() == Qt::Key_Return || ke->key() == Qt::Key_Enter) {
+                const QModelIndex idx = m_completer->popup()->currentIndex();
+                if (idx.isValid()) {
+                    m_completer->popup()->hide();
+                    onCompleterActivated(idx.data(Qt::DisplayRole).toString());
+                    return true; // consumed: no returnPressed second commit
+                }
+            }
+        }
         const bool empty = m_searchEdit->text().trimmed().isEmpty();
         // Only a real user action opens the favourite list: focus bouncing
         // back from the completer's popup (ActiveWindow/PopupFocusReason)

@@ -129,11 +129,8 @@ void ImageView::applyPendingNotes() {
         box->setToolTip(n.body);
         box->setAcceptHoverEvents(true);
         box->setData(0, n.body); // click handler reads this (index-safe)
-        // Hover dot at the corner (music-player-style affordance).
-        auto *dot = new QGraphicsEllipseItem(-3, -3, 6, 6, box);
-        dot->setPen(Qt::NoPen);
-        dot->setBrush(accent);
-        // No Qt title-tooltip: a left click opens the readable popup.
+        // No corner dot: it read as a stray ball on the image and the
+        // outlined box is already the affordance (web UIs draw the same).
         m_noteBoxes.append(box);
     }
 }

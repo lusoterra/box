@@ -115,12 +115,20 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     post's notes/comments). Notes sources: Danbooru/e621 `/notes.json`,
     Moebooru `/note.json`, dapi XML (`<note>` table) as fallback, Gelbooru/
     Safebooru public post-page HTML (`<article data-x…>` / `note-box`
-    divs; the dapi `s=note` table answers empty on gelbooru.com),
-    HyBooru `/api/post/<id>` (`notes[].rect` are percentages of the detail
-    `width`/`height`); no endpoint on Szurubooru/Shimmie/Nuuru/Philomena/
-    BooruOnRails/AnimePictures (a 404 there would fail the whole fetch).
+    divs; dapi `s=note` answers 401 + empty body anonymously, so the page
+    is ALWAYS used there), HyBooru `/api/post/<id>` (`notes[].rect` are
+    percentages of the detail `width`/`height`); no endpoint on
+    Szurubooru/Shimmie/Nuuru/Philomena/BooruOnRails/AnimePictures (a 404
+    there would fail the whole fetch).
     Parse failures on 2xx bodies report "Unparseable response" (never a
-    blank reason). On `browserApi` hosts (Donmai/CDN) all three parts
+    blank reason). Parts are independent: `finishPart` reports success
+    when any requested part answered, so a failed comments leg can never
+    discard parsed notes. Plain QNAM goes first even on `browserApi`
+    hosts (the meta endpoints answer anonymously where search is
+    challenged) and those requests are sent COOKIELESS: a Turnstile
+    `cf_clearance` is fingerprint-bound, so presenting it from QNAM can
+    trigger the challenge it should avoid. Each part then falls back once
+    to the capture profile via `retryPartInBrowser`. On `browserApi` hosts (Donmai/CDN) all three parts
     ride the capture profile via `QtConcurrent` + `webFetcher`, since QNAM
     cannot use a browser-bound `cf_clearance`. Commentary = Danbooru
     `artist_commentary`, Philomena `description` (Philomena/Booru-on-Rails
@@ -370,7 +378,10 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
 - Tag classification waterfall (`src/library/tagtypes.h:112` `TagTypeFetcher`):
   Gelbooru-with-creds -> anon Danbooru -> Safebooru -> yandere; misses
   (type -1) cached, transient (`kTransientFailure = -2`) not cached and
-  retried (`tagtypes.h:17-18`).
+  retried (`tagtypes.h:17-18`). A run started while another is active
+  MERGES its tags into the running queue instead of cancelling it:
+  pagination used to abort the in-flight batch, leaving the first page's
+  tags general forever (`fetch()`).
   - Manual overrides (`tagtypes/manual` ini, `normalizeTagOverrides`)
     win without network; `skipAutoClassify` per entry
     (`remotesource.h:147`) leaves meme-host tags as-is; disabled buckets

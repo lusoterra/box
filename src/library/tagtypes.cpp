@@ -10,11 +10,14 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QSet>
 #include <QSqlDatabase>
 #include <QSqlQuery>
 #include <QTimer>
 #include <QUrl>
 #include <QXmlStreamReader>
+
+#include <utility>
 
 namespace TagTypes {
 
@@ -296,6 +299,36 @@ QNetworkAccessManager *TagTypeFetcher::namForProxy(const QString &proxySpec) {
 }
 
 void TagTypeFetcher::fetch(const QStringList &tags, const QString &dbPath) {
+    // A running batch absorbs new tags instead of being cancelled:
+    // pagination classifies the next page while the current page's tags
+    // are still resolving, and the old cancel() left the earlier posts
+    // permanently uncategorized (the "some posts categorise, some don't"
+    // bug on flat-tag engines like e621).
+    if (m_active) {
+        QSet<QString> have;
+        for (const QString &q : std::as_const(m_queue))
+            have.insert(q);
+        for (const Flight *f : std::as_const(m_flights)) {
+            if (f)
+                have.insert(f->tag);
+        }        for (auto it = m_results.begin(); it != m_results.end(); ++it)
+            have.insert(it.key());
+        int added = 0;
+        for (const QString &t : tags) {
+            const QString tag = t.trimmed().toLower();
+            if (tag.isEmpty() || have.contains(tag))
+                continue;
+            have.insert(tag);
+            m_queue.append(tag);
+            ++added;
+        }
+        if (added > 0) {
+            m_total += added;
+            emit progress(m_done, m_total);
+            pump();
+        }
+        return;
+    }
     cancel();
     m_cache.open(dbPath); // best effort; results still emitted on failure
     m_order.clear();

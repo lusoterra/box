@@ -1237,6 +1237,14 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     m_sideScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_sideScroll->setWidget(m_sideSplit);
     sideLay->removeWidget(m_sideSplit);
+    // Tab switches paint the grid veil immediately; the sidebar used to
+    // keep the previous tab's tags until the deferred rebuild landed.
+    // This placeholder shows instead (cleared by every sidebar rebuild).
+    m_sideBusy = new QLabel(tr("Loading tags…"), this);
+    m_sideBusy->setStyleSheet(QStringLiteral("color:#4a5068;font-size:11px;"));
+    m_sideBusy->setAlignment(Qt::AlignCenter);
+    m_sideBusy->setVisible(false);
+    sideLay->addWidget(m_sideBusy, 1);
     sideLay->addWidget(m_sideScroll, 1);
     applySidebarScrollMode();
 

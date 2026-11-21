@@ -14,6 +14,7 @@
 // Failures are silent (sections just stay hidden); results are cached per
 // session so back/forth doesn't refetch.
 #include <QObject>
+#include <QSet>
 #include <QString>
 #include <QVector>
 
@@ -66,6 +67,10 @@ private:
     // Native PoW re-solve attempt for 449-gated stacks; true when a
     // solve started (results arrive as a fresh done, not this one).
     bool maybePowRetry(const QByteArray &body, int http);
+    // One browser fallback per part: a walled/challenged QNAM answer
+    // re-issues that part through the capture profile instead of failing
+    // the whole fetch. True when the retry started.
+    bool retryPartInBrowser(int part);
     class QNetworkAccessManager *m_nam;
     class QNetworkReply *m_notesReply = nullptr;
     class QNetworkReply *m_commentsReply = nullptr;
@@ -85,6 +90,10 @@ private:
     bool m_commentaryOk = true;
     int m_gen = 0; // browser workers from an older fetch are ignored
     bool m_powRetried = false; // one native PoW re-solve per fetch
+    // The three part URLs for this fetch (browser fallback re-issues them).
+    QUrl m_notesUrl, m_commentsUrl, m_commentaryUrl;
+    bool m_notesReq = false, m_commentsReq = false, m_commentaryReq = false;
+    QSet<int> m_browserRetried; // parts that already fell back once
     QString m_notesErr;
     QString m_commentsErr;
     QString m_commentaryErr;

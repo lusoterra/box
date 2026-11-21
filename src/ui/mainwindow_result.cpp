@@ -120,6 +120,10 @@ void MainWindow::updateResultLabel() {
         text += tr(" · %1 auto-flagged explicit").arg(flagged);
     m_resultLabel->setText(text);
     updateDots();
+    // Rebuilding the pill row on every pagination tick deleted and
+    // re-created identical widgets, which flashed ("blink") while the
+    // next page loaded. Paint only the final state.
+    m_pillBar->setUpdatesEnabled(false);
     m_pills->clear();
     const QColor accent(0x7c, 0x9e, 0xf8);
     auto addPill = [this](const QString &pillText, const QString &tip,
@@ -373,6 +377,7 @@ void MainWindow::updateResultLabel() {
                 });
     }
     // Stay hidden while a post is open (grid tools invite misclicks).
+    m_pillBar->setUpdatesEnabled(true);
     m_pillBar->setVisible(m_pills->count() > 0 &&
                           m_pages->currentIndex() != 1);
 }

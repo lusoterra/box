@@ -539,6 +539,9 @@ private:
     QLabel *m_dotCount = nullptr;
     QWidget *m_pillBar = nullptr;
     QWidget *m_sideBar = nullptr; // sidebar column (hidden in fullscreen)
+    QLabel *m_sideBusy = nullptr; // "Loading tags…" while a tab switches
+    // Swap the sidebar between the busy placeholder and the real sections.
+    void setSidebarLoading(bool busy);
     FlowLayout *m_pills = nullptr;
     QProgressBar *m_scanBar = nullptr;
     GridLoadingOverlay *m_gridLoading = nullptr; // tab-activation busy veil

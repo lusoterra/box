@@ -10,6 +10,7 @@
 #include <QComboBox>
 #include <QDir>
 #include <QFile>
+#include <QGraphicsRectItem>
 #include <QImage>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -659,8 +660,7 @@ private slots:
         QVERIFY(omni->isVisible());
     }
 
-    void viewerHasMetadataButton() {
-        // The side panel is 290px of tags; the record behind the post
+    void viewerHasMetadataButton() {        // The side panel is 290px of tags; the record behind the post
         // (sidecar/API JSON) gets a first-class button next to Open post
         // instead of living only in the right-click menu.
         QTemporaryDir xdg;
@@ -688,6 +688,61 @@ private slots:
         // Neighbours in the toolbar, in order.
         const auto buttons = viewer->findChildren<QPushButton *>();
         QVERIFY(buttons.indexOf(openPost) + 1 == buttons.indexOf(meta));
+    }
+
+    // Annotation rects are in ORIGINAL image pixels and must land on the
+    // same pixels of whatever pixmap is displayed (web UIs draw them over
+    // the text). Pure geometry: a 400x200 image with a note at
+    // (100,50,50,20) must paint the box exactly there.
+    void noteOverlayGeometry() {
+        QTemporaryDir xdg;
+        QVERIFY(xdg.isValid());
+        qputenv("XDG_CONFIG_HOME", xdg.filePath("config").toUtf8());
+        qputenv("XDG_DATA_HOME", xdg.filePath("data").toUtf8());
+        qputenv("XDG_CACHE_HOME", xdg.filePath("cache").toUtf8());
+        ImageView view;
+        view.resize(400, 200);
+        QImage img(400, 200, QImage::Format_RGB32);
+        img.fill(Qt::black);
+        PostNote note;
+        note.x = 100;
+        note.y = 50;
+        note.w = 50;
+        note.h = 20;
+        note.body = QStringLiteral("translation");
+        view.setImage(img, false);
+        view.setNotes({note}, QSize(400, 200));
+        // The note box is the only rect item in the scene.
+        QGraphicsRectItem *box = nullptr;
+        for (QGraphicsItem *it : view.scene()->items()) {
+            if (auto *r = dynamic_cast<QGraphicsRectItem *>(it)) {
+                box = r;
+                break;
+            }
+        }
+        QVERIFY2(box, "note overlay box was not created");
+        const QRectF got = box->rect();
+        QCOMPARE(got.x(), 100.0);
+        QCOMPARE(got.y(), 50.0);
+        QCOMPARE(got.width(), 50.0);
+        QCOMPARE(got.height(), 20.0);
+        QCOMPARE(box->data(0).toString(), QStringLiteral("translation"));
+        // Hidden toggle must hide the boxes (they are kept for a cheap
+        // re-show, not deleted).
+        view.setNotesVisible(false);
+        int visibleRects = 0;
+        for (QGraphicsItem *it : view.scene()->items())
+            if (auto *r = dynamic_cast<QGraphicsRectItem *>(it);
+                r && r->isVisible())
+                ++visibleRects;
+        QCOMPARE(visibleRects, 0);
+        view.setNotesVisible(true);
+        visibleRects = 0;
+        for (QGraphicsItem *it : view.scene()->items())
+            if (auto *r = dynamic_cast<QGraphicsRectItem *>(it);
+                r && r->isVisible())
+                ++visibleRects;
+        QCOMPARE(visibleRects, 1);
     }
 };
 

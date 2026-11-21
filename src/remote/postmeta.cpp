@@ -31,10 +31,15 @@ void PostMetaFetcher::setCreds(const QString &danUser, const QString &danKey,
 }
 
 namespace {
-QNetworkRequest timedRequest(const QUrl &url) {
+// withCookies=false for Cloudflare/Turnstile hosts: their clearance is
+// bound to the capture browser's fingerprint, so presenting it from QNAM
+// can *cause* the very challenge we are trying to avoid (the meta
+// endpoints answer fine anonymously - live danbooru.donmai.us).
+QNetworkRequest timedRequest(const QUrl &url, bool withCookies = true) {
     QNetworkRequest req(url);
     req.setTransferTimeout(15000);
-    RemoteSource::applyCookies(req); // clearance header, if any
+    if (withCookies)
+        RemoteSource::applyCookies(req); // clearance header, if any
     req.setHeader(QNetworkRequest::UserAgentHeader,
                   QStringLiteral("box/0.1 (post meta)"));
     req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
@@ -68,23 +73,21 @@ void PostMetaFetcher::fetch(const QString &siteKey, const QString &baseUrl,
     m_notesOk = true;
     m_commentsOk = true;
     m_commentaryOk = true;
-    QUrl notesUrl =
+    m_browserRetried.clear();
+    m_notesReq = m_commentsReq = m_commentaryReq = false;
+    m_notesUrl =
         PostMeta::notesUrl(engine, baseUrl, postId, m_gelUser, m_gelKey);
-    // Gelbooru's dapi note table is not reliable (gelbooru.com answers an
-    // empty table for posts whose page carries annotations). The public
-    // post page embeds them, so a post whose search row says has_notes
-    // reads that instead of the dapi endpoint.
-    if ((engine == BooruEngine::Gelbooru ||
-         engine == BooruEngine::Safebooru) &&
-        hasNotesHint) {
-        notesUrl = QUrl(baseUrl + QStringLiteral("/index.php?page=post&s=view&id=") +
-                        QString::number(postId));
-    }
-    QNetworkRequest notesReq = timedRequest(notesUrl);
-    QNetworkRequest commentsReq = timedRequest(
-        PostMeta::commentsUrl(engine, baseUrl, postId, m_gelUser, m_gelKey));
-    QNetworkRequest commentaryReq = timedRequest(
-        PostMeta::commentaryUrl(engine, baseUrl, postId));
+    Q_UNUSED(hasNotesHint); // notesUrl() already picks the reliable shape
+    m_commentsUrl =
+        PostMeta::commentsUrl(engine, baseUrl, postId, m_gelUser, m_gelKey);
+    m_commentaryUrl = PostMeta::commentaryUrl(engine, baseUrl, postId);
+    const RemotePosts::SiteQuirk *hostQuirk =
+        RemotePosts::quirkForHost(QUrl(baseUrl).host().toLower());
+    // Turnstile/Cloudflare hosts: go anonymous (see timedRequest).
+    const bool withCookies = !(hostQuirk && hostQuirk->browserApi);
+    QNetworkRequest notesReq = timedRequest(m_notesUrl, withCookies);
+    QNetworkRequest commentsReq = timedRequest(m_commentsUrl, withCookies);
+    QNetworkRequest commentaryReq = timedRequest(m_commentaryUrl, withCookies);
     // Unconditional: clears a stale proxy when the entry drops it.
     m_nam->setProxy(RemotePosts::proxyFromSpec(
         RemotePosts::proxyForUrl(baseUrl)));
@@ -113,33 +116,15 @@ void PostMetaFetcher::fetch(const QString &siteKey, const QString &baseUrl,
                engine == BooruEngine::Safebooru) {
         // Gelbooru dapi takes creds as query params (already in the URL).
     }
-    // Cloudflare/browserApi hosts: QNAM answers 403 even with a harvested
-    // clearance. Fetch the three parts through the capture profile, in
-    // parallel, so the viewer keeps its metadata on Danbooru/Safebooru.
-    if (const RemotePosts::SiteQuirk *q =
-            RemotePosts::quirkForHost(QUrl(baseUrl).host().toLower());
-        q && q->browserApi) {
-        if (RemoteSource::webFetcher()) {
-            if (!notesReq.url().isEmpty()) {
-                m_notesOk = false;
-                m_notesErr.clear();
-                startBrowserPart(0, notesReq.url());
-            }
-            if (!commentsReq.url().isEmpty()) {
-                m_commentsOk = false;
-                m_commentsErr.clear();
-                startBrowserPart(1, commentsReq.url());
-            }
-            if (!commentaryReq.url().isEmpty()) {
-                m_commentaryOk = false;
-                m_commentaryErr.clear();
-                startBrowserPart(2, commentaryReq.url());
-            }
-            finishPart();
-            return;
-        }
-    }
+    // Plain QNAM first, even on `browserApi` hosts: the meta endpoints
+    // (/notes.json, /comments.json) answer fine anonymously where the
+    // search API is challenged (live danbooru.donmai.us 2026-11-21).
+    // Forcing the hidden browser here made every notes fetch fail with
+    // "Cloudflare wants a click" on posts whose search row loaded fine.
+    // Each reply handler falls back to the capture profile once when the
+    // plain attempt is walled (retryPartInBrowser).
     if (!notesReq.url().isEmpty()) {
+        m_notesReq = true;
         m_notesOk = false; // issued: must prove success below
         m_notesErr.clear();
         m_notesReply = m_nam->get(notesReq);
@@ -171,11 +156,14 @@ void PostMetaFetcher::fetch(const QString &siteKey, const QString &baseUrl,
             m_notesOk = ok;
             if (!ok && maybePowRetry(body, http))
                 return; // native re-solve in flight; results land as new done
+            if (!ok && retryPartInBrowser(0))
+                return; // walled: capture-profile retry owns this part
             m_notesDone = true;
             finishPart();
         });
     }
     if (!commentsReq.url().isEmpty()) {
+        m_commentsReq = true;
         m_commentsOk = false; // issued: must prove success below
         m_commentsErr.clear();
         m_commentsReply = m_nam->get(commentsReq);
@@ -208,11 +196,14 @@ void PostMetaFetcher::fetch(const QString &siteKey, const QString &baseUrl,
             m_commentsOk = ok;
             if (!ok && maybePowRetry(body, http))
                 return; // native re-solve in flight; results land as new done
+            if (!ok && retryPartInBrowser(1))
+                return; // walled: capture-profile retry owns this part
             m_commentsDone = true;
             finishPart();
         });
     }
     if (!commentaryReq.url().isEmpty()) {
+        m_commentaryReq = true;
         m_commentaryOk = false; // issued: must prove success below
         m_commentaryErr.clear();
         m_commentaryReply = m_nam->get(commentaryReq);
@@ -241,6 +232,8 @@ void PostMetaFetcher::fetch(const QString &siteKey, const QString &baseUrl,
             m_commentaryOk = ok;
             if (!ok && maybePowRetry(body, http))
                 return;
+            if (!ok && retryPartInBrowser(2))
+                return; // walled: capture-profile retry owns this part
             m_commentaryDone = true;
             finishPart();
         });
@@ -328,6 +321,32 @@ void PostMetaFetcher::applyBrowserPart(int gen, int part, int http,
     finishPart();
 }
 
+bool PostMetaFetcher::retryPartInBrowser(int part) {
+    if (m_browserRetried.contains(part))
+        return false; // one fallback per part per fetch
+    const QUrl url = part == 0 ? m_notesUrl
+                               : part == 1 ? m_commentsUrl : m_commentaryUrl;
+    if (url.isEmpty() || !RemoteSource::webFetcher())
+        return false; // no browser stack: the plain failure stands
+    m_browserRetried.insert(part);
+    switch (part) {
+    case 0:
+        m_notesOk = false;
+        m_notesErr.clear();
+        break;
+    case 1:
+        m_commentsOk = false;
+        m_commentsErr.clear();
+        break;
+    default:
+        m_commentaryOk = false;
+        m_commentaryErr.clear();
+        break;
+    }
+    startBrowserPart(part, url);
+    return true;
+}
+
 void PostMetaFetcher::finishPart() {
     if (!m_notesDone || !m_commentsDone || !m_commentaryDone)
         return;
@@ -337,8 +356,25 @@ void PostMetaFetcher::finishPart() {
     // Commentary is optional enrichment: a failure there must not hide
     // notes/comments that loaded fine (nor paint an error banner on
     // commentary-only engines).
+    // Parts are independent: a failed comments leg must never discard
+    // successfully parsed notes (that showed every Gelbooru post as
+    // "post details failed", with the annotations thrown away).
+    bool anyOk = false;
+    bool anyReq = false;
+    if (m_notesReq) {
+        anyReq = true;
+        anyOk = anyOk || m_notesOk;
+    }
+    if (m_commentsReq) {
+        anyReq = true;
+        anyOk = anyOk || m_commentsOk;
+    }
+    if (m_commentaryReq) {
+        anyReq = true;
+        anyOk = anyOk || m_commentaryOk;
+    }
     emit done(m_site, m_postId, m_notes, m_comments, m_commentary,
-              m_notesOk && m_commentsOk, err);
+              anyReq ? anyOk : true, err);
 }
 
 // Native PoW re-solve for 449-gated stacks (Nuuru): the token is
@@ -398,20 +434,14 @@ QUrl notesUrl(BooruEngine engine, const QString &baseUrl, qint64 postId,
         return url;
     }
     if (engine == BooruEngine::Gelbooru || engine == BooruEngine::Safebooru) {
-        QUrl url(RemotePosts::apiBaseUrl(engine, baseUrl) +
-                 QStringLiteral("/index.php"));
-        QUrlQuery q;
-        q.addQueryItem(QStringLiteral("page"), QStringLiteral("dapi"));
-        q.addQueryItem(QStringLiteral("s"), QStringLiteral("note"));
-        q.addQueryItem(QStringLiteral("q"), QStringLiteral("index"));
-        q.addQueryItem(QStringLiteral("post_id"), id);
-        q.addQueryItem(QStringLiteral("json"), QStringLiteral("1"));
-        if (!gelUser.isEmpty() && !gelKey.isEmpty()) {
-            q.addQueryItem(QStringLiteral("api_key"), gelKey);
-            q.addQueryItem(QStringLiteral("user_id"), gelUser);
-        }
-        url.setQuery(q);
-        return url;
+        // dapi `s=note` answers HTTP 401 with an empty body anonymously
+        // (live 2026-11-21), and an empty table even with creds for posts
+        // whose page carries annotations. The public post page always
+        // embeds them (<article data-x…> / note-box divs): use it.
+        Q_UNUSED(gelUser);
+        Q_UNUSED(gelKey);
+        return QUrl(baseUrl + QStringLiteral("/index.php?page=post&s=view&id=") +
+                    id);
     }
     // Moebooru family. AnimePictures exposes no note API at all: it
     // must not fall through to Moebooru's URL (a 404 would fail the

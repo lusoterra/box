@@ -84,6 +84,17 @@
 #include <utility>
 #include <algorithm>
 
+void MainWindow::setSidebarLoading(bool busy) {
+    // Two widgets share the sidebar's stretch slot: the placeholder for
+    // the switch window and the real sections otherwise. Every rebuild
+    // clears the placeholder, so a tab whose data lands late still fills
+    // in correctly.
+    if (!m_sideBusy || !m_sideScroll)
+        return;
+    m_sideBusy->setVisible(busy);
+    m_sideScroll->setVisible(!busy);
+}
+
 void MainWindow::sortPosts(QVector<Post> &posts, const QString &sort) {
     if (sort == QStringLiteral("id-asc"))
         std::sort(posts.begin(), posts.end(),
@@ -101,6 +112,7 @@ void MainWindow::sortPosts(QVector<Post> &posts, const QString &sort) {
 }
 
 void MainWindow::rebuildBrowseSidebar() {
+    setSidebarLoading(false); // data is here: swap the placeholder out
     // Top tags of the current page, bucketed properly (remote Danbooru
     // posts carry splits; blobs stay general).
     // Sections follow the tab's booru(s): a bucket hidden in EVERY

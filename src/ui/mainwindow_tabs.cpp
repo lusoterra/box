@@ -594,6 +594,10 @@ void MainWindow::activateTab(int tabIdx) {
     // on it. Superseded switches abort in finishActivateTab.
     m_current.clear();
     m_model->clear();
+    // The sidebar must not keep showing the previous tab's tags while the
+    // deferred rebuild runs: swap in the placeholder now (any rebuild
+    // clears it).
+    setSidebarLoading(true);
     m_scanBar->setRange(0, 0);
     m_scanBar->setVisible(true);
     // Name the target in the grid area and paint it synchronously, so
@@ -659,6 +663,7 @@ void MainWindow::finishActivateTab(int tabIdx) {
         // persist their splits so the next open starts categorised.
         maybeClassifyBrowse(t);
         m_scanBar->setVisible(false); // skeleton done (no async work here)
+        setSidebarLoading(false);     // filter rebuild above may have raced
         hideTabLoading(t);
         return;
     }

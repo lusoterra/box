@@ -85,6 +85,7 @@
 #include <algorithm>
 
 void MainWindow::rebuildSidebar() {
+    setSidebarLoading(false); // data is here: swap the placeholder out
     // Local tabs have no host: every section is always on (undoes any
     // browse-tab hiding below). Native custom sections are browse-only.
     for (int i = 0; i < m_sideSplit->count(); ++i)

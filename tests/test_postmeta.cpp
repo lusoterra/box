@@ -24,12 +24,16 @@ private slots:
                  kDan + QStringLiteral("/notes.json?search[post_id]=42&limit=100"));
         const QUrl gel =
             PostMeta::notesUrl(BooruEngine::Gelbooru, kGel, 42, {}, {});
-        QCOMPARE(queryItem(gel, "s"), QStringLiteral("note"));
-        QCOMPARE(queryItem(gel, "post_id"), QStringLiteral("42"));
-        // Safebooru rides the Gelbooru dapi shape (not Moebooru's).
+        // Gelbooru dapi notes answer 401 with an empty body anonymously
+        // (live 2026-11-21), so notes always come from the post page -
+        // never from dapi, regardless of any has_notes hint.
+        QVERIFY(gel.toString().contains(QStringLiteral("page=post")));
+        QCOMPARE(queryItem(gel, "s"), QStringLiteral("view"));
+        QCOMPARE(queryItem(gel, "id"), QStringLiteral("42"));
+        // Safebooru rides the same page shape (not Moebooru's).
         const QUrl sfw =
             PostMeta::notesUrl(BooruEngine::Safebooru, kSfw, 42, {}, {});
-        QCOMPARE(queryItem(sfw, "s"), QStringLiteral("note"));
+        QVERIFY(sfw.toString().contains(QStringLiteral("page=post")));
         QVERIFY(sfw.toString().startsWith(kSfw));
         QCOMPARE(PostMeta::notesUrl(BooruEngine::Moebooru, kMoe, 42).toString(),
                  kMoe + QStringLiteral("/note.json?post_id=42"));

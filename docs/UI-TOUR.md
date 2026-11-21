@@ -206,7 +206,10 @@ saved session, shows home), `Favourites` (database-only tab, heart icon),
 `Ctrl+T` opens a new default tab (Default tab booru, else the default
 boorus), `Ctrl+W` closes the current tab, `Ctrl+Shift+T` reopens closed
 tabs newest-first (a 20-tab LIFO stack; the tab's kind, filters and open
-post return, content rescans/re-searches). Library archive
+post return, content rescans/re-searches). Switching a tab paints the
+grid veil and swaps the left sidebar for a `Loading tags…` placeholder
+immediately; the real sections fill in when the deferred scan/search
+rebuild lands (never the previous tab's tags). Library archive
 roots are read-only: no Delete there, tag refresh is disabled, and a
 hard `refuseArchiveWrite` guard refuses any file write outside the
 download dir (Syncthing-safe).
@@ -258,7 +261,7 @@ delete once the file is on disk, like the heart button), reload-everything (icon
 tags, comments, media), `Notes`
 (translation overlays on the image, on by default; left-click a note marker
 opens a larger `Annotation note` popup with selectable text instead of a
-hover tooltip),
+hover tooltip; the box outline is the only affordance - no corner dot),
 globe (`Open file`), `Copy file URL`, `Comments` (thread popup with cards,
 reuses the cached comment rows). The tag panel below the groups shows
 three threads when the engine provides them, in this order: NOTES
