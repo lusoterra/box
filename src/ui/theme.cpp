@@ -10,15 +10,40 @@
 #include <QPalette>
 #include <QSettings>
 #include <QStandardPaths>
-#include <algorithm>
 #include <QStyle>
 #include <QStyleFactory>
+#include <algorithm>
+#include <cmath>
 
 namespace Theme {
 namespace {
 
 QColor hex(const char *s) {
     return QColor(QString::fromLatin1(s));
+}
+
+// WCAG relative luminance + contrast ratio (AA normal text needs 4.5:1).
+double relativeLuminance(const QColor &c) {
+    auto channel = [](double v) {
+        v /= 255.0;
+        return v <= 0.03928 ? v / 12.92
+                            : std::pow((v + 0.055) / 1.055, 2.4);
+    };
+    return 0.2126 * channel(c.red()) + 0.7152 * channel(c.green()) +
+           0.0722 * channel(c.blue());
+}
+
+double contrastRatio(const QColor &a, const QColor &b) {
+    const double la = relativeLuminance(a);
+    const double lb = relativeLuminance(b);
+    return (std::max(la, lb) + 0.05) / (std::min(la, lb) + 0.05);
+}
+
+QString statusBarStyleSheet(const QColor &window, const QColor &text,
+                            bool dark) {
+    const QColor bg = statusBarBackground(window, dark);
+    return QStringLiteral("\nQStatusBar { background: %1; color: %2; }")
+        .arg(bg.name(), statusBarText(bg, text).name());
 }
 
 // The settings default accent is the built-in blue; only override a named
@@ -97,10 +122,26 @@ void applyColors(QApplication &app, const PaletteColors &c) {
                        "QLineEdit { selection-background-color: %4; }"
                        "QProgressBar::chunk { background: %4; }")
             .arg(c.text.name(), c.alternate.name(), c.border.name(), acc, sel,
-                 c.border.name()));
+                 c.border.name()) +
+        statusBarStyleSheet(c.window, c.text, c.dark));
 }
 
 } // namespace
+
+QColor statusBarBackground(const QColor &window, bool dark) {
+    // Dark themes need a slightly stronger step to stay visible; light
+    // themes keep their dark text readable.
+    return window.darker(dark ? 120 : 110);
+}
+
+QColor statusBarText(const QColor &background, const QColor &preferred) {
+    if (contrastRatio(background, preferred) >= 4.5)
+        return preferred;
+    return contrastRatio(background, Qt::black) >=
+                   contrastRatio(background, Qt::white)
+               ? Qt::black
+               : Qt::white;
+}
 
 namespace {
 
@@ -250,11 +291,15 @@ bool applyStylesheetFile(QApplication &app, const QString &path) {
 }
 
 void applyNative(QApplication &app) {
-    // Opt back into the desktop environment's look: default style,
-    // system palette, no custom stylesheet.
+    // Opt back into the desktop environment's look: default style and
+    // system palette. Only the informational status strip is themed.
     app.setStyleSheet(QString());
-    app.setPalette(app.style()->standardPalette());
-    UiIcons::setNormalColor(app.palette().color(QPalette::WindowText));
+    const QPalette pal = app.style()->standardPalette();
+    app.setPalette(pal);
+    const QColor window = pal.color(QPalette::Window);
+    app.setStyleSheet(statusBarStyleSheet(
+        window, pal.color(QPalette::WindowText), window.lightness() < 128));
+    UiIcons::setNormalColor(pal.color(QPalette::WindowText));
 }
 
 } // namespace Theme

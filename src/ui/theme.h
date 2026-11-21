@@ -31,6 +31,12 @@ struct ThemeInfo {
     int order = 1000;
 };
 
+// Informational status bar: a darker strip than the window, with text
+// picked to keep at least WCAG AA contrast. Shared by every theme,
+// native included.
+QColor statusBarBackground(const QColor &window, bool dark);
+QColor statusBarText(const QColor &background, const QColor &preferred);
+
 // Built-in `:/themes/*.ini` plus user drop-ins from
 // ~/.config/box/themes/*.ini, sorted for the Preferences combo.
 QList<ThemeInfo> availableThemes();

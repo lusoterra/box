@@ -1,7 +1,10 @@
 # UI tour - box (terms in `docs/GLOSSARY.md`)
 
 Window layout, top to bottom: menubar → tab bar → omnibar → sidebar +
-grid → status bar.
+grid → status bar. The status bar is a darker informational strip in
+every theme (`Theme::statusBarBackground/statusBarText`, native too),
+with contrast-checked text, so it reads as chrome rather than page
+content even where the mascot passes behind it.
 
 ## 01-welcome - home tab (`WelcomePage`, `src/ui/welcomepage.cpp`)
 Tab 0, shown when no tab is active. From top: app icon + `Box` title,

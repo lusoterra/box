@@ -202,6 +202,15 @@ add_unit_test(test_welcomepage test_welcomepage.cpp ../src/ui/welcomepage.cpp
               ../src/icons.qrc)
 set_tests_properties(test_welcomepage PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+add_unit_test(test_theme test_theme.cpp ../src/ui/theme.cpp)
+if(APP_THEME_FILES)
+    qt_add_resources(test_theme "test_theme_resources"
+        PREFIX "/themes"
+        BASE "${CMAKE_SOURCE_DIR}/assets/themes"
+        FILES ${APP_THEME_FILES})
+endif()
+set_tests_properties(test_theme PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_unit_test(test_scanner test_scanner.cpp ../src/library/scanner.cpp
               ../src/library/metaparser.cpp ../src/library/cache.cpp
               ../src/settings.cpp ${REMOTE_SOURCES})
