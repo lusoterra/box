@@ -27,7 +27,8 @@ StrayDialog::StrayDialog(bool autoFav, QWidget *parent) : QDialog(parent) {
         hint = tr("Post or media URLs, one per line. Gallery links "
                   "(Pixiv, Fanbox, Pawchive, Patreon, …) download through "
                   "your system gallery-dl %1 (uses its login), straight "
-                  "into _Stray with metadata sidecars. Booru post links "
+                  "into _Stray with basic sidecars - the page URL is "
+                  "recorded, tags are yours to fill in. Booru post links "
                   "are read through their public API; direct image/video "
                   "links are fetched as-is.")
                    .arg(GalleryDl::version(GalleryDl::findBinary()));
@@ -37,7 +38,7 @@ StrayDialog::StrayDialog(bool autoFav, QWidget *parent) : QDialog(parent) {
                   "list); direct image/video links are fetched as-is. Install "
                   "the system gallery-dl package for gallery links (Pixiv, "
                   "Fanbox, Pawchive, Patreon, …) - it downloads with its own "
-                  "login plus metadata sidecars. Strays are "
+                  "login plus basic sidecars (tags stay yours). Strays are "
                   "a Booru Explorer feature for random URLs and paid/exclusive "
                   "uploads (Patreon etc.), not part of LoliSnatcher.");
     }
@@ -450,6 +451,7 @@ void GalleryDlDialog::showFinished(bool ok, int filesFound,
     m_bar->setValue(1);
     m_cancelBtn->setEnabled(false);
     m_closeBtn->setEnabled(true);
+    m_closeBtn->setDefault(true);
     if (ok) {
         m_current->setText(
             tr("Done: %1 new file(s) in _Stray.").arg(filesFound));

@@ -19,6 +19,7 @@
 #include <QPointer>
 #include <QPixmap>
 #include <QProgressBar>
+#include <QSharedPointer>
 #include <QStandardItemModel>
 #include <QStringList>
 #include <QStyledItemDelegate>
@@ -47,6 +48,8 @@ class PostRefresher;
 struct SiteCreds;
 class DownloadManager;
 class ImageCache;
+class GalleryDlRunner;
+class GalleryDlDialog;
 
 std::pair<QString, qint64> favIdentity(const Post &p);
 QString favVetoKey(const QString &site, qint64 pid);
@@ -168,6 +171,22 @@ public:
     explicit MainWindow(const QString &root, bool rootExplicit = true,
                         QWidget *parent = nullptr);
 
+    // Sequential gallery-dl batch state (one flight per pasted URL so
+    // every file attributes to the page it came from). Chain-shared, no
+    // cycles: the finished handler either recurses or lets it drop.
+    struct GalleryChain {
+        QString binary;
+        QString dest;
+        QStringList all;
+        QStringList pending;
+        GalleryDlRunner *runner = nullptr;
+        GalleryDlDialog *dlg = nullptr;
+        int files = 0;
+        int sidecars = 0;
+        QStringList errors;
+        bool cancelled = false;
+    };
+
 protected:
     void closeEvent(QCloseEvent *e) override;
     void changeEvent(QEvent *e) override;
@@ -285,6 +304,7 @@ private slots:
     void openStrayDialog();
     void setAsMascot(const Post &post); // home mascot from a grid file
     void runGalleryDl(const QStringList &urls);
+    void startGalleryFlight(QSharedPointer<GalleryChain> chain);
     void importStrayFiles(const QStringList &paths);
     void editStrayTags(const Post &post);
     void applyStrayTagEdits(const QVector<StrayTagEdit> &edits);

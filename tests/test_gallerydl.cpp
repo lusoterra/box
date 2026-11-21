@@ -4,8 +4,13 @@
 #include "metaparser.h"
 
 #include <QCoreApplication>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QJsonObject>
+#include <QTemporaryDir>
 #include <QtTest>
 
 class TestGalleryDl : public QObject {
@@ -49,10 +54,12 @@ private slots:
     }
 
     void args() {
+        // Transport only: no --write-metadata (box writes its own
+        // user-owned sidecars afterwards).
         const QStringList a = GalleryDl::buildArgs(
             QStringLiteral("/dl/_Stray"),
             {QStringLiteral("https://www.pixiv.net/en/artworks/1")});
-        QVERIFY(a.contains(QStringLiteral("--write-metadata")));
+        QVERIFY(!a.contains(QStringLiteral("--write-metadata")));
         const int d = a.indexOf(QStringLiteral("-d"));
         QVERIFY(d >= 0);
         QCOMPARE(a.at(d + 1), QStringLiteral("/dl/_Stray"));
@@ -95,6 +102,60 @@ private slots:
         QVERIFY(MetaParser::parse(o, p));
         QVERIFY(p.tagsGeneral.split(u' ').contains(QStringLiteral("cloud")));
         QVERIFY(p.untyped.isEmpty());
+    }
+
+    void sidecarShape() {
+        // Own stray sidecar: importer shape + booru keys, tags empty
+        // for the user. Never overwrites an existing sidecar.
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString media = dir.path() + QStringLiteral("/pixiv_1.jpg");
+        QFile f(media);
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write("fakebytes");
+        f.close();
+        const QString url = QStringLiteral("https://www.pixiv.net/en/artworks/1");
+        QVERIFY(GalleryDl::writeStraySidecar(media, url));
+        QCOMPARE(GalleryDl::sidecarPathFor(media),
+                 dir.path() + QStringLiteral("/pixiv_1.json"));
+        QFile jf(GalleryDl::sidecarPathFor(media));
+        QVERIFY(jf.open(QIODevice::ReadOnly));
+        const QJsonObject o =
+            QJsonDocument::fromJson(jf.readAll()).object();
+        QCOMPARE(o.value(QStringLiteral("tags")).toString(), QString());
+        QCOMPARE(o.value(QStringLiteral("file_ext")).toString(),
+                 QStringLiteral("jpg"));
+        QVERIFY(!o.value(QStringLiteral("md5")).toString().isEmpty());
+        QCOMPARE(o.value(QStringLiteral("post_url")).toString(), url);
+        QCOMPARE(o.value(QStringLiteral("source")).toString(), url);
+        QVERIFY(o.value(QStringLiteral("stray")).toBool());
+        // Second call: sidecar exists now, must not clobber.
+        QVERIFY(!GalleryDl::writeStraySidecar(media, url));
+        // Full parse: first-class stray with the page recorded.
+        Post p;
+        QVERIFY(MetaParser::parse(o, p));
+        QCOMPARE(p.postUrl, url);
+        QCOMPARE(p.source, url);
+    }
+
+    void sidecarsOnlyForNew() {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QSet<QString> before;
+        for (const char *name : {"a.png", "b.png"}) {
+            QFile f(dir.path() + u'/' + QString::fromLatin1(name));
+            QVERIFY(f.open(QIODevice::WriteOnly));
+            f.write(name);
+            f.close();
+            if (QString::fromLatin1(name) == QStringLiteral("a.png"))
+                before.insert(QFileInfo(f).absoluteFilePath());
+        }
+        const int n = GalleryDl::writeStraySidecars(
+            dir.path(), before,
+            QStringLiteral("https://pawchive.pw/x"));
+        QCOMPARE(n, 1); // b.png only; a.png was already there
+        QVERIFY(QFile::exists(dir.path() + QStringLiteral("/b.json")));
+        QVERIFY(!QFile::exists(dir.path() + QStringLiteral("/a.json")));
     }
 };
 

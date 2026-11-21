@@ -2,8 +2,9 @@
 
 // System gallery-dl backend for gallery links (Pixiv/Fanbox/Pawchive,
 // Kemono/Coomer, Patreon, Fantia, …). gallery-dl is tried first because
-// it is built for exactly this: extractor coverage, login/OAuth handling
-// and metadata sidecars. The built-in resolver/downloader stays the path
+// it is built for exactly this: extractor coverage and login/OAuth
+// handling (transport only - box writes its own user-owned sidecars).
+// The built-in resolver/downloader stays the path
 // for direct media URLs + booru post pages and the fallback when no
 // system binary exists.
 //
@@ -12,6 +13,7 @@
 // QProcess flight (log lines, progress, cancel, finish summary).
 #include <QObject>
 #include <QProcess>
+#include <QSet>
 #include <QString>
 #include <QStringList>
 
@@ -32,10 +34,29 @@ QString parseVersion(const QString &output);
 // post page (the native resolver yields better sidecars there).
 bool handlesUrl(const QString &url);
 
-// CLI for one download flight into destDir. --write-metadata gives the
-// per-file `<media>.json` sidecars the scanner already parses; the
-// default filename templates stay (descriptive, unique-ish per post).
+// One gallery-dl flight downloads however many files the page holds
+// (transport only: no --write-metadata, its tag blobs would pollute
+// user tagging). Afterwards box writes its own stray sidecars for new
+// files lacking one (<stem>.json, importer shape + post_url/source:
+// tags empty for the user, never overwrites an existing sidecar).
+// CLI for one download flight into destDir. The default filename
+// templates stay (descriptive, unique-ish per post).
 QStringList buildArgs(const QString &destDir, const QStringList &urls);
+
+// <stem>.json sidecar path for a media file (LOSN layout, same as the
+// stray importer writes).
+QString sidecarPathFor(const QString &mediaPath);
+
+// Write the user-owned stray sidecar for one media file when neither
+// sidecar layout exists yet. postUrl is the pasted gallery page (the
+// only attribution transport gives us). Returns false when a sidecar
+// already exists or the write fails.
+bool writeStraySidecar(const QString &mediaPath, const QString &postUrl);
+
+// Sidecars for every media file under destDir not in `before`.
+// Returns the number written.
+int writeStraySidecars(const QString &destDir,
+                       const QSet<QString> &before, const QString &postUrl);
 
 } // namespace GalleryDl
 
@@ -47,12 +68,14 @@ public:
     struct Summary {
         bool ok = false;
         int filesFound = 0; // media files new under destDir
+        int sidecarsWritten = 0;
+        QString url; // pasted gallery page this flight downloaded
         QString error;
     };
 
     explicit GalleryDlRunner(const QString &binary,
                              const QString &destDir,
-                             const QStringList &urls, QObject *parent = nullptr);
+                             const QString &url, QObject *parent = nullptr);
     void start();
     void cancel();
     bool isActive() const { return m_proc != nullptr; }
@@ -67,12 +90,12 @@ private slots:
     void onProcessFinished(int exitCode, QProcess::ExitStatus status);
 
 private:
-    int countMediaFiles() const;
+    QSet<QString> mediaFiles() const;
 
     QString m_binary;
     QString m_destDir;
-    QStringList m_urls;
+    QString m_url;
     QProcess *m_proc = nullptr;
-    int m_filesBefore = 0;
+    QSet<QString> m_filesBefore;
     bool m_cancelled = false;
 };

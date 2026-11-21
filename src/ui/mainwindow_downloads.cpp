@@ -120,10 +120,14 @@ void MainWindow::downloadPosts(const QVector<Post> &posts, bool confirmBulk) {
 }
 
 // Gallery links (Pixiv/Fanbox/Pawchive/…) via the system gallery-dl: it
-// owns extractors + login, we own the destination (_Stray) and the
-// progress view. No auto-favourite: a gallery flight can land hundreds
-// of files and Favourites is not a bulk inbox (single-file strays keep
-// their toggle). Rescans the current tab when it sits under dest.
+// owns extractors + login (transport only, no metadata), we own the
+// destination (_Stray), the progress view and the stray sidecars the
+// flight writes for new files (tags empty for the user, post_url/source
+// = pasted page). One flight per pasted URL so every file attributes to
+// the page it came from. No auto-favourite: a gallery flight can land
+// hundreds of files and Favourites is not a bulk inbox (single-file
+// strays keep their toggle). Rescans the current tab when it sits
+// under dest.
 void MainWindow::runGalleryDl(const QStringList &urls) {
     if (urls.isEmpty())
         return;
@@ -137,32 +141,80 @@ void MainWindow::runGalleryDl(const QStringList &urls) {
     }
     const QString dest =
         effectiveDownloadDir(m_settings) + u'/' + Stray::dirName();
-    auto *runner = new GalleryDlRunner(binary, dest, urls, this);
+    auto chain = QSharedPointer<GalleryChain>::create();
+    chain->binary = binary;
+    chain->dest = dest;
+    chain->all = urls;
+    chain->pending = urls;
     auto *dlg = new GalleryDlDialog(dest, this);
+    chain->dlg = dlg;
     dlg->setAttribute(Qt::WA_DeleteOnClose);
+    connect(dlg, &GalleryDlDialog::cancelRequested, this,
+            [chain] {
+                chain->cancelled = true;
+                chain->pending.clear();
+                if (chain->runner)
+                    chain->runner->cancel();
+            });
+    connect(dlg, &GalleryDlDialog::browseRequested, this,
+            &MainWindow::openPath);
+    dlg->show();
+    dlg->raise();
+    startGalleryFlight(chain);
+}
+
+// One flight of a gallery-dl batch (runner parented to the dialog: an
+// X-close mid-flight kills it, and the finished handler either starts
+// the next URL or reports the batch and lets the chain drop).
+void MainWindow::startGalleryFlight(QSharedPointer<GalleryChain> chain) {
+    GalleryDlDialog *dlg = chain->dlg;
+    if (chain->cancelled || chain->pending.isEmpty() || !dlg)
+        return;
+    const QString url = chain->pending.takeFirst();
+    if (!chain->pending.isEmpty())
+        dlg->showCurrent(tr("URL %1 of %2: %3")
+                             .arg(chain->all.size() - chain->pending.size())
+                             .arg(chain->all.size())
+                             .arg(url));
+    auto *runner = new GalleryDlRunner(chain->binary, chain->dest, url, dlg);
+    chain->runner = runner;
     connect(runner, &GalleryDlRunner::logLine, dlg,
             &GalleryDlDialog::appendLog);
     connect(runner, &GalleryDlRunner::progress, dlg,
             &GalleryDlDialog::showCurrent);
-    connect(dlg, &GalleryDlDialog::cancelRequested, runner,
-            &GalleryDlRunner::cancel);
-    connect(dlg, &GalleryDlDialog::browseRequested, this,
-            &MainWindow::openPath);
     connect(runner, &GalleryDlRunner::finished, this,
-            [this, dlg, runner, dest](const GalleryDlRunner::Summary &s) {
-                dlg->showFinished(s.ok, s.filesFound, s.error);
-                runner->deleteLater();
-                invalidateDownloadIndex(); // new bytes = new download badges
-                if (s.ok) {
-                    if (s.filesFound > 0) {
+            [this, chain](const GalleryDlRunner::Summary &s) {
+                chain->runner = nullptr;
+                chain->files += s.filesFound;
+                chain->sidecars += s.sidecarsWritten;
+                if (!s.ok && !chain->cancelled)
+                    chain->errors << tr("%1: %2").arg(s.url, s.error);
+                GalleryDlDialog *dlg = chain->dlg;
+                if (!chain->pending.isEmpty() && !chain->cancelled) {
+                    startGalleryFlight(chain);
+                    return;
+                }
+                // Last flight: report the batch.
+                const bool ok = chain->errors.isEmpty();
+                const QString err = chain->errors.join(u'\n');
+                if (dlg)
+                    dlg->showFinished(ok, chain->files, err);
+                invalidateDownloadIndex(); // new bytes = download badges
+                if (chain->cancelled) {
+                    statusBar()->showMessage(tr("gallery-dl cancelled"),
+                                             6000);
+                } else if (ok) {
+                    if (chain->files > 0) {
                         statusBar()->showMessage(
-                            tr("gallery-dl: %1 new file(s) in _Stray")
-                                .arg(s.filesFound),
+                            tr("gallery-dl: %1 new file(s) in _Stray, "
+                               "%2 sidecar(s)")
+                                .arg(chain->files)
+                                .arg(chain->sidecars),
                             8000);
                         BrowserTab *t = currentTab();
                         if (t && !t->isRemote && !t->isFavourites &&
-                            (t->root == dest ||
-                             t->root.startsWith(dest + u'/')))
+                            (t->root == chain->dest ||
+                             t->root.startsWith(chain->dest + u'/')))
                             startScan(m_root);
                     } else {
                         statusBar()->showMessage(
@@ -170,11 +222,9 @@ void MainWindow::runGalleryDl(const QStringList &urls) {
                     }
                 } else {
                     statusBar()->showMessage(
-                        tr("gallery-dl failed: %1").arg(s.error), 12000);
+                        tr("gallery-dl failed: %1").arg(err), 12000);
                 }
             });
-    dlg->show();
-    dlg->raise();
     runner->start();
 }
 
