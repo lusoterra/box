@@ -3,6 +3,7 @@
 // VS Code-style welcome page: resume last session, recent archives,
 // open-folder picker, and the "always load last session" toggle
 // (mirrored in Preferences, either side can disable it).
+#include <QPointF>
 #include <QWidget>
 
 #include <QPixmap>
@@ -12,6 +13,7 @@ class QLabel;
 class QListWidget;
 class QPushButton;
 class QGraphicsOpacityEffect;
+class QTimer;
 
 class WelcomePage : public QWidget {
     Q_OBJECT
@@ -45,10 +47,20 @@ signals:
 
 protected:
     void resizeEvent(QResizeEvent *e) override;
+    void showEvent(QShowEvent *e) override;
+    void hideEvent(QHideEvent *e) override;
     bool eventFilter(QObject *watched, QEvent *e) override;
 
 private:
     void layoutMascot();
+    // Idle easter egg: after a long pause on the home page the mascot
+    // detaches from its corner and bounces around the page like a DVD
+    // logo. Shift+left click starts it on demand. Any real activity
+    // (click/key/wheel/resize) snaps it back.
+    void noteActivity();
+    void startMascotBounce();
+    void stopMascotBounce();
+    void stepMascotBounce();
 
     QCheckBox *m_always;
     QPushButton *m_resume = nullptr;
@@ -58,4 +70,9 @@ private:
     double m_mascotScale = 0.45; // height fraction (0.1-0.65), 1.0 = max
                                  // height, 2.0 = full width; cycles them
     int m_mascotMargin = 0;      // right/bottom padding in px
+    QTimer *m_mascotIdle = nullptr;
+    QTimer *m_mascotBounce = nullptr;
+    bool m_mascotBouncing = false;
+    QPointF m_mascotPos;
+    QPointF m_mascotVel;
 };

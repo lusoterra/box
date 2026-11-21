@@ -198,6 +198,10 @@ target_include_directories(test_ugoira PRIVATE
 add_unit_test(test_tabbar test_tabbar.cpp ../src/ui/tabbar.cpp)
 set_tests_properties(test_tabbar PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+add_unit_test(test_welcomepage test_welcomepage.cpp ../src/ui/welcomepage.cpp
+              ../src/icons.qrc)
+set_tests_properties(test_welcomepage PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_unit_test(test_scanner test_scanner.cpp ../src/library/scanner.cpp
               ../src/library/metaparser.cpp ../src/library/cache.cpp
               ../src/settings.cpp ${REMOTE_SOURCES})

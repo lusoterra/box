@@ -3,20 +3,50 @@
 #include "appinfo.h"
 #include "uicons.h"
 
+#include <QApplication>
 #include <QCheckBox>
 #include <QDir>
 #include <QFileInfo>
 #include <QGraphicsOpacityEffect>
 #include <QHBoxLayout>
+#include <QHideEvent>
+#include <QKeyEvent>
 #include <QLabel>
 #include <QListWidget>
 #include <QListWidgetItem>
 #include <QMainWindow>
+#include <QMouseEvent>
 #include <QPixmap>
+#include <QShowEvent>
 #include <QStatusBar>
 #include <QPushButton>
 #include <QResizeEvent>
+#include <QTimer>
 #include <QVBoxLayout>
+#include <QWheelEvent>
+
+namespace {
+// Long enough to feel like the app is sleeping, short enough to catch
+// someone leaving the home tab open.
+constexpr int kMascotIdleMs = 180 * 1000;
+constexpr int kMascotBounceMs = 16;
+// Roughly 130 x 110 px/s at the 60 fps tick above: a lazy DVD drift.
+constexpr qreal kMascotSpeedX = 2.2;
+constexpr qreal kMascotSpeedY = 1.8;
+
+bool isActivityEvent(QEvent::Type type) {
+    switch (type) {
+    case QEvent::MouseButtonPress:
+    case QEvent::KeyPress:
+    case QEvent::Wheel:
+    case QEvent::TouchBegin:
+    case QEvent::TabletPress:
+        return true;
+    default:
+        return false;
+    }
+}
+} // namespace
 
 WelcomePage::WelcomePage(QWidget *parent) : QWidget(parent) {
     auto *outer = new QVBoxLayout(this);
@@ -96,12 +126,26 @@ WelcomePage::WelcomePage(QWidget *parent) : QWidget(parent) {
     m_mascot->setGraphicsEffect(m_mascotDim);
     m_mascot->lower();
     m_mascot->hide();
+
+    m_mascotIdle = new QTimer(this);
+    m_mascotIdle->setSingleShot(true);
+    m_mascotIdle->setInterval(kMascotIdleMs);
+    connect(m_mascotIdle, &QTimer::timeout, this, &WelcomePage::startMascotBounce);
+    m_mascotBounce = new QTimer(this);
+    m_mascotBounce->setInterval(kMascotBounceMs);
+    connect(m_mascotBounce, &QTimer::timeout, this,
+            &WelcomePage::stepMascotBounce);
 }
 
 void WelcomePage::setMascot(const QString &path) {
     m_mascotFull = QPixmap(path);
-    if (m_mascotFull.isNull())
+    if (m_mascotFull.isNull()) {
+        m_mascotIdle->stop();
+        stopMascotBounce();
         m_mascot->hide();
+    } else if (isVisible()) {
+        m_mascotIdle->start();
+    }
     layoutMascot();
 }
 
@@ -112,15 +156,27 @@ void WelcomePage::setMascotOpacity(double opacity) {
 
 void WelcomePage::setMascotScale(double scale) {
     m_mascotScale = qBound(0.1, scale, 2.0);
+    stopMascotBounce();
     layoutMascot();
 }
 
 void WelcomePage::setMascotMargin(int px) {
     m_mascotMargin = qBound(0, px, 256);
+    stopMascotBounce();
     layoutMascot();
 }
 
 bool WelcomePage::eventFilter(QObject *watched, QEvent *e) {
+    // Shift+left click is the easter-egg / testing trigger: start the
+    // bounce right away instead of treating the click as plain activity.
+    if (watched == m_mascot && e->type() == QEvent::MouseButtonPress) {
+        auto *me = static_cast<QMouseEvent *>(e);
+        if (me->button() == Qt::LeftButton &&
+            me->modifiers().testFlag(Qt::ShiftModifier)) {
+            startMascotBounce();
+            return true;
+        }
+    }
     // Double-click the mascot cycles small -> medium -> large ->
     // max height -> full width.
     if (watched == m_mascot && e->type() == QEvent::MouseButtonDblClick) {
@@ -138,12 +194,90 @@ bool WelcomePage::eventFilter(QObject *watched, QEvent *e) {
         emit mascotScaleChanged(next);
         return true;
     }
+    if (isActivityEvent(e->type()))
+        noteActivity();
     return QWidget::eventFilter(watched, e);
 }
 
 void WelcomePage::resizeEvent(QResizeEvent *e) {
     QWidget::resizeEvent(e);
+    noteActivity();
     layoutMascot();
+}
+
+void WelcomePage::showEvent(QShowEvent *e) {
+    QWidget::showEvent(e);
+    // App-wide filter: clicks/keys/wheel anywhere on the home screen count
+    // as activity. Window moves are not in this set on purpose.
+    if (qApp)
+        qApp->installEventFilter(this);
+    if (!m_mascotFull.isNull())
+        m_mascotIdle->start();
+    layoutMascot();
+}
+
+void WelcomePage::hideEvent(QHideEvent *e) {
+    QWidget::hideEvent(e);
+    if (qApp)
+        qApp->removeEventFilter(this);
+    m_mascotIdle->stop();
+    stopMascotBounce();
+}
+
+void WelcomePage::noteActivity() {
+    if (!isVisible())
+        return;
+    if (m_mascotBouncing)
+        stopMascotBounce();
+    if (!m_mascotFull.isNull())
+        m_mascotIdle->start();
+}
+
+void WelcomePage::startMascotBounce() {
+    if (m_mascotFull.isNull() || !isVisible() || m_mascotBouncing)
+        return;
+    layoutMascot();
+    if (!m_mascot->isVisible())
+        return;
+    m_mascotIdle->stop();
+    m_mascotBouncing = true;
+    m_mascotPos = m_mascot->pos();
+    // Head up-left so leaving the corner reads as a DVD-logo hop.
+    m_mascotVel = QPointF(-kMascotSpeedX, -kMascotSpeedY);
+    m_mascotBounce->start();
+}
+
+void WelcomePage::stopMascotBounce() {
+    if (!m_mascotBouncing)
+        return;
+    m_mascotBouncing = false;
+    m_mascotBounce->stop();
+    layoutMascot();
+}
+
+void WelcomePage::stepMascotBounce() {
+    if (!m_mascotBouncing)
+        return;
+    const QSize sz = m_mascot->size();
+    const qreal maxX = qMax(0, width() - sz.width());
+    const qreal maxY = qMax(0, height() - sz.height());
+    QPointF next = m_mascotPos + m_mascotVel;
+    if (next.x() <= 0) {
+        next.setX(0);
+        m_mascotVel.setX(qAbs(m_mascotVel.x()));
+    } else if (next.x() >= maxX) {
+        next.setX(maxX);
+        m_mascotVel.setX(-qAbs(m_mascotVel.x()));
+    }
+    if (next.y() <= 0) {
+        next.setY(0);
+        m_mascotVel.setY(qAbs(m_mascotVel.y()));
+    } else if (next.y() >= maxY) {
+        next.setY(maxY);
+        m_mascotVel.setY(-qAbs(m_mascotVel.y()));
+    }
+    m_mascotPos = next;
+    m_mascot->move(next.toPoint());
 }
 
 void WelcomePage::layoutMascot() {
