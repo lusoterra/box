@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(Box VERSION 0.3.0 LANGUAGES C CXX)
+project(Box VERSION 0.4.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -45,6 +45,7 @@ add_executable(box
     src/library/miniz/miniz_zip.c
     src/remote/remotesource.cpp
     src/remote/strayresolve.cpp
+    src/remote/gallerydl.cpp
     src/remote/powsolver.cpp
     src/remote/downloadmanager.cpp
     src/remote/downloadqueue.cpp

@@ -6,6 +6,7 @@
 #include "cookiegrab.h"
 #include "downloadmanager.h"
 #include "filehash.h"
+#include "gallerydl.h"
 #include "imagecache.h"
 #include "losnimport.h"
 #include "metaparser.h"
@@ -116,6 +117,65 @@ void MainWindow::downloadPosts(const QVector<Post> &posts, bool confirmBulk) {
             return;
     }
     m_downloads->enqueue(jobs); // no popup: progress lives in the feedbar
+}
+
+// Gallery links (Pixiv/Fanbox/Pawchive/…) via the system gallery-dl: it
+// owns extractors + login, we own the destination (_Stray) and the
+// progress view. No auto-favourite: a gallery flight can land hundreds
+// of files and Favourites is not a bulk inbox (single-file strays keep
+// their toggle). Rescans the current tab when it sits under dest.
+void MainWindow::runGalleryDl(const QStringList &urls) {
+    if (urls.isEmpty())
+        return;
+    const QString binary = GalleryDl::findBinary();
+    if (binary.isEmpty()) {
+        statusBar()->showMessage(
+            tr("gallery-dl not found (install the system package for "
+               "gallery links)"),
+            8000);
+        return;
+    }
+    const QString dest =
+        effectiveDownloadDir(m_settings) + u'/' + Stray::dirName();
+    auto *runner = new GalleryDlRunner(binary, dest, urls, this);
+    auto *dlg = new GalleryDlDialog(dest, this);
+    dlg->setAttribute(Qt::WA_DeleteOnClose);
+    connect(runner, &GalleryDlRunner::logLine, dlg,
+            &GalleryDlDialog::appendLog);
+    connect(runner, &GalleryDlRunner::progress, dlg,
+            &GalleryDlDialog::showCurrent);
+    connect(dlg, &GalleryDlDialog::cancelRequested, runner,
+            &GalleryDlRunner::cancel);
+    connect(dlg, &GalleryDlDialog::browseRequested, this,
+            &MainWindow::openPath);
+    connect(runner, &GalleryDlRunner::finished, this,
+            [this, dlg, runner, dest](const GalleryDlRunner::Summary &s) {
+                dlg->showFinished(s.ok, s.filesFound, s.error);
+                runner->deleteLater();
+                invalidateDownloadIndex(); // new bytes = new download badges
+                if (s.ok) {
+                    if (s.filesFound > 0) {
+                        statusBar()->showMessage(
+                            tr("gallery-dl: %1 new file(s) in _Stray")
+                                .arg(s.filesFound),
+                            8000);
+                        BrowserTab *t = currentTab();
+                        if (t && !t->isRemote && !t->isFavourites &&
+                            (t->root == dest ||
+                             t->root.startsWith(dest + u'/')))
+                            startScan(m_root);
+                    } else {
+                        statusBar()->showMessage(
+                            tr("gallery-dl finished: nothing new"), 6000);
+                    }
+                } else {
+                    statusBar()->showMessage(
+                        tr("gallery-dl failed: %1").arg(s.error), 12000);
+                }
+            });
+    dlg->show();
+    dlg->raise();
+    runner->start();
 }
 
 void MainWindow::showDlDialog() {

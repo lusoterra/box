@@ -452,9 +452,14 @@ downloads, and multibooru tabs; `G` rating chip, score, `#id`, file name below (
 A Booru Explorer feature (not a LoliSnatcher import mode): random URLs
 and paid/exclusive uploads that never reach a booru, e.g. Patreon posts.
 Big link box (one URL per line) plus `Auto-favourite downloaded/imported
-strays`, and four buttons: `Download` (fetches media into `_Stray/` and,
-for recognised booru post pages, also resolves the post so its JSON
-sidecar carries the real tags - no booru entry is added), `Favourite
+strays`, and four buttons: `Download` (gallery links - Pixiv, Fanbox,
+Pawchive, Patreon, … - go through the system gallery-dl package when
+found, using its login, landing in `_Stray/` with metadata sidecars and
+a progress view with Cancel; direct media links and recognised booru
+post pages keep the built-in path: media fetched as-is, booru pages
+resolved so the JSON sidecar carries the real tags - no booru entry is
+added; without gallery-dl installed, gallery links fall back to the
+built-in resolver best-effort), `Favourite
 only` (same resolution, but only a favourites row: no media download;
 the file URL is kept so the card/viewer can stream and a later download
 can link it), `Import files…` (local copy-in, hashed names), `Close`.

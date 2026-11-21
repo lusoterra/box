@@ -284,6 +284,7 @@ private slots:
     void importSettingsBackup(); // File menu: merge a JSON backup back in
     void openStrayDialog();
     void setAsMascot(const Post &post); // home mascot from a grid file
+    void runGalleryDl(const QStringList &urls);
     void importStrayFiles(const QStringList &paths);
     void editStrayTags(const Post &post);
     void applyStrayTagEdits(const QVector<StrayTagEdit> &edits);

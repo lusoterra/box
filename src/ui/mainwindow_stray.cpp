@@ -6,6 +6,7 @@
 #include "cookiegrab.h"
 #include "downloadmanager.h"
 #include "filehash.h"
+#include "gallerydl.h"
 #include "imagecache.h"
 #include "losnimport.h"
 #include "metaparser.h"
@@ -135,10 +136,43 @@ void MainWindow::openStrayDialog() {
         };
     connect(dlg, &StrayDialog::downloadRequested, this,
             [this, resolveLinks](const QStringList &urls) {
-                resolveLinks(urls, [this](const QVector<Post> &posts) {
-                    if (!posts.isEmpty())
-                        downloadPosts(posts);
-                });
+                // Gallery pages (Pixiv/Fanbox/Pawchive/…) go to the system
+                // gallery-dl first (its login + extractors); everything
+                // else keeps the built-in resolver (direct media as-is,
+                // booru post pages with bucketed sidecars). Without a
+                // system binary, gallery links fall back to the resolver
+                // too (best effort: booru API/HTML, else an error row).
+                QStringList gallery, simple;
+                if (GalleryDl::available()) {
+                    for (const QString &u : urls) {
+                        if (GalleryDl::handlesUrl(u))
+                            gallery << u;
+                        else
+                            simple << u;
+                    }
+                } else {
+                    simple = urls;
+                    bool anyGallery = false;
+                    for (const QString &u : urls) {
+                        if (GalleryDl::handlesUrl(u)) {
+                            anyGallery = true;
+                            break;
+                        }
+                    }
+                    if (anyGallery)
+                        statusBar()->showMessage(
+                            tr("gallery-dl not found: gallery links fall back "
+                               "to the built-in resolver (install gallery-dl "
+                               "for full support)"),
+                            12000);
+                }
+                if (!gallery.isEmpty())
+                    runGalleryDl(gallery);
+                if (!simple.isEmpty())
+                    resolveLinks(simple, [this](const QVector<Post> &posts) {
+                        if (!posts.isEmpty())
+                            downloadPosts(posts);
+                    });
             });
     connect(dlg, &StrayDialog::favouriteRequested, this,
             [this, resolveLinks](const QStringList &urls) {

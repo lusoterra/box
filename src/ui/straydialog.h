@@ -14,6 +14,7 @@ class QLineEdit;
 class QCheckBox;
 class QListWidget;
 class QPushButton;
+class QProgressBar;
 
 // "File → Download/Add Stray": paste post/media URLs (one per line) to
 // fetch, or pick local files to copy in. Emits jobs for MainWindow to run.
@@ -36,6 +37,32 @@ private:
     QPlainTextEdit *m_urls = nullptr;
     QLabel *m_status = nullptr;
     QCheckBox *m_autoFav = nullptr;
+};
+
+// Progress view for one system gallery-dl flight (Pixiv/Fanbox/Pawchive
+// galleries, …): live log, current item, Cancel. Fed by GalleryDlRunner
+// signals; the owner reports the finish summary.
+class GalleryDlDialog : public QDialog {
+    Q_OBJECT
+public:
+    explicit GalleryDlDialog(const QString &destDir, QWidget *parent = nullptr);
+
+public slots:
+    void appendLog(const QString &line);
+    void showCurrent(const QString &current);
+    void showFinished(bool ok, int filesFound, const QString &error);
+
+signals:
+    void cancelRequested();
+    void browseRequested(const QString &dir);
+
+private:
+    QLabel *m_current = nullptr;
+    QListWidget *m_log = nullptr;
+    QProgressBar *m_bar = nullptr;
+    QPushButton *m_cancelBtn = nullptr;
+    QPushButton *m_closeBtn = nullptr;
+    QString m_destDir;
 };
 
 // Single-box tag editor for one stray file: space-separated tags,

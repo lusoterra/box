@@ -61,6 +61,8 @@ add_unit_test(test_explicittags test_explicittags.cpp)
 add_unit_test(test_filehash test_filehash.cpp)
 add_unit_test(test_csvbackup test_csvbackup.cpp ../src/library/csvbackup.cpp)
 add_unit_test(test_metaparser test_metaparser.cpp ../src/library/metaparser.cpp)
+add_unit_test(test_gallerydl test_gallerydl.cpp ../src/remote/gallerydl.cpp
+              ../src/library/metaparser.cpp)
 add_unit_test(test_losnimport test_losnimport.cpp ../src/library/losnimport.cpp
               ../src/remote/downloadmanager.cpp ../src/remote/downloadqueue.cpp ../src/remote/webdlbackend.h ${REMOTE_SOURCES}
               ../src/remote/imagecache.cpp ../src/library/cachejanitor.cpp
@@ -168,6 +170,7 @@ add_unit_test(test_gridwindow test_gridwindow.cpp
               ../src/remote/imagecache.cpp ../src/remote/postmeta.cpp
               ../src/remote/downloadmanager.cpp ../src/remote/downloadqueue.cpp ../src/library/losnimport.cpp
               ../src/remote/strayresolve.cpp
+              ../src/remote/gallerydl.cpp
               ../src/library/favdb.cpp ../src/library/csvbackup.cpp
               ../src/library/metaparser.cpp
               ../src/library/queryor.cpp ../src/library/tagtypes.cpp

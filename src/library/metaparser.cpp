@@ -167,22 +167,45 @@ bool MetaParser::parseGalleryDlFlat(const QJsonObject &raw, Post &post) {
                        splitTags(raw.value(QStringLiteral("tags_copyright")).toString()),
                        splitTags(raw.value(QStringLiteral("tags_general")).toString()),
                        splitTags(raw.value(QStringLiteral("tags_metadata")).toString()));
-    // Some flat files also carry a combined "tags" string; merge it into general.
-    const QString combined = raw.value(QStringLiteral("tags")).toString().trimmed();
-    if (!combined.isEmpty()) {
+    // Some flat files carry a combined "tags" value; merge it into general.
+    // Pixiv/Pawchive shape is a string array (no buckets): those are
+    // untyped source tags, so they also land in untyped for the
+    // classifier to bucket later (string form stays general-only, as
+    // before: it accompanies explicit tags_* buckets).
+    QStringList extra = splitTags(raw.value(QStringLiteral("tags")).toString());
+    QStringList arrayTags;
+    const QJsonValue tagsV = raw.value(QStringLiteral("tags"));
+    if (tagsV.isArray()) {
+        for (const QJsonValue &e : tagsV.toArray()) {
+            if (!e.isString())
+                continue;
+            const QString t = e.toString().trimmed();
+            if (!t.isEmpty() && !arrayTags.contains(t))
+                arrayTags << t;
+        }
+        extra.append(arrayTags);
+    }
+    if (!extra.isEmpty()) {
         // Set membership, not re-split per token (quadratic hang on blobs
         // with tens of thousands of tags).
-        QSet<QString> seen =
-            QSet<QString>(splitTags(post.tagsGeneral).begin(),
-                         splitTags(post.tagsGeneral).end());
+        const QStringList curGeneral = splitTags(post.tagsGeneral);
+        QSet<QString> seen(curGeneral.begin(), curGeneral.end());
         QString gen = post.tagsGeneral;
-        for (const QString &t : splitTags(combined)) {
+        for (const QString &t : extra) {
             if (!seen.contains(t)) {
                 seen.insert(t);
                 gen += u' ' + t;
             }
         }
         post.tagsGeneral = gen.trimmed();
+        if (!arrayTags.isEmpty()) {
+            QStringList untyped = splitTags(post.untyped);
+            for (const QString &t : arrayTags) {
+                if (!untyped.contains(t))
+                    untyped << t;
+            }
+            post.untyped = untyped.join(u' ');
+        }
         post.tags = (post.tagsArtist + u' ' + post.tagsCharacter + u' ' + post.tagsCopyright +
                      u' ' + post.tagsGeneral + u' ' + post.tagsMeta)
                         .simplified();

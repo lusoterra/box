@@ -1,31 +1,49 @@
 #include "straydialog.h"
 
+#include "gallerydl.h"
 #include "strayresolve.h"
 
 #include <QCheckBox>
+#include <QDesktopServices>
+#include <QDir>
 #include <QFileDialog>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
 #include <QPlainTextEdit>
+#include <QProgressBar>
 #include <QPushButton>
 #include <QRegularExpression>
+#include <QUrl>
 #include <QVBoxLayout>
 
 StrayDialog::StrayDialog(bool autoFav, QWidget *parent) : QDialog(parent) {
     setWindowTitle(tr("Download/Add Stray"));
     resize(520, 360);
     auto *lay = new QVBoxLayout(this);
-    auto *hint = new QLabel(
-        tr("Post or media URLs, one per line. Booru post links are read "
-           "through their public API (the site is not added to your booru "
-           "list); direct image/video links are fetched as-is. Strays are "
-           "a Booru Explorer feature for random URLs and paid/exclusive "
-           "uploads (Patreon etc.), not part of LoliSnatcher."),
-        this);
-    hint->setWordWrap(true);
-    lay->addWidget(hint);
+    QString hint;
+    if (GalleryDl::available()) {
+        hint = tr("Post or media URLs, one per line. Gallery links "
+                  "(Pixiv, Fanbox, Pawchive, Patreon, …) download through "
+                  "your system gallery-dl %1 (uses its login), straight "
+                  "into _Stray with metadata sidecars. Booru post links "
+                  "are read through their public API; direct image/video "
+                  "links are fetched as-is.")
+                   .arg(GalleryDl::version(GalleryDl::findBinary()));
+    } else {
+        hint = tr("Post or media URLs, one per line. Booru post links are read "
+                  "through their public API (the site is not added to your booru "
+                  "list); direct image/video links are fetched as-is. Install "
+                  "the system gallery-dl package for gallery links (Pixiv, "
+                  "Fanbox, Pawchive, Patreon, …) - it downloads with its own "
+                  "login plus metadata sidecars. Strays are "
+                  "a Booru Explorer feature for random URLs and paid/exclusive "
+                  "uploads (Patreon etc.), not part of LoliSnatcher.");
+    }
+    auto *hintLabel = new QLabel(hint, this);
+    hintLabel->setWordWrap(true);
+    lay->addWidget(hintLabel);
     m_urls = new QPlainTextEdit(this);
     m_urls->setPlaceholderText(QStringLiteral("https://…"));
     lay->addWidget(m_urls, 1);
@@ -376,4 +394,68 @@ void StrayMassTagDialog::loadRow(int row) {
 
 QVector<StrayTagEdit> StrayMassTagDialog::edits() const {
     return m_edits;
+}
+
+GalleryDlDialog::GalleryDlDialog(const QString &destDir, QWidget *parent)
+    : QDialog(parent), m_destDir(destDir) {
+    setWindowTitle(tr("gallery-dl"));
+    resize(560, 380);
+    auto *lay = new QVBoxLayout(this);
+    m_current = new QLabel(tr("Starting gallery-dl…"), this);
+    m_current->setWordWrap(true);
+    lay->addWidget(m_current);
+    m_bar = new QProgressBar(this);
+    m_bar->setRange(0, 0); // indeterminate: file count unknown up front
+    lay->addWidget(m_bar);
+    m_log = new QListWidget(this);
+    lay->addWidget(m_log, 1);
+    auto *row = new QHBoxLayout();
+    auto *openBtn = new QPushButton(tr("Open folder"), this);
+    connect(openBtn, &QPushButton::clicked, this, [this] {
+        QDesktopServices::openUrl(QUrl::fromLocalFile(m_destDir));
+    });
+    m_cancelBtn = new QPushButton(tr("Cancel"), this);
+    connect(m_cancelBtn, &QPushButton::clicked, this,
+            &GalleryDlDialog::cancelRequested);
+    m_closeBtn = new QPushButton(tr("Close"), this);
+    m_closeBtn->setEnabled(false);
+    connect(m_closeBtn, &QPushButton::clicked, this, &QDialog::accept);
+    row->addWidget(openBtn);
+    auto *browseBtn = new QPushButton(tr("Browse in app"), this);
+    browseBtn->setToolTip(tr("Open the download folder as a library tab"));
+    connect(browseBtn, &QPushButton::clicked, this,
+            [this] { emit browseRequested(m_destDir); });
+    row->addWidget(browseBtn);
+    row->addStretch(1);
+    row->addWidget(m_cancelBtn);
+    row->addWidget(m_closeBtn);
+    lay->addLayout(row);
+}
+
+void GalleryDlDialog::appendLog(const QString &line) {
+    if (line.isEmpty())
+        return;
+    m_log->addItem(line);
+    m_log->scrollToBottom();
+}
+
+void GalleryDlDialog::showCurrent(const QString &current) {
+    if (!current.isEmpty())
+        m_current->setText(current);
+}
+
+void GalleryDlDialog::showFinished(bool ok, int filesFound,
+                                   const QString &error) {
+    m_bar->setRange(0, 1);
+    m_bar->setValue(1);
+    m_cancelBtn->setEnabled(false);
+    m_closeBtn->setEnabled(true);
+    if (ok) {
+        m_current->setText(
+            tr("Done: %1 new file(s) in _Stray.").arg(filesFound));
+        appendLog(tr("Finished: %1 new file(s).").arg(filesFound));
+    } else {
+        m_current->setText(error.isEmpty() ? tr("Failed.") : error);
+        appendLog(error.isEmpty() ? tr("Failed.") : error);
+    }
 }

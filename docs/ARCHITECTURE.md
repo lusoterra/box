@@ -251,6 +251,14 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     pretty-printed raw-API sidecar write (backfilled from the parsed post
     to a full gallery-dl-style record: urls, buckets, dims, ids);
     summary carries `downloaded` for auto-favourite (`downloadmanager.h:35`).
+  - Gallery links (Pixiv/Fanbox/Pawchive/…) bypass `DownloadManager`:
+    `GalleryDlRunner` (`src/remote/gallerydl.{h,cpp}`) shells out to the
+    system gallery-dl (`--write-metadata` into `_Stray/`, progress view
+    `GalleryDlDialog` in `src/ui/straydialog.{h,cpp}`), routing decided by
+    `GalleryDl::handlesUrl` in `MainWindow::openStrayDialog`
+    (`src/ui/mainwindow_stray.cpp:87`). No auto-favourite (galleries are
+    bulk, Favourites is not a bulk inbox); Pixiv/Pawchive string-array
+    tags parse as general + untyped (`metaparser.cpp:161`).
     LoliSnatcher imports reuse the same folder/name shape via
     `LosnImport::targetPaths` and skip media already on disk by md5
     anywhere below the download root (`LosnImport::diskIndex`) or by the
