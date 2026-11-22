@@ -376,6 +376,40 @@ private slots:
         QVERIFY(db.list().isEmpty());
     }
 
+    void listDedupesByLocalPath() {
+        // A remote favourite and a "local" (file-hash) favourite can both
+        // point at the same downloaded file. The list shows one card (the
+        // newer row); the other stays in the DB.
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        FavDb db;
+        QVERIFY(db.open(tmp.path()));
+        Post a = samplePost();
+        a.siteName = QStringLiteral("Nuuru");
+        a.id = 100;
+        Post b = samplePost();
+        b.siteName = QStringLiteral("Glegle");
+        b.id = 200;
+        QVERIFY(db.add(a));
+        QVERIFY(db.add(b));
+        const QString file = tmp.filePath(QStringLiteral("shared.mp4"));
+        QFile f(file);
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write("x");
+        f.close();
+        QHash<QPair<QString, qint64>, QString> paths;
+        paths.insert({QStringLiteral("Nuuru"), 100}, file);
+        paths.insert({QStringLiteral("Glegle"), 200}, file);
+        QVERIFY(db.setLocalPaths(paths) == 2);
+        QCOMPARE(db.list().size(), 1);
+        // Without the links they are distinct rows again.
+        QHash<QPair<QString, qint64>, QString> unlink;
+        unlink.insert({QStringLiteral("Nuuru"), 100}, QString());
+        unlink.insert({QStringLiteral("Glegle"), 200}, QString());
+        QVERIFY(db.setLocalPaths(unlink) == 2);
+        QCOMPARE(db.list().size(), 2);
+    }
+
     void localPathResolution() {
         QTemporaryDir tmp;
         QVERIFY(tmp.isValid());

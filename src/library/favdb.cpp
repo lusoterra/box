@@ -584,9 +584,25 @@ QVector<Post> FavDb::list(int limit) {
     if (!q.exec())
         return out;
     QHash<QPair<QString, qint64>, QString> heal;
+    QSet<QString> seenPaths;
     while (q.next()) {
         const QString storedSite = q.value(0).toString();
         const qint64 storedPid = q.value(1).toLongLong();
+        // One card per downloaded file: a remote row and a "local"
+        // (hash-identity) row can both point at the same sidecar-backed
+        // image (favouriting it from the grid and from Downloads). The
+        // older row stays in the DB; the list shows the newest only.
+        const QString localPath = q.value(17).toString();
+        if (!localPath.isEmpty()) {
+            QString canon = QFileInfo(localPath).canonicalFilePath();
+            if (canon.isEmpty())
+                canon = QFileInfo(localPath).absoluteFilePath();
+            if (!canon.isEmpty()) {
+                if (seenPaths.contains(canon))
+                    continue;
+                seenPaths.insert(canon);
+            }
+        }
         Post p = rowToPost(q);
         // Persist explicit upgrades (see rowToPost): the stored value
         // feeds rating counts/filters, so heal it once.

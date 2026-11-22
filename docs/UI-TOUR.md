@@ -470,7 +470,9 @@ deleted behind the app's back.
 
 ## 19-badge-closeup - origin badge detail
 16px site favicon (auto-fetched to `favicons/auto/`, overridable in the
-Booru manager) + short name on the entry's badge color. Favourites rows
+Booru manager) + short name on the entry's badge color. Favourites show
+one card per downloaded file even when a remote row and a local (hash)
+row both point at it; the older row stays in the database. Favourites rows
 store only a display label, so the entry resolves by case-insensitive
 label/short name first, then by the post/file URL host (CDN subdomains
 match their booru); rows linked to a downloaded copy lose their remote

@@ -1132,7 +1132,16 @@ const BooruSite *entryForPost(const Post &post) {
     // Strays and plain library folders resolve to nothing.
     if (post.category.isEmpty() || post.category == QStringLiteral("_Stray"))
         return nullptr;
-    // Legacy label folders first, then host-named download folders.
+    // Downloaded files: the recorded post page is the strongest
+    // provenance. Media URLs are often shared CDNs (a Nuuru video can be
+    // served from another configured host's domain), so a file URL must
+    // never decide the origin - it painted soybooru downloads as
+    // glegle.gallery with a soybooru post id.
+    if (!post.postUrl.isEmpty() && isHttpUrl(post.postUrl)) {
+        if (const BooruSite *e = entryForHost(QUrl(post.postUrl).host().toLower()))
+            return e;
+    }
+    // Legacy label folders, then host-named download folders.
     const QString labelKey = keyForLabel(post.category);
     if (!labelKey.isEmpty()) {
         if (const BooruSite *e = RemoteSource::siteFor(labelKey))
@@ -1143,18 +1152,6 @@ const BooruSite *entryForPost(const Post &post) {
     if (const BooruSite *e = RemoteSource::siteFor(
             hostKeys().value(post.category.toLower())))
         return e;
-    // Favourites linked to a downloaded copy lose isRemote but keep the
-    // post page. Their stored label can be a generic engine name (e.g. a
-    // self-hosted Szuru imported as "Szurubooru") that no configured entry
-    // answers to, so resolve the origin from the URL host exactly like the
-    // remote branch above - otherwise those rows silently lose the badge.
-    for (const QString &url : {post.postUrl, post.fileUrl}) {
-        const QString host = QUrl(url).host().toLower();
-        if (host.isEmpty() || !isHttpUrl(url))
-            continue;
-        if (const BooruSite *e = entryForHost(host))
-            return e;
-    }
     return nullptr;
 }
 

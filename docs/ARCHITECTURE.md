@@ -125,7 +125,12 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     The viewer's tag panel shows a `Loading notes and comments…`
     indeterminate strip under TAGS while the per-post fetch is
     outstanding (`ViewerPage::m_metaBusy`), cleared by `done`.
-    Downloaded files: `MetaParser` reads `box_notes` into
+    Downloaded files: origin resolves from the recorded post page first,
+    then the site folder - NEVER from the media URL (shared CDNs made a
+    soybooru video resolve to another configured host, with its own post
+    id). `FavDb::list` also collapses rows that share one canonical
+    local path, so a remote favourite and a local/hash favourite of the
+    same downloaded file show one card. `MetaParser` reads `box_notes` into
     `Post::cachedNotes` (`notesCached` also for a confirmed-empty array),
     so the viewer paints notes from the sidecar offline and fetches only
     the comment thread. A sidecar without the key fetches notes+comments

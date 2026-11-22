@@ -1781,6 +1781,50 @@ private slots:
         RemoteSource::setConfiguredBoorus(RemoteSource::presetBoorus());
     }
 
+    void localOriginIgnoresMediaHost() {
+        // A soybooru/Nuuru video can be served from a host that another
+        // configured booru owns; the media URL must never decide the
+        // badge/post link (it labelled soybooru downloads as glegle).
+        BooruSite soy;
+        soy.key = QStringLiteral("soybooru");
+        soy.label = QStringLiteral("Soybooru");
+        soy.shortName = QStringLiteral("SOY");
+        soy.baseUrl = QStringLiteral("https://soybooru.com");
+        soy.engine = BooruEngine::Nuuru;
+
+        BooruSite glegle;
+        glegle.key = QStringLiteral("glegle");
+        glegle.label = QStringLiteral("Glegle");
+        glegle.shortName = QStringLiteral("GLE");
+        glegle.baseUrl = QStringLiteral("https://glegle.gallery");
+        glegle.engine = BooruEngine::Szurubooru;
+        RemoteSource::setConfiguredBoorus({soy, glegle});
+
+        Post p;
+        p.isRemote = false;
+        p.category = QStringLiteral("soybooru.com");
+        p.postUrl = QStringLiteral("https://soybooru.com/post/view/123");
+        p.fileUrl = QStringLiteral("https://glegle.gallery/media/123.mp4");
+        const BooruSite *e = RemotePosts::entryForPost(p);
+        QVERIFY(e != nullptr);
+        QCOMPARE(e->key, QStringLiteral("soybooru"));
+
+        // Folder-only provenance still wins over a foreign media host.
+        Post q = p;
+        q.postUrl.clear();
+        const BooruSite *qe = RemotePosts::entryForPost(q);
+        QVERIFY(qe != nullptr);
+        QCOMPARE(qe->key, QStringLiteral("soybooru"));
+
+        // With no page and an unknown folder, do not invent an origin
+        // from the CDN/media URL.
+        Post r = q;
+        r.category = QStringLiteral("unknown");
+        QVERIFY(RemotePosts::entryForPost(r) == nullptr);
+
+        RemoteSource::setConfiguredBoorus(RemoteSource::presetBoorus());
+    }
+
     void engineHelperGaps() {
         // src/engines/booruengine.cpp
         // isTransientSearchError:552
