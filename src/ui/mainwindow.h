@@ -80,7 +80,9 @@ struct BrowserTab {
     QString searchQuery;
     QString rating = QStringLiteral("all");
     QString category;
-    QString sort = QStringLiteral("id-desc");
+    // Favourites, Downloads and local tabs default to arrival order;
+    // browse tabs send no sort (the API's native newest-first order).
+    QString sort = QStringLiteral("added");
     // Downloads-only media filter (file-extension based: all/images/gifs/
     // animated/videos). Other tabs ignore it and keep the combo hidden.
     QString mediaFilter = QStringLiteral("all");
@@ -514,7 +516,7 @@ private:
     QString m_searchQuery;
     QString m_rating = QStringLiteral("all");
     QString m_category;
-    QString m_sort = QStringLiteral("id-desc");
+    QString m_sort = QStringLiteral("added");
     int m_requestedBoxW = 184; // user-requested size (pre-snap)
     void applyGridSnap();      // fill the viewport when gridSnap is on
     int m_aspectNum = 1;

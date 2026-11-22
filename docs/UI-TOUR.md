@@ -91,7 +91,10 @@ filters files under the download folder by extension - a `GIFs` choice covers gi
 adds mp4/webm; no tags or MIME sniffing) → sort dropdown (`Recently added`/`Newest`/`Oldest`/`Top
 Rated`/`Low Rated`/`Random`; shown on browse, favourites and downloads - server-side via translated tags where the
 engine supports it on remote tabs, all orders client-side on local tabs and favourites; remote options that would only re-sort client-side disable
-themselves per tab, `Recently added`/`Newest` never reorder on remote) →
+themselves per tab, `Recently added`/`Newest` never reorder on remote).
+`Recently added` is the default on new tabs: favourites sort by the DB's
+added time, local tabs/Downloads by file arrival time (mtime), and
+remote browsing keeps the API's native newest-first order. →
 `Boorus…` (per-tab source picker, multibooru merge; checkable entries
 toggle in place and keep the menu open) → `AI` (one-click
 filter hiding AI-generated posts) → `Download (N)`

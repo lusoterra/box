@@ -219,7 +219,7 @@ bool MainWindow::restoreTabs() {
         t->searchQuery = st.query;
         t->rating = st.rating.isEmpty() ? QStringLiteral("all") : st.rating;
         t->category = st.category;
-        t->sort = st.sort.isEmpty() ? QStringLiteral("id-desc") : st.sort;
+        t->sort = st.sort.isEmpty() ? QStringLiteral("added") : st.sort;
         t->viewerKey = st.viewerKey;
         t->scrollRow = st.scrollRow;
         updateTabTitle(static_cast<int>(m_tabs.size()) - 1);

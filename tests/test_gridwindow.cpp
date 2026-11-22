@@ -257,6 +257,14 @@ private slots:
                  qPrintable(QStringLiteral("third visit %1ms").arg(third)));
     }
 
+    // New tabs start on "Recently added" (favourites/Downloads by add or
+    // file mtime, remote by the API's native newest-first order). The
+    // local mtime ordering itself is covered by test_index.
+    void browserTabDefaultsToRecentlyAdded() {
+        BrowserTab t;
+        QCOMPARE(t.sort, QStringLiteral("added"));
+    }
+
     // The click must be honoured before any DB/scan work runs: activateTab
     // shows and paints the grid loading veil synchronously, then queues
     // the content rebuild; the veil only drops when the rows land.
