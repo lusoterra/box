@@ -215,7 +215,9 @@ tabs newest-first (a 20-tab LIFO stack; the tab's kind, filters and open
 post return, content rescans/re-searches). Switching a tab paints the
 grid veil and swaps the left sidebar for a `Loading tags…` placeholder
 immediately; the real sections fill in when the deferred scan/search
-rebuild lands (never the previous tab's tags). Library archive
+rebuild lands (never the previous tab's tags). The filter-pill row is
+hidden during that window too, so the outgoing tab's tags never flash
+over the veil. Library archive
 roots are read-only: no Delete there, tag refresh is disabled, and a
 hard `refuseArchiveWrite` guard refuses any file write outside the
 download dir (Syncthing-safe).

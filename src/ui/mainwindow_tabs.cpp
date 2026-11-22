@@ -553,6 +553,12 @@ void MainWindow::activateTab(int tabIdx) {
     // Tab switch: leave the outgoing tab's post state alone so switching
     // back mid-view reopens the same post.
     backToGrid(true);
+    // backToGrid() re-showed the OUTGOING tab's filter pills (they still
+    // live in m_pills). The target tab's filters are rebuilt by the
+    // deferred finishActivateTab, so keep the row hidden for the loading
+    // window; otherwise the previous tab's tags flash over the veil.
+    if (m_pillBar)
+        m_pillBar->setVisible(false);
     m_curTab = tabIdx;
     BrowserTab *t = m_tabs[tabIdx];
     // Window title must switch with the tab bar, not after the deferred
