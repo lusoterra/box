@@ -138,24 +138,81 @@ private slots:
         QCOMPARE(p.source, url);
     }
 
-    void sidecarsOnlyForNew() {
+    void adoptFlattensAndKeepsMetadata() {
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
+        const QString strayRoot = dir.path();
         QSet<QString> before;
-        for (const char *name : {"a.png", "b.png"}) {
-            QFile f(dir.path() + u'/' + QString::fromLatin1(name));
-            QVERIFY(f.open(QIODevice::WriteOnly));
-            f.write(name);
-            f.close();
-            if (QString::fromLatin1(name) == QStringLiteral("a.png"))
-                before.insert(QFileInfo(f).absoluteFilePath());
+        QFile keep(strayRoot + QStringLiteral("/keep.png"));
+        QVERIFY(keep.open(QIODevice::WriteOnly));
+        keep.write("keep");
+        keep.close();
+        before.insert(keep.fileName());
+
+        // gallery-dl layout: <site>/<user>/<file> + its metadata JSON.
+        const QString nested = strayRoot + QStringLiteral("/pixiv/123");
+        QVERIFY(QDir().mkpath(nested));
+        const QString media = nested + QStringLiteral("/123_p0.jpg");
+        QFile f(media);
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write("pixivbytes");
+        f.close();
+        QJsonObject meta;
+        meta[QStringLiteral("url")] =
+            QStringLiteral("https://www.pixiv.net/artworks/123");
+        meta[QStringLiteral("title")] = QStringLiteral("My work");
+        meta[QStringLiteral("artist")] = QStringLiteral("painter");
+        meta[QStringLiteral("urls")] =
+            QJsonObject{{QStringLiteral("original"),
+                         QStringLiteral("https://i.pximg.net/img.jpg")}};
+        QFile mf(nested + QStringLiteral("/123_p0.json"));
+        QVERIFY(mf.open(QIODevice::WriteOnly));
+        mf.write(QJsonDocument(meta).toJson());
+        mf.close();
+
+        const QString page = QStringLiteral("https://www.pixiv.net/artworks/123");
+        const GalleryDl::AdoptSummary s =
+            GalleryDl::adoptNewFiles(strayRoot, before, page);
+        QCOMPARE(s.files, 1);
+        QCOMPARE(s.sidecars, 1);
+        // Flattened with the normal stray naming; nested dirs pruned.
+        QVERIFY(!QFile::exists(media));
+        QVERIFY(!QDir(nested).exists());
+        const QStringList flat = QDir(strayRoot).entryList(QDir::Files);
+        QString stray;
+        int strayMedia = 0;
+        int straySidecars = 0;
+        for (const QString &name : flat) {
+            if (!name.startsWith(QStringLiteral("_Stray_")))
+                continue;
+            if (name.endsWith(QStringLiteral(".json")))
+                ++straySidecars;
+            else {
+                ++strayMedia;
+                stray = name;
+            }
         }
-        const int n = GalleryDl::writeStraySidecars(
-            dir.path(), before,
-            QStringLiteral("https://pawchive.pw/x"));
-        QCOMPARE(n, 1); // b.png only; a.png was already there
-        QVERIFY(QFile::exists(dir.path() + QStringLiteral("/b.json")));
-        QVERIFY(!QFile::exists(dir.path() + QStringLiteral("/a.json")));
+        QCOMPARE(strayMedia, 1);
+        QCOMPARE(straySidecars, 1);
+        QVERIFY(QFile::exists(strayRoot + QStringLiteral("/keep.png")));
+        QVERIFY(stray.endsWith(QStringLiteral(".jpg")));
+        const QString sidecar = strayRoot + u'/' + stray.left(stray.lastIndexOf(u'.')) +
+                                QStringLiteral(".json");
+        QVERIFY(QFile::exists(sidecar));
+        QFile sf(sidecar);
+        QVERIFY(sf.open(QIODevice::ReadOnly));
+        const QJsonObject o = QJsonDocument::fromJson(sf.readAll()).object();
+        QCOMPARE(o.value(QStringLiteral("tags")).toString(), QString());
+        QCOMPARE(o.value(QStringLiteral("post_url")).toString(), page);
+        QCOMPARE(o.value(QStringLiteral("file_url")).toString(),
+                 QStringLiteral("https://i.pximg.net/img.jpg"));
+        QCOMPARE(o.value(QStringLiteral("origin_dir")).toString(),
+                 QStringLiteral("pixiv/123"));
+        QCOMPARE(o.value(QStringLiteral("title")).toString(),
+                 QStringLiteral("My work"));
+        QVERIFY(o.value(QStringLiteral("stray")).toBool());
+        // gallery-dl's JSON next to the media is gone.
+        QVERIFY(!QFile::exists(nested + QStringLiteral("/123_p0.json")));
     }
 };
 

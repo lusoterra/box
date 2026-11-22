@@ -1,5 +1,7 @@
 #include "gallerydl.h"
 
+#include "stray.h"
+
 #include <QCryptographicHash>
 #include <QDir>
 #include <QDirIterator>
@@ -10,6 +12,8 @@
 #include <QRegularExpression>
 #include <QStandardPaths>
 #include <QUrl>
+
+#include <algorithm>
 
 namespace {
 // Shared by the GalleryDl helpers below and the runner: media suffixes
@@ -159,19 +163,155 @@ bool writeStraySidecar(const QString &mediaPath, const QString &postUrl) {
     return true;
 }
 
-int writeStraySidecars(const QString &destDir,
-                       const QSet<QString> &before, const QString &postUrl) {
-    int n = 0;
+namespace {
+// gallery-dl metadata sitting next to a media file (flat or stem form).
+QJsonObject galleryMetaFor(const QString &mediaPath) {
+    const QFileInfo fi(mediaPath);
+    for (const QString &path :
+         {mediaPath + QStringLiteral(".json"),
+          fi.absolutePath() + u'/' + fi.completeBaseName() +
+              QStringLiteral(".json")}) {
+        QFile f(path);
+        if (!f.open(QIODevice::ReadOnly))
+            continue;
+        const QJsonDocument doc = QJsonDocument::fromJson(f.readAll());
+        if (doc.isObject())
+            return doc.object();
+    }
+    return {};
+}
+
+QString metaFileUrl(const QJsonObject &meta) {
+    for (const char *key : {"file_url", "image_url", "download_url",
+                            "original_url"}) {
+        const QString v =
+            meta.value(QString::fromLatin1(key)).toString().trimmed();
+        if (!v.isEmpty())
+            return v;
+    }
+    // Pixiv-style nested URLs (gallery-dl: {"urls": {"original": …}}).
+    const QJsonObject urls = meta.value(QStringLiteral("urls")).toObject();
+    for (const char *key : {"original", "file_url", "url"}) {
+        const QString v =
+            urls.value(QString::fromLatin1(key)).toString().trimmed();
+        if (!v.isEmpty())
+            return v;
+    }
+    return {};
+}
+
+void removeGalleryMeta(const QString &mediaPath) {
+    const QFileInfo fi(mediaPath);
+    QFile::remove(mediaPath + QStringLiteral(".json"));
+    QFile::remove(fi.absolutePath() + u'/' + fi.completeBaseName() +
+                  QStringLiteral(".json"));
+}
+
+// Remove directories emptied by the flatten pass, deepest first. The
+// destination root itself is never removed.
+void pruneEmptyDirs(const QString &root, const QStringList &dirs) {
+    QStringList sorted = dirs;
+    std::sort(sorted.begin(), sorted.end(),
+              [](const QString &a, const QString &b) {
+                  return a.count(u'/') > b.count(u'/');
+              });
+    for (const QString &dir : sorted) {
+        if (dir != root && QDir(dir).exists())
+            QDir().rmdir(dir); // only succeeds when empty
+    }
+}
+} // namespace
+
+AdoptSummary adoptNewFiles(const QString &destDir,
+                           const QSet<QString> &before,
+                           const QString &postUrl) {
+    AdoptSummary out;
+    QDir root(destDir);
+    if (!root.exists())
+        return out;
+    QStringList newFiles;
+    QStringList dirs;
     QDirIterator it(destDir, QDir::Files | QDir::NoDotAndDotDot,
                     QDirIterator::Subdirectories);
     while (it.hasNext()) {
         it.next();
         if (before.contains(it.filePath()) || !isMediaFile(it.filePath()))
             continue;
-        if (writeStraySidecar(it.filePath(), postUrl))
-            ++n;
+        newFiles << it.filePath();
+        QString dir = it.fileInfo().absolutePath();
+        while (dir != destDir && dir.startsWith(destDir) && !dirs.contains(dir)) {
+            dirs << dir;
+            dir = QFileInfo(dir).absolutePath();
+        }
     }
-    return n;
+    // Stable order: small albums flatten predictably (first downloaded
+    // file keeps its position in the grid).
+    std::sort(newFiles.begin(), newFiles.end());
+    const QString rootPath = root.absolutePath();
+    for (const QString &source : std::as_const(newFiles)) {
+        const QFileInfo fi(source);
+        const QString md5 = contentMd5(source);
+        if (md5.isEmpty())
+            continue;
+        const QString ext = fi.suffix().toLower();
+        const QString target =
+            rootPath + u'/' + Stray::dirName() + u'_' + md5 + u'.' + ext;
+        const QJsonObject meta = galleryMetaFor(source);
+        const QString origin =
+            QDir(rootPath).relativeFilePath(fi.absolutePath());
+        if (QFile::exists(target)) {
+            // Same bytes already in _Stray (another flight): keep the
+            // existing flat file, drop the nested duplicate.
+            QFile::remove(source);
+        } else if (QFile::rename(source, target)) {
+            ++out.files;
+        } else if (QFile::copy(source, target)) {
+            QFile::remove(source);
+            ++out.files;
+        } else {
+            continue; // leave it where gallery-dl put it (and its folder)
+        }
+        removeGalleryMeta(source);
+        const QString sidecar =
+            rootPath + u'/' + Stray::dirName() + u'_' + md5 +
+            QStringLiteral(".json");
+        if (QFile::exists(sidecar))
+            continue;
+        // Carry the useful gallery-dl keys (never its tag blobs), then
+        // write the user-owned stray shape.
+        QJsonObject o;
+        static const char *carry[] = {
+            "file_url",  "image_url", "download_url", "original_url",
+            "urls",      "post_url",  "source",       "title",
+            "artist",    "author",    "date",         "category",
+            "subcategory", "gallery_id", "parent",    "id"};
+        for (const char *key : carry) {
+            const QString k = QString::fromLatin1(key);
+            if (meta.contains(k) && !meta.value(k).isNull() &&
+                !meta.value(k).isUndefined())
+                o[k] = meta.value(k);
+        }
+        if (!metaFileUrl(meta).isEmpty())
+            o[QStringLiteral("file_url")] = metaFileUrl(meta);
+        o[QStringLiteral("tags")] = QString();
+        o[QStringLiteral("file_ext")] = ext;
+        o[QStringLiteral("md5")] = md5;
+        o[QStringLiteral("post_url")] = postUrl;
+        o[QStringLiteral("source")] =
+            o.value(QStringLiteral("source")).toString().isEmpty()
+                ? postUrl
+                : o.value(QStringLiteral("source")).toString();
+        o[QStringLiteral("stray")] = true;
+        if (!origin.isEmpty() && origin != QStringLiteral("."))
+            o[QStringLiteral("origin_dir")] = origin;
+        QFile jf(sidecar);
+        if (jf.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+            jf.write(QJsonDocument(o).toJson(QJsonDocument::Indented));
+            ++out.sidecars;
+        }
+    }
+    pruneEmptyDirs(rootPath, dirs);
+    return out;
 }
 
 } // namespace GalleryDl
@@ -232,8 +372,6 @@ void GalleryDlRunner::onProcessFinished(int exitCode,
                                         QProcess::ExitStatus status) {
     Summary s;
     s.url = m_url;
-    const QSet<QString> after = mediaFiles();
-    s.filesFound = (after - m_filesBefore).size();
     if (m_cancelled) {
         s.error = tr("Cancelled");
     } else if (status != QProcess::NormalExit) {
@@ -244,10 +382,12 @@ void GalleryDlRunner::onProcessFinished(int exitCode,
                       .arg(exitCode);
     } else {
         s.ok = true;
-        // Own sidecars for the new files (tags empty for the user;
-        // existing sidecars are never touched).
-        s.sidecarsWritten =
-            GalleryDl::writeStraySidecars(m_destDir, m_filesBefore, m_url);
+        // Flatten gallery-dl's per-site folders into _Stray root with the
+        // normal stray naming, carrying metadata into own sidecars.
+        const GalleryDl::AdoptSummary adopt =
+            GalleryDl::adoptNewFiles(m_destDir, m_filesBefore, m_url);
+        s.filesFound = adopt.files;
+        s.sidecarsWritten = adopt.sidecars;
     }
     m_proc->deleteLater();
     m_proc = nullptr;

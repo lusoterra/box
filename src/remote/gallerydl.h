@@ -34,11 +34,14 @@ QString parseVersion(const QString &output);
 // post page (the native resolver yields better sidecars there).
 bool handlesUrl(const QString &url);
 
-// One gallery-dl flight downloads however many files the page holds
-// (transport only: no --write-metadata, its tag blobs would pollute
-// user tagging). Afterwards box writes its own stray sidecars for new
-// files lacking one (<stem>.json, importer shape + post_url/source:
-// tags empty for the user, never overwrites an existing sidecar).
+// One gallery-dl flight downloads however many files the page holds.
+// gallery-dl keeps its own per-site subfolders/filenames (pixiv/<user>/…)
+// and may write metadata sidecars; afterwards box flattens every new
+// media file into the _Stray root using the normal stray naming
+// (`_Stray_<md5>.<ext>`) and writes its own `_Stray_<md5>.json` (tags
+// empty, post_url/source recorded, useful gallery-dl metadata such as
+// file_url/title/artist carried over). Nested folders are removed once
+// empty, so the media browser only ever sees flat strays.
 // CLI for one download flight into destDir. The default filename
 // templates stay (descriptive, unique-ish per post).
 QStringList buildArgs(const QString &destDir, const QStringList &urls);
@@ -53,10 +56,15 @@ QString sidecarPathFor(const QString &mediaPath);
 // already exists or the write fails.
 bool writeStraySidecar(const QString &mediaPath, const QString &postUrl);
 
-// Sidecars for every media file under destDir not in `before`.
-// Returns the number written.
-int writeStraySidecars(const QString &destDir,
-                       const QSet<QString> &before, const QString &postUrl);
+// Flatten every media file under destDir not in `before` into the
+// _Stray root (`_Stray_<md5>.<ext>` + matching JSON sidecar), carrying
+// gallery-dl metadata over and deleting now-empty subfolders.
+struct AdoptSummary {
+    int files = 0;    // moved (or already present duplicates dropped)
+    int sidecars = 0; // new stray sidecars written
+};
+AdoptSummary adoptNewFiles(const QString &destDir, const QSet<QString> &before,
+                           const QString &postUrl);
 
 } // namespace GalleryDl
 
