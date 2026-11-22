@@ -55,7 +55,9 @@ extra sections for native custom categories (Nuuru flags, Szuru
 categories) seen on the page - or folded into a classic bucket when
 mapped under Preferences → Tags. Category labels read as words
 (`ENTITY TYPE`, not `entity_type`); empty or single-tag categories hide
-entirely until they hold two tags, and tiny ones (2-3 tags) shrink so many
+entirely until they hold two tags (a single-post page, e.g. an `id:`
+search, keeps its one artist/character/copyright tag visible), and tiny
+ones (2-3 tags) shrink so many
 fit at once;
 click toggles filter pills, right-click stars/un-stars favourite tags or
 recategorises one (the pane reloads in place, so a source category left
@@ -103,7 +105,11 @@ Every left click appends that tag to the box and leaves the dropdown open,
 so a whole query can be picked with the mouse; Esc closes the dropdown
 only (the second Esc clears pills/query as before). Typing ranks exact
 match, then starred tags, then cached/archive tags by post count, then
-remote answers that merge in when they land. Enter commits: the box is
+remote answers that merge in when they land; every row shows its post
+count right-aligned (`500`, `7k`, `1.5M`). Cached counts a host has not
+re-confirmed in a week are re-fetched instead of displayed, so the order
+never relies on stale popularity. Multibooru tabs rank through their
+first booru (last one when the first has no URL). Enter commits: the box is
 wiped and each tag becomes a pill; a tag already worn as a pill is
 ignored, and `-tag` replaces the existing `tag` pill (same for the other
 direction), so `-tag other` flips `tag` and adds `other` in one go.
@@ -263,12 +269,16 @@ tags, comments, media), `Notes`
 opens a larger `Annotation note` popup with selectable text instead of a
 hover tooltip; the box outline is the only affordance - no corner dot),
 globe (`Open file`), `Copy file URL`, `Comments` (thread popup with cards,
-reuses the cached comment rows). The tag panel below the groups shows
+reuses the cached comment rows). Under TAGS a `Loading notes and
+comments…` strip with an indeterminate bar appears while the per-post
+fetch runs (slow hosts otherwise looked dead); it clears on completion.
+The tag panel below the groups shows
 three threads when the engine provides them, in this order: NOTES
 (translation bodies, box coordinates on the tooltip; deleted annotations
 are skipped; loaded from the engine's note table, or the public post page
 on Gelbooru/Safebooru where dapi notes answer empty, or the post detail
-object on HyBooru where rect values are image percentages), COMMENTS (first
+object on HyBooru where rect values are image percentages, or the same
+detail object on Szurubooru where polygons are canvas fractions), COMMENTS (first
 five rows, `Show all N comments` expands
 them in place), and ARTIST COMMENTARY at the bottom of the tail. The
 commentary section is a compact clickable preview (message text with
@@ -307,7 +317,9 @@ follows it (removed rows resolve to the nearest surviving post,
 twin copies collapse so stepping never sticks). Media area: wheel-zoom/drag-pan stills, GIFs,
 looping video with seek/volume/rate (playback halts on every post
 switch - no background audio, guarded by a wanted-source gate so stale
-`LoadedMedia` ticks never restart the previous video from 0:00; a set global proxy, or a failed direct
+`LoadedMedia` ticks never restart the previous video from 0:00; audio
+follows the system default output device, including sink switches made
+while box is running; a set global proxy, or a failed direct
 stream, buffers through the download stack instead - same referer +
 cookies + proxy as stills; the red error label only appears for terminal
 failures, never while still loading/buffering; clicking the red label (or
@@ -372,7 +384,10 @@ manager: entry list with up/down arrow buttons to reorder + `Name`/`Enabled` (of
 the config but hides the booru from every picker)/`short` (grid badge text)/`Badge color`
 (known hosts get house colors: gelbooru blue, rule34 green, aibooru green,
 danbooru/safebooru tan, shimmie gray; editable anytime)/`Base
-URL`/`Type` (engine) editor with cookie capture + favicon override.
+URL`/`Type` (engine) editor with cookie capture + favicon override. The
+editor column is width-capped (640px) and the badge swatch stays a
+compact chip, so labels, fields and the wrapping cookie row line up
+instead of stretching across the dialog.
 Per-entry `Tags` (skip auto-categorization), `Drag posts as` (direct
 media vs post page; `Use global` follows Preferences → Browse), `Blacklist` (filter
 blacklist locally instead of server `-tags`, for tag-capped accounts),

@@ -604,9 +604,39 @@ public:
             UiIcons::filterTagColor(index.data(Qt::DisplayRole).toString());
         const QColor color =
             meta.isValid() ? meta : UiIcons::tagBucketColor(bucket);
+        const QString tag = opt.text;
+        const QString count =
+            TagSuggester::formatCount(index.data(Qt::UserRole + 2).toLongLong());
+        // Background/selection first, text drawn by hand so the popularity
+        // count can sit right-aligned without becoming part of the
+        // completion string.
+        opt.text.clear();
         opt.palette.setColor(QPalette::Text, color);
         opt.palette.setColor(QPalette::HighlightedText, color);
         QStyledItemDelegate::paint(painter, opt, index);
+        const bool selected = opt.state & QStyle::State_Selected;
+        QRect r = opt.rect.adjusted(6, 0, -6, 0);
+        int countWidth = 0;
+        if (!count.isEmpty())
+            countWidth = opt.fontMetrics.horizontalAdvance(count) + 12;
+        QRect tagRect = r;
+        if (countWidth > 0)
+            tagRect.setRight(r.right() - countWidth);
+        painter->save();
+        painter->setFont(opt.font);
+        painter->setPen(selected
+                            ? opt.palette.color(QPalette::HighlightedText)
+                            : color);
+        painter->drawText(
+            tagRect, Qt::AlignVCenter | Qt::AlignLeft,
+            opt.fontMetrics.elidedText(tag, Qt::ElideRight, tagRect.width()));
+        if (!count.isEmpty()) {
+            QColor muted = painter->pen().color();
+            muted.setAlpha(140);
+            painter->setPen(muted);
+            painter->drawText(r, Qt::AlignVCenter | Qt::AlignRight, count);
+        }
+        painter->restore();
     }
 };
 

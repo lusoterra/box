@@ -223,6 +223,9 @@ private slots:
                             bool autoVerdicts);
     void persistFavBuckets(const QVector<Post> &posts); // tag splits -> favdb
     void maybeClassifyBrowse(BrowserTab *t);
+    // Re-push classified posts into the open viewer (its snapshot is a
+    // copy; without this a post opened while the batch ran stayed general).
+    void refreshViewerTags(const BrowserTab *t);
     void onBrowseClassifyFinished(const QHash<QString, QString> &buckets);
     void onTabChanged(int index);
     void onTabClosed(int index);
@@ -317,7 +320,8 @@ private slots:
     void onSearchEdited(const QString &text);
     void onRemoteSuggest(const QString &siteKey, const QString &prefix,
                          QVector<TagSuggestion> suggestions);
-    void fillSuggestModel(const QStringList &tags, const QStringList &buckets);
+    void fillSuggestModel(const QStringList &tags, const QStringList &buckets,
+                          const QVector<int> &counts = {});
     // Empty omnibar: the popup becomes the favourite-tag picker (ranked by
     // post count, no network).
     void showFavSuggestions();

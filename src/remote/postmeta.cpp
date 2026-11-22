@@ -415,7 +415,14 @@ namespace PostMeta {
 QUrl notesUrl(BooruEngine engine, const QString &baseUrl, qint64 postId,
               const QString &gelUser, const QString &gelKey) {
     const QString id = QString::number(postId);
-    if (engine == BooruEngine::Szurubooru || engine == BooruEngine::Shimmie ||
+    if (engine == BooruEngine::Szurubooru) {
+        // Annotations ride the post detail object (`notes[]` polygons);
+        // there is no separate notes endpoint. Without this URL the notes
+        // part was marked done-empty, so posts flagged `notes` never
+        // rendered their boxes (live nekomaru.moe 2026-11-22).
+        return QUrl(baseUrl + QStringLiteral("/api/post/") + id);
+    }
+    if (engine == BooruEngine::Shimmie ||
         engine == BooruEngine::Nuuru ||
         RemotePosts::isPhilomenaFamily(engine))
         return {}; // no notes endpoint on these engines
@@ -693,6 +700,66 @@ QVector<PostNote> parseNotes(const QByteArray &body, bool *ok, qint64 postId) {
     if (doc.isObject()) {
         const QJsonObject root = doc.object();
         const QJsonValue notesVal = root.value(QStringLiteral("notes"));
+        // Szurubooru post detail: notes[].polygon is a list of [x,y]
+        // corner points, either fractions of the canvas (modern) or raw
+        // pixels (old instances). The viewer draws axis-aligned rects, so
+        // the polygon's bounding box is the overlay.
+        const QJsonArray notesArr = notesVal.toArray();
+        if (!notesArr.isEmpty() &&
+            notesArr.first().toObject().contains(QStringLiteral("polygon"))) {
+            double imageW = root.value(QStringLiteral("canvasWidth")).toDouble();
+            if (imageW <= 0)
+                imageW = root.value(QStringLiteral("width")).toDouble();
+            double imageH =
+                root.value(QStringLiteral("canvasHeight")).toDouble();
+            if (imageH <= 0)
+                imageH = root.value(QStringLiteral("height")).toDouble();
+            for (const QJsonValue &v : notesArr) {
+                if (!v.isObject())
+                    continue;
+                const QJsonObject o = v.toObject();
+                const QJsonArray poly =
+                    o.value(QStringLiteral("polygon")).toArray();
+                if (poly.size() < 3)
+                    continue;
+                double minX = 1e18, minY = 1e18, maxX = -1e18, maxY = -1e18;
+                bool normalized = true;
+                for (const QJsonValue &pv : poly) {
+                    const QJsonArray pt = pv.toArray();
+                    if (pt.size() < 2)
+                        continue;
+                    const double x = pt.at(0).toDouble();
+                    const double y = pt.at(1).toDouble();
+                    if (x > 1.0 || y > 1.0)
+                        normalized = false;
+                    minX = qMin(minX, x);
+                    minY = qMin(minY, y);
+                    maxX = qMax(maxX, x);
+                    maxY = qMax(maxY, y);
+                }
+                if (maxX < minX || maxY < minY)
+                    continue;
+                if (normalized) {
+                    if (imageW <= 0 || imageH <= 0)
+                        continue; // no canvas: cannot place the box
+                    minX *= imageW;
+                    maxX *= imageW;
+                    minY *= imageH;
+                    maxY *= imageH;
+                }
+                PostNote n;
+                n.x = qRound(minX);
+                n.y = qRound(minY);
+                n.w = qRound(maxX - minX);
+                n.h = qRound(maxY - minY);
+                n.body = o.value(QStringLiteral("text")).toString().trimmed();
+                if (!n.body.isEmpty() && n.w > 0 && n.h > 0)
+                    out.append(n);
+            }
+            if (ok)
+                *ok = true;
+            return out;
+        }
         const double imageW = root.value(QStringLiteral("width")).toDouble();
         const double imageH = root.value(QStringLiteral("height")).toDouble();
         if (notesVal.isArray() && imageW > 0 && imageH > 0) {

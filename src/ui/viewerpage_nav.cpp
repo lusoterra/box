@@ -42,6 +42,8 @@ void ViewerPage::showRow(int row) {
     dropStillWeb(); // cancel any in-flight browser retry for the old row
     m_loadBar->setVisible(false);
     m_loadInfo->setVisible(false);
+    if (m_metaBusy)
+        m_metaBusy->setVisible(false);
     showNote({});
     m_row = row;
     {

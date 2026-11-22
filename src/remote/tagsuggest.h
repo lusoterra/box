@@ -54,6 +54,12 @@ public:
                               const Index *index, int cap);
 
     static QVector<TagSuggestion> parse(BooruEngine engine, const QByteArray &body);
+    // Compact popularity label for the suggestion popup: 999, 1.2k, 7k,
+    // 1.5M, 20M. 0 = unknown, rendered as an empty string.
+    static QString formatCount(qint64 count);
+    // Cached popularity rows older than this are not used as instant
+    // answers (the host re-confirms them on the next keystroke).
+    static constexpr qint64 kFreshSeconds = 7 * 24 * 60 * 60;
     // Merge policy for one prefix: union, case-insensitive dedup
     // (local rows first so your vocabulary wins exact ties via the stable
     // rank), then ONE global relevance pass, truncated to cap. A rich

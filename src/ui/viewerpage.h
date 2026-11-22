@@ -226,6 +226,10 @@ protected:
 
 private:
     void togglePlayPause();
+    // Follow the desktop's default output device (Plasma/PipeWire sink
+    // switches happen while the app runs; the device captured at startup
+    // must not pin playback to stale speakers).
+    void followDefaultAudioDevice();
     void onWebFinished(qint64 id, bool ok, const QString &error);
     void startCacheFetch(const QUrl &url, const Post &post);
     void onCacheReady(const QString &url, const QString &localPath);
@@ -299,6 +303,9 @@ public:
 
     void setPosts(QVector<Post> posts);
     void showRow(int row);
+    // Re-render the open post's tag/meta panel in place (classification
+    // verdicts land after the viewer snapshot was taken). Media untouched.
+    void refreshCurrentPost();
     // The post on screen (default Post when the viewer is empty).
     Post currentPost() const;
     bool hasCurrent() const;
@@ -457,6 +464,9 @@ private:
     qint64 m_loadLastReceived = 0; // bytes at last speed sample
     qint64 m_loadLastTime = 0; // ms at last speed sample
     QScrollArea *m_tagScroll = nullptr;
+    // "Loading notes and comments…" strip under the TAGS header while the
+    // per-post meta fetch is outstanding.
+    QWidget *m_metaBusy = nullptr;
     QWidget *m_tagHost = nullptr;
     QBoxLayout *m_tagLayout = nullptr;
     int m_maxSide = 2560;
@@ -477,6 +487,9 @@ private:
     PostMetaFetcher *m_meta = nullptr;
     // (site#id) -> notes+comments, so back/forth never refetches.
     QHash<QString, ViewerMeta> m_metaCache;
+    // Keys with a fetch currently outstanding (drives the visible
+    // "Loading notes and comments…" row while slow hosts answer).
+    QSet<QString> m_metaInFlight;
     // Meta fetches that failed (never cached as definitive-empty):
     // reopening refetches, and the thread UI offers a retry.
     QSet<QString> m_metaFailed;

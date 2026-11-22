@@ -129,6 +129,17 @@ private slots:
                  1);
     }
 
+    void popularityLabels() {
+        QCOMPARE(TagSuggester::formatCount(0), QString());
+        QCOMPARE(TagSuggester::formatCount(7), QStringLiteral("7"));
+        QCOMPARE(TagSuggester::formatCount(999), QStringLiteral("999"));
+        QCOMPARE(TagSuggester::formatCount(1000), QStringLiteral("1k"));
+        QCOMPARE(TagSuggester::formatCount(7500), QStringLiteral("7.5k"));
+        QCOMPARE(TagSuggester::formatCount(500000), QStringLiteral("500k"));
+        QCOMPARE(TagSuggester::formatCount(1000000), QStringLiteral("1M"));
+        QCOMPARE(TagSuggester::formatCount(1500000), QStringLiteral("1.5M"));
+    }
+
     void capped() {
         // Parsers keep a wider pool (64) so ranking happens before the
         // suggestion cap: truncating the API order to 24 threw away the

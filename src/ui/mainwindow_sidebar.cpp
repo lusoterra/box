@@ -291,11 +291,17 @@ void MainWindow::rebuildBrowseSidebar() {
     // Section visibility + fill in one pass: a bucket hidden in every
     // host, empty on this page, or reduced to a single tag stops
     // rendering entirely - it comes back once it holds two or more.
-    // Tiny categories shrink so many sections fit at once.
+    // Tiny categories shrink so many sections fit at once. Exception: a
+    // single-post page (id: search, deep link) shows its one artist/
+    // character/copyright tag, otherwise every section collapses and the
+    // post reads as "all tags general".
+    const bool singlePost = m_current.size() == 1;
     auto fillSection = [&](int idx, QListWidget *list, const QString &bucket,
                            const QVector<QPair<QString, int>> &entries) {
         QWidget *box = m_sideSplit->widget(idx);
-        const bool show = !hidden.contains(bucket) && entries.size() > 1;
+        const bool show =
+            !hidden.contains(bucket) &&
+            (entries.size() > 1 || (singlePost && !entries.isEmpty()));
         box->setVisible(show);
         box->setMaximumHeight(
             show && entries.size() <= 3 ? 18 + int(entries.size()) * 22 + 6
@@ -359,8 +365,10 @@ void MainWindow::rebuildBrowseSidebar() {
             sidebarLabel(customLabels.value(it.key(), it.key())));
         rebuildTagTab(sec->list, top(it.value()), QStringLiteral("custom"),
                       it.key());
-        // Same rule as the fixed five: a single tag is not worth a header.
-        sec->box->setVisible(it.value().size() > 1);
+        // Same rule as the fixed five: a single tag is not worth a header
+        // (except on a single-post page).
+        sec->box->setVisible(it.value().size() > 1 ||
+                             (singlePost && !it.value().isEmpty()));
         // Tiny custom categories shrink like the fixed five.
         const int n =
             static_cast<int>(qMin<qsizetype>(it.value().size(), 30));

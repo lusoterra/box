@@ -99,14 +99,21 @@ void MainWindow::onSearchEdited(const QString &text) {
         // Remote tags: ask the tab's first real site (cached per site+prefix).
         BrowserTab *t = currentTab();
         const QStringList sites = t ? t->sites : m_settings.browseSites;
-        const BooruSite *site = nullptr;
+        // Multibooru: rank from the first booru; an unset first entry
+        // falls back to the last configured one.
+        const BooruSite *first = nullptr;
+        const BooruSite *last = nullptr;
         for (const QString &key : sites) {
             if (isVirtualSource(key))
                 continue;
-            site = RemoteSource::siteFor(key);
-            if (site)
-                break;
+            const BooruSite *entry = RemoteSource::siteFor(key);
+            if (!entry)
+                continue;
+            last = entry;
+            if (!first && !entry->baseUrl.isEmpty())
+                first = entry;
         }
+        const BooruSite *site = first ? first : last;
         if (!site) {
             m_suggester->cancel();
             return;
@@ -129,7 +136,11 @@ void MainWindow::onSearchEdited(const QString &text) {
     // Zero-post rows are junk (stale aliases/empties) - index rows carry
     // the local truth.
     QVector<TagSuggestion> cached;
+    const qint64 nowSecs = QDateTime::currentSecsSinceEpoch();
     for (const CachedTag &c : m_tagCache.suggest(bare, 40, favTagSet())) {
+        if (c.updated <= 0 ||
+            nowSecs - c.updated > TagSuggester::kFreshSeconds)
+            continue; // weekly freshness (see TagSuggester::suggest)
         if (c.count <= 0)
             continue;
         TagSuggestion t;
@@ -143,11 +154,13 @@ void MainWindow::onSearchEdited(const QString &text) {
     const QVector<TagSuggestion> ranked =
         TagSuggester::merge(bare, local, cached, favTagSet(), 20);
     QStringList words, buckets;
+    QVector<int> counts;
     for (const TagSuggestion &s : ranked) {
         words << s.tag;
         buckets << s.bucket;
+        counts << s.count;
     }
-    fillSuggestModel(words, buckets);
+    fillSuggestModel(words, buckets, counts);
     if (!words.isEmpty()) {
         // Filter on the current token: without this the popup matches the
         // whole multi-tag line and stays empty past the first tag.
@@ -160,7 +173,6 @@ void MainWindow::onSearchEdited(const QString &text) {
 // favourite-tag picker. No network, no typing - click them one by one to
 // build a query, Esc closes the list.
 void MainWindow::showFavSuggestions() {
-    qWarning() << Q_FUNC_INFO;
     if (!m_searchEdit || !m_completer || !m_completeModel)
         return;
     if (!m_completer->widget() || !m_searchEdit->isVisible())
@@ -206,13 +218,16 @@ void MainWindow::showFavSuggestions() {
                          return a.tag.compare(b.tag, Qt::CaseInsensitive) < 0;
                      });
     QStringList words, buckets;
+    QVector<int> counts;
     words.reserve(entries.size());
     buckets.reserve(entries.size());
+    counts.reserve(entries.size());
     for (const Entry &e : entries) {
         words << e.tag;
         buckets << e.bucket;
+        counts << e.count;
     }
-    fillSuggestModel(words, buckets);
+    fillSuggestModel(words, buckets, counts);
     m_completer->setCompletionPrefix(QString());
     m_completer->complete();
 }
@@ -266,9 +281,14 @@ void MainWindow::syncTagCacheFromIndex() {
 }
 
 void MainWindow::fillSuggestModel(const QStringList &tags,
-                                  const QStringList &buckets) {
+                                  const QStringList &buckets,
+                                  const QVector<int> &counts) {
     // No-op rebuilds: per-keystroke identical lists must not flash the
     // popup (clear + refill repaints even when nothing changed).
+    const int countRole = Qt::UserRole + 2;
+    auto countAt = [&counts](int i) {
+        return i < counts.size() ? counts.at(i) : 0;
+    };
     if (m_completeModel->rowCount() == tags.size()) {
         bool same = true;
         for (int i = 0; i < tags.size(); ++i) {
@@ -276,7 +296,8 @@ void MainWindow::fillSuggestModel(const QStringList &tags,
             if (idx.data(Qt::DisplayRole).toString() != tags.at(i) ||
                 idx.data(Qt::UserRole + 1).toString() !=
                     (i < buckets.size() ? buckets.at(i)
-                                        : QStringLiteral("general"))) {
+                                        : QStringLiteral("general")) ||
+                idx.data(countRole).toInt() != countAt(i)) {
                 same = false;
                 break;
             }
@@ -290,6 +311,7 @@ void MainWindow::fillSuggestModel(const QStringList &tags,
         item->setData(i < buckets.size() ? buckets.at(i)
                                          : QStringLiteral("general"),
                       Qt::UserRole + 1);
+        item->setData(countAt(i), countRole);
         item->setEditable(false);
         m_completeModel->appendRow(item);
     }
@@ -351,11 +373,13 @@ void MainWindow::onRemoteSuggest(const QString &siteKey, const QString &prefix,
         return;
     words.clear();
     buckets.clear();
+    QVector<int> counts;
     for (const TagSuggestion &sg : merged) {
         words << sg.tag;
         buckets << sg.bucket;
+        counts << sg.count;
     }
-    fillSuggestModel(words, buckets);
+    fillSuggestModel(words, buckets, counts);
     if (!words.isEmpty()) {
         m_completer->setCompletionPrefix(bare);
         m_completer->complete();

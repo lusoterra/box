@@ -117,9 +117,14 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     Safebooru public post-page HTML (`<article data-x…>` / `note-box`
     divs; dapi `s=note` answers 401 + empty body anonymously, so the page
     is ALWAYS used there), HyBooru `/api/post/<id>` (`notes[].rect` are
-    percentages of the detail `width`/`height`); no endpoint on
-    Szurubooru/Shimmie/Nuuru/Philomena/BooruOnRails/AnimePictures (a 404
-    there would fail the whole fetch).
+    percentages of the detail `width`/`height`), Szurubooru
+    `/api/post/<id>` (`notes[].polygon` is a fractional-canvas point list;
+    the overlay is its bounding box, old pixel-valued instances kept);
+    no endpoint on Shimmie/Nuuru/Philomena/BooruOnRails/AnimePictures
+    (a 404 there would fail the whole fetch).
+    The viewer's tag panel shows a `Loading notes and comments…`
+    indeterminate strip under TAGS while the per-post fetch is
+    outstanding (`ViewerPage::m_metaBusy`), cleared by `done`.
     Parse failures on 2xx bodies report "Unparseable response" (never a
     blank reason). Parts are independent: `finishPart` reports success
     when any requested part answered, so a failed comments leg can never
@@ -147,9 +152,13 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     `applyTagTypes()` (`:64`); `applyTagBuckets()` (`:91`) = same core for
     browse vectors.
   - `tagcountcache.h` `TagCountCache` (`<data>/tags.db`): tag + bucket +
-    post count learned from every tag-API answer (and from the archive
-    after a scan); prefix query ordered by count, favourites lifted. Feeds
-    the omnibar instantly, before the network answers.
+    post count + `updated` (last tag-API confirmation) learned from every
+    tag-API answer (and from the archive after a scan); prefix query
+    ordered by count, favourites lifted. Feeds the omnibar instantly,
+    before the network answers. Rows a host has not re-confirmed in a
+    week (`TagSuggester::kFreshSeconds`) are not used as instant answers;
+    the network refills them, so popularity never ages silently. The
+    popup paints the count right-aligned (`500`, `7k`, `1.5M`).
   - `queryor.h:16` `QueryOr`: `~(...)` OR-groups - `parse()` (`:28`),
     `expand()` cartesian cap `kMaxCombos = 12` (`:36`), `groupsMatch()`
     (`:40`), `suggestBare()` (`:45`), `mergeActiveTokens()` (`:50`) = the
@@ -198,7 +207,11 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     `VideoFrameItem::setFrame` never maps non-readable frames;
     fullscreen via `MainWindow::setViewerFullscreen` + `setImmersive`;
     video ghost-audio killed by a wanted-source gate (`VideoPane::
-    m_wanted`) + mute-on-stop; note click opens `showNotePopup`;
+    m_wanted`) + mute-on-stop; audio output follows the desktop's default
+    sink (`followDefaultAudioDevice`, re-resolved on
+    `QMediaDevices::audioOutputsChanged` and on every `setUrl`, so a
+    Plasma headphone/speaker switch is honoured mid-session); note click
+    opens `showNotePopup`;
     `welcomepage` (home + mascot);
     `metatext` (untrusted DText/BBCode/Markdown -> escaped Qt rich text
     with http(s)/mailto-only links, relative targets resolved per entry;
@@ -388,7 +401,10 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     (`gelbooru:character` form) fold to general via `foldedBucketFor`;
     streaming `resolved()` verdicts paint the sidebar as a waterfall
     (`mainwindow.h:130-132`, `flushClassifyPartials`); fav splits persist
-    via `setTagSplits`.
+    via `setTagSplits`. Verdicts also re-push into an open viewer
+    (`refreshViewerTags` -> `ViewerPage::refreshCurrentPost`), so a post
+    opened mid-batch stops showing its tags as general once the batch
+    lands (the panel used to keep the snapshot taken at click time).
 - Local scan: `Scanner::scan` (`scanner.cpp:156`) walks recursively, matches
   gallery-dl (`<media>.json`) + LOSN (`<stem>.json`) sidecars,
   `MetaParser` -> `Post`, `inferExplicit` upgrades rating

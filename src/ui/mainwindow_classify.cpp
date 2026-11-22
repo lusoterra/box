@@ -84,6 +84,30 @@
 #include <utility>
 #include <algorithm>
 
+void MainWindow::refreshViewerTags(const BrowserTab *t) {
+    if (!t || !m_viewer || m_pages->currentIndex() != 1)
+        return;
+    // The viewer owns a snapshot (m_current) taken when the post opened.
+    // Classification verdicts land later and only touched browseMerged, so
+    // the detail panel kept showing those tags in General - the "some
+    // posts categorise, some don't" report (it depended on whether the
+    // batch beat the click).
+    for (Post &cur : m_current) {
+        if (cur.isRemote) {
+            const QVector<Post> &fresh =
+                t->isFavourites ? t->localPosts : t->browseMerged;
+            for (const Post &p : fresh) {
+                if (p.isRemote && p.id == cur.id && p.siteKey == cur.siteKey) {
+                    cur = p;
+                    break;
+                }
+            }
+        }
+    }
+    m_viewer->setPosts(m_current);
+    m_viewer->refreshCurrentPost();
+}
+
 void MainWindow::maybeClassifyBrowse(BrowserTab *t) {
     // Same cached pass for remote grids and Favourites: both carry
     // category-less tags (LOSN rows, flat API blobs) that live in
@@ -166,6 +190,7 @@ void MainWindow::maybeClassifyBrowse(BrowserTab *t) {
             if (moved > 0)
                 statusBar()->showMessage(
                     tr("Categorized %1 tags from cache").arg(moved), 8000);
+            refreshViewerTags(t);
         }
     }
     if (!missing.isEmpty()) {
@@ -225,6 +250,7 @@ void MainWindow::onBrowseClassifyFinished(
         rebuildCombos();
         updateResultLabel();
     }
+    refreshViewerTags(t);
     QString msg = tr("Categorized %1 tags (%2 resolved)")
                       .arg(moved)
                       .arg(buckets.size());
@@ -307,6 +333,7 @@ void MainWindow::flushClassifyPartials() {
                 } else {
                     m_browseMerged = t->browseMerged;
                     rebuildBrowseSidebar();
+                    refreshViewerTags(t);
                 }
             }
         }

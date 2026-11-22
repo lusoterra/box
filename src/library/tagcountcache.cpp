@@ -147,7 +147,7 @@ QVector<CachedTag> TagCountCache::suggest(const QString &prefix, int limit,
     // few extra rows instead of only the top `limit`.
     QSqlQuery query(db);
     query.prepare(QStringLiteral(
-        "SELECT tag, bucket, count FROM tags WHERE name LIKE ? "
+        "SELECT tag, bucket, count, updated FROM tags WHERE name LIKE ? "
         "ORDER BY count DESC, length(tag) ASC, tag ASC LIMIT ?"));
     query.addBindValue(q + u'%');
     query.addBindValue(qMax(limit, qMin(64, limit * 3)));
@@ -158,6 +158,7 @@ QVector<CachedTag> TagCountCache::suggest(const QString &prefix, int limit,
         t.tag = query.value(0).toString();
         t.bucket = query.value(1).toString();
         t.count = query.value(2).toInt();
+        t.updated = query.value(3).toLongLong();
         out.append(t);
     }
     // Same relevance contract as the rest of the suggestion stack: exact

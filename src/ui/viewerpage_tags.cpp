@@ -11,8 +11,13 @@
 #include <QStringList>
 #include <QVBoxLayout>
 
-void ViewerPage::renderTags() {
+void ViewerPage::refreshCurrentPost() {
     if (m_row < 0 || m_row >= m_posts.size())
+        return;
+    renderTags(); // tags + meta tail; never touches the media widgets
+}
+
+void ViewerPage::renderTags() {    if (m_row < 0 || m_row >= m_posts.size())
         return;
     const Post &p = m_posts.at(m_row);
 

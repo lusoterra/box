@@ -46,9 +46,10 @@ private slots:
                      .toString(),
                  QStringLiteral("https://e621.net/notes.json?"
                                 "search[post_id]=42&limit=100"));
-        // No separate notes endpoint here (AnimePictures must not fall
-        // through to Moebooru's URL: a 404 would fail the whole fetch).
-        QVERIFY(PostMeta::notesUrl(BooruEngine::Szurubooru, kDan, 1).isEmpty());
+        // Szurubooru annotations ride the post detail object (`notes[]`
+        // polygons); there is no separate notes endpoint.
+        QCOMPARE(PostMeta::notesUrl(BooruEngine::Szurubooru, kDan, 1).toString(),
+                 kDan + QStringLiteral("/api/post/1"));
         QVERIFY(PostMeta::notesUrl(BooruEngine::Shimmie, kDan, 1).isEmpty());
         QVERIFY(PostMeta::notesUrl(BooruEngine::Philomena, kDan, 1).isEmpty());
         QVERIFY(PostMeta::notesUrl(BooruEngine::BooruOnRails, kDan, 1).isEmpty());
@@ -286,6 +287,29 @@ private slots:
         QCOMPARE(notes.at(0).w, 300);
         QCOMPARE(notes.at(0).h, 200);
         QCOMPARE(notes.at(0).body, QStringLiteral("boxed text"));
+    }
+
+    void parseNotesSzurubooruPolygons() {
+        // Szurubooru detail: notes[].polygon is fractional canvas
+        // coordinates (live nekomaru.moe id 11196). The overlay is the
+        // polygon's bounding box in original image pixels.
+        const QByteArray json = QByteArrayLiteral(
+            "{\"id\":11196,\"canvasWidth\":1668,\"canvasHeight\":2388,"
+            "\"notes\":[{\"polygon\":[[0.07853717026378897,0.7131490787269682],"
+            "[0.19364508393285373,0.7131490787269682],"
+            "[0.19364508393285373,0.9564489112227805],"
+            "[0.07853717026378897,0.9564489112227805]],"
+            "\"text\":\"I-I'm sure she's getting mad...!?\"}]}");
+        bool ok = false;
+        const auto notes = PostMeta::parseNotes(json, &ok, 11196);
+        QVERIFY(ok);
+        QCOMPARE(notes.size(), 1);
+        QCOMPARE(notes.at(0).x, 131);  // 0.0785 * 1668
+        QCOMPARE(notes.at(0).y, 1703); // 0.7131 * 2388
+        QCOMPARE(notes.at(0).w, 192);
+        QCOMPARE(notes.at(0).h, 581);
+        QCOMPARE(notes.at(0).body,
+                 QStringLiteral("I-I'm sure she's getting mad...!?"));
     }
 
     void parseNotesGelbooruHtml() {

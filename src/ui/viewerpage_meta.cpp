@@ -241,6 +241,9 @@ void ViewerPage::refetchMeta(const Post &p) {
         m_meta->setCreds({}, {}, site->user, site->secret);
     else
         m_meta->setCreds({}, {}, {}, {});
+    m_metaInFlight.insert(metaKey());
+    if (m_metaBusy)
+        m_metaBusy->setVisible(true);
     m_meta->fetch(key, site->baseUrl, p.id, site->engine, p.hasNotes);
 }
 
@@ -250,6 +253,9 @@ void ViewerPage::onMetaDone(const QString &site, qint64 postId,
                              QVector<PostComment> commentary, bool ok,
                              const QString &error) {
     const QString key = site + u'#' + QString::number(postId);
+    m_metaInFlight.remove(key);
+    if (metaKey() == key && m_metaBusy)
+        m_metaBusy->setVisible(false);
     if (!ok) {
         // Failed fetch (network, HTTP error, challenge page): never cache
         // as definitive-empty, and keep any older marks untouched. The

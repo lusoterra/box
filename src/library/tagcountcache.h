@@ -22,6 +22,10 @@ struct CachedTag {
     QString tag;    // canonical spelling as the API returned it
     QString bucket; // suggestion colour bucket
     int count = 0;  // posts using this tag
+    // Unix seconds of the last tag-API answer that confirmed this row.
+    // Rows older than a week are not used as instant answers: the host is
+    // asked again, so popularity (and aliases that vanished) stay current.
+    qint64 updated = 0;
 };
 
 class TagCountCache {

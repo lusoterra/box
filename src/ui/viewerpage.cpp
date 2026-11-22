@@ -22,6 +22,7 @@
 #include <QStandardPaths>
 #include <QGridLayout>
 #include <QHBoxLayout>
+#include <QProgressBar>
 #include <QJsonValue>
 #include <QKeyEvent>
 #include <QLabel>
@@ -362,6 +363,26 @@ ViewerPage::ViewerPage(QWidget *parent) : QWidget(parent) {
     auto *th = new QLabel(tr("TAGS"), this);
     th->setStyleSheet(QStringLiteral("color:#4a5068;font-size:10px;"));
     pl->addWidget(th);
+    // Slow hosts (Gelbooru page parse, Danbooru API) take seconds; a
+    // silent panel reads as broken. This strip sits right under TAGS so
+    // it is visible whatever the tag list's scroll position.
+    m_metaBusy = new QWidget(this);
+    auto *busyLay = new QHBoxLayout(m_metaBusy);
+    busyLay->setContentsMargins(0, 0, 0, 2);
+    busyLay->setSpacing(6);
+    auto *busyLabel = new QLabel(tr("Loading notes and comments…"), m_metaBusy);
+    busyLabel->setStyleSheet(QStringLiteral("color:#4a5068;font-size:11px;"));
+    auto *busyBar = new QProgressBar(m_metaBusy);
+    busyBar->setRange(0, 0); // indeterminate
+    busyBar->setTextVisible(false);
+    busyBar->setFixedHeight(4);
+    busyBar->setMaximumWidth(90);
+    busyLay->addWidget(busyLabel, 1);
+    busyLay->addWidget(busyBar);
+    m_metaBusy->setVisible(false);
+    m_metaBusy->setToolTip(
+        tr("Fetching annotations and the comment thread for this post"));
+    pl->addWidget(m_metaBusy);
     m_tagScroll = new QScrollArea(this);
     m_tagScroll->setWidgetResizable(true);
     pl->addWidget(m_tagScroll, 1);

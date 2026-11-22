@@ -3,6 +3,7 @@
 #include "tagcountcache.h"
 
 #include <QCoreApplication>
+#include <QDateTime>
 #include <QSqlDatabase>
 #include <QSqlQuery>
 #include <QTemporaryDir>
@@ -71,6 +72,22 @@ private slots:
         QCOMPARE(out.at(0).count, 500); // the 0/120 answers did not demote it
         QCOMPARE(out.at(0).tag, QStringLiteral("CAT")); // newest spelling wins
         QCOMPARE(out.at(0).bucket, QStringLiteral("artist"));
+    }
+
+    void suggestReportsFreshness() {
+        // The popup treats rows older than a week as stale; the cache must
+        // report when each row was last confirmed.
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        TagCountCache cache;
+        QVERIFY(cache.open(TagCountCache::dbPath(dir.path())));
+        cache.upsert({row(QStringLiteral("paper"), 42)});
+        const auto out = cache.suggest(QStringLiteral("pa"), 5);
+        QCOMPARE(out.size(), 1);
+        const qint64 now = QDateTime::currentSecsSinceEpoch();
+        QVERIFY(out.at(0).updated > 0);
+        QVERIFY(out.at(0).updated <= now + 5);
+        QVERIFY(now - out.at(0).updated < 60);
     }
 
     void survivesReopen() {

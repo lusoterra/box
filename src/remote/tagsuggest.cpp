@@ -8,6 +8,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QDateTime>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
@@ -558,8 +559,14 @@ void TagSuggester::suggest(const BooruSite &site, const SiteCreds &creds,
     // earlier sessions, so a remote tab has popular candidates before the
     // network answers (and when the host is slow, walled or offline).
     QVector<TagSuggestion> cached;
+    const qint64 nowSecs = QDateTime::currentSecsSinceEpoch();
     if (m_tagCache) {
         for (const CachedTag &c : m_tagCache->suggest(prefix, 40, m_favTags)) {
+            // Weekly freshness: a row no tag API confirmed in a week is
+            // not offered as an instant answer (popularity may have
+            // changed, aliases may be gone). The request below refills it.
+            if (c.updated <= 0 || nowSecs - c.updated > kFreshSeconds)
+                continue;
             // 0-post rows never complete a search (stale aliases/empties
             // other engines reported). AnimePictures reports no counts,
             // so its rows are unknown, not empty - keep them.
@@ -811,9 +818,24 @@ QVector<TagSuggestion> TagSuggester::rank(const QString &prefix,
     return v;
 }
 
+QString TagSuggester::formatCount(qint64 count) {
+    if (count <= 0)
+        return {};
+    if (count < 1000)
+        return QString::number(count);
+    auto trim = [](double v) {
+        QString s = QString::number(v, 'f', 1);
+        if (s.endsWith(QStringLiteral(".0")))
+            s.chop(2);
+        return s;
+    };
+    if (count < 1000000)
+        return trim(count / 1000.0) + u'k';
+    return trim(count / 1000000.0) + u'M';
+}
+
 QVector<TagSuggestion> TagSuggester::parse(BooruEngine engine,
-                                           const QByteArray &body) {
-    using enum BooruEngine;
+                                           const QByteArray &body) {    using enum BooruEngine;
     switch (engine) {
     case Danbooru:
         return parseDanbooru(body);
