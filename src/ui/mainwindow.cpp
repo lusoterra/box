@@ -902,8 +902,6 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
                         &MainWindow::exportLibraryCsv);
     fileMenu->addAction(tr("Import library CSV…"), this,
                         &MainWindow::importLibraryCsv);
-    fileMenu->addAction(tr("Backup settings…"), this,
-                        &MainWindow::exportSettingsBackup);
     fileMenu->addAction(tr("Download/Add Stray…"), this,
                         &MainWindow::openStrayDialog);
     fileMenu->addAction(tr("Update downloaded sidecars…"), this,
