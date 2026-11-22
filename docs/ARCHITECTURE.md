@@ -308,7 +308,12 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     config still supplies credentials/cookies/proxy.
     `--no-postprocessors` drops the user's metadata/rename/exec hooks and
     a `--filter` refuses archives and layered editor files
-    (zip/7z/rar/psd/psb/…). Afterwards box flattens every new media file
+    (zip/7z/rar/psd/psb/…). Pixiv ugoira is the exception: gallery-dl is
+    forced to fetch the original ugoira zip (`-o ugoira=true`), which
+    passes the filter, and box converts it to animated WebP using the
+    zip's own `animation.json` per-frame delays (`Ugoira::unzipFrames`);
+    a zip that fails to convert is kept for a retry. Afterwards box
+    flattens every new media file
     to the normal stray naming (`_Stray_<md5>.<ext>`) and writes its own
     `_Stray_<md5>.json` (tags empty for the user, `post_url`/`source` =
     pasted page, useful gallery-dl metadata carried over:

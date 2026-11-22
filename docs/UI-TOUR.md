@@ -499,8 +499,10 @@ found, using its login and credentials but none of its folder or
 post-processing choices, landing flat in `_Stray/` as `_Stray_<md5>`
 names with basic sidecars it writes itself (box pins the exact download
 directory and filters out archives/layered files such as zip and PSD,
-then deletes ignored leftovers and any emptied per-site folders; its
-file URL/title/artist metadata is carried into the sidecar):
+then deletes ignored leftovers and any emptied per-site folders; Pixiv
+ugoira is kept as a zip and converted by box to animated WebP using the
+zip's per-frame delays; its file URL/title/artist metadata is carried
+into the sidecar):
 page URL recorded, tags left empty for you - one flight
 per pasted link; direct media links and recognised booru post pages
 keep the built-in path: media fetched as-is, booru pages resolved so

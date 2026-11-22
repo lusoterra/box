@@ -10,6 +10,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QtTest>
 
@@ -66,10 +67,15 @@ private slots:
         QVERIFY(d >= 0);
         QCOMPARE(a.at(d + 1), QStringLiteral("/dl/_Stray"));
         QVERIFY(!a.contains(QStringLiteral("-d")));
+        // Pixiv ugoira: fetch the original zip, box converts it itself.
+        const int o = a.indexOf(QStringLiteral("-o"));
+        QVERIFY(o >= 0);
+        QCOMPARE(a.at(o + 1), QStringLiteral("ugoira=true"));
         const int f = a.indexOf(QStringLiteral("--filter"));
         QVERIFY(f >= 0);
         QVERIFY(a.at(f + 1).contains(QStringLiteral("'psd'")));
         QVERIFY(a.at(f + 1).contains(QStringLiteral("'zip'")));
+        QVERIFY(a.at(f + 1).contains(QStringLiteral("category == 'pixiv'")));
         QCOMPARE(a.last(),
                  QStringLiteral("https://www.pixiv.net/en/artworks/1"));
     }
@@ -143,6 +149,43 @@ private slots:
         QVERIFY(MetaParser::parse(o, p));
         QCOMPARE(p.postUrl, url);
         QCOMPARE(p.source, url);
+    }
+
+    void adoptConvertsUgoiraZip() {
+        if (QStandardPaths::findExecutable(QStringLiteral("ffmpeg")).isEmpty())
+            QSKIP("ffmpeg not in PATH");
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString strayRoot = dir.path();
+        const QString nested = strayRoot + QStringLiteral("/pixiv/123");
+        QVERIFY(QDir().mkpath(nested));
+        const QString zip = nested + QStringLiteral("/123_p0.zip");
+        QVERIFY(QFile::copy(QString::fromLatin1(TESTFILES_DIR) +
+                                QStringLiteral("/ugoira-animation.zip"),
+                            zip));
+        const GalleryDl::AdoptSummary s = GalleryDl::adoptNewFiles(
+            strayRoot, {}, QStringLiteral("https://www.pixiv.net/artworks/123"));
+        QCOMPARE(s.ugoira, 1);
+        QCOMPARE(s.files, 1);
+        QCOMPARE(s.sidecars, 1);
+        QVERIFY(!QFile::exists(zip));
+        QVERIFY(!QDir(nested).exists());
+        const QStringList flat = QDir(strayRoot).entryList(QDir::Files);
+        QString webp;
+        for (const QString &name : flat) {
+            if (name.startsWith(QStringLiteral("_Stray_")) &&
+                name.endsWith(QStringLiteral(".webp")))
+                webp = name;
+        }
+        QVERIFY(!webp.isEmpty());
+        const QString sidecar =
+            strayRoot + u'/' + webp.left(webp.lastIndexOf(u'.')) +
+            QStringLiteral(".json");
+        QFile sf(sidecar);
+        QVERIFY(sf.open(QIODevice::ReadOnly));
+        const QJsonObject o = QJsonDocument::fromJson(sf.readAll()).object();
+        QVERIFY(o.value(QStringLiteral("ugoira")).toBool());
+        QCOMPARE(o.value(QStringLiteral("ugoira_frames")).toInt(), 2);
     }
 
     void adoptFlattensAndKeepsMetadata() {

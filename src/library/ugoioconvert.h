@@ -22,10 +22,17 @@ struct Frames {
     bool isEmpty() const { return images.isEmpty(); }
 };
 // pixiv_ugoira_frame_data tolerant parse: {data:[{file|name, delay|delay_ms?}]}.
+// Also accepts gallery-dl/Pixiv metadata shapes ("frames": [...] or
+// "_ugoira_frame_data") so a downloaded animation.json can drive delays.
 // Units are milliseconds; garbage falls back to defaultMs.
 QMap<QString, int> delaysFromRaw(const QJsonObject &raw, int defaultMs);
+// True when the zip looks like a Pixiv ugoira archive (has animation.json
+// or numbered frame images). Used to convert rather than discard it.
+bool looksLikeUgoiraZip(const QString &zipPath);
 // Zip -> decoded frames (miniz). Caps entries and total bytes against
-// hostile archives. Delays attach by basename, default-filled.
+// hostile archives. Delays attach by basename, default-filled; a bundled
+// animation.json supplies them when the caller has no metadata. Non-image
+// entries are skipped.
 bool unzipFrames(const QString &zipPath, Frames &frames,
                  const QMap<QString, int> &delaysByName, int defaultDelayMs,
                  QString *error);

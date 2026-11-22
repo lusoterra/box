@@ -40,7 +40,9 @@ bool handlesUrl(const QString &url);
 // config still supplies credentials/cookies/proxy, but its
 // post-processors and per-extractor folder/format choices are overridden,
 // and archives/layered editor files (zip, 7z, psd, psb, …) are filtered
-// out before download. Afterwards box flattens every new media file into
+// out before download. Pixiv ugoira is the exception: gallery-dl fetches
+// the original zip and box converts it with the bundled per-frame delays
+// to an animated webp. Afterwards box flattens every new media file into
 // the _Stray root using the normal stray naming (`_Stray_<md5>.<ext>`)
 // and writes its own `_Stray_<md5>.json` (tags empty, post_url/source
 // recorded, useful gallery-dl metadata such as file_url/title/artist
@@ -63,8 +65,9 @@ bool writeStraySidecar(const QString &mediaPath, const QString &postUrl);
 // _Stray root (`_Stray_<md5>.<ext>` + matching JSON sidecar), carrying
 // gallery-dl metadata over and deleting now-empty subfolders.
 struct AdoptSummary {
-    int files = 0;    // moved (or already present duplicates dropped)
+    int files = 0;    // moved (or already-present duplicates dropped)
     int sidecars = 0; // new stray sidecars written
+    int ugoira = 0;   // Pixiv ugoira zips converted to animated webp
 };
 AdoptSummary adoptNewFiles(const QString &destDir, const QSet<QString> &before,
                            const QString &postUrl);

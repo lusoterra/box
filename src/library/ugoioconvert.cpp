@@ -5,7 +5,9 @@
 #include <QEventLoop>
 #include <QFileInfo>
 #include <QJsonArray>
+#include <QJsonDocument>
 #include <QProcess>
+#include <QRegularExpression>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTextStream>
@@ -110,12 +112,19 @@ bool writeConcatList(const QString &path, const QStringList &files,
 namespace Ugoira {
 QMap<QString, int> delaysFromRaw(const QJsonObject &raw, int defaultMs) {
     QMap<QString, int> out;
-    const QJsonValue root = raw.value(QStringLiteral("pixiv_ugoira_frame_data"));
+    QJsonValue root = raw.value(QStringLiteral("pixiv_ugoira_frame_data"));
+    // Pixiv's animation.json and gallery-dl metadata call it "frames".
+    if (root.isUndefined() || root.isNull())
+        root = raw.value(QStringLiteral("frames"));
+    if (root.isUndefined() || root.isNull())
+        root = raw.value(QStringLiteral("_ugoira_frame_data"));
     QJsonArray data;
     if (root.isObject())
         data = root.toObject().value(QStringLiteral("data")).toArray();
     else if (root.isArray())
         data = root.toArray();
+    if (data.isEmpty() && root.isObject())
+        data = root.toObject().value(QStringLiteral("frames")).toArray();
     for (const QJsonValue &v : data) {
         if (!v.isObject())
             continue;
@@ -134,6 +143,35 @@ QMap<QString, int> delaysFromRaw(const QJsonObject &raw, int defaultMs) {
     return out;
 }
 
+bool looksLikeUgoiraZip(const QString &zipPath) {
+    mz_zip_archive zip;
+    memset(&zip, 0, sizeof(zip));
+    if (!mz_zip_reader_init_file(&zip, zipPath.toUtf8().constData(), 0))
+        return false;
+    bool ok = mz_zip_reader_locate_file(&zip, "animation.json", nullptr, 0) >= 0;
+    if (!ok) {
+        static const QRegularExpression frameName(
+            QStringLiteral("^\\d{6}\\.(?:png|jpe?g|webp)$"),
+            QRegularExpression::CaseInsensitiveOption);
+        int frames = 0;
+        const int n = (int)mz_zip_reader_get_num_files(&zip);
+        for (int i = 0; i < n && frames < 2; ++i) {
+            if (mz_zip_reader_is_file_a_directory(&zip, (mz_uint)i))
+                continue;
+            mz_zip_archive_file_stat st;
+            if (!mz_zip_reader_file_stat(&zip, (mz_uint)i, &st))
+                continue;
+            if (frameName.match(
+                    QFileInfo(QString::fromUtf8(st.m_filename)).fileName())
+                    .hasMatch())
+                ++frames;
+        }
+        ok = frames >= 2;
+    }
+    mz_zip_reader_end(&zip);
+    return ok;
+}
+
 bool unzipFrames(const QString &zipPath, Frames &frames,
                  const QMap<QString, int> &delaysByName, int defaultDelayMs,
                  QString *error) {
@@ -144,6 +182,34 @@ bool unzipFrames(const QString &zipPath, Frames &frames,
         if (error)
             *error = QObject::tr("Not a readable zip: %1").arg(zipPath);
         return false;
+    }
+    // Pixiv ugoira zips bundle animation.json with per-frame delays; use it
+    // when the caller has no API metadata (gallery-dl sidecar path).
+    QMap<QString, int> delays = delaysByName;
+    {
+        const int metaIdx = mz_zip_reader_locate_file(
+            &zip, "animation.json", nullptr, 0);
+        mz_zip_archive_file_stat st;
+        if (metaIdx >= 0 &&
+            mz_zip_reader_file_stat(&zip, (mz_uint)metaIdx, &st) &&
+            st.m_uncomp_size > 0 && st.m_uncomp_size <= 1024 * 1024) {
+            size_t sz = 0;
+            void *raw = mz_zip_reader_extract_to_heap(&zip, (mz_uint)metaIdx,
+                                                       &sz, 0);
+            if (raw && sz) {
+                const QJsonObject o =
+                    QJsonDocument::fromJson(
+                        QByteArray(static_cast<const char *>(raw),
+                                   (qsizetype)sz))
+                        .object();
+                const auto fromZip = delaysFromRaw(o, defaultDelayMs);
+                for (auto it = fromZip.begin(); it != fromZip.end(); ++it) {
+                    if (!delays.contains(it.key()))
+                        delays.insert(it.key(), it.value());
+                }
+            }
+            mz_free(raw);
+        }
     }
     const int n = (int)mz_zip_reader_get_num_files(&zip);
     if (n <= 0 || n > kMaxFrames) {
@@ -167,6 +233,10 @@ bool unzipFrames(const QString &zipPath, Frames &frames,
             ok = false; // hostile archive guard
             break;
         }
+        const QString name = QFileInfo(QString::fromUtf8(st.m_filename)).fileName();
+        // Metadata entries (animation.json, …) are not frames.
+        if (name.endsWith(QStringLiteral(".json"), Qt::CaseInsensitive))
+            continue;
         size_t sz = 0;
         void *raw = mz_zip_reader_extract_to_heap(&zip, (mz_uint)i, &sz, 0);
         if (!raw || !sz) {
@@ -182,10 +252,9 @@ bool unzipFrames(const QString &zipPath, Frames &frames,
             break;
         }
         frames.images.append(img.convertToFormat(QImage::Format_RGB32));
-        const QString name = QFileInfo(QString::fromUtf8(st.m_filename)).fileName();
         frames.names.append(name);
         frames.delaysMs.append(
-            clampDelay(delaysByName.value(name, defaultDelayMs), defaultDelayMs));
+            clampDelay(delays.value(name, defaultDelayMs), defaultDelayMs));
     }
     mz_zip_reader_end(&zip);
     if (!ok || frames.isEmpty()) {

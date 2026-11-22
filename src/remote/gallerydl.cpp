@@ -1,12 +1,14 @@
 #include "gallerydl.h"
 
 #include "stray.h"
+#include "ugoioconvert.h"
 
 #include <QCryptographicHash>
 #include <QDir>
 #include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
+#include <QHash>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QRegularExpression>
@@ -127,14 +129,23 @@ QStringList buildArgs(const QString &destDir, const QStringList &urls) {
     // per-extractor folder templates; --no-postprocessors drops the
     // user's metadata/rename/exec hooks; the filter refuses archives and
     // layered editor files (variant-set zips, multi-hundred-MB PSDs).
+    //
+    // Pixiv ugoira is the one exception: force gallery-dl to fetch the
+    // single original zip ("ugoira": true overrides the janky
+    // "original" frames mode), let that zip through the filter, and box
+    // converts it with per-frame delays (Ugoira::unzipFrames) instead of
+    // running the user's postprocessor.
     QStringList args;
     args << QStringLiteral("-D") << QDir::toNativeSeparators(destDir);
     args << QStringLiteral("--no-postprocessors");
+    args << QStringLiteral("-o") << QStringLiteral("ugoira=true");
     args << QStringLiteral("--filter")
          << QStringLiteral(
-                "(extension or '').lower() not in "
-                "('zip','rar','7z','tar','gz','bz2','xz','tgz','zst',"
-                "'psd','psb','clip','kra','xcf','sai','sai2')");
+                "((extension or '').lower() not in "
+                "('rar','7z','tar','gz','bz2','xz','tgz','zst',"
+                "'psd','psb','clip','kra','xcf','sai','sai2')) "
+                "and ((extension or '').lower() != 'zip' "
+                "or category == 'pixiv')");
     args.append(urls);
     return args;
 }
@@ -259,6 +270,12 @@ int removeIgnoredDownloads(const QString &root) {
         it.next();
         if (!isIgnoredDownload(it.filePath()))
             continue;
+        // A Pixiv ugoira zip that failed to convert is kept for a retry
+        // (and for the user) instead of being discarded.
+        if (it.fileInfo().suffix().compare(QStringLiteral("zip"),
+                                           Qt::CaseInsensitive) == 0 &&
+            Ugoira::looksLikeUgoiraZip(it.filePath()))
+            continue;
         // Only gallery-dl's own nested output: a root-level archive the
         // user dropped into _Stray by hand is left alone.
         if (it.fileInfo().absolutePath() == root)
@@ -299,19 +316,58 @@ AdoptSummary adoptNewFiles(const QString &destDir,
     if (!root.exists())
         return out;
     QStringList newFiles;
+    QStringList zips;
     QStringList dirs;
     QDirIterator it(destDir, QDir::Files | QDir::NoDotAndDotDot,
                     QDirIterator::Subdirectories);
     while (it.hasNext()) {
         it.next();
-        if (before.contains(it.filePath()) || !isMediaFile(it.filePath()))
+        if (before.contains(it.filePath()))
             continue;
-        newFiles << it.filePath();
+        const QString suffix = it.fileInfo().suffix().toLower();
+        const bool isUgoiraZip =
+            suffix == QStringLiteral("zip") &&
+            Ugoira::looksLikeUgoiraZip(it.filePath());
+        if (!isMediaFile(it.filePath()) && !isUgoiraZip)
+            continue;
+        if (isUgoiraZip)
+            zips << it.filePath();
+        else
+            newFiles << it.filePath();
         QString dir = it.fileInfo().absolutePath();
         while (dir != destDir && dir.startsWith(destDir) && !dirs.contains(dir)) {
             dirs << dir;
             dir = QFileInfo(dir).absolutePath();
         }
+    }
+    // Pixiv ugoira: gallery-dl fetches the original zip (box disables its
+    // postprocessor), box converts it once with the bundled per-frame
+    // delays and stores an animated webp like any other stray.
+    QHash<QString, int> ugoiraFrames;
+    for (const QString &zip : std::as_const(zips)) {
+        Ugoira::Frames frames;
+        QString error;
+        if (!Ugoira::unzipFrames(zip, frames, {}, 100, &error))
+            continue; // kept for a retry; cleanup leaves ugoira zips alone
+        const QFileInfo zfi(zip);
+        QString webpPath = zfi.absolutePath() + u'/' + zfi.completeBaseName() +
+                           QStringLiteral(".webp");
+        if (QFile::exists(webpPath)) {
+            int n = 2;
+            while (QFile::exists(zfi.absolutePath() + u'/' +
+                                 zfi.completeBaseName() + u'_' +
+                                 QString::number(n) + QStringLiteral(".webp")))
+                ++n;
+            webpPath = zfi.absolutePath() + u'/' + zfi.completeBaseName() +
+                       u'_' + QString::number(n) + QStringLiteral(".webp");
+        }
+        if (!Ugoira::encodeAnimated(frames, QStringLiteral("webp"), webpPath,
+                                    nullptr, &error))
+            continue;
+        QFile::remove(zip);
+        ugoiraFrames.insert(webpPath, frames.images.size());
+        newFiles << webpPath;
+        ++out.ugoira;
     }
     // Stable order: small albums flatten predictably (first downloaded
     // file keeps its position in the grid).
@@ -371,6 +427,11 @@ AdoptSummary adoptNewFiles(const QString &destDir,
                 ? postUrl
                 : o.value(QStringLiteral("source")).toString();
         o[QStringLiteral("stray")] = true;
+        if (const int n = ugoiraFrames.value(source); n > 0) {
+            o[QStringLiteral("ugoira")] = true;
+            o[QStringLiteral("ugoira_converted")] = true;
+            o[QStringLiteral("ugoira_frames")] = n;
+        }
         if (!origin.isEmpty() && origin != QStringLiteral("."))
             o[QStringLiteral("origin_dir")] = origin;
         QFile jf(sidecar);

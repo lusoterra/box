@@ -14,6 +14,9 @@ namespace {
 QString fixtureZip() {
     return QString::fromLatin1(TESTFILES_DIR) + QStringLiteral("/ugoira-frames.zip");
 }
+QString animationZip() {
+    return QString::fromLatin1(TESTFILES_DIR) + QStringLiteral("/ugoira-animation.zip");
+}
 } // namespace
 
 class TestUgoira : public QObject {
@@ -152,6 +155,35 @@ private slots:
                               QStringLiteral("000001.png")}));
         QCOMPARE(frames.delaysMs, QVector<int>({100, 100}));
         QVERIFY(!frames.images.at(0).isNull());
+    }
+
+    void frameDelaysFromAnimationJson() {
+        // Pixiv's zip animation.json / gallery-dl metadata: "frames".
+        QJsonObject raw;
+        QJsonArray frames;
+        frames.append(QJsonObject{{QStringLiteral("file"), QStringLiteral("000000.jpg")},
+                                  {QStringLiteral("delay"), 70}});
+        frames.append(QJsonObject{{QStringLiteral("file"), QStringLiteral("000001.jpg")},
+                                  {QStringLiteral("delay"), 130}});
+        raw[QStringLiteral("frames")] = frames;
+        const auto d = Ugoira::delaysFromRaw(raw, 100);
+        QCOMPARE(d.value(QStringLiteral("000000.jpg")), 70);
+        QCOMPARE(d.value(QStringLiteral("000001.jpg")), 130);
+    }
+
+    void unpackAnimationZip() {
+        // gallery-dl path: the zip itself carries animation.json; delays
+        // come from it (no API raw object) and the JSON is not a frame.
+        QVERIFY(Ugoira::looksLikeUgoiraZip(animationZip()));
+        Ugoira::Frames frames;
+        QString error;
+        QVERIFY2(Ugoira::unzipFrames(animationZip(), frames, {}, 100, &error),
+                 qPrintable(error));
+        QCOMPARE(frames.images.size(), 2);
+        QCOMPARE(frames.names,
+                 QStringList({QStringLiteral("000000.png"),
+                              QStringLiteral("000001.png")}));
+        QCOMPARE(frames.delaysMs, QVector<int>({70, 130}));
     }
 
     void encodeWebp() {

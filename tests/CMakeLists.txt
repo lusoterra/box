@@ -59,7 +59,9 @@ add_unit_test(test_filehash test_filehash.cpp)
 add_unit_test(test_csvbackup test_csvbackup.cpp ../src/library/csvbackup.cpp)
 add_unit_test(test_metaparser test_metaparser.cpp ../src/library/metaparser.cpp)
 add_unit_test(test_gallerydl test_gallerydl.cpp ../src/remote/gallerydl.cpp
-              ../src/library/metaparser.cpp)
+              ../src/library/metaparser.cpp ${UGOIRA_SOURCES})
+target_compile_definitions(test_gallerydl PRIVATE
+    TESTFILES_DIR="${CMAKE_SOURCE_DIR}/tests/files")
 add_unit_test(test_losnimport test_losnimport.cpp ../src/library/losnimport.cpp
               ../src/remote/downloadmanager.cpp ../src/remote/downloadqueue.cpp ../src/remote/webdlbackend.h ${REMOTE_SOURCES}
               ../src/remote/postmeta.cpp
