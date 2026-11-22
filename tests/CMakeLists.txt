@@ -37,10 +37,7 @@ set(REMOTE_SOURCES
 # downloadmanager.cpp gets the whole set.
 set(UGOIRA_SOURCES
     ../src/library/ugoioconvert.cpp
-    ../src/library/miniz/miniz.c
-    ../src/library/miniz/miniz_tdef.c
-    ../src/library/miniz/miniz_tinfl.c
-    ../src/library/miniz/miniz_zip.c)
+    ../src/library/miniz/miniz.c)
 include_directories(${CMAKE_SOURCE_DIR}/src/library/miniz)
 
 # Boot migrations (src/migrations/): one file per one-time upgrade.
@@ -226,8 +223,7 @@ add_unit_test(test_settingsexport test_settingsexport.cpp
               ../src/library/settingsexport.cpp ../src/settings.cpp ../src/library/favdb.cpp
               ${REMOTE_SOURCES} ${MIGRATION_SOURCES})
 add_unit_test(test_ugoira test_ugoira.cpp ../src/library/ugoioconvert.cpp
-              ../src/library/miniz/miniz.c ../src/library/miniz/miniz_tdef.c
-              ../src/library/miniz/miniz_tinfl.c ../src/library/miniz/miniz_zip.c)
+              ../src/library/miniz/miniz.c)
 target_compile_definitions(test_ugoira PRIVATE
     TESTFILES_DIR="${CMAKE_SOURCE_DIR}/tests/files")
 target_include_directories(test_ugoira PRIVATE

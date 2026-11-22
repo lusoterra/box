@@ -40,9 +40,6 @@ add_executable(box
     src/engines/engine_animepictures.cpp
     src/library/ugoioconvert.cpp
     src/library/miniz/miniz.c
-    src/library/miniz/miniz_tdef.c
-    src/library/miniz/miniz_tinfl.c
-    src/library/miniz/miniz_zip.c
     src/remote/remotesource.cpp
     src/remote/strayresolve.cpp
     src/remote/gallerydl.cpp
