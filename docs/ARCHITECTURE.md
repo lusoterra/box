@@ -120,8 +120,15 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     percentages of the detail `width`/`height`), Szurubooru
     `/api/post/<id>` (`notes[].polygon` is a fractional-canvas point list;
     the overlay is its bounding box, old pixel-valued instances kept);
-    no endpoint on Shimmie/Nuuru/Philomena/BooruOnRails/AnimePictures
-    (a 404 there would fail the whole fetch).
+    no notes endpoint on Shimmie/Nuuru/Philomena/BooruOnRails/
+    AnimePictures (a 404 there would fail the whole fetch).
+    Comments: Danbooru/e621 `/comments.json`, Gelbooru dapi `s=comment`,
+    Moebooru `/comment.json`, Szurubooru `/api/comments/?query=post:<id>`,
+    Nuuru `/api/booru/posts/<id>/comments`, Philomena
+    `/api/v1/json/search/comments?q=image_id:<id>`, Booru-on-Rails
+    `/api/v3/posts/<id>/comments`. Artist commentary: Danbooru
+    `/artist_commentaries.json` (PLURAL - the singular endpoint 404s for
+    every post), Philomena/v3 post `description`, HyBooru rect-null notes.
     The viewer's tag panel shows a `Loading notes and comments…`
     indeterminate strip under TAGS while the per-post fetch is
     outstanding (`ViewerPage::m_metaBusy`), cleared by `done`.

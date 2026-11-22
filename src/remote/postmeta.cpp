@@ -226,7 +226,14 @@ void PostMetaFetcher::fetch(const QString &siteKey, const QString &baseUrl,
                     r->attribute(QNetworkRequest::HttpStatusCodeAttribute)
                         .toInt();
                 body = r->readAll();
-                if (r->error() == QNetworkReply::NoError && http / 100 == 2) {
+                if (http == 404) {
+                    // Danbooru: no artist commentary row for this post
+                    // (the collection endpoint 404s instead of returning
+                    // an empty array). Definitive empty, not a failure.
+                    m_commentary.clear();
+                    ok = true;
+                } else if (r->error() == QNetworkReply::NoError &&
+                           http / 100 == 2) {
                     m_commentary =
                         PostMeta::parseCommentary(m_engine, body, &ok);
                     if (!ok)
@@ -480,8 +487,22 @@ QUrl commentsUrl(BooruEngine engine, const QString &baseUrl, qint64 postId,
         url.setQuery(q);
         return url;
     }
-    if (engine == BooruEngine::Shimmie || engine == BooruEngine::Hybooru ||
-        RemotePosts::isPhilomenaFamily(engine))
+    if (engine == BooruEngine::Philomena) {
+        // Philomena v1: unscoped comments search, scoped by image_id.
+        QUrl url(baseUrl + QStringLiteral("/api/v1/json/search/comments"));
+        QUrlQuery q;
+        q.addQueryItem(QStringLiteral("q"),
+                       QStringLiteral("image_id:") + id);
+        q.addQueryItem(QStringLiteral("per_page"), QStringLiteral("100"));
+        url.setQuery(q);
+        return url;
+    }
+    if (engine == BooruEngine::BooruOnRails) {
+        // v3 exposes the thread on the post itself.
+        return QUrl(baseUrl + QStringLiteral("/api/v3/posts/") + id +
+                    QStringLiteral("/comments"));
+    }
+    if (engine == BooruEngine::Shimmie || engine == BooruEngine::Hybooru)
         return {}; // no comment API on these engines (v1 / unknown shape)
     if (engine == BooruEngine::Nuuru) {
         QUrl url(baseUrl + QStringLiteral("/api/booru/posts/") + id +
@@ -527,7 +548,10 @@ QUrl commentsUrl(BooruEngine engine, const QString &baseUrl, qint64 postId,
 QUrl commentaryUrl(BooruEngine engine, const QString &baseUrl, qint64 postId) {
     const QString id = QString::number(postId);
     if (engine == BooruEngine::Danbooru) {
-        QUrl url(baseUrl + QStringLiteral("/artist_commentary.json"));
+        // Plural: /artist_commentary.json answers 404 for every post
+        // (live danbooru.donmai.us 2026-11-22), the collection endpoint
+        // returns the row array.
+        QUrl url(baseUrl + QStringLiteral("/artist_commentaries.json"));
         QUrlQuery q;
         q.addQueryItem(QStringLiteral("search[post_id]"), id);
         q.addQueryItem(QStringLiteral("limit"), QStringLiteral("1"));

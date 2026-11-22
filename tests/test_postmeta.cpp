@@ -75,8 +75,18 @@ private slots:
         QVERIFY(queryItem(szuru, "postId").isEmpty());
         QVERIFY(PostMeta::commentsUrl(BooruEngine::Shimmie, kDan, 1).isEmpty());
         QVERIFY(PostMeta::commentsUrl(BooruEngine::Hybooru, kDan, 1).isEmpty());
-        QVERIFY(PostMeta::commentsUrl(BooruEngine::Philomena, kDan, 1).isEmpty());
-        QVERIFY(PostMeta::commentsUrl(BooruEngine::BooruOnRails, kDan, 1).isEmpty());
+        // Philomena v1 uses an image_id search; v3 hangs the thread on
+        // the post. Both verified live 2026-11-22.
+        const QUrl phi = PostMeta::commentsUrl(
+            BooruEngine::Philomena, QStringLiteral("https://derpibooru.org"), 7);
+        QVERIFY(phi.toString().startsWith(
+            QStringLiteral("https://derpibooru.org/api/v1/json/search/comments")));
+        QCOMPARE(queryItem(phi, "q"), QStringLiteral("image_id:7"));
+        QCOMPARE(PostMeta::commentsUrl(
+                     BooruEngine::BooruOnRails,
+                     QStringLiteral("https://twibooru.org"), 7)
+                     .toString(),
+                 QStringLiteral("https://twibooru.org/api/v3/posts/7/comments"));
         // e621 shares Danbooru's /comments.json (verified live);
         // AnimePictures has no comment API (no Moebooru fallthrough).
         QVERIFY(PostMeta::commentsUrl(BooruEngine::E621,
@@ -91,6 +101,9 @@ private slots:
             BooruEngine::Danbooru,
             QStringLiteral("https://danbooru.donmai.us"), 42);
         QVERIFY(!dan.isEmpty());
+        // Collection endpoint (plural); the singular 404s on every post.
+        QVERIFY(dan.toString().startsWith(
+            QStringLiteral("https://danbooru.donmai.us/artist_commentaries.json")));
         QCOMPARE(QUrlQuery(dan).queryItemValue(
                      QStringLiteral("search[post_id]")),
                  QStringLiteral("42"));
@@ -184,6 +197,16 @@ private slots:
         bool ok = false;
         QVERIFY(PostMeta::parseCommentary(QByteArray("nope"), &ok).isEmpty());
         QVERIFY(!ok);
+        // Live Danbooru shape: a bare array from /artist_commentaries.json.
+        bool ok2 = false;
+        const auto live = PostMeta::parseCommentary(
+            QByteArray(R"([{"id":1,"post_id":42,)"
+                       R"("original_description":"jp",)"
+                       R"("translated_description":"en"}])"),
+            &ok2);
+        QVERIFY(ok2);
+        QCOMPARE(live.size(), 1);
+        QVERIFY(live.at(0).body.contains(QStringLiteral("en")));
     }
 
     void parseNotesShapes() {
@@ -406,6 +429,22 @@ private slots:
         QCOMPARE(gel.size(), 1);
         QCOMPARE(gel.at(0).author, QStringLiteral("bob"));
         QCOMPARE(gel.at(0).body, QStringLiteral("lol"));
+        // Philomena v1 {"comments": [...]} from search/comments.
+        const auto phi = PostMeta::parseComments(
+            QByteArray(R"({"total":1,"comments":[{"id":9,)"
+                       R"("author":"pinkie","body":"fun","created_at":)"
+                       R"("2026-03-03T00:00:00Z"}]})"));
+        QCOMPARE(phi.size(), 1);
+        QCOMPARE(phi.at(0).author, QStringLiteral("pinkie"));
+        QCOMPARE(phi.at(0).body, QStringLiteral("fun"));
+        QCOMPARE(phi.at(0).date, QStringLiteral("2026-03-03T00:00:00Z"));
+        // Booru-on-Rails v3 /posts/<id>/comments (no author field).
+        const auto bor = PostMeta::parseComments(
+            QByteArray(R"({"comments":[{"id":1,"body":"first",)"
+                       R"("created_at":"2021-02-24T20:45:05.750Z"}]})"));
+        QCOMPARE(bor.size(), 1);
+        QCOMPARE(bor.at(0).body, QStringLiteral("first"));
+        QCOMPARE(bor.at(0).date, QStringLiteral("2021-02-24T20:45:05.750Z"));
         // Szurubooru {"results": [...]} with nested user + text + date.
         const auto szu = PostMeta::parseComments(
             QByteArray(R"({"results":[{"user":{"name":"carol"},)"
