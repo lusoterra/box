@@ -323,6 +323,7 @@ void MainWindow::persistFavBuckets(const QVector<Post> &posts) {
     for (const Post &p : posts) {
         const auto [site, pid] = favIdentity(p);
         FavDb::TagSplit s;
+        s.tags = p.tags;
         s.artist = p.tagsArtist;
         s.character = p.tagsCharacter;
         s.copyright = p.tagsCopyright;

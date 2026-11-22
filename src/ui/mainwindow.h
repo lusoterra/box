@@ -313,6 +313,10 @@ private slots:
     void importStrayFiles(const QStringList &paths);
     void editStrayTags(const Post &post);
     void applyStrayTagEdits(const QVector<StrayTagEdit> &edits);
+    // Push freshly written sidecar tags into every in-memory row (index,
+    // tabs, favourites DB links) and refresh the UI/classifier.
+    void applyStrayTagUpdates(
+        const QVector<QPair<QString, QJsonObject>> &written);
     void refreshPost(const Post &post);
     QString refreshReason(const Post &post);
     void onRefreshDone(qint64 reqId, const QJsonObject &raw);

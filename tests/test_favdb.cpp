@@ -336,6 +336,7 @@ private slots:
         QVERIFY(db.open(tmp.path()));
         QVERIFY(db.add(samplePost()));
         FavDb::TagSplit split;
+        split.tags = QStringLiteral("an_artist some_character 1girl sky");
         split.artist = QStringLiteral("an_artist");
         split.character = QStringLiteral("some_character");
         split.copyright = QString();
@@ -350,6 +351,8 @@ private slots:
         QCOMPARE(posts.first().tagsArtist, QStringLiteral("an_artist"));
         QCOMPARE(posts.first().tagsCharacter, QStringLiteral("some_character"));
         QCOMPARE(posts.first().tagsGeneral, QStringLiteral("1girl sky"));
+        QCOMPARE(posts.first().tags,
+                 QStringLiteral("an_artist some_character 1girl sky"));
         // Unknown rows are ignored, not created.
         QHash<QPair<QString, qint64>, FavDb::TagSplit> ghost;
         ghost.insert({QStringLiteral("Gelbooru"), 1LL}, split);

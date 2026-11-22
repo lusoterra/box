@@ -75,6 +75,9 @@ public:
     // keyed like setLocalPaths. Without this, re-listing the tab would
     // drop the buckets (the DB is the tab's backing store).
     struct TagSplit {
+        // Flat union too: search (matchesTokens) reads Post::tags, not the
+        // bucket columns, so a split-only write left favourites unsearchable.
+        QString tags;
         QString artist, character, copyright, general, meta, untyped;
     };
     int setTagSplits(const QHash<QPair<QString, qint64>, TagSplit> &splits);

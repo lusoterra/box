@@ -387,49 +387,7 @@ void MainWindow::editStrayTags(const Post &post) {
             touch.setFileTime(QDateTime::currentDateTime(),
                               QFileDevice::FileModificationTime);
     }
-    // Apply now (no rescan flash): reparse what we just wrote, patch the
-    // live index, and run the classifier so the new tags categorize
-    // immediately (manual overrides always, online fetch when enabled).
-    Post updated = post;
-    if (MetaParser::parse(obj, updated)) {
-        updated.absFile = post.absFile;
-        updated.file = post.file;
-        updated.ext = post.ext;
-        updated.category = post.category;
-        QVector<Post> posts = m_index.posts();
-        bool found = false;
-        for (Post &p : posts) {
-            if (!p.isRemote && p.absFile == post.absFile) {
-                p = updated;
-                found = true;
-            }
-        }
-        if (found) {
-            m_index.setPosts(posts);
-            if (BrowserTab *t = currentTab();
-                t && !t->isRemote && !t->isFavourites)
-                t->localPosts = posts;
-            rebuildCombos();
-            rebuildSidebar();
-            applyFilter();
-            if (m_pages->currentIndex() == 1) {
-                // Refresh must not blank the viewer: keep the displayed
-                // frame as the pending thumb until the full file reloads.
-                const QPixmap keep = m_viewer->currentPixmap();
-                m_viewer->setPosts(m_current);
-                if (!keep.isNull())
-                    m_viewer->showThumbPreview(keep);
-                for (int i = 0; i < m_current.size(); ++i) {
-                    if (!m_current[i].isRemote &&
-                        m_current[i].absFile == post.absFile) {
-                        m_viewer->showRow(i);
-                        break;
-                    }
-                }
-            }
-            maybeClassify();
-        }
-    }
+    applyStrayTagUpdates({{post.absFile, obj}});
     statusBar()->showMessage(tr("Tags saved"), 4000);
 }
 
@@ -524,52 +482,122 @@ void MainWindow::applyStrayTagEdits(const QVector<StrayTagEdit> &edits) {
             6000);
         return;
     }
-    // Apply once (no per-file refresh flash): reparse, patch the live
-    // index + viewer list, then refresh sidebar/filter/classifier.
-    QVector<Post> posts = m_index.posts();
-    for (const auto &[abs, obj] : written) {
-        for (Post &p : posts) {
-            if (!p.isRemote && p.absFile == abs) {
-                Post updated = p;
-                if (MetaParser::parse(obj, updated)) {
-                    updated.absFile = p.absFile;
-                    updated.file = p.file;
-                    updated.ext = p.ext;
-                    updated.category = p.category;
-                    p = updated;
-                }
-                break;
-            }
-        }
-        for (Post &p : m_current) {
-            if (!p.isRemote && p.absFile == abs) {
-                for (const Post &q : posts) {
-                    if (!q.isRemote && q.absFile == abs) {
-                        p = q;
-                        break;
-                    }
-                }
-                break;
-            }
-        }
-    }
-    m_index.setPosts(posts);
-    if (BrowserTab *t = currentTab();
-        t && !t->isRemote && !t->isFavourites)
-        t->localPosts = posts;
-    rebuildCombos();
-    rebuildSidebar();
-    applyFilter();
-    if (m_pages->currentIndex() == 1) {
-        const QPixmap keep = m_viewer->currentPixmap();
-        m_viewer->setPosts(m_current);
-        if (!keep.isNull())
-            m_viewer->showThumbPreview(keep);
-    }
-    maybeClassify();
+    applyStrayTagUpdates(written);
     QString msg = tr("Saved tags for %1 stray(s)").arg(written.size());
     if (skippedArchive || skippedWrite)
         msg += tr(" (skipped %1)").arg(skippedArchive + skippedWrite);
     statusBar()->showMessage(msg, 4000);
+}
+
+void MainWindow::applyStrayTagUpdates(
+    const QVector<QPair<QString, QJsonObject>> &written) {
+    if (written.isEmpty())
+        return;
+    auto canon = [](const QString &path) {
+        QString c = QFileInfo(path).canonicalFilePath();
+        return c.isEmpty() ? QFileInfo(path).absoluteFilePath() : c;
+    };
+    QHash<QString, Post> updates; // canonical absFile -> parsed tag fields
+    for (const auto &[abs, obj] : written) {
+        Post parsed;
+        if (MetaParser::parse(obj, parsed))
+            updates.insert(canon(abs), parsed);
+    }
+    if (updates.isEmpty())
+        return;
+    // Only tag/rating presence travels: identity (site/id/post URL, local
+    // path) always stays with the row being patched.
+    auto mergeTags = [&updates, &canon](Post &p) {
+        if (p.isRemote || p.absFile.isEmpty())
+            return false;
+        const auto it = updates.constFind(canon(p.absFile));
+        if (it == updates.constEnd())
+            return false;
+        const Post &u = it.value();
+        p.tags = u.tags;
+        p.tagsArtist = u.tagsArtist;
+        p.tagsCharacter = u.tagsCharacter;
+        p.tagsCopyright = u.tagsCopyright;
+        p.tagsGeneral = u.tagsGeneral;
+        p.tagsMeta = u.tagsMeta;
+        p.customTags = u.customTags;
+        p.untyped = u.untyped;
+        p.rating = u.rating;
+        p.ratingInferred = u.ratingInferred;
+        p.hasMeta = true;
+        return true;
+    };
+    // Live index (local tabs re-query it) and every tab's stored rows
+    // (favourites + downloads merges keep their own copies).
+    QVector<Post> posts = m_index.posts();
+    for (Post &p : posts)
+        mergeTags(p);
+    m_index.setPosts(posts);
+    for (BrowserTab *t : m_tabs) {
+        for (Post &p : t->localPosts)
+            mergeTags(p);
+        for (Post &p : t->browseMerged)
+            mergeTags(p);
+    }
+    for (Post &p : m_current)
+        mergeTags(p);
+    // Favourites rows linked to the edited files: persist the flat union
+    // too, otherwise search (which reads Post::tags) stays blind.
+    if (m_favDb.isOpen()) {
+        QHash<QString, const Post *> byPath;
+        for (auto it = updates.constBegin(); it != updates.constEnd(); ++it)
+            byPath.insert(it.key(), &it.value());
+        const auto paths = m_favDb.localPaths();
+        QHash<QPair<QString, qint64>, FavDb::TagSplit> splits;
+        for (auto it = paths.constBegin(); it != paths.constEnd(); ++it) {
+            const auto hit = byPath.constFind(canon(it.value()));
+            if (hit == byPath.constEnd())
+                continue;
+            const Post &u = *hit.value();
+            FavDb::TagSplit s;
+            s.tags = u.tags;
+            s.artist = u.tagsArtist;
+            s.character = u.tagsCharacter;
+            s.copyright = u.tagsCopyright;
+            s.general = u.tagsGeneral;
+            s.meta = u.tagsMeta;
+            s.untyped = u.untyped;
+            splits.insert(it.key(), s);
+        }
+        if (!splits.isEmpty())
+            m_favDb.setTagSplits(splits);
+    }
+    // Current tab: favourites/local filter from their row lists, a
+    // downloads merge goes through the browse filter.
+    if (BrowserTab *t = currentTab()) {
+        if (t->isFavourites || !t->isRemote) {
+            if (!t->isFavourites)
+                t->localPosts = m_index.posts();
+            rebuildCombos();
+            applyFilter();
+        } else {
+            m_browseMerged = t->browseMerged;
+            applyBrowseFilter();
+        }
+    }
+    // Viewer: keep the frame, update the metadata panel + tags.
+    if (m_pages && m_pages->currentIndex() == 1) {
+        const QPixmap keep = m_viewer->currentPixmap();
+        m_viewer->setPosts(m_current);
+        if (!keep.isNull())
+            m_viewer->showThumbPreview(keep);
+        int row = -1;
+        for (int i = 0; i < m_current.size(); ++i) {
+            if (!m_current.at(i).isRemote &&
+                updates.contains(canon(m_current.at(i).absFile))) {
+                row = i;
+                break;
+            }
+        }
+        if (row >= 0)
+            m_viewer->showRow(row);
+        m_viewer->refreshCurrentPost();
+    }
+    maybeClassify();
 }
 

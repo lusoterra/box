@@ -209,19 +209,20 @@ int FavDb::setTagSplits(const QHash<QPair<QString, qint64>, TagSplit> &splits) {
     int n = 0;
     QSqlQuery q(db);
     q.prepare(QStringLiteral(
-        "UPDATE favourites SET tags_artist=?, tags_character=?, "
+        "UPDATE favourites SET tags=?, tags_artist=?, tags_character=?, "
         "tags_copyright=?, tags_general=?, tags_meta=?, untyped=? "
         "WHERE site=? AND post_id=?"));
     for (auto it = splits.begin(); it != splits.end(); ++it) {
         const TagSplit &s = it.value();
-        q.bindValue(0, s.artist);
-        q.bindValue(1, s.character);
-        q.bindValue(2, s.copyright);
-        q.bindValue(3, s.general);
-        q.bindValue(4, s.meta);
-        q.bindValue(5, s.untyped);
-        q.bindValue(6, it.key().first);
-        q.bindValue(7, it.key().second);
+        q.bindValue(0, s.tags);
+        q.bindValue(1, s.artist);
+        q.bindValue(2, s.character);
+        q.bindValue(3, s.copyright);
+        q.bindValue(4, s.general);
+        q.bindValue(5, s.meta);
+        q.bindValue(6, s.untyped);
+        q.bindValue(7, it.key().first);
+        q.bindValue(8, it.key().second);
         if (q.exec())
             n += q.numRowsAffected();
     }
