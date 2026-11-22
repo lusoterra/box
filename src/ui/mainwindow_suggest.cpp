@@ -305,6 +305,7 @@ void MainWindow::fillSuggestModel(const QStringList &tags,
         if (same)
             return;
     }
+    m_suggestionRow = -1; // new list: nothing highlighted yet
     m_completeModel->clear();
     for (int i = 0; i < tags.size(); ++i) {
         auto *item = new QStandardItem(tags.at(i));
@@ -399,6 +400,29 @@ void MainWindow::mergeActiveTags(const QStringList &tokens) {
 }
 
 void MainWindow::onSearchReturn() {
+    if (m_suppressNextReturn) {
+        // Duplicate Enter after an accepted suggestion: the completer
+        // re-filled the box with the raw prefix. Drop it instead of
+        // committing an incomplete tag.
+        m_suppressNextReturn = false;
+        m_suggester->cancel();
+        m_completeTimer->stop();
+        m_completeModel->clear();
+        m_searchEdit->clear();
+        return;
+    }
+    // Enter pressed while the suggestion popup is open must commit the
+    // highlighted row, not the raw prefix (QCompleter still sets the
+    // line text to the prefix afterwards, which produced "ro" + "road").
+    if (m_completer && m_completer->popup() &&
+        m_completer->popup()->isVisible()) {
+        const QString picked = highlightedSuggestion();
+        if (!picked.isEmpty()) {
+            m_completer->popup()->hide();
+            onCompleterActivated(picked);
+            return;
+        }
+    }
     m_suggester->cancel();
     m_completeTimer->stop();
     m_completer->popup()->hide();

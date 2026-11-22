@@ -1056,6 +1056,17 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     connect(m_searchEdit, &QLineEdit::returnPressed, this, &MainWindow::onSearchReturn);
     connect(m_completer, QOverload<const QString &>::of(&QCompleter::activated), this,
             &MainWindow::onCompleterActivated);
+    // Enter on the popup goes through QCompleter's own event filter first
+    // (it hides the popup and emits the QModelIndex overload); without
+    // this the raw prefix was committed instead of the highlighted row.
+    connect(m_completer, QOverload<const QModelIndex &>::of(&QCompleter::activated),
+            this, [this](const QModelIndex &) {
+                // The completion model's display role can be the typed
+                // prefix row; resolve the real highlighted tag instead.
+                const QString picked = highlightedSuggestion();
+                if (!picked.isEmpty())
+                    onCompleterActivated(picked);
+            });
 
     m_ratingBox = new QComboBox(this);
     // Never visually empty: rebuildCombos() replaces this with counts

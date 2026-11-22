@@ -113,6 +113,8 @@ first booru (last one when the first has no URL). Enter commits: the box is
 wiped and each tag becomes a pill; a tag already worn as a pill is
 ignored, and `-tag` replaces the existing `tag` pill (same for the other
 direction), so `-tag other` flips `tag` and adds `other` in one go.
+Up/Down + Enter commits exactly the highlighted suggestion (never the
+partially typed token as a second pill); the box is always wiped.
 
 Below: filter pills - typed tags
 (including `rating:` and `filetype:` media kinds), query

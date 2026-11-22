@@ -335,6 +335,9 @@ private slots:
     // matching positive pill, repeats are ignored.
     void mergeActiveTags(const QStringList &tokens);
     void onCompleterActivated(const QString &text);
+    // Tag highlighted with Up/Down in the suggestion popup (skips the
+    // typed token row QCompleter prepends). Empty when none.
+    QString highlightedSuggestion() const;
     void removeQueryGroup(int gi); // drop one OR-group card, keep the rest
     static QString canonicalQuery(const QStringList &andTokens,
                                   const QList<QStringList> &groups);
@@ -527,6 +530,13 @@ private:
     // the cursor), committing the top tag without the user clicking it.
     // Selection requires press+release on the same row.
     int m_suggestionPressRow = -1;
+    // One Enter arrives twice when the completer popup is open (the
+    // completer re-fills the box with the raw prefix after the accepted
+    // suggestion). The duplicate is swallowed.
+    bool m_suppressNextReturn = false;
+    // Row highlighted with Up/Down in the suggestion popup (QCompleter's
+    // own current index is not always mirrored into the view). -1 = none.
+    int m_suggestionRow = -1;
     TagSuggester *m_suggester = nullptr;
     // Persistent tag vocabulary (tag + bucket + post count) learned from
     // tag-API answers: instant, popularity-ranked omnibar answers.

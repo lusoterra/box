@@ -109,11 +109,31 @@ void MainWindow::onCompleterActivated(const QString &text) {
     QString last = (pos >= 0) ? cur.mid(pos + 1) : cur;
     const QString dash = last.startsWith(u'-') ? QStringLiteral("-") : QString();
     m_searchEdit->setText(prefix + dash + text + u' ');
-    // Accepting a suggestion (click or Enter - Enter never reaches
-    // returnPressed while the popup is open) commits it like Enter:
+    // Accepting a suggestion (click or Enter) commits it like Enter:
     // pills, cleared omnibar, search. Multi-tag queries build across
     // repeated accepts, one search each.
     onSearchReturn();
+    // QCompleter can still deliver a synthetic return for the same Enter
+    // (with the raw prefix, e.g. "ro"), which committed the incomplete
+    // tag and re-filled the box after the accepted one. Swallow that one.
+    m_suppressNextReturn = true;
+    QTimer::singleShot(0, this, [this] { m_suppressNextReturn = false; });
+}
+
+QString MainWindow::highlightedSuggestion() const {
+    if (!m_completer || !m_completer->popup() || m_suggestionRow < 0)
+        return {};
+    QAbstractItemModel *model = m_completer->popup()->model();
+    if (!model)
+        return {};
+    const QString bare = QueryOr::suggestBare(m_searchEdit->text());
+    for (int r = m_suggestionRow; r < model->rowCount(); ++r) {
+        const QString text =
+            model->index(r, 0).data(Qt::DisplayRole).toString();
+        if (!text.isEmpty() && text != bare)
+            return text;
+    }
+    return {};
 }
 
 void MainWindow::onRatingChanged() {

@@ -230,10 +230,10 @@ bool MainWindow::eventFilter(QObject *o, QEvent *e) {
             m_completer->popup() && m_completer->popup()->isVisible()) {
             const auto *ke = static_cast<QKeyEvent *>(e);
             if (ke->key() == Qt::Key_Return || ke->key() == Qt::Key_Enter) {
-                const QModelIndex idx = m_completer->popup()->currentIndex();
-                if (idx.isValid()) {
+                const QString picked = highlightedSuggestion();
+                if (!picked.isEmpty()) {
                     m_completer->popup()->hide();
-                    onCompleterActivated(idx.data(Qt::DisplayRole).toString());
+                    onCompleterActivated(picked);
                     return true; // consumed: no returnPressed second commit
                 }
             }
@@ -275,10 +275,51 @@ bool MainWindow::eventFilter(QObject *o, QEvent *e) {
                     acceptSuggestion(idx.data(Qt::DisplayRole).toString());
                 return true; // no completer activation: stay open
             }
-        } else if (e->type() == QEvent::KeyPress &&
-                   static_cast<QKeyEvent *>(e)->key() == Qt::Key_Escape) {
-            popup->hide();
-            return true;
+        } else if (e->type() == QEvent::KeyPress) {
+            const int key = static_cast<QKeyEvent *>(e)->key();
+            // QCompleter's completion model prepends the typed token as
+            // row 0 (e.g. "ro"), so a plain Down/Enter picked that row and
+            // committed the incomplete prefix instead of the suggestion.
+            // Navigation skips any row whose text equals the token.
+            const QString bare = QueryOr::suggestBare(m_searchEdit->text());
+            auto realRow = [&](int from) -> int {
+                if (!popup->model())
+                    return -1;
+                const int rows = popup->model()->rowCount();
+                for (int r = qMax(0, from); r < rows; ++r) {
+                    const QString text = popup->model()
+                                             ->index(r, 0)
+                                             .data(Qt::DisplayRole)
+                                             .toString();
+                    if (!text.isEmpty() && text != bare)
+                        return r;
+                }
+                return -1;
+            };
+            if (key == Qt::Key_Return || key == Qt::Key_Enter) {
+                QModelIndex idx;
+                const int row = realRow(m_suggestionRow >= 0 ? m_suggestionRow : 0);
+                if (row >= 0)
+                    idx = popup->model()->index(row, 0);
+                if (!idx.isValid())
+                    idx = m_completer->currentIndex();
+                if (!idx.isValid())
+                    idx = popup->currentIndex();
+                if (idx.isValid() &&
+                    idx.data(Qt::DisplayRole).toString() != bare) {
+                    popup->hide();
+                    onCompleterActivated(idx.data(Qt::DisplayRole).toString());
+                    return true;
+                }
+            } else if (key == Qt::Key_Down) {
+                m_suggestionRow = realRow(m_suggestionRow < 0 ? 0
+                                                             : m_suggestionRow + 1);
+            } else if (key == Qt::Key_Up) {
+                m_suggestionRow = realRow(qMax(0, m_suggestionRow - 1));
+            } else if (key == Qt::Key_Escape) {
+                popup->hide();
+                return true;
+            }
         }
     }
     if (o == statusBar() && e->type() == QEvent::MouseButtonPress &&
