@@ -107,7 +107,13 @@ QString fixupMd5Name(const QString &absPath, const QString &siteLabel,
         patched = true;
     }
     QString safe = siteLabel;
+    // Keep a leading underscore: the strays folder is `_Stray`, and the
+    // convention is `_Stray_<md5>` (dropping it produced `Stray_<md5>`
+    // for repaired files).
+    const bool leadingUnderscore = safe.startsWith(u'_');
     safe.replace(QRegularExpression(QStringLiteral("[^A-Za-z0-9]+")), QString());
+    if (leadingUnderscore && !safe.startsWith(u'_'))
+        safe.prepend(u'_');
     if (safe.isEmpty())
         safe = QStringLiteral("Booru");
     const QString newStem = safe + u'_' + md5;

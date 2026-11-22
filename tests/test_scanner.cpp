@@ -59,6 +59,29 @@ private slots:
             dir.filePath(QStringLiteral("Site/Site_losn9.jpg"))));
     }
 
+    void strayKeepsLeadingUnderscore() {
+        // A stray whose sidecar carries the md5 but whose name does not:
+        // the repair must keep the `_Stray_<md5>` convention, not
+        // `Stray_<md5>`.
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QDir().mkpath(dir.filePath(QStringLiteral("_Stray")));
+        writeFile(dir.filePath(QStringLiteral("_Stray/_Stray_losn5.png")),
+                  QByteArray("stray-bytes"));
+        writeSidecar(dir.filePath(QStringLiteral("_Stray/_Stray_losn5.json")),
+                     nativeSidecar(5, QStringLiteral(
+                                          "d41d8cd98f00b204e9800998ecf8427e")));
+        const QVector<Post> posts =
+            Scanner::scan(dir.path(), nullptr, false);
+        QCOMPARE(posts.size(), 1);
+        QVERIFY(QFile::exists(dir.filePath(QStringLiteral(
+            "_Stray/_Stray_d41d8cd98f00b204e9800998ecf8427e.png"))));
+        QVERIFY(QFile::exists(dir.filePath(QStringLiteral(
+            "_Stray/_Stray_d41d8cd98f00b204e9800998ecf8427e.json"))));
+        QVERIFY(!QFile::exists(dir.filePath(
+            QStringLiteral("_Stray/Stray_d41d8cd98f00b204e9800998ecf8427e.png"))));
+    }
+
     void hashesWhenSidecarLacksMd5() {
         // _losn name + sidecar WITHOUT md5: hash bytes, patch sidecar.
         QTemporaryDir dir;
