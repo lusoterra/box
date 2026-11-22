@@ -485,13 +485,39 @@ void MainWindow::searchVariants(const Post &post) {
     for (const QString &a : std::as_const(alts))
         if (!unique.contains(a))
             unique << a;
-    // Family only: drop old tag cards, keep the tab's rating/blacklist.
-    m_activeTags.clear();
-    m_searchQuery = canonicalQuery({}, {unique});
-    m_searchEdit->clear();
-    backToGrid();
-    commitSearch();
-    statusBar()->showMessage(tr("Showing variants of #%1").arg(post.id), 5000);
+    // Open the family in a NEW tab: the post's own tab keeps its results
+    // and the open post (switching back reopens it), so both can be
+    // browsed side by side.
+    QStringList sites;
+    if (const BrowserTab *src = currentTab(); src && src->isRemote)
+        sites = src->sites;
+    if (sites.isEmpty()) {
+        if (!post.siteKey.isEmpty())
+            sites << post.siteKey;
+        else if (const BooruSite *entry = RemotePosts::entryForPost(post))
+            sites << entry->key;
+    }
+    if (sites.isEmpty())
+        sites = m_settings.browseSites;
+    QStringList clean;
+    for (const QString &s : std::as_const(sites))
+        if (!isVirtualSource(s) && !clean.contains(s))
+            clean << s;
+    auto *t = new BrowserTab();
+    t->isRemote = true;
+    t->sites = clean;
+    t->rating = m_rating;
+    t->sort = m_sort;
+    t->searchQuery = canonicalQuery({}, {unique});
+    t->activeTags.clear();
+    t->page = 1;
+    m_tabs.append(t);
+    m_tabBar->addTab(QString());
+    updateTabTitle(static_cast<int>(m_tabs.size()) - 1);
+    m_tabBar->setCurrentIndex(static_cast<int>(m_tabs.size()));
+    saveTabsNow();
+    statusBar()->showMessage(
+        tr("Variants of #%1 opened in a new tab").arg(post.id), 5000);
 }
 
 void MainWindow::addTagToSearch(const QString &tag) {
