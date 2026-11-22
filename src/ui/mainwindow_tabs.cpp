@@ -767,7 +767,10 @@ void MainWindow::setBrowseUi(bool browse) {
     // Real browse tabs keep them for the server-side query/append path.
     const bool showFilters = browse || favs || downloads;
     m_ratingBox->setVisible(showFilters);
-    m_categoryBox->setVisible(false);
+    // Source filter: favourites and downloads mix several boorus/folders,
+    // so the dropdown earns its place there (plain browse tabs are one
+    // source and use the Boorus picker instead).
+    m_categoryBox->setVisible(favs || downloads);
     // Downloads media type: extension-based, so it only makes sense on
     // tabs backed by the download folder.
     if (m_mediaBox)

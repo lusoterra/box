@@ -106,6 +106,15 @@ void MainWindow::applyBrowseFilter() {
                                    [&](const Post &p) { return p.rating != t->rating; }),
                     posts.end());
     }
+    // Source filter (favourites/downloads): local rows carry the site
+    // folder in `category`, remote rows the booru label.
+    if (t && !m_category.isEmpty()) {
+        posts.erase(std::remove_if(posts.begin(), posts.end(),
+                                   [&](const Post &p) {
+                                       return p.category != m_category;
+                                   }),
+                    posts.end());
+    }
     // Media-kind net (filetype: tags + bare media tags, which ride the
     // same ext meaning): engines without verified support get the tokens
     // stripped server-side, so filter client-side here. Danbooru-engine

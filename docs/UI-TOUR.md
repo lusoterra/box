@@ -84,7 +84,7 @@ within minutes are suppressed (the button stays).
 
 ## 03-omnibar - the control row under the tab bar
 Left to right: tag search box (placeholder `Search tags…`, `/` focuses)
-→ rating dropdown (`All`/`General`/`Sensitive`/`Questionable`/`Explicit`; shown on browse, favourites and both downloads views - server-side on remote tabs, client-side on local/favourites) → media dropdown
+→ rating dropdown (`All`/`General`/`Sensitive`/`Questionable`/`Explicit`; shown on browse, favourites and both downloads views - server-side on remote tabs, client-side on local/favourites) → source dropdown (`All sources` + one row per booru/folder with counts; shown on Favourites and both downloads views, filters the grid client-side and becomes a removable pill) → media dropdown
 (`All media` / `Images` / `GIFs` / `Anything animated` / `Videos`, shown only on
 tabs backed by the download folder (`Downloads` source or `File → Browse Downloads`);
 filters files under the download folder by extension - a `GIFs` choice covers gif/animated webp/jxl, `Anything animated`

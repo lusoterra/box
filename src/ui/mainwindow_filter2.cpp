@@ -122,6 +122,8 @@ void MainWindow::applyFilter() {
         for (const Post &p : t->localPosts) {
             if (m_rating != QStringLiteral("all") && p.rating != m_rating)
                 continue;
+            if (!m_category.isEmpty() && p.category != m_category)
+                continue; // booru/folder source filter
             if (m_settings.hideAi && isAiPost(p))
                 continue;
             if (blacklisted(p, banned))

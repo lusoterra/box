@@ -270,12 +270,33 @@ void MainWindow::rebuildCombos() {
     m_ratingBox->setCurrentIndex(qMax(0, ri));
     m_ratingBox->blockSignals(false);
 
+    // Source list follows the tab's own rows: favourites mix boorus and
+    // folders, a downloads view mixes boorus/archive folders. Plain
+    // browse tabs hide this combo (one source, picker above).
+    QHash<QString, int> sourceCounts;
+    int sourceTotal = 0;
+    if (const BrowserTab *t = currentTab(); t && t->isFavourites) {
+        for (const Post &p : t->localPosts) {
+            if (!p.category.isEmpty())
+                sourceCounts[p.category]++;
+            ++sourceTotal;
+        }
+    } else if (isBrowse()) {
+        for (const Post &p : m_browseMerged) {
+            if (!p.category.isEmpty())
+                sourceCounts[p.category]++;
+            ++sourceTotal;
+        }
+    } else {
+        sourceCounts = s.categories;
+        sourceTotal = s.total;
+    }
     m_categoryBox->blockSignals(true);
     m_categoryBox->clear();
-    m_categoryBox->addItem(tr("All sources (%1)").arg(s.total), QString());
+    m_categoryBox->addItem(tr("All sources (%1)").arg(sourceTotal), QString());
     QVector<QPair<QString, int>> cats;
-    cats.reserve(s.categories.size());
-    for (auto it = s.categories.begin(); it != s.categories.end(); ++it)
+    cats.reserve(sourceCounts.size());
+    for (auto it = sourceCounts.begin(); it != sourceCounts.end(); ++it)
         cats.append({it.key(), it.value()});
     std::sort(cats.begin(), cats.end(),
               [](const auto &a, const auto &b) { return a.second > b.second; });
