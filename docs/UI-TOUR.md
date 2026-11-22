@@ -217,7 +217,10 @@ grid veil and swaps the left sidebar for a `Loading tags…` placeholder
 immediately; the real sections fill in when the deferred scan/search
 rebuild lands (never the previous tab's tags). The filter-pill row is
 hidden during that window too, so the outgoing tab's tags never flash
-over the veil. Library archive
+over the veil. A tab left on a post reopens that post in the viewer
+(identity match, so refills/reorders don't matter) - including
+Favourites and Downloads tabs; only asynchronous first loads stay on the
+grid until their rows arrive. Library archive
 roots are read-only: no Delete there, tag refresh is disabled, and a
 hard `refuseArchiveWrite` guard refuses any file write outside the
 download dir (Syncthing-safe).

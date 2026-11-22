@@ -671,9 +671,7 @@ void MainWindow::finishActivateTab(int tabIdx) {
         m_scanBar->setVisible(false); // skeleton done (no async work here)
         setSidebarLoading(false);     // filter rebuild above may have raced
         hideTabLoading(t);
-        return;
-    }
-    if (t->isRemote) {
+    } else if (t->isRemote) {
         syncSitesMenu();
         m_pageLabel->setText(tr("Page %1").arg(t->page));
         if (t->browseMerged.isEmpty())
@@ -733,7 +731,7 @@ void MainWindow::finishActivateTab(int tabIdx) {
     }
     // Grid position: the viewer jump already centers its post; a grid-only
     // tab returns to the first visible row saved on switch/quit.
-    if (!viewerRestored && tb && tb->scrollRow >= 0 &&
+    if (!viewerRestored && tb && tb->scrollRow > 0 &&
         tb->scrollRow < m_model->rowCount()) {
         m_grid->scrollTo(m_model->index(tb->scrollRow, 0),
                          QAbstractItemView::PositionAtTop);
