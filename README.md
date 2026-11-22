@@ -9,28 +9,34 @@ quality, and keep favourites.
 
 ## Supported boorus
 
+Box talks each site's native API. Any instance of a supported engine can be
+added in Preferences → Booru manager (base URL + engine type); only
+Safebooru ships preconfigured, so a fresh install starts SFW-only.
+
 <details>
-<summary><b>Engines and example instances</b> (click to expand)</summary>
+<summary><b>Engines and example instances</b></summary>
 
-| Engine | Example instances | Notes |
+| Engine | Example instance | Notes |
 | --- | --- | --- |
-| Danbooru | danbooru.donmai.us, safebooru.donmai.us (ships as the default) | API keys supported |
-| Gelbooru | Gelbooru, Rule34, AIBoru, safebooru.org (add manually) | Rule34 needs API credentials |
-| Moebooru | Konachan, Yandere | |
-| Szurubooru | any Szurubooru instance | |
-| Shimmie | any Shimmie instance | |
-| HyBooru | any HyBooru instance | |
+| Danbooru | danbooru.donmai.us · safebooru.donmai.us | Safebooru (SFW subset) is the shipped default; API keys supported |
+| Gelbooru | gelbooru.com · safebooru.org | API credentials unlock restricted posts |
+| Moebooru | yande.re · konachan.com | |
+| e621 / e926 | e926.net | e621 API; e926 is the SFW mirror of the same database |
+| AnimePictures | anime-pictures.net | SFW anime illustrations |
+| Szurubooru | your own instance | per-item categories supported |
+| Shimmie | your own instance | |
+| HyBooru | your own instance | tag hydration on first open |
 | Nuuru | soybooru.com | proof-of-work clearance solves itself in-app |
-| Philomena | derpibooru.org and other Philomena v1 hosts | |
-| Booru-on-Rails | twibooru.org and other v3 hosts (the Ruby codebase Philomena replaced) | |
+| Philomena | derpibooru.org | Philomena v1 hosts |
+| Booru-on-Rails | twibooru.org | the v3 Ruby codebase Philomena replaced |
 
-Any instance of a supported engine can be added in Preferences → Booru
-manager (base URL + engine type); only Safebooru ships preconfigured so
-fresh installs start SFW-only. New booru entries default to the
-`furry:g` default tag, which is expanded to `furry rating:general` on
-the wire: furry posts stay allowed, but only general-rated ones by
-default. Existing entries keep their own default tags.
 </details>
+
+New booru entries default to the `furry:g` tag, expanded to
+`furry rating:general` on the wire: furry posts stay allowed, but only
+general-rated ones by default. Existing entries keep their own default
+tags.
+
 
 ## Requirements
 
