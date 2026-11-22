@@ -339,6 +339,7 @@ void MainWindow::onRemoteSuggest(const QString &siteKey, const QString &prefix,
     if (bare != prefix || !isBrowse())
         return;
     QStringList words, buckets;
+    QVector<int> localCounts;
     for (int i = 0; i < m_completeModel->rowCount(); ++i) {
         const QModelIndex idx = m_completeModel->index(i, 0);
         const QString w = idx.data(Qt::DisplayRole).toString();
@@ -350,6 +351,9 @@ void MainWindow::onRemoteSuggest(const QString &siteKey, const QString &prefix,
             continue;
         words << w;
         buckets << idx.data(Qt::UserRole + 1).toString();
+        // Carry the painted popularity: rebuilding these rows without it
+        // used to erase every count on the next merge pass.
+        localCounts << idx.data(Qt::UserRole + 2).toInt();
     }
     // Merge, don't replace: the instant local answers stay on top and
     // remote extras append below. An empty/error reply leaves the popup
@@ -362,6 +366,7 @@ void MainWindow::onRemoteSuggest(const QString &siteKey, const QString &prefix,
         s.bucket = i < buckets.size()
                        ? buckets.at(i)
                        : QStringLiteral("general");
+        s.count = i < localCounts.size() ? localCounts.at(i) : 0;
         local.append(s);
     }
     // Union + one global relevance pass (locals win exact ties via

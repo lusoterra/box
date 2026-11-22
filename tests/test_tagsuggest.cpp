@@ -168,6 +168,24 @@ private slots:
         QCOMPARE(out.at(1).bucket, QStringLiteral("artist"));
     }
 
+    void mergeKeepsPopularityOnDuplicate() {
+        // Local rows are appended first; the popup rebuilds them from the
+        // model (no count) and remote answers merge in later. The richer
+        // count must survive the dedupe, not be erased by the first copy.
+        QVector<TagSuggestion> local(1), remote(1);
+        local[0].tag = QStringLiteral("roadrunner");
+        local[0].bucket = QStringLiteral("general");
+        local[0].count = 0;
+        remote[0].tag = QStringLiteral("roadrunner");
+        remote[0].bucket = QStringLiteral("character");
+        remote[0].count = 4100;
+        const auto merged =
+            TagSuggester::merge(QStringLiteral("road"), local, remote);
+        QCOMPARE(merged.size(), 1);
+        QCOMPARE(merged.at(0).count, 4100);
+        QCOMPARE(merged.at(0).bucket, QStringLiteral("character"));
+    }
+
     void rankOrdersExactFirst() {
         // API order is count-only: ranking lifts the exact tag above
         // higher-count prefix matches, keeps prefix by count, and sinks
@@ -218,8 +236,9 @@ private slots:
     void mergeRanksUnion() {
         // Union + one global relevance pass (was: locals-first fill that
         // starved server hits when the local vocabulary was rich enough
-        // to fill the cap alone). Dupes collapse (local row wins);
-        // an empty remote never blanks good local answers.
+        // to fill the cap alone). Dupes collapse, keeping the higher
+        // popularity and the richer bucket; an empty remote never blanks
+        // good local answers.
         auto sug = [](const char *tag, const char *bucket, int count) {
             TagSuggestion s;
             s.tag = QString::fromLatin1(tag);
@@ -230,13 +249,13 @@ private slots:
         const QVector<TagSuggestion> local = {
             sug("sky", "general", 30), sug("skyblue", "general", 5)};
         const QVector<TagSuggestion> remote = {
-            sug("SKY", "general", 999), // dupe: local row wins
+            sug("SKY", "general", 999), // dupe: higher count wins
             sug("skyline", "general", 400)};
         const auto merged =
             TagSuggester::merge(QStringLiteral("sky"), local, remote);
         QCOMPARE(merged.size(), 3);
         QCOMPARE(merged.at(0).tag, QStringLiteral("sky"));
-        QCOMPARE(merged.at(0).count, 30); // local count kept, not remote's
+        QCOMPARE(merged.at(0).count, 999); // richer popularity survives
         QCOMPARE(merged.at(1).tag, QStringLiteral("skyline"));
         QCOMPARE(merged.at(2).tag, QStringLiteral("skyblue"));
         // Empty remote keeps locals untouched.

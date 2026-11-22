@@ -522,6 +522,11 @@ private:
     QLineEdit *m_searchEdit = nullptr;
     QCompleter *m_completer = nullptr;
     QStandardItemModel *m_completeModel = nullptr; // DisplayRole tag, UserRole bucket
+    // Row pressed inside the suggestion popup. A click on the omnibar can
+    // have its RELEASE grabbed by the just-shown popup (row 0 sat under
+    // the cursor), committing the top tag without the user clicking it.
+    // Selection requires press+release on the same row.
+    int m_suggestionPressRow = -1;
     TagSuggester *m_suggester = nullptr;
     // Persistent tag vocabulary (tag + bucket + post count) learned from
     // tag-API answers: instant, popularity-ranked omnibar answers.

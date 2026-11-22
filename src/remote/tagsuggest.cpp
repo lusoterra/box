@@ -767,11 +767,11 @@ QVector<TagSuggestion> TagSuggester::merge(const QString &prefix,
                                               int cap) {
     QVector<TagSuggestion> uni;
     uni.reserve(local.size() + remote.size());
-    QSet<QString> seen;
+    QHash<QString, int> indexOf; // lowercase tag -> uni index
     const QString q = prefix.toLower();
     auto keep = [&](const TagSuggestion &s) {
         const QString key = s.tag.toLower();
-        if (key.isEmpty() || seen.contains(key))
+        if (key.isEmpty())
             return;
         // The popup only ever completes the current token: rows that
         // neither equal it nor start with it can never display, so they
@@ -779,7 +779,21 @@ QVector<TagSuggestion> TagSuggester::merge(const QString &prefix,
         // crowd out displayable rows).
         if (key != q && !key.startsWith(q))
             return;
-        seen.insert(key);
+        const auto dup = indexOf.constFind(key);
+        if (dup != indexOf.constEnd()) {
+            // Same tag from both sides: keep the richer count/bucket.
+            // Local rows are appended first, and several callers rebuild
+            // them from the popup model (no count there), which used to
+            // erase the booru popularity on every merge pass.
+            TagSuggestion &existing = uni[dup.value()];
+            existing.count = qMax(existing.count, s.count);
+            if ((existing.bucket.isEmpty() ||
+                 existing.bucket == QStringLiteral("general")) &&
+                !s.bucket.isEmpty())
+                existing.bucket = s.bucket;
+            return;
+        }
+        indexOf.insert(key, static_cast<int>(uni.size()));
         uni.append(s);
     };
     for (const TagSuggestion &st : local)

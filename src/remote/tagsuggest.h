@@ -60,9 +60,9 @@ public:
     // Cached popularity rows older than this are not used as instant
     // answers (the host re-confirms them on the next keystroke).
     static constexpr qint64 kFreshSeconds = 7 * 24 * 60 * 60;
-    // Merge policy for one prefix: union, case-insensitive dedup
-    // (local rows first so your vocabulary wins exact ties via the stable
-    // rank), then ONE global relevance pass, truncated to cap. A rich
+    // Merge policy for one prefix: union, case-insensitive dedup (the
+    // higher post count and the non-general bucket survive a dup), then
+    // ONE global relevance pass, truncated to cap. A rich
     // local vocabulary must never starve server hits (the old
     // locals-first fill dropped ranked remote answers entirely).
     static QVector<TagSuggestion> merge(const QString &prefix,

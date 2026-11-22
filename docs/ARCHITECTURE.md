@@ -158,7 +158,9 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     before the network answers. Rows a host has not re-confirmed in a
     week (`TagSuggester::kFreshSeconds`) are not used as instant answers;
     the network refills them, so popularity never ages silently. The
-    popup paints the count right-aligned (`500`, `7k`, `1.5M`).
+    popup paints the count right-aligned (`500`, `7k`, `1.5M`); a merge
+    dup keeps the higher count and the richer bucket, so a count-less
+    rebuild of the visible rows cannot erase popularity.
   - `queryor.h:16` `QueryOr`: `~(...)` OR-groups - `parse()` (`:28`),
     `expand()` cartesian cap `kMaxCombos = 12` (`:36`), `groupsMatch()`
     (`:40`), `suggestBare()` (`:45`), `mergeActiveTokens()` (`:50`) = the

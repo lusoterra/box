@@ -38,6 +38,7 @@
 #include <QCloseEvent>
 #include <QComboBox>
 #include <QCompleter>
+#include <QAbstractItemView>
 #include <QDateTime>
 #include <QDesktopServices>
 #include <QDir>
@@ -254,18 +255,29 @@ bool MainWindow::eventFilter(QObject *o, QEvent *e) {
     } else if (m_completer && m_completer->popup() &&
                (o == m_completer->popup() ||
                 o == m_completer->popup()->viewport())) {
-        if (e->type() == QEvent::MouseButtonRelease) {
+        QAbstractItemView *popup = m_completer->popup();
+        if (e->type() == QEvent::MouseButtonPress) {
+            auto *me = static_cast<QMouseEvent *>(e);
+            if (me->button() == Qt::LeftButton &&
+                popup->viewport()->rect().contains(me->pos())) {
+                // Decide on release, and only if it is the same row.
+                const QModelIndex idx = popup->indexAt(me->pos());
+                m_suggestionPressRow = idx.isValid() ? idx.row() : -1;
+                return true;
+            }
+        } else if (e->type() == QEvent::MouseButtonRelease) {
             auto *me = static_cast<QMouseEvent *>(e);
             if (me->button() == Qt::LeftButton) {
-                const QModelIndex idx =
-                    m_completer->popup()->indexAt(me->pos());
-                if (idx.isValid())
+                const int pressed = m_suggestionPressRow;
+                m_suggestionPressRow = -1;
+                const QModelIndex idx = popup->indexAt(me->pos());
+                if (pressed >= 0 && idx.isValid() && idx.row() == pressed)
                     acceptSuggestion(idx.data(Qt::DisplayRole).toString());
                 return true; // no completer activation: stay open
             }
         } else if (e->type() == QEvent::KeyPress &&
                    static_cast<QKeyEvent *>(e)->key() == Qt::Key_Escape) {
-            m_completer->popup()->hide();
+            popup->hide();
             return true;
         }
     }

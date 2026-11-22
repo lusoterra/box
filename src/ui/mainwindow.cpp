@@ -37,6 +37,7 @@
 
 #include <QAbstractItemView>
 #include <QApplication>
+#include <QStyle>
 #include <QActionGroup>
 #include <QCheckBox>
 #include <QClipboard>
@@ -607,13 +608,15 @@ public:
         const QString tag = opt.text;
         const QString count =
             TagSuggester::formatCount(index.data(Qt::UserRole + 2).toLongLong());
-        // Background/selection first, text drawn by hand so the popularity
-        // count can sit right-aligned without becoming part of the
-        // completion string.
-        opt.text.clear();
-        opt.palette.setColor(QPalette::Text, color);
-        opt.palette.setColor(QPalette::HighlightedText, color);
-        QStyledItemDelegate::paint(painter, opt, index);
+        // Background + selection only. Passing the text to the base
+        // delegate is not enough: QStyledItemDelegate::paint() runs
+        // initStyleOption() again on its own copy and would draw the tag a
+        // second time under ours (the doubled/garbled rows).
+        QStyleOptionViewItem bg(opt);
+        bg.text.clear();
+        bg.icon = QIcon();
+        QStyle *style = opt.widget ? opt.widget->style() : QApplication::style();
+        style->drawControl(QStyle::CE_ItemViewItem, &bg, painter, opt.widget);
         const bool selected = opt.state & QStyle::State_Selected;
         QRect r = opt.rect.adjusted(6, 0, -6, 0);
         int countWidth = 0;
