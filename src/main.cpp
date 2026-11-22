@@ -66,6 +66,10 @@ int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
     app.setApplicationName(QStringLiteral("box")); // filesystem paths stay lowercase
     app.setApplicationDisplayName(QStringLiteral("Box"));
+    // PulseAudio/PipeWire stream identity: KDE maps the stream to
+    // box.desktop (Icon=booru-explorer) instead of a generic grey "box"
+    // square when the desktop file name is announced.
+    app.setDesktopFileName(QStringLiteral("box"));
     // No organization name: with org == app the platform cache dir nests
     // twice (~/.cache/box/box). Nothing depends on
     // the org name (all paths are explicit).

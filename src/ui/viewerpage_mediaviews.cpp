@@ -681,6 +681,13 @@ VideoPane::VideoPane(QWidget *parent) : QWidget(parent) {
     m_player = new QMediaPlayer(this);
     m_audio = new QAudioOutput(this);
     m_audio->setDevice(QMediaDevices::defaultAudioOutput());
+    // Sink switches (Plasma: headphones -> speakers) must move the stream
+    // with the system default. setDevice() at construction froze whatever
+    // was default when the first video pane was built.
+    followDefaultAudioDevice();
+    auto *devices = new QMediaDevices(this);
+    connect(devices, &QMediaDevices::audioOutputsChanged, this,
+            [this] { followDefaultAudioDevice(); });
     m_audio->setVolume(1.0);
     m_audio->setMuted(true); // muted by default; unmute in the controls
     m_player->setAudioOutput(m_audio);
@@ -837,6 +844,19 @@ void VideoPane::togglePlayPause() {
         m_player->play();
 }
 
+void VideoPane::followDefaultAudioDevice() {
+    if (!m_audio)
+        return;
+    const QAudioDevice next = QMediaDevices::defaultAudioOutput();
+    // Compare by id: QAudioDevice is a value type but the id is the stable
+    // identity across enumeration refreshes.
+    if (next.isNull() || next.id() == m_audio->device().id())
+        return;
+    // Switching mid-stream is supported by QAudioOutput; Qt re-routes the
+    // PCM to the new sink on the next buffer.
+    m_audio->setDevice(next);
+}
+
 void VideoPane::fitView() {
     if (m_view)
         m_view->fit();
@@ -908,6 +928,10 @@ void VideoPane::setFile(const QString &path) {
 }
 
 void VideoPane::setUrl(const QUrl &url, const Post &post) {
+    // Re-resolve the sink on every open: KDE's default output may have
+    // changed while the app sat idle (its device list signal is not
+    // guaranteed to fire for a default-only switch).
+    followDefaultAudioDevice();
     // Drop temp file and cancel any in-flight web download before loading
     // the new source. Do NOT call m_player->stop() here: setSource(url)
     // stops playback and loads the new source directly; stopping first can

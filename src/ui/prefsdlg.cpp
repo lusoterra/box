@@ -1136,7 +1136,11 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     m_booruEmpty->setVisible(false);
     accLay->addWidget(m_booruEmpty);
     auto *accFormBox = new QWidget(this);
-    accFormBox->setMinimumWidth(0);
+    // The editor column must not stretch across the whole 980px dialog:
+    // fields ran ~1120px wide (labels far left, values far right) which
+    // read as misaligned. A fixed 640 column keeps labels, fields and the
+    // wrapping cookie row together; the slack sits after the form.
+    accFormBox->setFixedWidth(640);
     auto *accForm = new QFormLayout(accFormBox);
     // Long rows (cookie buttons, notes) wrap under their label instead of
     // pushing the whole page wider than the dialog.
@@ -1203,6 +1207,10 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     accForm->addRow(tr("Badge text:"), m_booruShort);
     m_booruColor = QColor(QStringLiteral("#3a7ec2"));
     m_booruColorBtn = new QPushButton(this);
+    // A compact swatch: as a plain form field it grew to the full editor
+    // width (a solid color bar with the hex floating in the middle).
+    m_booruColorBtn->setFixedWidth(150);
+    m_booruColorBtn->setCursor(Qt::PointingHandCursor);
     setBooruSwatch();
     connect(m_booruColorBtn, &QPushButton::clicked, this, [this] {
         const QColor c = QColorDialog::getColor(m_booruColor, this,
@@ -1458,7 +1466,8 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
         "Keys and cookies are stored plaintext in settings.ini. Renaming a booru orphans "
         "its old favourites entries (they keep the old name); the key itself "
         "never changes once created.")));
-    accLay->addWidget(accFormBox, 1);
+    accLay->addWidget(accFormBox, 0);
+    accLay->addStretch(1);
     m_booruFormBox = accFormBox;
     connect(m_booruList, &QListWidget::currentItemChanged, this,
             [this](QListWidgetItem *cur, QListWidgetItem *prev) {
