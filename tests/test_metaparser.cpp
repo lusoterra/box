@@ -216,6 +216,56 @@ private slots:
         QVERIFY(p.hasMeta);
     }
 
+    void nuuruSidecarKeepsTagsPageAndRating() {
+        // Soybooru/Nuuru download sidecars use {name, category} tags,
+        // "rating" instead of Szuru's "safety", and box writes post_url
+        // into the object. All three used to be dropped on rescan.
+        QJsonObject o;
+        o[QStringLiteral("id")] = 59918;
+        o[QStringLiteral("rating")] = QStringLiteral("explicit");
+        QJsonArray tags;
+        auto addTag = [&](const char *name, const char *cat) {
+            QJsonObject t;
+            t[QStringLiteral("name")] = QString::fromLatin1(name);
+            t[QStringLiteral("category")] = QString::fromLatin1(cat);
+            tags.append(t);
+        };
+        addTag("some_artist", "artist");
+        addTag("femjak", "variant");
+        addTag("nas_focus", "meta");
+        addTag("1soyjak", "uncategorized");
+        o[QStringLiteral("tags")] = tags;
+        o[QStringLiteral("post_url")] =
+            QStringLiteral("https://soybooru.com/post/view/59918");
+        o[QStringLiteral("md5Hash")] =
+            QStringLiteral("4f0a3d37c18e61c8550ab82b94ef06a2");
+        o[QStringLiteral("mimeType")] = QStringLiteral("video/mp4");
+        Post p;
+        QVERIFY(MetaParser::parse(o, p));
+        QCOMPARE(p.id, 59918LL);
+        QCOMPARE(p.rating, QStringLiteral("explicit"));
+        QCOMPARE(p.postUrl,
+                 QStringLiteral("https://soybooru.com/post/view/59918"));
+        QCOMPARE(p.tagsArtist, QStringLiteral("some_artist"));
+        QCOMPARE(p.tagsMeta, QStringLiteral("nas_focus"));
+        QVERIFY(p.tags.contains(QStringLiteral("femjak")));
+        QVERIFY(p.tags.contains(QStringLiteral("1soyjak")));
+        QVERIFY(p.hasMeta);
+
+        // Empty tag list still carries the native markers: the page must
+        // survive (a tagless video is exactly the glegle-badge case).
+        QJsonObject empty;
+        empty[QStringLiteral("id")] = 59919;
+        empty[QStringLiteral("mimeType")] = QStringLiteral("video/mp4");
+        empty[QStringLiteral("tags")] = QJsonArray();
+        empty[QStringLiteral("post_url")] =
+            QStringLiteral("https://soybooru.com/post/view/59919");
+        Post q;
+        QVERIFY(MetaParser::parse(empty, q));
+        QCOMPARE(q.id, 59919LL);
+        QCOMPARE(q.postUrl, empty.value(QStringLiteral("post_url")).toString());
+    }
+
     void szuruCustomCategoriesSurvive() {
         // Instance-native categories (meme, ...) are preserved as custom
         // buckets instead of dissolving into general, and stay searchable

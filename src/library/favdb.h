@@ -27,6 +27,10 @@ public:
     // relink passes and must be healed to the sibling image/video.
     static bool isSidecarPath(const QString &path);
     static QString mediaPathForSidecar(const QString &path);
+    // Canonical post-page key: scheme+host+path+query (fragments and
+    // trailing slashes ignored). Collapses a remote favourite and the
+    // local/hash favourite of the same downloaded post.
+    static QString normalizedPostUrl(const QString &url);
     static QString siteFor(const Post &post) {
         if (post.siteName.isEmpty() && !post.isRemote)
             return QStringLiteral("local");
@@ -67,6 +71,7 @@ public:
         QString site;
         qint64 id = 0;
         QString fileUrl;
+        QString postUrl; // recorded page (http) when the row had one
         QString tags; // combined tag blob (rebuilds sidecars on regen)
         QString ext;
     };

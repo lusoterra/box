@@ -88,9 +88,29 @@
 
 void MainWindow::healLocalPosts(QVector<Post> &posts) {
     for (Post &p : posts) {
-        if (p.isRemote || !p.postUrl.isEmpty() || p.id <= 0)
+        if (p.isRemote)
             continue;
         if (Stray::isStrayPath(p.absFile))
+            continue;
+        // A recorded page is authoritative: resolve provenance from it and
+        // fix legacy folders named after the media/CDN host (a soybooru
+        // video could sit in a glegle.gallery folder). Media URLs never
+        // decide this, and the pages must never be re-invented from them.
+        if (!p.postUrl.isEmpty() && RemotePosts::isHttpUrl(p.postUrl)) {
+            const QString host = QUrl(p.postUrl).host().toLower();
+            if (const BooruSite *e = RemotePosts::entryForHost(host)) {
+                Post ref;
+                ref.isRemote = true;
+                ref.siteKey = e->key;
+                ref.siteName = e->label.isEmpty() ? e->key : e->label;
+                ref.postUrl = p.postUrl;
+                const QString folder = RemotePosts::fsTagForPost(ref);
+                if (!folder.isEmpty() && p.category != folder)
+                    p.category = folder;
+            }
+            continue;
+        }
+        if (p.id <= 0)
             continue;
         const BooruSite *e = RemotePosts::entryForPost(p);
         if (!e)

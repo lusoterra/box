@@ -14,8 +14,10 @@
 #include <QSqlDatabase>
 #include <QSqlError>
 #include <QSqlQuery>
+#include <QUrl>
 
 #include <cstring>
+#include <algorithm>
 
 namespace {
 // Scheme check without pulling the engine layer into favdb: only http(s)
@@ -93,6 +95,26 @@ QMap<QString, QStringList> decodeCustom(const QString &s) {
 bool FavDb::isSidecarPath(const QString &path) {
     return QFileInfo(path).suffix().compare(QStringLiteral("json"),
                                             Qt::CaseInsensitive) == 0;
+}
+
+QString FavDb::normalizedPostUrl(const QString &raw) {
+    if (!isHttpLike(raw))
+        return {};
+    const QUrl u(raw.trimmed());
+    if (!u.isValid() || u.scheme().isEmpty() || u.host().isEmpty())
+        return {};
+    QString path = u.path();
+    while (path.endsWith(u'/') && path.size() > 1)
+        path.chop(1);
+    QString out = u.scheme().toLower() + QStringLiteral("://") +
+                  u.host().toLower();
+    if (u.port() > 0)
+        out += u'_' + QString::number(u.port());
+    out += path;
+    const QString query = u.query(QUrl::FullyEncoded);
+    if (!query.isEmpty())
+        out += u'?' + query;
+    return out;
 }
 
 QString FavDb::mediaPathForSidecar(const QString &path) {
@@ -242,7 +264,7 @@ QVector<FavDb::Unlinked> FavDb::unlinked() {
     // relinkFavourites, so both come back for another attempt.
     QSqlQuery q(QSqlDatabase::database(m_conn));
     if (!q.exec(QStringLiteral("SELECT site, post_id, file_url, local_path, "
-                               "tags, ext FROM favourites")))
+                               "tags, ext, post_url FROM favourites")))
         return out;
     while (q.next()) {
         const QString local = q.value(3).toString();
@@ -257,6 +279,7 @@ QVector<FavDb::Unlinked> FavDb::unlinked() {
         u.fileUrl = q.value(2).toString();
         u.tags = q.value(4).toString();
         u.ext = q.value(5).toString();
+        u.postUrl = q.value(6).toString();
         out.append(u);
     }
     return out;
@@ -316,8 +339,8 @@ bool FavDb::add(const Post &post) {
     q.prepare(QStringLiteral(
         "INSERT INTO favourites (site, post_id, rating, score, ext, tags, "
         "tags_artist, tags_character, tags_copyright, tags_general, tags_meta, "
-        "file_url, sample_url, preview_url, post_url, width, height, added, untyped, custom) "
-        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"));
+        "file_url, sample_url, preview_url, post_url, width, height, added, untyped, custom, local_path) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"));
     q.addBindValue(site);
     q.addBindValue(pid);
     q.addBindValue(post.rating);
@@ -332,16 +355,19 @@ bool FavDb::add(const Post &post) {
     q.addBindValue(post.fileUrl);
     q.addBindValue(post.sampleUrl);
     q.addBindValue(post.previewUrl);
-    // Local posts are keyed by file: always store the file path, never a
-    // source URL from the metadata (rowToPost serves it as absFile).
+    // Local posts keep their file path for rowToPost and, when the sidecar
+    // recorded a page, the real post URL too: Favourites can then collapse
+    // the remote row and this local one by URL (and Open post keeps working).
     q.addBindValue(post.isRemote
                        ? (post.postUrl.isEmpty() ? post.absFile : post.postUrl)
-                       : post.absFile);
+                       : (isHttpLike(post.postUrl) ? post.postUrl
+                                                   : post.absFile));
     q.addBindValue(post.width);
     q.addBindValue(post.height);
     q.addBindValue(QDateTime::currentMSecsSinceEpoch());
     q.addBindValue(post.untyped);
     q.addBindValue(encodeCustom(post.customTags));
+    q.addBindValue(post.isRemote ? QString() : post.absFile);
     return q.exec();
 }
 
@@ -358,8 +384,8 @@ int FavDb::addMany(const QVector<Post> &posts) {
     ins.prepare(QStringLiteral(
         "INSERT OR IGNORE INTO favourites (site, post_id, rating, score, ext, tags, "
         "tags_artist, tags_character, tags_copyright, tags_general, tags_meta, "
-        "file_url, sample_url, preview_url, post_url, width, height, added, untyped, custom) "
-        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"));
+        "file_url, sample_url, preview_url, post_url, width, height, added, untyped, custom, local_path) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"));
     const qint64 now = QDateTime::currentMSecsSinceEpoch();
     for (const Post &post : posts) {
         const QString site = FavDb::siteFor(post);
@@ -380,13 +406,15 @@ int FavDb::addMany(const QVector<Post> &posts) {
         ins.bindValue(13, post.previewUrl);
         ins.bindValue(14, post.isRemote
                             ? (post.postUrl.isEmpty() ? post.absFile : post.postUrl)
-                            : post.absFile);
+                            : (isHttpLike(post.postUrl) ? post.postUrl
+                                                        : post.absFile));
         ins.bindValue(15, post.width);
         ins.bindValue(16, post.height);
         // Restores preserve the original add time; fresh rows stamp now.
         ins.bindValue(17, post.added > 0 ? post.added : now);
         ins.bindValue(18, post.untyped);
         ins.bindValue(19, encodeCustom(post.customTags));
+        ins.bindValue(20, post.isRemote ? QString() : post.absFile);
         if (ins.exec() && ins.numRowsAffected() > 0)
             added++;
     }
@@ -450,9 +478,14 @@ static Post rowToPost(const QSqlQuery &q) {
         else if (!url.isEmpty())
             p.absFile = url;
     } else {
-        p.absFile = url;
+        // New rows store the real page here and the file in local_path;
+        // older rows stored the file path itself.
+        if (isHttpLike(url))
+            p.postUrl = url;
+        else
+            p.absFile = url;
     }
-    p.file = p.isRemote ? QString() : url;
+    p.file = p.isRemote ? QString() : p.absFile;
     p.width = q.value(15).toInt();
     p.height = q.value(16).toInt();
     p.untyped = q.value(18).toString();
@@ -585,31 +618,85 @@ QVector<Post> FavDb::list(int limit) {
     if (!q.exec())
         return out;
     QHash<QPair<QString, qint64>, QString> heal;
-    QSet<QString> seenPaths;
+    // Canonical local path and canonical post page both collapse twins:
+    // the remote favourite may never have been linked to its downloaded
+    // copy, so a path-only rule still showed "the same post twice".
+    QHash<QString, int> byPath;
+    QHash<QString, int> byPost;
+    QHash<int, bool> localRow;
+    auto tagSet = [](const QString &s) {
+        const QStringList parts = s.split(u' ', Qt::SkipEmptyParts);
+        return QSet<QString>(parts.begin(), parts.end());
+    };
     while (q.next()) {
         const QString storedSite = q.value(0).toString();
         const qint64 storedPid = q.value(1).toLongLong();
-        // One card per downloaded file: a remote row and a "local"
-        // (hash-identity) row can both point at the same sidecar-backed
-        // image (favouriting it from the grid and from Downloads). The
-        // older row stays in the DB; the list shows the newest only.
+        const bool isLocalRow = storedSite == QStringLiteral("local");
         const QString localPath = q.value(17).toString();
+        QString canon;
         if (!localPath.isEmpty()) {
-            QString canon = QFileInfo(localPath).canonicalFilePath();
+            canon = QFileInfo(localPath).canonicalFilePath();
             if (canon.isEmpty())
                 canon = QFileInfo(localPath).absoluteFilePath();
-            if (!canon.isEmpty()) {
-                if (seenPaths.contains(canon))
-                    continue;
-                seenPaths.insert(canon);
-            }
         }
         Post p = rowToPost(q);
         // Persist explicit upgrades (see rowToPost): the stored value
         // feeds rating counts/filters, so heal it once.
         if (p.ratingInferred)
             heal.insert({storedSite, storedPid}, p.rating);
-        out.append(p);
+        const QString postKey = FavDb::normalizedPostUrl(p.postUrl);
+        int hit = -1;
+        if (!canon.isEmpty()) {
+            const auto it = byPath.constFind(canon);
+            if (it != byPath.constEnd())
+                hit = it.value();
+        }
+        if (hit < 0 && !postKey.isEmpty()) {
+            const auto it = byPost.constFind(postKey);
+            // Only collapse a remote row with its local/hash twin (or two
+            // local rows for one file). Two distinct remote rows that
+            // happen to share a page are left alone.
+            if (it != byPost.constEnd() &&
+                (isLocalRow || localRow.value(it.value())))
+                hit = it.value();
+        }
+        if (hit < 0) {
+            hit = out.size();
+            out.append(p);
+        } else {
+            // Keep the newest row's position, but never lose the richer
+            // side: the remote row usually carries the full tag set and
+            // the page link, while the local row carries the file.
+            Post &kept = out[hit];
+            if (!isHttpLike(kept.postUrl) && isHttpLike(p.postUrl))
+                kept.postUrl = p.postUrl;
+            const QSet<QString> have = tagSet(kept.tags);
+            const QSet<QString> other = tagSet(p.tags);
+            if (other.size() > have.size() &&
+                std::all_of(have.begin(), have.end(),
+                            [&](const QString &t) { return other.contains(t); })) {
+                kept.tags = p.tags;
+                kept.tagsArtist = p.tagsArtist;
+                kept.tagsCharacter = p.tagsCharacter;
+                kept.tagsCopyright = p.tagsCopyright;
+                kept.tagsGeneral = p.tagsGeneral;
+                kept.tagsMeta = p.tagsMeta;
+                kept.untyped = p.untyped;
+                kept.customTags = p.customTags;
+                kept.rating = p.rating;
+                kept.ratingInferred = p.ratingInferred;
+            }
+            if (kept.absFile.isEmpty() && !p.absFile.isEmpty()) {
+                kept.absFile = p.absFile;
+                kept.file = p.file;
+                kept.ext = p.ext;
+            }
+        }
+        if (!canon.isEmpty())
+            byPath.insert(canon, hit);
+        if (!postKey.isEmpty())
+            byPost.insert(postKey, hit);
+        localRow[hit] = localRow.value(hit) || isLocalRow;
     }
     if (!heal.isEmpty()) {
         QSqlDatabase db = QSqlDatabase::database(m_conn);

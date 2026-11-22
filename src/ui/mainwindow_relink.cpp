@@ -114,6 +114,8 @@ void MainWindow::relinkFavourites() {
     // contain underscores, so the md5 is whatever follows the LAST one.
     // (Old code endswith-scanned every stem per missing row: O(n*m).)
     QHash<QString, QString> byMd5; // md5 suffix -> abs path (first wins)
+    QHash<QString, QString> byStem; // sidecar stem -> media path
+    QStringList sidecars;
     for (const QString &root : roots) {
         const QDir rootDir(root);
         if (!rootDir.exists())
@@ -125,9 +127,13 @@ void MainWindow::relinkFavourites() {
                 // A sidecar shares the media's stem, and QDir lists
                 // `_md5.json` before `_md5.png`: indexing it linked
                 // favourites to JSON (text editor instead of the image).
-                if (FavDb::isSidecarPath(fi.absoluteFilePath()))
+                if (FavDb::isSidecarPath(fi.absoluteFilePath())) {
+                    sidecars << fi.absoluteFilePath();
                     continue;
+                }
                 const QString stem = fi.completeBaseName();
+                if (!byStem.contains(stem))
+                    byStem.insert(stem, fi.absoluteFilePath());
                 const qsizetype cut = stem.lastIndexOf(u'_');
                 if (cut > 0 && cut + 1 < stem.size() &&
                     !byMd5.contains(stem.mid(cut + 1)))
@@ -135,14 +141,61 @@ void MainWindow::relinkFavourites() {
             }
         }
     }
+    // Downloaded sidecars carry the real post page even when the file URL
+    // has no hash in it (Nuuru: /api/booru/posts/<id>/file), which used to
+    // leave the remote favourite unlinked and duplicated next to the local
+    // row. Index both the page URL and entry#id.
+    QHash<QString, QString> byPostUrl;
+    QHash<QString, QString> byEntryId;
+    for (const QString &sidecar : sidecars) {
+        const QFileInfo sfi(sidecar);
+        QString media = byStem.value(sfi.completeBaseName());
+        if (media.isEmpty()) {
+            // gallery-dl flat sidecar: media.mp4.json
+            const QString flat =
+                sidecar.left(sidecar.size() - QStringLiteral(".json").size());
+            if (QFileInfo::exists(flat) && !FavDb::isSidecarPath(flat))
+                media = flat;
+        }
+        if (media.isEmpty() || QFileInfo(sidecar).size() > 8LL * 1024 * 1024)
+            continue;
+        QFile f(sidecar);
+        if (!f.open(QIODevice::ReadOnly))
+            continue;
+        const QJsonObject o = QJsonDocument::fromJson(f.readAll()).object();
+        const QString postUrl = o.value(QStringLiteral("post_url")).toString();
+        const QString pageKey = FavDb::normalizedPostUrl(postUrl);
+        if (!pageKey.isEmpty() && !byPostUrl.contains(pageKey))
+            byPostUrl.insert(pageKey, media);
+        const qint64 id = o.value(QStringLiteral("id")).toVariant().toLongLong();
+        const QString host = QUrl(postUrl).host().toLower();
+        const BooruSite *entry =
+            host.isEmpty() ? nullptr : RemotePosts::entryForHost(host);
+        if (entry && id > 0)
+            byEntryId.insert(entry->key + u'#' + QString::number(id), media);
+    }
     QHash<QPair<QString, qint64>, QString> found;
     for (const FavDb::Unlinked &u : missing) {
+        if (u.site == QStringLiteral("local"))
+            continue; // plain local rows carry their own file path
+        QString hit;
         const QString md5 = LosnImport::md5FromFileUrl(u.fileUrl);
-        if (md5.isEmpty())
-            continue;
-        // <tag>_<md5>.<any ext>, in any folder
-        if (byMd5.contains(md5))
-            found.insert({u.site, u.id}, byMd5.value(md5));
+        if (!md5.isEmpty())
+            hit = byMd5.value(md5); // <tag>_<md5>.<any ext>, in any folder
+        if (hit.isEmpty())
+            hit = byPostUrl.value(FavDb::normalizedPostUrl(u.postUrl));
+        if (hit.isEmpty() && u.id > 0) {
+            QString key = RemotePosts::keyForLabel(u.site);
+            if (key.isEmpty() && RemotePosts::isHttpUrl(u.postUrl)) {
+                if (const BooruSite *e = RemotePosts::entryForHost(
+                        QUrl(u.postUrl).host().toLower()))
+                    key = e->key;
+            }
+            if (!key.isEmpty())
+                hit = byEntryId.value(key + u'#' + QString::number(u.id));
+        }
+        if (!hit.isEmpty())
+            found.insert({u.site, u.id}, hit);
     }
     const int n = m_favDb.setLocalPaths(found);
     // Regeneration: favourited strays whose file is gone but whose source

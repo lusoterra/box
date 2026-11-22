@@ -413,6 +413,84 @@ private slots:
         QCOMPARE(db.list().size(), 2);
     }
 
+    void localFavouriteStoresFilePathAndPage() {
+        // A downloaded post favourited from Downloads used to store only
+        // its path in the post_url column: Open post stayed disabled and
+        // the row carried no local_path, so twin collapse could not see it.
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        FavDb db;
+        QVERIFY(db.open(tmp.path()));
+        const QString file = tmp.filePath(QStringLiteral("soybooru_59918.mp4"));
+        QFile f(file);
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write("mp4");
+        f.close();
+        Post p;
+        p.isRemote = false;
+        p.id = 59918;
+        p.ext = QStringLiteral("mp4");
+        p.absFile = file;
+        p.file = file;
+        p.tags = QStringLiteral("femjak nas_focus");
+        p.tagsGeneral = p.tags;
+        p.postUrl = QStringLiteral("https://soybooru.com/post/view/59918");
+        QVERIFY(db.add(p));
+        const QVector<Post> rows = db.list();
+        QCOMPARE(rows.size(), 1);
+        QCOMPARE(rows.first().postUrl, p.postUrl); // Open post stays live
+        QCOMPARE(rows.first().absFile, file);      // media stays local
+        QCOMPARE(db.localPaths().value({QStringLiteral("local"),
+                                        FavDb::pidFor(p)}),
+                 file);
+    }
+
+    void listCollapsesByPostUrlAndKeepsRicherTags() {
+        // The remote favourite may never get linked (Nuuru file URLs carry
+        // no md5): the same page URL must still collapse the local twin,
+        // and the full remote tag set must win over the sidecar subset.
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        FavDb db;
+        QVERIFY(db.open(tmp.path()));
+        const QString file = tmp.filePath(QStringLiteral("soybooru_59918.mp4"));
+        QFile f(file);
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write("mp4");
+        f.close();
+        Post remote = samplePost();
+        remote.siteName = QStringLiteral("Nuuru");
+        remote.id = 59918;
+        remote.postUrl = QStringLiteral("https://soybooru.com/post/view/59918");
+        remote.tags = QStringLiteral("femjak nas_focus 1soyjak");
+        remote.tagsGeneral = remote.tags;
+        QVERIFY(db.add(remote));
+        Post local;
+        local.isRemote = false;
+        local.id = 59918;
+        local.ext = QStringLiteral("mp4");
+        local.absFile = file;
+        local.file = file;
+        local.tags = QStringLiteral("femjak");
+        local.tagsGeneral = local.tags;
+        local.postUrl = remote.postUrl;
+        QVERIFY(db.add(local));
+        QCOMPARE(db.count(), 2); // rows stay; the list collapses them
+        const QVector<Post> rows = db.list();
+        QCOMPARE(rows.size(), 1);
+        QCOMPARE(rows.first().postUrl, remote.postUrl);
+        QCOMPARE(rows.first().absFile, file);
+        QVERIFY(rows.first().tags.contains(QStringLiteral("nas_focus")));
+        QVERIFY(rows.first().tags.contains(QStringLiteral("1soyjak")));
+        // Collapsing also works when neither row is linked to the file.
+        QHash<QPair<QString, qint64>, QString> clear;
+        clear.insert({QStringLiteral("Nuuru"), 59918}, QString());
+        clear.insert({QStringLiteral("local"), FavDb::pidFor(local)},
+                     QString());
+        QVERIFY(db.setLocalPaths(clear) == 2);
+        QCOMPARE(db.list().size(), 1);
+    }
+
     void localPathResolution() {
         QTemporaryDir tmp;
         QVERIFY(tmp.isValid());

@@ -100,14 +100,26 @@ bool MetaParser::parse(const QJsonObject &raw, Post &post) {
         // gallery-dl native gelbooru info.json: id/score/rating + tags.
         ok = parseGelbooruNative(raw, post);
     } else if (raw.value(QStringLiteral("tags")).isArray() &&
-               !raw.value(QStringLiteral("tags")).toArray().isEmpty() &&
-               raw.value(QStringLiteral("tags"))
-                   .toArray()
-                   .first()
-                   .toObject()
-                   .contains(QStringLiteral("names"))) {
-        // Szurubooru native object (our own download sidecars included):
-        // "tags" is an array of {names, category}.
+               (raw.value(QStringLiteral("tags")).toArray().isEmpty()
+                    ? (raw.contains(QStringLiteral("safety")) ||
+                       raw.contains(QStringLiteral("mimeType")) ||
+                       raw.contains(QStringLiteral("canvasWidth")) ||
+                       raw.contains(QStringLiteral("checksumMD5")))
+                    : (raw.value(QStringLiteral("tags"))
+                           .toArray()
+                           .first()
+                           .toObject()
+                           .contains(QStringLiteral("names")) ||
+                       raw.value(QStringLiteral("tags"))
+                           .toArray()
+                           .first()
+                           .toObject()
+                           .contains(QStringLiteral("name"))))) {
+        // Szurubooru/Nuuru native object (our own download sidecars
+        // included): "tags" is an array of {names, category} (Szuru) or
+        // {name, category} (Nuuru/soybooru). Empty-tag posts still carry
+        // the native markers and must not fall into the flat parser
+        // (which would drop their recorded page).
         ok = parseSzuruNative(raw, post);
     } else {
         // Fallback: flat gallery-dl layout: id/score/rating/tags[_*] keys.
@@ -308,6 +320,10 @@ bool MetaParser::parseSzuruNative(const QJsonObject &raw, Post &post) {
                 break;
             }
         }
+        // Nuuru/soybooru uses the singular key; without it the downloaded
+        // sidecar parsed as tagless (local favourite lost every tag).
+        if (name.isEmpty())
+            name = t.value(QStringLiteral("name")).toString();
         // Trimmed + hygiene-gated like every other shape: untrimmed names
         // split tag matching downstream (" x" never equals "x").
         name = name.trimmed();
@@ -318,14 +334,21 @@ bool MetaParser::parseSzuruNative(const QJsonObject &raw, Post &post) {
     }
     QJsonObject rated = raw;
     const QString safety = raw.value(QStringLiteral("safety")).toString().toLower();
-    rated[QStringLiteral("rating")] =
-        safety == QStringLiteral("unsafe")
-            ? QStringLiteral("explicit")
-            : (safety == QStringLiteral("sketchy") ||
-               safety == QStringLiteral("questionable"))
-                  ? QStringLiteral("questionable")
-                  : (safety == QStringLiteral("sensitive") ? QStringLiteral("sensitive")
-                                                          : QStringLiteral("general"));
+    // Nuuru carries "rating" (safe/explicit/...) instead of Szuru's
+    // "safety"; fall back so explicit videos are not flattened to general.
+    if (safety.isEmpty()) {
+        rated[QStringLiteral("rating")] =
+            normalizeRating(raw.value(QStringLiteral("rating")).toString());
+    } else {
+        rated[QStringLiteral("rating")] =
+            safety == QStringLiteral("unsafe")
+                ? QStringLiteral("explicit")
+                : (safety == QStringLiteral("sketchy") ||
+                   safety == QStringLiteral("questionable"))
+                      ? QStringLiteral("questionable")
+                      : (safety == QStringLiteral("sensitive") ? QStringLiteral("sensitive")
+                                                              : QStringLiteral("general"));
+    }
     applyRatingAndTags(post, rated.value(QStringLiteral("rating")).toString(),
                        split.artist, split.character, split.copyright,
                        split.general, split.meta);
@@ -343,6 +366,18 @@ bool MetaParser::parseSzuruNative(const QJsonObject &raw, Post &post) {
         post.height = static_cast<int>(toInt(raw.value(QStringLiteral("height"))));
     post.source = raw.value(QStringLiteral("source")).toString();
     post.date = raw.value(QStringLiteral("creationTime")).toString();
+    // Box writes the canonical page into downloaded sidecars (enrich
+    // step), but the native object has no such field: dropping it made
+    // rescans fall back to the *folder* for provenance - a Nuuru video in
+    // a legacy glegle folder was badged and "linked" as glegle.gallery.
+    const QString postUrl = raw.value(QStringLiteral("post_url")).toString();
+    if (!postUrl.isEmpty())
+        post.postUrl = postUrl;
+    QString md5 = raw.value(QStringLiteral("md5")).toString();
+    if (!isMd5Hex(md5))
+        md5 = raw.value(QStringLiteral("checksumMD5")).toString();
+    if (isMd5Hex(md5))
+        post.md5 = md5.toLower();
     post.id = toInt(raw.value(QStringLiteral("id")));
     post.score = static_cast<int>(toInt(raw.value(QStringLiteral("score"))));
     post.hasMeta = true;
