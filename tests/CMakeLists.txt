@@ -238,6 +238,8 @@ set_tests_properties(test_tabbar PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_unit_test(test_welcomepage test_welcomepage.cpp ../src/ui/welcomepage.cpp
               ../src/icons.qrc)
+target_compile_definitions(test_welcomepage PRIVATE
+    TESTFILES_DIR="${CMAKE_SOURCE_DIR}/tests/files")
 set_tests_properties(test_welcomepage PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_unit_test(test_theme test_theme.cpp ../src/ui/theme.cpp)

@@ -29,9 +29,10 @@ opens the Default-tab booru or the default boorus), `Favourites`
 (filled heart icon), `Downloads` (download icon) - and the `Always load
 last session on
 startup` checkbox (mirrors Preferences → General). Tabs → `Start fresh
-session` closes everything and forgets the session. Optional mascot image
+session` closes everything and forgets the session. Optional mascot picture
 pins bottom-right behind everything (shipped default `マニフェスト.jpg`;
-double-click cycles size; `home/mascot*`). Leaving the home tab idle for
+still or animated GIF/WebP, never videos; double-click cycles size;
+`home/mascot*`). Leaving the home tab idle for
 180 s shrinks the mascot to the small preset and makes it bounce around
 the page like a DVD logo; shift+left click starts it immediately (easter
 egg/testing), and any click, key, wheel or window resize snaps it back
@@ -155,7 +156,8 @@ middle, so hovering just that line shows the untruncated name in a
 tooltip. The viewer link stays on the booru post page after a download
 (strays keep the local file). Right-click menu resolves the on-disk file behind downloaded
 remote rows too: `Download` disables once everything selected is on
-disk, `Delete from disk…` enables, `Set as mascot` shows, and `Copy post
+disk, `Delete from disk…` enables, `Set as mascot` shows for pictures
+only (never videos, still or animated), and `Copy post
 link` / `Copy media link` / `Copy file path` / `Copy file (clipboard)`
 put the selected rows on the clipboard (stills, GIFs and videos alike).
 A single selected row also has `View metadata…` (summary + tags + raw

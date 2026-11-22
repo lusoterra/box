@@ -26,7 +26,10 @@ public:
     // "Back to last tab" button: empty label hides it (nothing to resume).
     void setLastPlace(const QString &label);
     // Custom background mascot (home page only); empty path hides it.
+    // Animated pictures (GIF/WebP/APNG) play via QMovie.
     void setMascot(const QString &path);
+    // Pictures only: videos (and unreadable files) are rejected.
+    static bool isMascotFile(const QString &path);
     // Translucency (0.1-1.0) and size: height fraction of the page
     // (0.1-0.65), 1.0 = max height (full window height), 2.0 = full
     // width (window width, aspect kept, overflow cropped top).
@@ -67,6 +70,9 @@ private:
     QLabel *m_mascot = nullptr;
     QGraphicsOpacityEffect *m_mascotDim = nullptr;
     QPixmap m_mascotFull;
+    QMovie *m_mascotMovie = nullptr; // animated mascot (null = still)
+    QSize m_mascotSource;            // intrinsic frame size
+    bool hasMascot() const;
     double m_mascotScale = 0.45; // height fraction (0.1-0.65), 1.0 = max
                                  // height, 2.0 = full width; cycles them
     int m_mascotMargin = 0;      // right/bottom padding in px

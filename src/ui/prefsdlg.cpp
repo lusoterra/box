@@ -7,6 +7,7 @@
 #include "tagtypes.h"
 #include "theme.h"
 #include "uicons.h"
+#include "welcomepage.h"
 
 #include <QAbstractItemView>
 #include <QApplication>
@@ -1595,11 +1596,18 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
         const QString p = QFileDialog::getOpenFileName(
             this, tr("Home mascot"), m_mascot->text(),
             tr("Images (*.png *.jpg *.jpeg *.webp *.gif);;All files (*)"));
-        if (!p.isEmpty()) {
-            m_mascot->setText(p);
-            m_mascotHidden = false;
-            updateApplyState();
+        if (p.isEmpty())
+            return;
+        if (!WelcomePage::isMascotFile(p)) {
+            QMessageBox::warning(
+                this, tr("Home mascot"),
+                tr("Only pictures can be used as the home mascot "
+                   "(still or animated, no videos)."));
+            return;
         }
+        m_mascot->setText(p);
+        m_mascotHidden = false;
+        updateApplyState();
     });
     auto *mascotRemove = new QPushButton(tr("Remove"), this);
     mascotRemove->setToolTip(tr("Hide the mascot, including the default"));

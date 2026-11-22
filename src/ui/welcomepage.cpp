@@ -1,6 +1,7 @@
 #include "welcomepage.h"
 
 #include "appinfo.h"
+#include "post.h"
 #include "uicons.h"
 
 #include <QApplication>
@@ -10,11 +11,13 @@
 #include <QGraphicsOpacityEffect>
 #include <QHBoxLayout>
 #include <QHideEvent>
+#include <QImageReader>
 #include <QKeyEvent>
 #include <QLabel>
 #include <QListWidget>
 #include <QListWidgetItem>
 #include <QMainWindow>
+#include <QMovie>
 #include <QMouseEvent>
 #include <QPixmap>
 #include <QShowEvent>
@@ -140,9 +143,65 @@ WelcomePage::WelcomePage(QWidget *parent) : QWidget(parent) {
             &WelcomePage::stepMascotBounce);
 }
 
+bool WelcomePage::isMascotFile(const QString &path) {
+    if (path.isEmpty())
+        return false;
+    const QFileInfo fi(path);
+    if (!fi.exists() || !fi.isFile())
+        return false;
+    // Videos never qualify, even if a backend could decode a frame.
+    const QString suffix = fi.suffix().toLower();
+    if (isVideoExt(suffix) || suffix == QStringLiteral("mkv") ||
+        suffix == QStringLiteral("avi") || suffix == QStringLiteral("mov"))
+        return false;
+    QImageReader reader(path);
+    return reader.canRead();
+}
+
+bool WelcomePage::hasMascot() const {
+    return !m_mascotFull.isNull() ||
+           (m_mascotMovie && m_mascotMovie->isValid());
+}
+
 void WelcomePage::setMascot(const QString &path) {
-    m_mascotFull = QPixmap(path);
-    if (m_mascotFull.isNull()) {
+    if (m_mascotMovie) {
+        m_mascotMovie->stop();
+        m_mascotMovie->deleteLater();
+        m_mascotMovie = nullptr;
+    }
+    m_mascotFull = QPixmap();
+    m_mascotSource = QSize();
+    m_mascot->setMovie(nullptr);
+    m_mascot->setScaledContents(false);
+    if (!path.isEmpty() && isMascotFile(path)) {
+        QImageReader reader(path);
+        // Multi-frame pictures (GIF/WebP/APNG) animate via QMovie; single
+        // frames stay on the crisp pixmap path.
+        const bool animated = reader.supportsAnimation() &&
+                              reader.imageCount() != 1;
+        const QPixmap pm = animated ? QPixmap() : QPixmap(path);
+        if (!pm.isNull()) {
+            m_mascotFull = pm;
+            m_mascotSource = pm.size();
+        } else if (animated) {
+            auto *movie = new QMovie(path, QByteArray(), this);
+            if (movie->isValid()) {
+                m_mascotMovie = movie;
+                m_mascotSource = reader.size();
+                if (!m_mascotSource.isValid())
+                    m_mascotSource = movie->currentPixmap().size();
+                if (!m_mascotSource.isValid())
+                    m_mascotSource = QSize(100, 100);
+                m_mascot->setMovie(movie);
+                m_mascot->setScaledContents(true);
+                if (isVisible())
+                    movie->start();
+            } else {
+                delete movie;
+            }
+        }
+    }
+    if (!hasMascot()) {
         m_mascotIdle->stop();
         stopMascotBounce();
         m_mascot->hide();
@@ -214,7 +273,9 @@ void WelcomePage::showEvent(QShowEvent *e) {
     // as activity. Window moves are not in this set on purpose.
     if (qApp)
         qApp->installEventFilter(this);
-    if (!m_mascotFull.isNull())
+    if (m_mascotMovie)
+        m_mascotMovie->start();
+    if (hasMascot())
         m_mascotIdle->start();
     layoutMascot();
 }
@@ -225,6 +286,8 @@ void WelcomePage::hideEvent(QHideEvent *e) {
         qApp->removeEventFilter(this);
     m_mascotIdle->stop();
     stopMascotBounce();
+    if (m_mascotMovie)
+        m_mascotMovie->stop();
 }
 
 void WelcomePage::noteActivity() {
@@ -232,12 +295,12 @@ void WelcomePage::noteActivity() {
         return;
     if (m_mascotBouncing)
         stopMascotBounce();
-    if (!m_mascotFull.isNull())
+    if (hasMascot())
         m_mascotIdle->start();
 }
 
 void WelcomePage::startMascotBounce() {
-    if (m_mascotFull.isNull() || !isVisible() || m_mascotBouncing)
+    if (!hasMascot() || !isVisible() || m_mascotBouncing)
         return;
     m_mascotBouncing = true; // layoutMascot picks the small bounce preset
     layoutMascot();
@@ -286,8 +349,8 @@ void WelcomePage::stepMascotBounce() {
 }
 
 void WelcomePage::layoutMascot() {
-    if (m_mascotFull.isNull() || width() <= 0 || height() <= 0) {
-        if (m_mascotFull.isNull())
+    if (!hasMascot() || width() <= 0 || height() <= 0) {
+        if (!hasMascot())
             m_mascot->hide();
         return;
     }
@@ -308,23 +371,39 @@ void WelcomePage::layoutMascot() {
     // chosen size is restored when the bounce stops.
     const double scale =
         m_mascotBouncing ? kMascotBounceScale : m_mascotScale;
+    const QSize src = m_mascotSource.isValid() ? m_mascotSource
+                                               : m_mascotFull.size();
+    const int srcW = qMax(1, src.width());
+    const int srcH = qMax(1, src.height());
     if (scale >= 1.99) {
         // Full width: window wide, overflow cropped top.
-        const QPixmap scaled = m_mascotFull.scaledToWidth(
-            qMax(1, right), Qt::SmoothTransformation);
-        m_mascot->setPixmap(scaled);
-        m_mascot->setGeometry(0, bottom - scaled.height(), right,
-                              scaled.height());
+        const int w = qMax(1, right);
+        const int h = qMax(1, int(qreal(srcH) * w / srcW));
+        if (m_mascotMovie) {
+            m_mascot->setGeometry(0, bottom - h, w, h);
+        } else {
+            const QPixmap scaled =
+                m_mascotFull.scaledToWidth(w, Qt::SmoothTransformation);
+            m_mascot->setPixmap(scaled);
+            m_mascot->setGeometry(0, bottom - scaled.height(), right,
+                                  scaled.height());
+        }
     } else {
         // Height fraction, or max height at 1.0.
         const int h = scale >= 0.99
                           ? height() + strip
                           : qMax(64, int(height() * scale));
-        const QPixmap scaled = m_mascotFull.scaledToHeight(
-            h, Qt::SmoothTransformation);
-        m_mascot->setPixmap(scaled);
-        m_mascot->setGeometry(right - scaled.width(), bottom - scaled.height(),
-                              scaled.width(), scaled.height());
+        const int w = qMax(1, int(qreal(srcW) * h / srcH));
+        if (m_mascotMovie) {
+            m_mascot->setGeometry(right - w, bottom - h, w, h);
+        } else {
+            const QPixmap scaled =
+                m_mascotFull.scaledToHeight(h, Qt::SmoothTransformation);
+            m_mascot->setPixmap(scaled);
+            m_mascot->setGeometry(right - scaled.width(),
+                                  bottom - scaled.height(),
+                                  scaled.width(), scaled.height());
+        }
     }
     m_mascot->show();
     m_mascot->lower(); // always behind the buttons

@@ -6,8 +6,11 @@
 
 #include <QApplication>
 #include <QGraphicsOpacityEffect>
+#include <QFile>
+#include <QFileInfo>
 #include <QImage>
 #include <QLabel>
+#include <QMovie>
 #include <QTemporaryDir>
 #include <QTimer>
 #include <QtTest>
@@ -42,10 +45,61 @@ QString writeMascot(QTemporaryDir &dir) {
 class TestWelcomePage : public QObject {
     Q_OBJECT
 private slots:
+    void mascotFileEligibility();
+    void animatedMascotLoads();
     void idleStartsBounceAndActivityResets();
     void shiftClickStartsBounce();
     void resizeCountsAsActivity();
 };
+
+void TestWelcomePage::mascotFileEligibility() {
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString png = writeMascot(dir);
+    QVERIFY(!png.isEmpty());
+    QVERIFY(WelcomePage::isMascotFile(png));
+
+    // A video container (or junk with a video suffix) is never a mascot.
+    const QString mp4 = dir.filePath(QStringLiteral("clip.mp4"));
+    QFile v(mp4);
+    QVERIFY(v.open(QIODevice::WriteOnly));
+    v.write("not really a video");
+    v.close();
+    QVERIFY(!WelcomePage::isMascotFile(mp4));
+    const QString webm = dir.filePath(QStringLiteral("clip.webm"));
+    QFile w(webm);
+    QVERIFY(w.open(QIODevice::WriteOnly));
+    w.write("\0");
+    w.close();
+    QVERIFY(!WelcomePage::isMascotFile(webm));
+
+    // Animated pictures qualify (GIF plugin).
+    const QString gif = QStringLiteral(TESTFILES_DIR "/test_anim.gif");
+    QVERIFY(WelcomePage::isMascotFile(gif));
+    // Real video files are rejected by extension even if a plugin could
+    // decode a frame.
+    QVERIFY(!WelcomePage::isMascotFile(
+        QStringLiteral(TESTFILES_DIR "/test_video.mp4")));
+
+    QVERIFY(!WelcomePage::isMascotFile(QString()));
+    QVERIFY(!WelcomePage::isMascotFile(dir.filePath(QStringLiteral("nope.png"))));
+}
+
+void TestWelcomePage::animatedMascotLoads() {
+    const QString gif = QStringLiteral(TESTFILES_DIR "/test_anim.gif");
+    QVERIFY(QFileInfo::exists(gif));
+
+    WelcomePage page;
+    page.resize(640, 480);
+    page.setMascot(gif);
+    page.show();
+    QTest::qWait(20);
+    QLabel *mascot = mascotOf(&page);
+    QVERIFY(mascot);
+    QVERIFY(mascot->movie() != nullptr);
+    QVERIFY(mascot->isVisible());
+    QVERIFY(mascot->size().isValid());
+}
 
 void TestWelcomePage::idleStartsBounceAndActivityResets() {
     QTemporaryDir dir;

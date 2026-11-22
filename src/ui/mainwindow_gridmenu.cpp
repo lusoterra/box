@@ -447,13 +447,13 @@ void MainWindow::showGridMenu(const QPoint &pos) {
                 applyStrayTagEdits(dlg.edits());
         });
     }
-    // Any on-disk file can become the home mascot - including downloaded
-    // remote rows, whose copy the favourites DB links (absFile is empty
-    // on those). Download-first still applies: no file, no mascot.
+    // Pictures (still or animated) can become the home mascot -
+    // including downloaded remote rows, whose copy the favourites DB
+    // links (absFile is empty on those). Videos are never offered.
     if (targets.size() == 1) {
         Post mascotPost = targets.first();
         const QString res = resolvedFile(mascotPost);
-        if (!res.isEmpty()) {
+        if (!res.isEmpty() && WelcomePage::isMascotFile(res)) {
             mascotPost.absFile = res;
             QAction *mascot = menu.addAction(tr("Set as mascot"));
             connect(mascot, &QAction::triggered, this,

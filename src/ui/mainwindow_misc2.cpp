@@ -186,6 +186,12 @@ void MainWindow::setAsMascot(const Post &post) {
         statusBar()->showMessage(tr("No local file to use as mascot"), 4000);
         return;
     }
+    if (!WelcomePage::isMascotFile(post.absFile)) {
+        statusBar()->showMessage(
+            tr("Only pictures can be used as the home mascot (no videos)"),
+            5000);
+        return;
+    }
     m_settings.mascotPath = post.absFile;
     m_settings.mascotHidden = false;
     saveSettings(m_settings);
