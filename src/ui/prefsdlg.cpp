@@ -137,7 +137,7 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     // Wide enough that the Booru manager editor (name/badge/base/type +
     // cookie buttons) fits at 1600x900 and 1080p without overflow; the
     // page scrolls vertically, never horizontally.
-    resize(980, 820);
+    resize(780, 740);
     auto *outer = new QVBoxLayout(this);
     auto *tabs = new QTabWidget(this);
     // Document mode: no tab-pane frame. The framed pane rounds its
@@ -1031,10 +1031,16 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     auto *accLay = new QHBoxLayout(acc);
     auto *accLeft = new QVBoxLayout();
     m_booruList = new QListWidget(this);
-    m_booruList->setFixedWidth(150);
+    // Match the list to the button block (the old one-line Add/Remove/
+    // arrows row was ~250px wide, leaving a dead band between the list and
+    // the editor). Buttons wrap into two rows instead.
+    m_booruList->setFixedWidth(176);
     m_booruEdits = current.boorus;
     accLeft->addWidget(m_booruList, 1);
-    auto *accBtnRow = new QHBoxLayout();
+    auto *accBtnRow = new QGridLayout();
+    accBtnRow->setContentsMargins(0, 0, 0, 0);
+    accBtnRow->setHorizontalSpacing(4);
+    accBtnRow->setVerticalSpacing(4);
     auto *booruAdd = new QPushButton(tr("Add"), this);
     auto *booruDel = new QPushButton(tr("Remove"), this);
     connect(booruAdd, &QPushButton::clicked, this, [this] {
@@ -1119,10 +1125,14 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
             [moveBooru] { moveBooru(-1); });
     connect(booruDown, &QPushButton::clicked, this,
             [moveBooru] { moveBooru(1); });
-    accBtnRow->addWidget(booruAdd);
-    accBtnRow->addWidget(booruDel);
-    accBtnRow->addWidget(booruUp);
-    accBtnRow->addWidget(booruDown);
+    accBtnRow->addWidget(booruAdd, 0, 0);
+    accBtnRow->addWidget(booruDel, 0, 1);
+    booruUp->setFixedWidth(34);
+    booruDown->setFixedWidth(34);
+    accBtnRow->addWidget(booruUp, 1, 0);
+    accBtnRow->addWidget(booruDown, 1, 1);
+    accBtnRow->setColumnStretch(0, 1);
+    accBtnRow->setColumnStretch(1, 1);
     accLeft->addLayout(accBtnRow);
     accLeft->addWidget(booruDefaults);
     auto *faviconRefresh = new QPushButton(tr("Refresh favicons"), this);
@@ -1141,7 +1151,7 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     // fields ran ~1120px wide (labels far left, values far right) which
     // read as misaligned. A fixed 640 column keeps labels, fields and the
     // wrapping cookie row together; the slack sits after the form.
-    accFormBox->setFixedWidth(640);
+    accFormBox->setFixedWidth(560);
     auto *accForm = new QFormLayout(accFormBox);
     // Long rows (cookie buttons, notes) wrap under their label instead of
     // pushing the whole page wider than the dialog.
