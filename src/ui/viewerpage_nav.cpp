@@ -46,6 +46,9 @@ void ViewerPage::showRow(int row) {
         m_metaBusy->setVisible(false);
     showNote({});
     m_row = row;
+    // Downloaded copy (absFile or the shell's DB index): its sidecar may
+    // carry the notes, so local/db-linked rows open offline-first.
+    loadSidecarNotes();
     {
         const Post &p = m_posts.at(row);
         const QString drag =
@@ -160,9 +163,10 @@ void ViewerPage::showCurrent() {
                                     : tr("Comments"));
     }
 
-    // Notes + comments for remote posts (cached per session; failures
-    // never cache, so reopening refetches).
-    if (p.isRemote && m_meta)
+    // Notes + comments for remote posts, and comments online for
+    // downloaded ones (cached per session; failures never cache, so
+    // reopening refetches).
+    if (m_meta)
         refetchMeta(p);
 
     // Prerender: the grid thumbnail shows instantly while the full file

@@ -20,11 +20,6 @@
 
 #include "remotesource.h" // BooruEngine: custom instances share family endpoints
 
-struct PostNote {
-    int x = 0, y = 0, w = 0, h = 0;
-    QString body;
-};
-
 struct PostComment {
     QString author;
     QString body;
@@ -36,6 +31,16 @@ struct PostComment {
 Q_DECLARE_METATYPE(PostNote)
 Q_DECLARE_METATYPE(PostComment)
 
+// Which legs a fetch issues. Downloads cache notes only; downloaded
+// posts with cached notes ask for the comment thread only.
+enum MetaPart : int {
+    NoPart = 0,
+    NotesPart = 1,
+    CommentsPart = 2,
+    CommentaryPart = 4,
+    AllParts = NotesPart | CommentsPart | CommentaryPart,
+};
+
 class PostMetaFetcher : public QObject {
     Q_OBJECT
 public:
@@ -43,7 +48,8 @@ public:
     void setCreds(const QString &danUser, const QString &danKey,
                   const QString &gelUser, const QString &gelKey);
     void fetch(const QString &siteKey, const QString &baseUrl, qint64 postId,
-               BooruEngine engine, bool hasNotesHint = false);
+               BooruEngine engine, bool hasNotesHint = false,
+               int parts = AllParts);
     void cancel();
 
 signals:

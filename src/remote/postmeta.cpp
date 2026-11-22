@@ -57,7 +57,7 @@ void applyBasicAuth(QNetworkRequest &req, const QString &user, const QString &se
 
 void PostMetaFetcher::fetch(const QString &siteKey, const QString &baseUrl,
                             qint64 postId, BooruEngine engine,
-                            bool hasNotesHint) {
+                            bool hasNotesHint, int parts) {
     cancel();
     m_site = siteKey;
     m_baseUrl = baseUrl;
@@ -81,6 +81,14 @@ void PostMetaFetcher::fetch(const QString &siteKey, const QString &baseUrl,
     m_commentsUrl =
         PostMeta::commentsUrl(engine, baseUrl, postId, m_gelUser, m_gelKey);
     m_commentaryUrl = PostMeta::commentaryUrl(engine, baseUrl, postId);
+    // Legs the caller did not ask for are dropped here, so the rest of
+    // the pipeline (incl. browser fallbacks) sees them as "done, empty".
+    if (!(parts & NotesPart))
+        m_notesUrl.clear();
+    if (!(parts & CommentsPart))
+        m_commentsUrl.clear();
+    if (!(parts & CommentaryPart))
+        m_commentaryUrl.clear();
     const RemotePosts::SiteQuirk *hostQuirk =
         RemotePosts::quirkForHost(QUrl(baseUrl).host().toLower());
     // Turnstile/Cloudflare hosts: go anonymous (see timedRequest).

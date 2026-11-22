@@ -132,7 +132,7 @@ void ViewerPage::renderTags() {    if (m_row < 0 || m_row >= m_posts.size())
                             .name());
         }
     }
-    if (p.isRemote)
+    if (p.isRemote || p.notesCached || !p.cachedNotes.isEmpty())
         renderMetaSections();
     m_tagLayout->addStretch(1);
 }
@@ -141,14 +141,19 @@ QString ViewerPage::metaKey() const {
     if (m_row < 0 || m_row >= m_posts.size())
         return {};
     const Post &p = m_posts[m_row];
-    if (!p.isRemote)
-        return {};
     // Key form (stamped entry key wins): the fetcher caches under the key
     // it was given, never the display label - lookups must match it or
     // cached comments are invisible and every view refetches.
-    const QString key =
+    QString key =
         !p.siteKey.isEmpty() ? p.siteKey : RemotePosts::keyForLabel(p.siteName);
-    if (key.isEmpty())
+    if (key.isEmpty()) {
+        // Downloaded rows: MetaParser keeps no site label, but the folder
+        // name/post URL still resolves the entry. Comments stay online for
+        // those rows, so they need the same key as remote ones.
+        if (const BooruSite *e = RemotePosts::entryForPost(p))
+            key = e->key;
+    }
+    if (key.isEmpty() || p.id == 0)
         return {};
     return key + u'#' + QString::number(p.id);
 }

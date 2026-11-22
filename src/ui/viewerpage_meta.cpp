@@ -2,11 +2,16 @@
 
 #include "flowlayout.h"
 #include "imagecache.h"
+#include "metaparser.h"
 #include "metatext.h"
 #include "remotesource.h"
 #include "uicons.h"
 
 #include <QDialogButtonBox>
+#include <QFile>
+#include <QFileInfo>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QLabel>
 #include <QPushButton>
 #include <QSize>
@@ -59,10 +64,14 @@ void ViewerPage::rebuildMetaTail() {
 
 void ViewerPage::renderMetaSections() {
     m_metaSectionStart = m_tagLayout ? m_tagLayout->count() : 0;
-    const auto it = m_metaCache.find(metaKey());
-    if (it == m_metaCache.end()) {
-        if (m_metaFailed.contains(metaKey())) {
-            const QString why = m_metaFailureReason.value(metaKey());
+    const Post &post =
+        (m_row >= 0 && m_row < m_posts.size()) ? m_posts.at(m_row) : Post();
+    const QString key = metaKey();
+    const auto it = m_metaCache.find(key);
+    const bool local = !post.isRemote;
+    if (it == m_metaCache.end() && !local) {
+        if (m_metaFailed.contains(key)) {
+            const QString why = m_metaFailureReason.value(key);
             auto *l = new QLabel(this);
             l->setTextFormat(Qt::RichText);
             l->setText(
@@ -85,12 +94,38 @@ void ViewerPage::renderMetaSections() {
         }
         return; // still fetching (or failed, noted above)
     }
-    const Post &post =
-        (m_row >= 0 && m_row < m_posts.size()) ? m_posts.at(m_row) : Post();
+    // Downloaded rows: notes come from the sidecar; comments stay online
+    // and appear when their fetch lands (a failure only affects them).
+    static const QVector<PostNote> noNotes;
+    static const QVector<PostComment> noComments;
+    const QVector<PostNote> &notes =
+        local ? post.cachedNotes
+              : (it != m_metaCache.end() ? it->notes : noNotes);
+    const QVector<PostComment> &comments =
+        (it != m_metaCache.end()) ? it->comments : noComments;
+    const QVector<PostComment> &commentary =
+        (it != m_metaCache.end()) ? it->commentary : noComments;
+    if (local && it == m_metaCache.end() && m_metaFailed.contains(key)) {
+        const QString why = m_metaFailureReason.value(key);
+        auto *l = new QLabel(this);
+        l->setTextFormat(Qt::RichText);
+        l->setText(
+            why.isEmpty()
+                ? tr("Comments failed to load - <a href=\"#\">details</a>")
+                : tr("Comments failed to load (%1) - "
+                     "<a href=\"#\">details</a>")
+                      .arg(why.toHtmlEscaped()));
+        l->setWordWrap(true);
+        l->setOpenExternalLinks(false);
+        l->setStyleSheet(QStringLiteral("color:#e0a055;font-size:11px;"));
+        l->setTextInteractionFlags(Qt::TextBrowserInteraction);
+        connect(l, &QLabel::linkActivated, this, [this] {
+            emit probeRequested(tr("Post details load failed"),
+                                metaProbeText());
+        });
+        m_tagLayout->addWidget(l);
+    }
     const MetaTextContext ctx = metaTextContextFor(post);
-    const QVector<PostNote> &notes = it->notes;
-    const QVector<PostComment> &comments = it->comments;
-    const QVector<PostComment> &commentary = it->commentary;
     if (!notes.isEmpty()) {
         auto *hl = new QLabel(tr("NOTES (%1)").arg(notes.size()), this);
         hl->setStyleSheet(QStringLiteral("color:#4a5068;font-size:10px;"));
@@ -220,15 +255,55 @@ void ViewerPage::renderMetaSections() {
     }
 }
 
+void ViewerPage::setLocalPathIndex(const QHash<QString, QString> &paths) {
+    m_localPaths = paths;
+}
+
+QString ViewerPage::localPathForPost(const Post &p) const {
+    if (!p.absFile.isEmpty() && QFileInfo::exists(p.absFile))
+        return p.absFile;
+    const QString key = metaKey();
+    if (key.isEmpty())
+        return {};
+    return m_localPaths.value(key);
+}
+
+bool ViewerPage::loadSidecarNotes() {
+    if (m_row < 0 || m_row >= m_posts.size())
+        return false;
+    Post &p = m_posts[m_row];
+    if (p.notesCached)
+        return false;
+    const QString local = localPathForPost(p);
+    if (local.isEmpty())
+        return false;
+    const QString sidecar = localSidecarPath(local);
+    if (sidecar.isEmpty())
+        return false;
+    QFile f(sidecar);
+    if (!f.open(QIODevice::ReadOnly))
+        return false;
+    const QJsonDocument doc = QJsonDocument::fromJson(f.readAll());
+    if (!doc.isObject())
+        return false;
+    Post tmp;
+    if (!MetaParser::parse(doc.object(), tmp) || !tmp.notesCached)
+        return false;
+    p.cachedNotes = tmp.cachedNotes;
+    p.notesCached = true;
+    return true;
+}
+
 void ViewerPage::refetchMeta(const Post &p) {
-    if (!p.isRemote || !m_meta)
+    if (!m_meta || p.id == 0)
         return;
     // Entry key first: a custom instance must query its own host,
-    // not the preset its engine label maps to.
-    const QString key = !p.siteKey.isEmpty()
-                            ? p.siteKey
-                            : RemotePosts::keyForLabel(p.siteName);
-    const BooruSite *site = key.isEmpty() ? nullptr : RemoteSource::siteFor(key);
+    // not the preset its engine label maps to. Downloaded rows resolve
+    // through their folder name / post URL (see metaKey()).
+    QString key = !p.siteKey.isEmpty() ? p.siteKey
+                                       : RemotePosts::keyForLabel(p.siteName);
+    const BooruSite *site =
+        key.isEmpty() ? RemotePosts::entryForPost(p) : RemoteSource::siteFor(key);
     if (!site || m_metaCache.contains(metaKey()))
         return;
     // Per-entry credentials (not the hardcoded danbooru/gelbooru keys):
@@ -241,10 +316,56 @@ void ViewerPage::refetchMeta(const Post &p) {
         m_meta->setCreds({}, {}, site->user, site->secret);
     else
         m_meta->setCreds({}, {}, {}, {});
+    // Downloaded post: the notes live in the sidecar, comments are always
+    // online (they change). A sidecar without box_notes fetches both once,
+    // then persists the notes so the next open is offline. Favourites rows
+    // linked to a local copy resolve through the shell's path index.
+    const bool hasLocalCopy = !localPathForPost(p).isEmpty();
+    int parts = AllParts;
+    if (p.notesCached && hasLocalCopy)
+        parts = CommentsPart;
+    if ((parts & NotesPart) && (hasLocalCopy || !p.isRemote))
+        m_metaNotesRequested.insert(metaKey());
     m_metaInFlight.insert(metaKey());
     if (m_metaBusy)
         m_metaBusy->setVisible(true);
-    m_meta->fetch(key, site->baseUrl, p.id, site->engine, p.hasNotes);
+    m_meta->fetch(site->key, site->baseUrl, p.id, site->engine, p.hasNotes,
+                  parts);
+}
+
+void ViewerPage::refreshNotes() {
+    if (m_row < 0 || m_row >= m_posts.size() || !m_meta)
+        return;
+    const Post &p = m_posts[m_row];
+    const bool hasLocalCopy = !localPathForPost(p).isEmpty();
+    if (p.isRemote && !hasLocalCopy) {
+        // Online-only post: the normal reload already re-fetches notes.
+        reloadCurrent();
+        return;
+    }
+    const QString key = metaKey();
+    const BooruSite *site = RemotePosts::entryForPost(p);
+    if (key.isEmpty() || !site)
+        return;
+    if (site->engine == BooruEngine::Danbooru)
+        m_meta->setCreds(site->user, site->secret, {}, {});
+    else if (site->engine == BooruEngine::Gelbooru ||
+             site->engine == BooruEngine::Safebooru)
+        m_meta->setCreds({}, {}, site->user, site->secret);
+    else
+        m_meta->setCreds({}, {}, {}, {});
+    // Notes only when the comment thread is already cached (its empty
+    // vectors must not replace it); otherwise a full fetch now and the
+    // notes get cached with the comments.
+    const int parts = m_metaCache.contains(key) ? NotesPart : AllParts;
+    m_notesRefreshKeys.insert(key);
+    m_metaNotesRequested.insert(key);
+    m_metaFailed.remove(key);
+    m_metaFailureReason.remove(key);
+    m_metaInFlight.insert(key);
+    if (m_metaBusy)
+        m_metaBusy->setVisible(true);
+    m_meta->fetch(site->key, site->baseUrl, p.id, site->engine, true, parts);
 }
 
 void ViewerPage::onMetaDone(const QString &site, qint64 postId,
@@ -272,7 +393,29 @@ void ViewerPage::onMetaDone(const QString &site, qint64 postId,
     }
     m_metaFailed.remove(key);
     m_metaFailureReason.remove(key);
-    m_metaCache.insert(key, {notes, comments, commentary});
+    const bool notesRequested = m_metaNotesRequested.remove(key) > 0;
+    const bool notesRefresh = m_notesRefreshKeys.remove(key) > 0;
+    if (notesRefresh) {
+        // Notes-only fetch: never replace the cached comment thread with
+        // the empty vectors this leg returned.
+        auto it = m_metaCache.find(key);
+        if (it != m_metaCache.end())
+            it->notes = notes;
+        else
+            m_metaCache.insert(key, {notes, {}, {}});
+    } else {
+        m_metaCache.insert(key, {notes, comments, commentary});
+    }
+    // Downloaded rows (incl. favourites linked to a local copy): persist
+    // freshly fetched notes into the sidecar and update the in-memory post.
+    if (m_row >= 0 && m_row < m_posts.size() && (notesRequested || notesRefresh)) {
+        Post &cur = m_posts[m_row];
+        if (!localPathForPost(cur).isEmpty()) {
+            cur.cachedNotes = notes;
+            cur.notesCached = true;
+            emit cachedNotesReady(cur, cur.cachedNotes);
+        }
+    }
     // Grid pills learn from the fetched tail too (OR-in downstream):
     // a post whose search row carried no stamp still earns its marks.
     emit metaMarksChanged(site, postId, !comments.isEmpty(), !notes.isEmpty());
@@ -569,11 +712,16 @@ void ViewerPage::stageNotes() {
         return;
     }
     // Always (re)stage, even when empty: otherwise the previous post's
-    // boxes would linger onto an un-noted image.
-    const auto it = m_metaCache.find(metaKey());
-    if (it == m_metaCache.end())
-        m_image->setNotes({}, {});
-    else
-        m_image->setNotes(it->notes, QSize(p.width, p.height));
+    // boxes would linger onto an un-noted image. Downloaded posts use the
+    // sidecar cache; online posts use the session meta cache.
+    if (!p.isRemote)
+        m_image->setNotes(p.cachedNotes, QSize(p.width, p.height));
+    else {
+        const auto it = m_metaCache.find(metaKey());
+        if (it == m_metaCache.end())
+            m_image->setNotes({}, {});
+        else
+            m_image->setNotes(it->notes, QSize(p.width, p.height));
+    }
 }
 

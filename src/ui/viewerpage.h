@@ -358,6 +358,14 @@ public:
     void setThumbModel(QAbstractItemModel *model);
     void setMetaCreds(const QString &danUser, const QString &danKey,
                       const QString &gelUser, const QString &gelKey);
+    // Force a fresh online notes fetch for the post on screen (downloaded
+    // rows use the sidecar by default). The result is cached back into the
+    // sidecar via cachedNotesReady.
+    void refreshNotes();
+    // Downloaded copies by "site#id": favourites rows keep isRemote but
+    // their notes live in the local sidecar. Called by the shell before
+    // showing posts (DB-linked local paths).
+    void setLocalPathIndex(const QHash<QString, QString> &paths);
 
 signals:
     void back();
@@ -384,6 +392,10 @@ signals:
     // (parse-time stamps miss posts whose meta only the viewer fetched).
     void metaMarksChanged(const QString &siteKey, qint64 postId,
                           bool hasComments, bool hasNotes);
+    // Freshly fetched notes for a local/downloaded post: the shell merges
+    // them into the sidecar (download dir only; archive roots are
+    // read-only).
+    void cachedNotesReady(const Post &post, const QVector<PostNote> &notes);
     // Double-click / menu / F11: the shell owns the window state.
     void fullscreenToggleRequested();
     // Right-click on the media: shell shows the post action menu.
@@ -420,7 +432,12 @@ private:
     void primeThumb(int row);      // instant grid thumbnail on navigation
     void preloadNeighbours();      // full files for row-1/row+1 into cache
     QString metaKey() const;
-    QString metaProbeText() const; // post URL + failure reason (redacted)
+    QString metaProbeText() const;
+    // Downloaded copy for a post (absFile, else the shell's DB index).
+    QString localPathForPost(const Post &p) const;
+    // Read box_notes from the sidecar into m_posts[row] once (returns true
+    // when something was loaded).
+    bool loadSidecarNotes(); // post URL + failure reason (redacted)
     void renderMetaSections();
     void renderTags(); // rebuild just the tag groups from m_posts[m_row]
     void showNote(const QString &text);
@@ -493,6 +510,14 @@ private:
     // Meta fetches that failed (never cached as definitive-empty):
     // reopening refetches, and the thread UI offers a retry.
     QSet<QString> m_metaFailed;
+    // Local post fetches that were forced by Refresh notes: their result
+    // is persisted to the sidecar and must not wipe cached comments.
+    QSet<QString> m_notesRefreshKeys;
+    // Fetches that included the notes leg: a successful (even empty)
+    // result is cached into the sidecar so the next open stays offline.
+    QSet<QString> m_metaNotesRequested;
+    // "site#id" -> downloaded media path (favourites rows keep isRemote).
+    QHash<QString, QString> m_localPaths;
     // Failure reason per key (status-line safe, no URLs/secrets).
     QHash<QString, QString> m_metaFailureReason;
     // Comments collapse state: long threads show the first few behind a

@@ -277,6 +277,11 @@ globe (`Open file`), `Copy file URL`, `Comments` (thread popup with cards,
 reuses the cached comment rows). Under TAGS a `Loading notes and
 comments…` strip with an indeterminate bar appears while the per-post
 fetch runs (slow hosts otherwise looked dead); it clears on completion.
+Downloaded files paint their notes straight from the sidecar
+(`box_notes`) with no notes request at all; the comment thread is still
+fetched online on every open. Right-click the media → `Refresh notes`
+forces a fresh online fetch and rewrites the sidecar (archive roots are
+read-only and are never written).
 The tag panel below the groups shows
 three threads when the engine provides them, in this order: NOTES
 (translation bodies, box coordinates on the tooltip; deleted annotations

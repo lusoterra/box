@@ -125,6 +125,12 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     The viewer's tag panel shows a `Loading notes and comments…`
     indeterminate strip under TAGS while the per-post fetch is
     outstanding (`ViewerPage::m_metaBusy`), cleared by `done`.
+    Downloaded files: `MetaParser` reads `box_notes` into
+    `Post::cachedNotes` (`notesCached` also for a confirmed-empty array),
+    so the viewer paints notes from the sidecar offline and fetches only
+    the comment thread. A sidecar without the key fetches notes+comments
+    once and persists the notes (never comments). Favourites linked to a
+    local copy resolve through `ViewerPage::setLocalPathIndex`.
     Parse failures on 2xx bodies report "Unparseable response" (never a
     blank reason). Parts are independent: `finishPart` reports success
     when any requested part answered, so a failed comments leg can never
@@ -279,6 +285,10 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     pretty-printed raw-API sidecar write (backfilled from the parsed post
     to a full gallery-dl-style record: urls, buckets, dims, ids);
     summary carries `downloaded` for auto-favourite (`downloadmanager.h:35`).
+    Posts flagged `hasNotes` also queue a notes-only meta fetch whose
+    result merges into the sidecar as `box_notes`/`box_notes_at`
+    (`writeSidecarNotes`, one fetch at a time). Comments are never
+    cached: they change too often and stay online for every row.
   - Gallery links (Pixiv/Fanbox/Pawchive/…) bypass `DownloadManager`:
     `GalleryDlRunner` (`src/remote/gallerydl.{h,cpp}`) shells out to the
     system gallery-dl (transport only, no metadata flags) into `_Stray/`,

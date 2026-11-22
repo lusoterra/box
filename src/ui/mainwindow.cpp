@@ -12,6 +12,7 @@
 #include "metaparser.h"
 #include "migrations/migrations.h"
 #include "multipickmenu.h"
+#include "postmeta.h"
 #include "prefsdlg.h"
 #include "progressbar.h"
 #include "gridloadingoverlay.h"
@@ -1510,6 +1511,31 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     });
     connect(m_viewer, &ViewerPage::refreshRequested, this,
             &MainWindow::refreshPost);
+    connect(m_viewer, &ViewerPage::cachedNotesReady, this,
+            [this](const Post &post, const QVector<PostNote> &notes) {
+                const QString local =
+                    !post.absFile.isEmpty()
+                        ? post.absFile
+                        : m_favDb.localPaths().value(favIdentity(post));
+                if (local.isEmpty())
+                    return;
+                const QString sidecar = localSidecarPath(local);
+                if (sidecar.isEmpty())
+                    return;
+                // Archive roots are read-only mirrors: never write there.
+                if (refuseArchiveWrite(sidecar,
+                                       effectiveDownloadDir(m_settings))) {
+                    statusBar()->showMessage(
+                        tr("Notes not cached: read-only library folder"),
+                        5000);
+                    return;
+                }
+                if (writeSidecarNotes(sidecar, notes))
+                    statusBar()->showMessage(
+                        tr("Cached %1 note(s) in the sidecar")
+                            .arg(notes.size()),
+                        4000);
+            });
     connect(m_viewer, &ViewerPage::metaMarksChanged, this,
             &MainWindow::onMetaMarksChanged);
     connect(m_viewer, &ViewerPage::probeRequested, this,

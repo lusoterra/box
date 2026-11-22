@@ -62,6 +62,7 @@ add_unit_test(test_gallerydl test_gallerydl.cpp ../src/remote/gallerydl.cpp
               ../src/library/metaparser.cpp)
 add_unit_test(test_losnimport test_losnimport.cpp ../src/library/losnimport.cpp
               ../src/remote/downloadmanager.cpp ../src/remote/downloadqueue.cpp ../src/remote/webdlbackend.h ${REMOTE_SOURCES}
+              ../src/remote/postmeta.cpp
               ../src/remote/imagecache.cpp ../src/library/cachejanitor.cpp
               ${UGOIRA_SOURCES} ${MIGRATION_SOURCES}
               ../src/library/favdb.cpp ../src/settings.cpp ../src/library/metaparser.cpp
@@ -73,6 +74,7 @@ set_tests_properties(test_strayresolve PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_unit_test(test_downloadplan test_downloadplan.cpp ../src/remote/downloadmanager.cpp
               ../src/remote/downloadqueue.cpp ../src/remote/webdlbackend.h ${REMOTE_SOURCES} ${UGOIRA_SOURCES} ../src/ui/progressbar.cpp
+              ../src/remote/postmeta.cpp ../src/library/metaparser.cpp
               ../src/remote/imagecache.cpp ../src/library/cachejanitor.cpp ../src/settings.cpp ${MIGRATION_SOURCES})
 add_unit_test(test_migrations test_migrations.cpp ${MIGRATION_SOURCES}
               ../src/settings.cpp ../src/library/favdb.cpp
@@ -122,6 +124,7 @@ add_unit_test(test_gifview test_gifview.cpp ../src/ui/viewerpage.cpp ../src/ui/v
               ../src/remote/webdlbackend.h ../src/library/cachejanitor.cpp
               ../src/ui/progressbar.cpp ../src/ui/flowlayout.cpp
               ../src/ui/metatext.cpp
+              ../src/library/metaparser.cpp
               ${REMOTE_SOURCES} ../src/settings.cpp ../src/remote/tempmedia.cpp ${MIGRATION_SOURCES})
 target_compile_definitions(test_gifview PRIVATE
     TESTFILES_DIR="${CMAKE_SOURCE_DIR}/tests/files")
@@ -132,6 +135,7 @@ add_unit_test(test_metathread test_metathread.cpp ../src/ui/viewerpage.cpp ../sr
               ../src/remote/webdlbackend.h ../src/library/cachejanitor.cpp
               ../src/ui/progressbar.cpp ../src/ui/flowlayout.cpp
               ../src/ui/metatext.cpp
+              ../src/library/metaparser.cpp
               ${REMOTE_SOURCES} ../src/settings.cpp ../src/remote/tempmedia.cpp ${MIGRATION_SOURCES})
 set_tests_properties(test_metathread PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
@@ -140,6 +144,7 @@ add_unit_test(test_videopane test_videopane.cpp ../src/ui/viewerpage.cpp ../src/
               ../src/remote/webdlbackend.h ../src/library/cachejanitor.cpp
               ../src/ui/progressbar.cpp ../src/ui/flowlayout.cpp
               ../src/ui/metatext.cpp
+              ../src/library/metaparser.cpp
               ${REMOTE_SOURCES} ../src/settings.cpp ../src/remote/tempmedia.cpp ${MIGRATION_SOURCES})
 target_compile_definitions(test_videopane PRIVATE
     TESTFILES_DIR="${CMAKE_SOURCE_DIR}/tests/files")
@@ -251,7 +256,7 @@ add_unit_test(test_security test_security.cpp ${REMOTE_SOURCES}
               ../src/library/metaparser.cpp ../src/library/losnimport.cpp
               ../src/library/favdb.cpp ../src/settings.cpp
               ../src/library/queryor.cpp
-              ../src/remote/downloadmanager.cpp
+              ../src/remote/downloadmanager.cpp ../src/remote/postmeta.cpp
               ../src/remote/downloadqueue.cpp
               ../src/remote/webdlbackend.h
               ../src/remote/imagecache.cpp ../src/library/cachejanitor.cpp

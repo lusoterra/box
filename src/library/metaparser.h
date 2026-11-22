@@ -32,6 +32,15 @@ private:
 bool writeRefreshedSidecar(const QString &sidecarPath, const QJsonObject &fresh,
                            const QString &siteKey);
 
+// The sidecar the scanner would use for a local media file (`<stem>.json`,
+// or `<file>.json`), empty when neither exists.
+QString localSidecarPath(const QString &absFile);
+
+// Merge cached notes into an existing sidecar object under the box-owned
+// `box_notes` key (+ `box_notes_at`). Any other key/shape is preserved.
+// Atomic write; false on unreadable/absent/non-object sidecars.
+bool writeSidecarNotes(const QString &sidecarPath, const QVector<PostNote> &notes);
+
 // Hard write-refusal for library archive roots (everything outside the
 // download dir). All file-write code paths call this first: if it
 // returns true the write MUST be skipped, no exceptions. Keeps

@@ -179,6 +179,17 @@ private:
     int m_done = 0;
     int m_total = 0;
     bool m_active = false;
+    // Sidecar note caching (download-time): one PostMetaFetcher, jobs
+    // queued per finished post so the notes land in `box_notes`.
+    struct NotesJob {
+        Post post;
+        QString sidecarPath;
+    };
+    QList<NotesJob> m_notesQueue;
+    class PostMetaFetcher *m_notesFetcher = nullptr;
+    QString m_notesActiveSidecar;
+    void cacheNotesForJob(const DownloadJob &job);
+    void pumpNotesCache();
     QString m_ugoiraFormat = QStringLiteral("webp");
     int m_ugoiraDelayMs = 100;
     QAtomicInt m_convertCancel{0}; // set by cancel(), polled by converts

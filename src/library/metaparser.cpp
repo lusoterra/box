@@ -1,6 +1,7 @@
 #include "metaparser.h"
 #include "explicittags.h"
 
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -76,33 +77,66 @@ void applyRatingAndTags(Post &post, const QString &rawRating,
 } // namespace
 
 bool MetaParser::parse(const QJsonObject &raw, Post &post) {
+    bool ok = false;
     // Stray sidecars first: marker + flat tag string, no id/rating. Without
     // this they fall into the flat parser, whose tags never reach untyped
     // and can never be categorized.
-    if (raw.value(QStringLiteral("stray")).toBool())
-        return parseStray(raw, post);
-    // LOSN / testfile format: tags is an array of {fullString, tagType},
-    // identified by serverId/postURL markers.
-    if (raw.contains(QStringLiteral("serverId")) || raw.contains(QStringLiteral("postURL")) ||
-        raw.contains(QStringLiteral("md5String")))
-        return parseLosn(raw, post);
-    // gallery-dl native danbooru info.json uses tag_string_* fields.
-    if (raw.contains(QStringLiteral("tag_string")) || raw.contains(QStringLiteral("tag_string_general")))
-        return parseDanbooruNative(raw, post);
-    // gallery-dl native gelbooru info.json: id/score/rating + "tags" string.
-    if (raw.contains(QStringLiteral("tags")) && raw.value(QStringLiteral("tags")).isString() &&
-        (raw.contains(QStringLiteral("id")) || raw.contains(QStringLiteral("rating"))))
-        return parseGelbooruNative(raw, post);
-    // Szurubooru native object (our own download sidecars included): "tags"
-    // is an array of {names, category}.
-    if (raw.value(QStringLiteral("tags")).isArray()) {
-        const QJsonArray arr = raw.value(QStringLiteral("tags")).toArray();
-        if (!arr.isEmpty() && arr.first().isObject() &&
-            arr.first().toObject().contains(QStringLiteral("names")))
-            return parseSzuruNative(raw, post);
+    if (raw.value(QStringLiteral("stray")).toBool()) {
+        ok = parseStray(raw, post);
+    } else if (raw.contains(QStringLiteral("serverId")) ||
+               raw.contains(QStringLiteral("postURL")) ||
+               raw.contains(QStringLiteral("md5String"))) {
+        // LOSN / testfile format: tags is an array of {fullString, tagType},
+        // identified by serverId/postURL markers.
+        ok = parseLosn(raw, post);
+    } else if (raw.contains(QStringLiteral("tag_string")) ||
+               raw.contains(QStringLiteral("tag_string_general"))) {
+        // gallery-dl native danbooru info.json uses tag_string_* fields.
+        ok = parseDanbooruNative(raw, post);
+    } else if (raw.contains(QStringLiteral("tags")) &&
+               raw.value(QStringLiteral("tags")).isString() &&
+               (raw.contains(QStringLiteral("id")) ||
+                raw.contains(QStringLiteral("rating")))) {
+        // gallery-dl native gelbooru info.json: id/score/rating + tags.
+        ok = parseGelbooruNative(raw, post);
+    } else if (raw.value(QStringLiteral("tags")).isArray() &&
+               !raw.value(QStringLiteral("tags")).toArray().isEmpty() &&
+               raw.value(QStringLiteral("tags"))
+                   .toArray()
+                   .first()
+                   .toObject()
+                   .contains(QStringLiteral("names"))) {
+        // Szurubooru native object (our own download sidecars included):
+        // "tags" is an array of {names, category}.
+        ok = parseSzuruNative(raw, post);
+    } else {
+        // Fallback: flat gallery-dl layout: id/score/rating/tags[_*] keys.
+        ok = parseGalleryDlFlat(raw, post);
     }
-    // Fallback: flat gallery-dl layout: id/score/rating/tags[_*] keys.
-    return parseGalleryDlFlat(raw, post);
+    if (!ok)
+        return false;
+    // Notes cached next to the media by the downloader (or a refresh).
+    // An empty array still marks the sidecar as checked, so a downloaded
+    // post does not hit the network for notes that are confirmed absent.
+    const QJsonValue cached = raw.value(QStringLiteral("box_notes"));
+    if (cached.isArray()) {
+        post.notesCached = true;
+        post.cachedNotes.clear();
+        for (const QJsonValue &v : cached.toArray()) {
+            if (!v.isObject())
+                continue;
+            const QJsonObject o = v.toObject();
+            PostNote n;
+            n.x = static_cast<int>(toInt(o.value(QStringLiteral("x"))));
+            n.y = static_cast<int>(toInt(o.value(QStringLiteral("y"))));
+            n.w = static_cast<int>(toInt(o.value(QStringLiteral("width"))));
+            n.h = static_cast<int>(toInt(o.value(QStringLiteral("height"))));
+            n.body = o.value(QStringLiteral("body")).toString().trimmed();
+            if (!n.body.isEmpty() && n.w > 0 && n.h > 0)
+                post.cachedNotes.append(n);
+        }
+    }
+    return true;
 }
 
 bool MetaParser::parseLosn(const QJsonObject &raw, Post &post) {
@@ -530,8 +564,66 @@ bool writeRefreshedSidecar(const QString &sidecarPath, const QJsonObject &fresh,
         return atomicReplace(QJsonDocument(cur));
     }
     if (isDanNative || isBlobNative) {
-        // Same shape, fresher data: wholesale replacement.
-        return atomicReplace(QJsonDocument(fresh));
+        // Same shape, fresher data: wholesale replacement, but keep the
+        // box-owned note cache (the fresh API object never carries it).
+        QJsonObject out = fresh;
+        for (const char *k : {"box_notes", "box_notes_at"}) {
+            const QString key = QString::fromLatin1(k);
+            if (cur.contains(key))
+                out[key] = cur.value(key);
+        }
+        return atomicReplace(QJsonDocument(out));
     }
     return false;
+}
+
+QString localSidecarPath(const QString &absFile) {
+    if (absFile.isEmpty())
+        return {};
+    const QFileInfo fi(absFile);
+    const QString flat = absFile + QStringLiteral(".json");
+    if (QFile::exists(flat))
+        return flat;
+    const QString stem =
+        fi.absolutePath() + u'/' + fi.completeBaseName() + QStringLiteral(".json");
+    if (QFile::exists(stem))
+        return stem;
+    return {};
+}
+
+bool writeSidecarNotes(const QString &sidecarPath, const QVector<PostNote> &notes) {
+    if (sidecarPath.isEmpty())
+        return false;
+    QFile f(sidecarPath);
+    static constexpr qint64 kMaxSidecar = 8LL * 1024 * 1024;
+    if (f.size() > kMaxSidecar || !f.open(QIODevice::ReadOnly))
+        return false;
+    QJsonParseError err;
+    const QJsonDocument doc = QJsonDocument::fromJson(f.readAll(), &err);
+    f.close();
+    if (err.error != QJsonParseError::NoError || !doc.isObject())
+        return false;
+    QJsonObject cur = doc.object();
+    QJsonArray arr;
+    for (const PostNote &n : notes) {
+        QJsonObject o;
+        o[QStringLiteral("x")] = n.x;
+        o[QStringLiteral("y")] = n.y;
+        o[QStringLiteral("width")] = n.w;
+        o[QStringLiteral("height")] = n.h;
+        o[QStringLiteral("body")] = n.body;
+        arr.append(o);
+    }
+    cur[QStringLiteral("box_notes")] = arr;
+    cur[QStringLiteral("box_notes_at")] =
+        QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
+    QSaveFile outFile(sidecarPath);
+    if (!outFile.open(QIODevice::WriteOnly))
+        return false;
+    const QByteArray bytes = QJsonDocument(cur).toJson(QJsonDocument::Indented);
+    if (outFile.write(bytes) != bytes.size()) {
+        outFile.cancelWriting();
+        return false;
+    }
+    return outFile.commit();
 }

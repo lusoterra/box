@@ -313,6 +313,128 @@ private slots:
                  QStringLiteral("new"));
     }
 
+    void cachedNotesParseFromSidecar() {
+        QJsonObject raw;
+        raw[QStringLiteral("id")] = 42;
+        raw[QStringLiteral("tag_string_general")] = QStringLiteral("solo");
+        QJsonArray notes;
+        QJsonObject n;
+        n[QStringLiteral("x")] = 10;
+        n[QStringLiteral("y")] = 20;
+        n[QStringLiteral("width")] = 30;
+        n[QStringLiteral("height")] = 40;
+        n[QStringLiteral("body")] = QStringLiteral("hello");
+        notes.append(n);
+        raw[QStringLiteral("box_notes")] = notes;
+        Post p;
+        QVERIFY(MetaParser::parse(raw, p));
+        QVERIFY(p.notesCached);
+        QCOMPARE(p.cachedNotes.size(), 1);
+        QCOMPARE(p.cachedNotes.at(0).x, 10);
+        QCOMPARE(p.cachedNotes.at(0).w, 30);
+        QCOMPARE(p.cachedNotes.at(0).body, QStringLiteral("hello"));
+
+        // Confirmed empty: still marks the sidecar as checked so a
+        // downloaded post does not refetch on every open.
+        raw[QStringLiteral("box_notes")] = QJsonArray();
+        Post empty;
+        QVERIFY(MetaParser::parse(raw, empty));
+        QVERIFY(empty.notesCached);
+        QVERIFY(empty.cachedNotes.isEmpty());
+        // No key at all: never checked.
+        raw.remove(QStringLiteral("box_notes"));
+        Post absent;
+        QVERIFY(MetaParser::parse(raw, absent));
+        QVERIFY(!absent.notesCached);
+    }
+
+    void writeSidecarNotesMerges() {
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        const QString path = tmp.filePath(QStringLiteral("post.json"));
+        QJsonObject cur;
+        cur[QStringLiteral("id")] = 7;
+        cur[QStringLiteral("tag_string_general")] = QStringLiteral("keep");
+        QFile f(path);
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write(QJsonDocument(cur).toJson(QJsonDocument::Compact));
+        f.close();
+
+        PostNote a;
+        a.x = 1;
+        a.y = 2;
+        a.w = 3;
+        a.h = 4;
+        a.body = QStringLiteral("one");
+        PostNote b;
+        b.x = 5;
+        b.y = 6;
+        b.w = 7;
+        b.h = 8;
+        b.body = QStringLiteral("two");
+        QVERIFY(writeSidecarNotes(path, {a, b}));
+
+        QFile in(path);
+        QVERIFY(in.open(QIODevice::ReadOnly));
+        const QJsonObject back =
+            QJsonDocument::fromJson(in.readAll()).object();
+        QCOMPARE(back[QStringLiteral("id")].toInt(), 7);
+        QCOMPARE(back[QStringLiteral("tag_string_general")].toString(),
+                 QStringLiteral("keep"));
+        QVERIFY(back.contains(QStringLiteral("box_notes_at")));
+        const QJsonArray notes = back[QStringLiteral("box_notes")].toArray();
+        QCOMPARE(notes.size(), 2);
+        QCOMPARE(notes.at(1).toObject()[QStringLiteral("body")].toString(),
+                 QStringLiteral("two"));
+        QCOMPARE(notes.at(1).toObject()[QStringLiteral("width")].toInt(), 7);
+
+        // Round-trip through the parser.
+        Post p;
+        QVERIFY(MetaParser::parse(back, p));
+        QCOMPARE(p.cachedNotes.size(), 2);
+        QCOMPARE(p.cachedNotes.at(0).body, QStringLiteral("one"));
+    }
+
+    void refreshNativeKeepsCachedNotes() {
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        const QString path = tmp.filePath(QStringLiteral("post.json"));
+        QJsonObject cur;
+        cur[QStringLiteral("id")] = 1;
+        cur[QStringLiteral("tag_string_general")] = QStringLiteral("old");
+        QJsonArray notes;
+        QJsonObject n;
+        n[QStringLiteral("x")] = 1;
+        n[QStringLiteral("y")] = 2;
+        n[QStringLiteral("width")] = 3;
+        n[QStringLiteral("height")] = 4;
+        n[QStringLiteral("body")] = QStringLiteral("keep me");
+        notes.append(n);
+        cur[QStringLiteral("box_notes")] = notes;
+        QFile f(path);
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write(QJsonDocument(cur).toJson(QJsonDocument::Compact));
+        f.close();
+
+        QJsonObject fresh;
+        fresh[QStringLiteral("id")] = 1;
+        fresh[QStringLiteral("tag_string_general")] = QStringLiteral("new");
+        QVERIFY(writeRefreshedSidecar(path, fresh, QStringLiteral("danbooru")));
+        QFile in(path);
+        QVERIFY(in.open(QIODevice::ReadOnly));
+        const QJsonObject back =
+            QJsonDocument::fromJson(in.readAll()).object();
+        QCOMPARE(back[QStringLiteral("tag_string_general")].toString(),
+                 QStringLiteral("new"));
+        QCOMPARE(back[QStringLiteral("box_notes")].toArray().size(), 1);
+        QCOMPARE(back[QStringLiteral("box_notes")]
+                     .toArray()
+                     .at(0)
+                     .toObject()[QStringLiteral("body")]
+                     .toString(),
+                 QStringLiteral("keep me"));
+    }
+
     void refreshRejectsUnknown() {
         QTemporaryDir tmp;
         QVERIFY(tmp.isValid());

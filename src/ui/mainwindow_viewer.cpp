@@ -91,6 +91,20 @@ void MainWindow::showViewer(int row) {
     if (row >= 0 && row < m_current.size())
         if (BrowserTab *t = currentTab())
             t->viewerKey = viewerKeyFor(m_current.at(row));
+    // Favourites rows keep isRemote; their downloaded sidecars are only
+    // reachable through the DB link. Hand the viewer "site#id" -> path so
+    // cached notes work regardless of which tab opened the post.
+    if (m_viewer && m_favDb.isOpen()) {
+        QHash<QString, QString> idx;
+        const auto paths = m_favDb.localPaths();
+        for (auto it = paths.begin(); it != paths.end(); ++it) {
+            const QString key = RemotePosts::keyForLabel(it.key().first);
+            idx.insert((key.isEmpty() ? it.key().first : key) + u'#' +
+                           QString::number(it.key().second),
+                       it.value());
+        }
+        m_viewer->setLocalPathIndex(idx);
+    }
     const QModelIndex idx = m_model->index(row, 0);
     m_viewer->showThumbPreview(
         qvariant_cast<QPixmap>(m_model->data(idx, Qt::DecorationRole)));
@@ -269,6 +283,13 @@ void MainWindow::showViewerContextMenu(const Post &post,
     QAction *meta = menu.addAction(tr("View metadata…"));
     connect(meta, &QAction::triggered, this,
             [this, post] { showPostMetadata(post); });
+    // Downloaded posts read notes from the sidecar; force an online
+    // refresh here (the result is written back when the row is local).
+    if (!post.isRemote && RemotePosts::entryForPost(post)) {
+        QAction *refreshNotes = menu.addAction(tr("Refresh notes"));
+        connect(refreshNotes, &QAction::triggered, this,
+                [this] { m_viewer->refreshNotes(); });
+    }
     if (hasLocal) {
         QAction *showFolder = menu.addAction(tr("Show in folder"));
         connect(showFolder, &QAction::triggered, this, [local] {

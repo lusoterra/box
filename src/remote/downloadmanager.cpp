@@ -2,6 +2,8 @@
 #include "downloadqueue.h"
 #include "imagecache.h"
 #include "filehash.h"
+#include "metaparser.h"
+#include "postmeta.h"
 #include "progressbar.h"
 #include "remotesource.h"
 #include "ugoioconvert.h"
@@ -30,7 +32,18 @@
 #include <utility>
 
 DownloadManager::DownloadManager(QObject *parent)
-    : QObject(parent), m_nam(new QNetworkAccessManager(this)) {}
+    : QObject(parent), m_nam(new QNetworkAccessManager(this)) {
+    m_notesFetcher = new PostMetaFetcher(this);
+    connect(m_notesFetcher, &PostMetaFetcher::done, this,
+            [this](const QString &, qint64, const QVector<PostNote> &notes,
+                   const QVector<PostComment> &, const QVector<PostComment> &,
+                   bool ok, const QString &) {
+                if (ok && !m_notesActiveSidecar.isEmpty())
+                    writeSidecarNotes(m_notesActiveSidecar, notes);
+                m_notesActiveSidecar.clear();
+                pumpNotesCache();
+            });
+}
 
 DownloadManager::~DownloadManager() {
     delete m_store;
@@ -1050,6 +1063,9 @@ bool DownloadManager::completeJob(DownloadJob &job, QString *error,
     if (jf.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
         jf.write(QJsonDocument(job.post.rawJson)
                      .toJson(QJsonDocument::Indented)); // jq-readable sidecars
+        // Every completion path funnels here (network, viewer-cache move,
+        // browser backend): cache this post's notes in the sidecar.
+        cacheNotesForJob(job);
         return true;
     }
     if (error)
@@ -1058,9 +1074,53 @@ bool DownloadManager::completeJob(DownloadJob &job, QString *error,
     return false;
 }
 
+void DownloadManager::cacheNotesForJob(const DownloadJob &job) {
+    const Post &p = job.post;
+    // Only posts the API flagged with annotations: this keeps a 100-file
+    // batch from firing 100 pointless requests. Older downloads without a
+    // cache are backfilled by the viewer on first open.
+    if (!p.isRemote || p.id == 0 || !p.hasNotes || job.jsonPath.isEmpty())
+        return;
+    const BooruSite *site = RemotePosts::entryForPost(p);
+    if (!site ||
+        PostMeta::notesUrl(site->engine, site->baseUrl, p.id).isEmpty())
+        return;
+    for (const NotesJob &q : std::as_const(m_notesQueue)) {
+        if (q.sidecarPath == job.jsonPath)
+            return;
+    }
+    if (m_notesActiveSidecar == job.jsonPath)
+        return;
+    m_notesQueue.append({p, job.jsonPath});
+    pumpNotesCache();
+}
+
+void DownloadManager::pumpNotesCache() {
+    if (!m_notesFetcher || !m_notesActiveSidecar.isEmpty())
+        return;
+    while (!m_notesQueue.isEmpty()) {
+        const NotesJob job = m_notesQueue.takeFirst();
+        const BooruSite *site = RemotePosts::entryForPost(job.post);
+        if (!site ||
+            PostMeta::notesUrl(site->engine, site->baseUrl, job.post.id)
+                .isEmpty())
+            continue;
+        if (site->engine == BooruEngine::Danbooru)
+            m_notesFetcher->setCreds(site->user, site->secret, {}, {});
+        else if (site->engine == BooruEngine::Gelbooru ||
+                 site->engine == BooruEngine::Safebooru)
+            m_notesFetcher->setCreds({}, {}, site->user, site->secret);
+        else
+            m_notesFetcher->setCreds({}, {}, {}, {});
+        m_notesActiveSidecar = job.sidecarPath;
+        m_notesFetcher->fetch(site->key, site->baseUrl, job.post.id,
+                              site->engine, true, NotesPart);
+        return;
+    }
+}
+
 void DownloadManager::finishJob(const DownloadJob &job, bool ok,
-                                 const QString &error, bool walled, bool repump) {
-    forgetPersisted(job.post.fileUrl);
+                                 const QString &error, bool walled, bool repump) {    forgetPersisted(job.post.fileUrl);
     if (!ok && walled) {
         // HTML-where-media-was-expected: remember where, so the solve
         // browser opens AT the wall instead of the homepage.

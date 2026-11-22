@@ -6,8 +6,16 @@
 #include <QMap>
 #include <QSet>
 #include <QStringList>
+#include <QVector>
 
 #include <ranges>
+
+// One image annotation (booru note). Geometry is in ORIGINAL image
+// pixels; the viewer maps it onto whatever pixmap is displayed.
+struct PostNote {
+    int x = 0, y = 0, w = 0, h = 0;
+    QString body;
+};
 
 // Post record. Mirrors the fields the Python prototypes exposed
 // (local archives, remote API results, favourites rows).
@@ -66,6 +74,11 @@ struct Post {
     // Empty = unknown, never deduped on.
     QString md5;
     QJsonObject rawJson; // original API post object (written as download sidecar)
+    // Notes cached in the download sidecar (`box_notes`). `notesCached`
+    // separates "confirmed empty" from "never fetched" so a downloaded
+    // post can skip the notes request; comments are always online.
+    QVector<PostNote> cachedNotes;
+    bool notesCached = false;
     // Runtime-only cache-policy hint (never persisted / never sent to the
     // sidecar): true only when the bytes are explicitly kept under the
     // download folder. MainWindow stamps it from isPostDownloaded() before
