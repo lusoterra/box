@@ -35,15 +35,18 @@ QString parseVersion(const QString &output);
 bool handlesUrl(const QString &url);
 
 // One gallery-dl flight downloads however many files the page holds.
-// gallery-dl keeps its own per-site subfolders/filenames (pixiv/<user>/…)
-// and may write metadata sidecars; afterwards box flattens every new
-// media file into the _Stray root using the normal stray naming
-// (`_Stray_<md5>.<ext>`) and writes its own `_Stray_<md5>.json` (tags
-// empty, post_url/source recorded, useful gallery-dl metadata such as
-// file_url/title/artist carried over). Nested folders are removed once
-// empty, so the media browser only ever sees flat strays.
-// CLI for one download flight into destDir. The default filename
-// templates stay (descriptive, unique-ish per post).
+// Box pins -D (exact directory), so gallery-dl writes straight into the
+// _Stray root regardless of the user's folder templates; the system
+// config still supplies credentials/cookies/proxy, but its
+// post-processors and per-extractor folder/format choices are overridden,
+// and archives/layered editor files (zip, 7z, psd, psb, …) are filtered
+// out before download. Afterwards box flattens every new media file into
+// the _Stray root using the normal stray naming (`_Stray_<md5>.<ext>`)
+// and writes its own `_Stray_<md5>.json` (tags empty, post_url/source
+// recorded, useful gallery-dl metadata such as file_url/title/artist
+// carried over). Ignored leftovers are removed and nested folders pruned,
+// so the media browser only ever sees flat strays.
+// CLI for one download flight into destDir.
 QStringList buildArgs(const QString &destDir, const QStringList &urls);
 
 // <stem>.json sidecar path for a media file (LOSN layout, same as the

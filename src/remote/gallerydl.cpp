@@ -121,10 +121,20 @@ bool handlesUrl(const QString &url) {
 }
 
 QStringList buildArgs(const QString &destDir, const QStringList &urls) {
-    // Transport only: no --write-metadata. gallery-dl's tag blobs would
-    // pollute user tagging; box writes its own stray sidecars afterwards.
+    // Transport only: the user's gallery-dl config still supplies
+    // credentials/cookies/proxy, but box owns the layout. -D (exact
+    // directory) pins every file straight into _Stray and overrides any
+    // per-extractor folder templates; --no-postprocessors drops the
+    // user's metadata/rename/exec hooks; the filter refuses archives and
+    // layered editor files (variant-set zips, multi-hundred-MB PSDs).
     QStringList args;
-    args << QStringLiteral("-d") << QDir::toNativeSeparators(destDir);
+    args << QStringLiteral("-D") << QDir::toNativeSeparators(destDir);
+    args << QStringLiteral("--no-postprocessors");
+    args << QStringLiteral("--filter")
+         << QStringLiteral(
+                "(extension or '').lower() not in "
+                "('zip','rar','7z','tar','gz','bz2','xz','tgz','zst',"
+                "'psd','psb','clip','kra','xcf','sai','sai2')");
     args.append(urls);
     return args;
 }
@@ -220,6 +230,65 @@ void pruneEmptyDirs(const QString &root, const QStringList &dirs) {
             QDir().rmdir(dir); // only succeeds when empty
     }
 }
+
+// Files gallery-dl may emit that box has no business keeping: variant-set
+// archives and layered editor documents (a single PSD can be hundreds of
+// MB and nothing in the app can display it).
+bool isIgnoredDownload(const QString &path) {
+    static const QStringList exts = {
+        QStringLiteral("zip"),  QStringLiteral("rar"),  QStringLiteral("7z"),
+        QStringLiteral("tar"),  QStringLiteral("gz"),   QStringLiteral("bz2"),
+        QStringLiteral("xz"),   QStringLiteral("tgz"),  QStringLiteral("zst"),
+        QStringLiteral("psd"),  QStringLiteral("psb"),  QStringLiteral("clip"),
+        QStringLiteral("kra"),  QStringLiteral("xcf"),  QStringLiteral("sai"),
+        QStringLiteral("sai2"),
+    };
+    return exts.contains(QFileInfo(path).suffix().toLower());
+}
+
+// Drop ignored leftovers from previous flights too (older box versions
+// moved only media, leaving zip/PSD folders behind), then prune every
+// empty subfolder. Root-level files are left alone: only gallery-dl's
+// nested per-site output is box-managed.
+int removeIgnoredDownloads(const QString &root) {
+    int removed = 0;
+    QStringList dirs;
+    QDirIterator it(root, QDir::Files | QDir::NoDotAndDotDot,
+                    QDirIterator::Subdirectories);
+    while (it.hasNext()) {
+        it.next();
+        if (!isIgnoredDownload(it.filePath()))
+            continue;
+        // Only gallery-dl's own nested output: a root-level archive the
+        // user dropped into _Stray by hand is left alone.
+        if (it.fileInfo().absolutePath() == root)
+            continue;
+        QString dir = it.fileInfo().absolutePath();
+        while (dir != root && dir.startsWith(root) && !dirs.contains(dir)) {
+            dirs << dir;
+            dir = QFileInfo(dir).absolutePath();
+        }
+        if (QFile::remove(it.filePath()))
+            ++removed;
+    }
+    pruneEmptyDirs(root, dirs);
+    // Also sweep folders left empty by earlier runs (and nested dirs that
+    // held only ignored files): deepest first, root kept.
+    QDirIterator dit(root, QDir::Dirs | QDir::NoDotAndDotDot,
+                     QDirIterator::Subdirectories);
+    QStringList all;
+    while (dit.hasNext())
+        all << dit.next();
+    std::sort(all.begin(), all.end(), [](const QString &a, const QString &b) {
+        return a.count(u'/') > b.count(u'/');
+    });
+    for (const QString &dir : std::as_const(all)) {
+        if (dir != root && QDir(dir).exists())
+            QDir().rmdir(dir);
+    }
+    return removed;
+}
+
 } // namespace
 
 AdoptSummary adoptNewFiles(const QString &destDir,
@@ -311,6 +380,7 @@ AdoptSummary adoptNewFiles(const QString &destDir,
         }
     }
     pruneEmptyDirs(rootPath, dirs);
+    removeIgnoredDownloads(rootPath);
     return out;
 }
 

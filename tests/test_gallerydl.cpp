@@ -54,15 +54,22 @@ private slots:
     }
 
     void args() {
-        // Transport only: no --write-metadata (box writes its own
-        // user-owned sidecars afterwards).
+        // Transport only: box pins the exact directory (-D) and drops the
+        // user's post-processors, while their credentials/cookies still
+        // come from the system config.
         const QStringList a = GalleryDl::buildArgs(
             QStringLiteral("/dl/_Stray"),
             {QStringLiteral("https://www.pixiv.net/en/artworks/1")});
         QVERIFY(!a.contains(QStringLiteral("--write-metadata")));
-        const int d = a.indexOf(QStringLiteral("-d"));
+        QVERIFY(a.contains(QStringLiteral("--no-postprocessors")));
+        const int d = a.indexOf(QStringLiteral("-D"));
         QVERIFY(d >= 0);
         QCOMPARE(a.at(d + 1), QStringLiteral("/dl/_Stray"));
+        QVERIFY(!a.contains(QStringLiteral("-d")));
+        const int f = a.indexOf(QStringLiteral("--filter"));
+        QVERIFY(f >= 0);
+        QVERIFY(a.at(f + 1).contains(QStringLiteral("'psd'")));
+        QVERIFY(a.at(f + 1).contains(QStringLiteral("'zip'")));
         QCOMPARE(a.last(),
                  QStringLiteral("https://www.pixiv.net/en/artworks/1"));
     }
@@ -169,6 +176,16 @@ private slots:
         QVERIFY(mf.open(QIODevice::WriteOnly));
         mf.write(QJsonDocument(meta).toJson());
         mf.close();
+        // Leftovers from an older run: a variant-set zip and a huge PSD
+        // in their own folders. Both must disappear, folders included.
+        const QString extras = strayRoot + QStringLiteral("/kemono/user/9");
+        QVERIFY(QDir().mkpath(extras));
+        for (const char *name : {"variants.zip", "huge.psd"}) {
+            QFile x(extras + u'/' + QString::fromLatin1(name));
+            QVERIFY(x.open(QIODevice::WriteOnly));
+            x.write("junk");
+            x.close();
+        }
 
         const QString page = QStringLiteral("https://www.pixiv.net/artworks/123");
         const GalleryDl::AdoptSummary s =
@@ -213,6 +230,10 @@ private slots:
         QVERIFY(o.value(QStringLiteral("stray")).toBool());
         // gallery-dl's JSON next to the media is gone.
         QVERIFY(!QFile::exists(nested + QStringLiteral("/123_p0.json")));
+        // Unsupported archives/layered files and their folders are gone.
+        QVERIFY(!QFile::exists(extras + QStringLiteral("/variants.zip")));
+        QVERIFY(!QFile::exists(extras + QStringLiteral("/huge.psd")));
+        QVERIFY(!QDir(extras).exists());
     }
 };
 

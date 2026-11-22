@@ -495,9 +495,12 @@ and paid/exclusive uploads that never reach a booru, e.g. Patreon posts.
 Big link box (one URL per line) plus `Auto-favourite downloaded/imported
 strays`, and four buttons: `Download` (gallery links - Pixiv, Fanbox,
 Pawchive, Patreon, … - go through the system gallery-dl package when
-found, using its login, landing in `_Stray/` flattened to `_Stray_<md5>` names with basic
-sidecars it writes itself (gallery-dl's nested per-site folders are
-removed; its file URL/title/artist metadata is carried into the sidecar):
+found, using its login and credentials but none of its folder or
+post-processing choices, landing flat in `_Stray/` as `_Stray_<md5>`
+names with basic sidecars it writes itself (box pins the exact download
+directory and filters out archives/layered files such as zip and PSD,
+then deletes ignored leftovers and any emptied per-site folders; its
+file URL/title/artist metadata is carried into the sidecar):
 page URL recorded, tags left empty for you - one flight
 per pasted link; direct media links and recognised booru post pages
 keep the built-in path: media fetched as-is, booru pages resolved so

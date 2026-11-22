@@ -303,17 +303,23 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     cached: they change too often and stay online for every row.
   - Gallery links (Pixiv/Fanbox/Pawchive/…) bypass `DownloadManager`:
     `GalleryDlRunner` (`src/remote/gallerydl.{h,cpp}`) shells out to the
-    system gallery-dl (transport only) into `_Stray/`, then flattens every
-    new media file to the normal stray naming (`_Stray_<md5>.<ext>`) and
-    writes its own `_Stray_<md5>.json` (tags empty for the user,
-    `post_url`/`source` = pasted page, useful gallery-dl metadata carried
-    over: `file_url`/`title`/`artist`, plus `origin_dir` for the pruned
-    per-site folder; never overwrites existing sidecars). gallery-dl's
-    per-site subfolders are deleted once empty, so the browser only sees
-    flat strays. One flight per URL via `MainWindow::runGalleryDl` /
-    `startGalleryFlight` (`src/ui/mainwindow_downloads.cpp`), progress
-    view `GalleryDlDialog` in `src/ui/straydialog.{h,cpp}`. No
-    auto-favourite on gallery flights (bulk, Favourites is not a bulk
+    system gallery-dl (transport only) with `-D _Stray/` so every file
+    lands flat regardless of the user's folder templates, while its
+    config still supplies credentials/cookies/proxy.
+    `--no-postprocessors` drops the user's metadata/rename/exec hooks and
+    a `--filter` refuses archives and layered editor files
+    (zip/7z/rar/psd/psb/…). Afterwards box flattens every new media file
+    to the normal stray naming (`_Stray_<md5>.<ext>`) and writes its own
+    `_Stray_<md5>.json` (tags empty for the user, `post_url`/`source` =
+    pasted page, useful gallery-dl metadata carried over:
+    `file_url`/`title`/`artist`, plus `origin_dir` for the pruned
+    per-site folder; never overwrites existing sidecars). Ignored
+    leftovers are deleted and every emptied per-site folder pruned, so
+    the browser only sees flat strays. One flight per URL via
+    `MainWindow::runGalleryDl` / `startGalleryFlight`
+    (`src/ui/mainwindow_downloads.cpp`), progress view `GalleryDlDialog`
+    in `src/ui/straydialog.{h,cpp}`. No auto-favourite on gallery flights
+    (bulk, Favourites is not a bulk
     inbox); Pixiv/Pawchive string-array tags parse as general + untyped
     (`metaparser.cpp:161`).
     LoliSnatcher imports reuse the same folder/name shape via
