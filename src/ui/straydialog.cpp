@@ -24,23 +24,16 @@ StrayDialog::StrayDialog(bool autoFav, QWidget *parent) : QDialog(parent) {
     auto *lay = new QVBoxLayout(this);
     QString hint;
     if (GalleryDl::available()) {
-        hint = tr("Post or media URLs, one per line. Gallery links "
-                  "(Pixiv, Fanbox, Pawchive, Patreon, …) download through "
-                  "your system gallery-dl %1 (uses its login), straight "
-                  "into _Stray with basic sidecars - the page URL is "
-                  "recorded, tags are yours to fill in. Booru post links "
-                  "are read through their public API; direct image/video "
-                  "links are fetched as-is.")
-                   .arg(GalleryDl::version(GalleryDl::findBinary()));
+        hint = tr("Paste post or media URLs, one per line. Gallery links "
+                  "(Pixiv, Fanbox, Patreon, …) download with your installed "
+                  "gallery-dl into _Stray, tags left for you; booru posts are "
+                  "read through their public API; direct media is fetched "
+                  "as-is.");
     } else {
-        hint = tr("Post or media URLs, one per line. Booru post links are read "
-                  "through their public API (the site is not added to your booru "
-                  "list); direct image/video links are fetched as-is. Install "
-                  "the system gallery-dl package for gallery links (Pixiv, "
-                  "Fanbox, Pawchive, Patreon, …) - it downloads with its own "
-                  "login plus basic sidecars (tags stay yours). Strays are "
-                  "a Booru Explorer feature for random URLs and paid/exclusive "
-                  "uploads (Patreon etc.), not part of LoliSnatcher.");
+        hint = tr("Paste post or media URLs, one per line. Booru posts are read "
+                  "through their public API and direct media is fetched as-is. "
+                  "Install gallery-dl to download gallery links (Pixiv, "
+                  "Fanbox, Patreon, …) into _Stray.");
     }
     auto *hintLabel = new QLabel(hint, this);
     hintLabel->setWordWrap(true);
