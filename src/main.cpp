@@ -7,6 +7,7 @@
 #include <QApplication>
 #include <QCommandLineParser>
 #include <QDir>
+#include <QFileInfo>
 #include <QGuiApplication>
 #include <QIcon>
 #include <QLibraryInfo>
@@ -190,6 +191,12 @@ int main(int argc, char *argv[]) {
             bad << QStringLiteral("Cache: ") + settings.cacheDir;
         if (!settings.downloadDir.isEmpty() && !QDir(settings.downloadDir).exists())
             bad << QStringLiteral("Downloads: ") + settings.downloadDir;
+        if (!settings.hydrusDir.isEmpty() &&
+            !QDir(settings.hydrusDir).exists())
+            bad << QStringLiteral("Hydrus media: ") + settings.hydrusDir;
+        if (!settings.hydrusDb.isEmpty() &&
+            !QDir(QFileInfo(settings.hydrusDb).absolutePath()).exists())
+            bad << QStringLiteral("Hydrus database: ") + settings.hydrusDb;
         if (bad.isEmpty())
             break;
         QMessageBox mb;
@@ -224,6 +231,12 @@ int main(int argc, char *argv[]) {
                 settings.cacheDir.clear();
             if (!settings.downloadDir.isEmpty() && !QDir(settings.downloadDir).exists())
                 settings.downloadDir.clear();
+            if (!settings.hydrusDir.isEmpty() &&
+                !QDir(settings.hydrusDir).exists())
+                settings.hydrusDir.clear();
+            if (!settings.hydrusDb.isEmpty() &&
+                !QDir(QFileInfo(settings.hydrusDb).absolutePath()).exists())
+                settings.hydrusDb.clear();
             saveSettings(settings);
         } else if (mb.clickedButton() != chgBtn) {
             break; // dismissed (X Esc): proceed with startup as-is

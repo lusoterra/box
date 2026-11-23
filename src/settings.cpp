@@ -198,6 +198,16 @@ AppSettings loadSettings() {
         c.value(QStringLiteral("hydrus/accessKey"), s.hydrusAccessKey).toString();
     s.hydrusProxy =
         c.value(QStringLiteral("hydrus/proxy"), s.hydrusProxy).toString();
+    s.hydrusDir =
+        c.value(QStringLiteral("hydrus/mediaDir"), s.hydrusDir).toString();
+    s.hydrusDb = c.value(QStringLiteral("hydrus/dbPath"), s.hydrusDb).toString();
+    s.hydrusMinTagPosts =
+        qBound(0, c.value(QStringLiteral("hydrus/minTagPosts"),
+                          s.hydrusMinTagPosts).toInt(),
+               1000000);
+    s.hydrusDropUnknownTags =
+        c.value(QStringLiteral("hydrus/dropUnknownTags"),
+                s.hydrusDropUnknownTags).toBool();
     if (c.contains(QStringLiteral("filter/blacklist")))
         s.blacklist =
             normalizeExplicitTags(c.value(QStringLiteral("filter/blacklist")).toStringList());
@@ -278,6 +288,7 @@ AppSettings loadSettings() {
         t.rating = c.value(QStringLiteral("rating"), QStringLiteral("all")).toString();
         t.category = c.value(QStringLiteral("category")).toString();
         t.sort = c.value(QStringLiteral("sort"), QStringLiteral("id-desc")).toString();
+        t.hydrusOnlyMissing = c.value(QStringLiteral("hydrusOnlyMissing"), false).toBool();
         t.viewerKey = c.value(QStringLiteral("viewerKey")).toString();
         t.scrollRow = c.value(QStringLiteral("scrollRow"), -1).toInt();
         c.endGroup();
@@ -303,6 +314,8 @@ AppSettings loadSettings() {
         s.lastPlace.category = c.value(QStringLiteral("last/category")).toString();
         s.lastPlace.sort =
             c.value(QStringLiteral("last/sort"), QStringLiteral("id-desc")).toString();
+        s.lastPlace.hydrusOnlyMissing =
+            c.value(QStringLiteral("last/hydrusOnlyMissing"), false).toBool();
         s.lastPlace.viewerKey = c.value(QStringLiteral("last/viewerKey")).toString();
         s.lastPlace.scrollRow = c.value(QStringLiteral("last/scrollRow"), -1).toInt();
     }
@@ -438,6 +451,7 @@ void writeSettingsTo(QSettings &c, const AppSettings &s) {
         c.setValue(QStringLiteral("rating"), t.rating);
         c.setValue(QStringLiteral("category"), t.category);
         c.setValue(QStringLiteral("sort"), t.sort);
+        c.setValue(QStringLiteral("hydrusOnlyMissing"), t.hydrusOnlyMissing);
         c.setValue(QStringLiteral("viewerKey"), t.viewerKey);
         c.setValue(QStringLiteral("scrollRow"), t.scrollRow);
         c.endGroup();
@@ -454,6 +468,8 @@ void writeSettingsTo(QSettings &c, const AppSettings &s) {
         c.setValue(QStringLiteral("last/rating"), s.lastPlace.rating);
         c.setValue(QStringLiteral("last/category"), s.lastPlace.category);
         c.setValue(QStringLiteral("last/sort"), s.lastPlace.sort);
+        c.setValue(QStringLiteral("last/hydrusOnlyMissing"),
+                   s.lastPlace.hydrusOnlyMissing);
         c.setValue(QStringLiteral("last/viewerKey"), s.lastPlace.viewerKey);
         c.setValue(QStringLiteral("last/scrollRow"), s.lastPlace.scrollRow);
     }
@@ -463,6 +479,10 @@ void writeSettingsTo(QSettings &c, const AppSettings &s) {
     c.setValue(QStringLiteral("hydrus/url"), s.hydrusUrl);
     c.setValue(QStringLiteral("hydrus/accessKey"), s.hydrusAccessKey);
     c.setValue(QStringLiteral("hydrus/proxy"), s.hydrusProxy);
+    c.setValue(QStringLiteral("hydrus/mediaDir"), s.hydrusDir);
+    c.setValue(QStringLiteral("hydrus/dbPath"), s.hydrusDb);
+    c.setValue(QStringLiteral("hydrus/minTagPosts"), s.hydrusMinTagPosts);
+    c.setValue(QStringLiteral("hydrus/dropUnknownTags"), s.hydrusDropUnknownTags);
     c.setValue(QStringLiteral("storage/dataDir"), s.dataDir);
     c.setValue(QStringLiteral("startup/defaultTab"), s.tabsDefault);
     c.setValue(QStringLiteral("window/geometry"), s.geometry);

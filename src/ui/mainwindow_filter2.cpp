@@ -110,6 +110,10 @@ void MainWindow::applyFilter() {
         applyBrowseFilter();
         return;
     }
+    if (BrowserTab *ht = currentTab(); ht && ht->isHydrus) {
+        applyHydrusFilter();
+        return;
+    }
     BrowserTab *t = currentTab();
     if (t && t->isFavourites) {
         // Client-side filter over the DB list (no index involved).

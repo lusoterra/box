@@ -99,6 +99,16 @@ it you get untagged files. Re-run the same command later for new posts;
 add `--download-archive ~/pics/archive.sqlite3` to skip what you already
 have. The `--write-info-json` is also useful.
 
+## Hydrus library
+
+Enable Preferences → Hydrus, then open `Hydrus` from the ＋ menu. The tab
+keeps its own `hydrus.db` and media folder (defaults under the data dir),
+imports files, folders or gallery-dl URLs, stores media as
+`<sha256>.<ext>`, and pulls native namespaced tags from a local `hydd` or
+Hydrus client API. It is read-only towards Hydrus and independent from the
+favourites/downloads library; automatically fetched tags can be filtered
+against the cached booru tag counts to cut imported spam.
+
 ## Themes
 
 Bundled themes live in `assets/themes/*.ini` and are embedded into the binary

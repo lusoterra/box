@@ -213,6 +213,7 @@ void MainWindow::startGalleryFlight(QSharedPointer<GalleryChain> chain) {
                             8000);
                         BrowserTab *t = currentTab();
                         if (t && !t->isRemote && !t->isFavourites &&
+                            !t->isHydrus &&
                             (t->root == chain->dest ||
                              t->root.startsWith(chain->dest + u'/')))
                             startScan(m_root);
@@ -313,6 +314,8 @@ void MainWindow::repaintFavMarks() {
     // toggle for whatever post is on screen.
     if (!m_favDb.isOpen() || !m_model)
         return;
+    if (isHydrusTab())
+        return; // no favourite/download marks in the Hydrus tab
     const QHash<QPair<QString, qint64>, QString> favLocal =
         m_favDb.localPaths();
     const auto byPath = favKeysByPath(favLocal);
@@ -376,6 +379,12 @@ void MainWindow::onMetaMarksChanged(const QString &siteKey, qint64 postId,
 }
 
 void MainWindow::toggleFavourite(const Post &post) {
+    if (isHydrusTab()) {
+        statusBar()->showMessage(
+            tr("Hydrus media is always local; favourites do not apply"),
+            4000);
+        return;
+    }
     if (!m_favDb.isOpen()) {
         statusBar()->showMessage(tr("Favourites unavailable"), 4000);
         return;

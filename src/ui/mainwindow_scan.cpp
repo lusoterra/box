@@ -130,6 +130,11 @@ void MainWindow::reload() {
         doBrowseSearch();
         return;
     }
+    if (BrowserTab *t = currentTab(); t && t->isHydrus) {
+        m_hydrusOrphanScanDone = false;
+        loadHydrusTab(t);
+        return;
+    }
     if (BrowserTab *t = currentTab(); t && t->isFavourites) {
         refreshFavTabs(); // re-list the DB, not the archive on disk
         return;

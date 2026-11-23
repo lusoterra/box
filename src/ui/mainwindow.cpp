@@ -49,6 +49,8 @@
 #include <QDesktopServices>
 #include <QDir>
 #include <QDrag>
+#include <QDragEnterEvent>
+#include <QDropEvent>
 #include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
@@ -648,7 +650,9 @@ public:
 
 GridView::GridView(QWidget *parent) : QListView(parent) {
     setDragEnabled(true);
-    setDragDropMode(QAbstractItemView::DragOnly);
+    setAcceptDrops(true);
+    setDragDropMode(QAbstractItemView::DragDrop);
+    setDefaultDropAction(Qt::CopyAction);
     setSelectionMode(QAbstractItemView::ExtendedSelection);
     // Per-pixel scrolling: in IconMode the bar's per-item steps count
     // items, not visual rows (several items share one row), so per-item
@@ -767,6 +771,33 @@ void GridView::startDrag(Qt::DropActions) {
     if (!pm.isNull())
         drag->setPixmap(pm.scaled(128, 128, Qt::KeepAspectRatio, Qt::SmoothTransformation));
     drag->exec(Qt::CopyAction);
+}
+
+void GridView::dragEnterEvent(QDragEnterEvent *e) {
+    if (!e->mimeData() || !e->mimeData()->hasUrls())
+        return;
+    for (const QUrl &u : e->mimeData()->urls()) {
+        if (!u.isLocalFile())
+            return; // remote links belong to the downloader, not a drop
+    }
+    e->acceptProposedAction();
+}
+
+void GridView::dropEvent(QDropEvent *e) {
+    QStringList paths;
+    if (e->mimeData()) {
+        for (const QUrl &u : e->mimeData()->urls()) {
+            if (!u.isLocalFile())
+                continue;
+            const QString p = u.toLocalFile();
+            if (!p.isEmpty())
+                paths << p;
+        }
+    }
+    if (paths.isEmpty())
+        return;
+    e->acceptProposedAction();
+    emit localPathsDropped(paths);
 }
 
 // ── MainWindow ───────────────────────────────────────────────────
@@ -1142,6 +1173,40 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     rebuildSitesMenu();
     m_sitesBtn->setMenu(m_sitesMenu);
     connect(m_sitesMenu, &QMenu::triggered, this, &MainWindow::onSitesChanged);
+    // Hydrus tab toolbar: import menu, refresh, and the missing filter.
+    m_hydrusImportBtn = new QPushButton(tr("Import…"), this);
+    m_hydrusImportBtn->setToolTip(
+        tr("Add files, a folder, or gallery URLs to the Hydrus library"));
+    connect(m_hydrusImportBtn, &QPushButton::clicked, this,
+            &MainWindow::showHydrusImportMenu);
+    m_hydrusRefreshBtn = new QPushButton(tr("Refresh tags"), this);
+    m_hydrusRefreshBtn->setToolTip(
+        tr("Query Hydrus again for the selection (or the whole tab). "
+           "Manually edited posts are skipped; use the post menu's Force "
+           "refresh to include them."));
+    connect(m_hydrusRefreshBtn, &QPushButton::clicked, this, [this] {
+        QVector<Post> targets;
+        if (m_grid && m_grid->selectionModel()) {
+            for (const QModelIndex &i :
+                 m_grid->selectionModel()->selectedRows()) {
+                if (i.row() >= 0 && i.row() < m_current.size())
+                    targets.append(m_current.at(i.row()));
+            }
+        }
+        if (targets.isEmpty())
+            targets = m_current;
+        refreshHydrusTags(targets, false);
+    });
+    m_hydrusMissingBtn = new QPushButton(tr("Not on Hydrus"), this);
+    m_hydrusMissingBtn->setCheckable(true);
+    m_hydrusMissingBtn->setToolTip(
+        tr("Show only posts whose last Hydrus lookup found nothing, "
+           "manual tags included"));
+    connect(m_hydrusMissingBtn, &QPushButton::toggled, this,
+            &MainWindow::setHydrusMissingOnly);
+    m_hydrusImportBtn->hide();
+    m_hydrusRefreshBtn->hide();
+    m_hydrusMissingBtn->hide();
     m_pageLabel = new QLabel(this);
     m_pageLabel->setStyleSheet(QStringLiteral("color:#4a5068;"));
     m_pageLabel->setToolTip(tr("Infinite scroll loads more as you reach the bottom"));
@@ -1197,6 +1262,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     aiBtn->setFixedWidth(36);
     aiBtn->setToolTip(tr("Hide AI-generated content"));
     aiBtn->setCursor(Qt::PointingHandCursor);
+    m_aiBtn = aiBtn;
     connect(aiBtn, &QPushButton::toggled, this, [this, aiBtn](bool on) {
         m_settings.hideAi = on;
         saveSettings(m_settings);
@@ -1209,6 +1275,9 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     });
     omniLay->addWidget(m_sortBox);
     omniLay->addWidget(m_sitesBtn);
+    omniLay->addWidget(m_hydrusImportBtn);
+    omniLay->addWidget(m_hydrusRefreshBtn);
+    omniLay->addWidget(m_hydrusMissingBtn);
     omniLay->addWidget(aiBtn);
     omniLay->addWidget(m_downloadSelBtn);
     omniLay->addWidget(clearBtn);
@@ -1324,6 +1393,15 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     m_grid->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_grid, &QListView::customContextMenuRequested, this,
             &MainWindow::showGridMenu);
+    connect(m_grid, &GridView::localPathsDropped, this,
+            [this](const QStringList &paths) {
+                if (isHydrusTab())
+                    importHydrusPaths(paths, QString());
+                else
+                    statusBar()->showMessage(
+                        tr("Drop files onto a Hydrus tab to import them."),
+                        4000);
+            });
     connect(m_thumbs, &ThumbLoader::thumbnailReady, this, &MainWindow::onThumbnailReady);
     connect(m_thumbs, &ThumbLoader::thumbnailQueued, this,
             &MainWindow::onThumbQueued);

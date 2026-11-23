@@ -1028,15 +1028,17 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
         "A proxy set on one booru (below) wins for that booru only.")));
     browsePage->addWidget(browse);
 
-    // ── Hydrus (read-only Public Tag Repository lookups) ──
-    auto *hydrus = new QGroupBox(tr("Hydrus tag lookup"), this);
+    // ── Hydrus (read-only tag lookups + the isolated Hydrus tab) ──
+    auto *hydrus = new QGroupBox(tr("Hydrus integration"), this);
     auto *hydrusLay = new QVBoxLayout(hydrus);
-    m_hydrusEnabled = new QCheckBox(tr("Enable Hydrus tag lookups"), this);
+    m_hydrusEnabled = new QCheckBox(tr("Enable Hydrus tab and tag lookups"),
+                                    this);
     m_hydrusEnabled->setChecked(current.hydrusEnabled);
     m_hydrusEnabled->setToolTip(
-        tr("Adds a Fetch from Hydrus button to the stray tag editor and a "
-           "read-only Hydrus tags entry to post context menus. Off by "
-           "default; nothing is sent anywhere until enabled."));
+        tr("Adds the Hydrus tab (plus-menu), a Fetch from Hydrus button to "
+           "the stray tag editor and a read-only Hydrus tags entry to post "
+           "context menus. Off by default; nothing is sent anywhere until "
+           "enabled."));
     connect(m_hydrusEnabled, &QCheckBox::toggled, this,
             &PrefsDialog::updateApplyState);
     hydrusLay->addWidget(m_hydrusEnabled);
@@ -1070,6 +1072,69 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     connect(m_hydrusProxy, &QLineEdit::textChanged, this,
             &PrefsDialog::updateApplyState);
     hydrusForm->addRow(tr("Proxy:"), m_hydrusProxy);
+
+    // Storage: media folder + its own database, completely separate from
+    // downloads/store.db/the scan cache.
+    auto *dirRow = new QHBoxLayout();
+    m_hydrusDir = new QLineEdit(current.hydrusDir, this);
+    m_hydrusDir->setPlaceholderText(effectiveHydrusDir(current));
+    m_hydrusDir->setToolTip(
+        tr("Folder for Hydrus media (<sha256>.<ext>). Empty = "
+           "<data>/hydrus. Never the downloads folder unless you choose it."));
+    connect(m_hydrusDir, &QLineEdit::textChanged, this,
+            &PrefsDialog::updateApplyState);
+    auto *dirBrowse = new QPushButton(tr("Browse…"), this);
+    connect(dirBrowse, &QPushButton::clicked, this, [this] {
+        const QString d = QFileDialog::getExistingDirectory(
+            this, tr("Hydrus media folder"),
+            m_hydrusDir->text().isEmpty() ? QDir::homePath()
+                                          : m_hydrusDir->text());
+        if (!d.isEmpty())
+            m_hydrusDir->setText(d);
+    });
+    dirRow->addWidget(m_hydrusDir, 1);
+    dirRow->addWidget(dirBrowse);
+    hydrusForm->addRow(tr("Media folder:"), dirRow);
+    auto *dbRow = new QHBoxLayout();
+    m_hydrusDb = new QLineEdit(current.hydrusDb, this);
+    m_hydrusDb->setPlaceholderText(effectiveHydrusDbPath(current));
+    m_hydrusDb->setToolTip(
+        tr("Hydrus tab database. Empty = <data>/hydrus.db. This is not "
+           "store.db and is never read by the booru tabs."));
+    connect(m_hydrusDb, &QLineEdit::textChanged, this,
+            &PrefsDialog::updateApplyState);
+    auto *dbBrowse = new QPushButton(tr("Browse…"), this);
+    connect(dbBrowse, &QPushButton::clicked, this, [this] {
+        const QString f = QFileDialog::getSaveFileName(
+            this, tr("Hydrus database"),
+            m_hydrusDb->text().isEmpty() ? effectiveHydrusDbPath(m_result)
+                                         : m_hydrusDb->text(),
+            tr("SQLite database (*.db)"));
+        if (!f.isEmpty())
+            m_hydrusDb->setText(f);
+    });
+    dbRow->addWidget(m_hydrusDb, 1);
+    dbRow->addWidget(dbBrowse);
+    hydrusForm->addRow(tr("Database:"), dbRow);
+    m_hydrusMinPosts = new QSpinBox(this);
+    m_hydrusMinPosts->setRange(0, 1000000);
+    m_hydrusMinPosts->setValue(qBound(0, current.hydrusMinTagPosts, 1000000));
+    m_hydrusMinPosts->setToolTip(
+        tr("Spam filter: drop automatic Hydrus tags whose post count in the "
+           "read-only booru tag cache is below this. 0 = keep every tag. "
+           "The cache is only read, never written."));
+    connect(m_hydrusMinPosts, QOverload<int>::of(&QSpinBox::valueChanged),
+            this, &PrefsDialog::updateApplyState);
+    hydrusForm->addRow(tr("Minimum tag posts:"), m_hydrusMinPosts);
+    m_hydrusDropUnknown = new QCheckBox(
+        tr("Drop tags with no cached post count"), this);
+    m_hydrusDropUnknown->setChecked(current.hydrusDropUnknownTags);
+    m_hydrusDropUnknown->setToolTip(
+        tr("Off: keep niche Hydrus-only tags no configured booru has cached. "
+           "On: only tags confirmed popular by the read-only booru cache."));
+    connect(m_hydrusDropUnknown, &QCheckBox::toggled, this,
+            &PrefsDialog::updateApplyState);
+    hydrusForm->addRow(QString(), m_hydrusDropUnknown);
     hydrusLay->addLayout(hydrusForm);
     auto *hydrusTestRow = new QHBoxLayout();
     m_hydrusTest = new QPushButton(tr("Test connection"), this);
@@ -1099,10 +1164,11 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     hydrusTestRow->addWidget(m_hydrusStatus, 1);
     hydrusLay->addLayout(hydrusTestRow);
     hydrusLay->addWidget(note(tr(
-        "Read-only: box only looks tags up by content hash (SHA-256, then "
-        "legacy SHA-1/MD5) and never edits Hydrus. Strays get the tags in "
-        "their editor; any post with a local file or booru md5 can show "
-        "them from its right-click menu.")));
+        "The Hydrus tab keeps its own hydrus.db and media folder; it never "
+        "reads or writes the booru favourites, downloads or scan cache. "
+        "Tag lookups are read-only (SHA-256, then legacy SHA-1/MD5) and "
+        "nothing is ever written back to Hydrus. The spam filter only reads "
+        "the existing booru tag counts; it never updates them.")));
     hydrusPage->addWidget(hydrus);
     hydrusPage->addStretch(1);
 

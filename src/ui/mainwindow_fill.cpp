@@ -93,6 +93,7 @@ void MainWindow::fillModel() {
     // vanished are dropped.
     const BrowserTab *fillTab = currentTab();
     const bool favRows = fillTab && fillTab->isFavourites;
+    const bool hydrusRows = fillTab && fillTab->isHydrus;
     {
         QSet<QString> seen;
         QVector<Post> unique;
@@ -118,21 +119,24 @@ void MainWindow::fillModel() {
     m_model->clear();
     m_model->blockSignals(true); // one relayout at the end, not per append
     // One query per refill (not per row): favourite links back the
-    // downloaded/favourited marks below.
+    // downloaded/favourited marks below. The Hydrus tab has neither
+    // concept and stays out of the favourites DB entirely.
     const QHash<QPair<QString, qint64>, QString> favLocal =
-        m_favDb.isOpen() ? m_favDb.localPaths()
-                         : QHash<QPair<QString, qint64>, QString>();
+        (m_favDb.isOpen() && !hydrusRows)
+            ? m_favDb.localPaths()
+            : QHash<QPair<QString, qint64>, QString>();
     const auto favByPath = favKeysByPath(favLocal);
     // Stamp the download state once per refill: the cache policy lets
     // explicitly downloaded NSFW media persist under "SFW only" (a bare
     // favourite does not), and the thumbnail queue + viewer copies below
     // must carry the same flag.
     for (Post &p : m_current)
-        p.downloaded = isPostDownloaded(p);
+        p.downloaded = hydrusRows ? false : isPostDownloaded(p);
     // Origin badges only earn their space when the tab does not already
     // answer "where from?": a single-booru tab omits them, while
     // favourites, downloads/library tabs and multibooru tabs keep them.
-    bool showOrigin = true;
+    // Hydrus is its own source: no booru badge at all.
+    bool showOrigin = !hydrusRows;
     if (const BrowserTab *tab = currentTab();
         tab && tab->isRemote && !tab->isFavourites) {
         // Exactly one site and no merged virtual source = plain
@@ -254,10 +258,11 @@ void MainWindow::fillModel() {
         item->setData(p.hasComments || p.commentCount > 0, Qt::UserRole + 14);
         item->setData(p.hasNotes, Qt::UserRole + 15);
         // Downloaded (under the download folder / linked favourite
-        // file) and favourited marks, next to the AI chip.
-        item->setData(isFavMarked(p, favLocal, favByPath),
+        // file) and favourited marks, next to the AI chip. The Hydrus tab
+        // has neither concept: imported media is simply there.
+        item->setData(!hydrusRows && isFavMarked(p, favLocal, favByPath),
                       Qt::UserRole + 12);
-        item->setData(p.downloaded, Qt::UserRole + 13);
+        item->setData(!hydrusRows && p.downloaded, Qt::UserRole + 13);
         item->setEditable(false);
         // The tooltip stays on the post page even after a download
         // links the row to disk; strays (no post URL) keep the file.

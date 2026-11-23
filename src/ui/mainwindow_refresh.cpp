@@ -291,7 +291,8 @@ void MainWindow::onRefreshDone(qint64 reqId,
                 p = updated;
         }
         m_index.setPosts(posts);
-        if (BrowserTab *t = currentTab(); t && !t->isRemote && !t->isFavourites)
+        if (BrowserTab *t = currentTab();
+            t && !t->isRemote && !t->isFavourites && !t->isHydrus)
             t->localPosts = posts;
         rebuildCombos();
         rebuildSidebar();

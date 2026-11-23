@@ -115,6 +115,22 @@ void MainWindow::showPlusMenu() {
                                     tr("Downloads"));
     connect(dlAct, &QAction::triggered, this,
             [this] { addLocalTab(effectiveDownloadDir(m_settings)); });
+    if (m_settings.hydrusEnabled) {
+        QAction *hydrusAct = menu.addAction(
+            UiIcons::icon(QStringLiteral("image")), tr("Hydrus"));
+        hydrusAct->setToolTip(
+            tr("Import and browse media from the local Hydrus library"));
+        connect(hydrusAct, &QAction::triggered, this,
+                &MainWindow::openHydrusTab);
+    }
+    // The read-only archive browser is easy to forget: always offer it,
+    // alongside the optional plain "open local folder" entry.
+    QAction *viewAct = menu.addAction(
+        UiIcons::icon(QStringLiteral("folder-open")),
+        tr("Open view-only folder…"));
+    viewAct->setToolTip(
+        tr("Browse a gallery-dl/LOSN archive without changing it"));
+    connect(viewAct, &QAction::triggered, this, &MainWindow::openFolder);
     if (m_settings.showLocalFolderInPlusMenu) {
         QAction *openAct = menu.addAction(
             UiIcons::icon(QStringLiteral("folder-open")),

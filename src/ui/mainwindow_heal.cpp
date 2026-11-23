@@ -200,6 +200,14 @@ void MainWindow::updateViewerBadges() {
     if (!m_viewer || !m_viewer->hasCurrent())
         return;
     const Post p = m_viewer->currentPost();
+    if (isHydrusTab()) {
+        // Hydrus rows are local library media: no favourite/download
+        // concepts to badge.
+        m_viewer->setStatusBadges(isAiPost(p), false, false);
+        m_viewer->setFaved(false);
+        m_viewer->setDownloaded(false);
+        return;
+    }
     const auto [site, pid] = favIdentity(p);
     const bool faved =
         m_favDb.isOpen() && m_favDb.isFavourite(site, pid);
@@ -235,7 +243,8 @@ void MainWindow::syncViewerToGrid() {
     m_viewer->showRow(row);
     const Post &p = m_current.at(row);
     const auto [site, pid] = favIdentity(p);
-    m_viewer->setFaved(m_favDb.isOpen() && m_favDb.isFavourite(site, pid));
+    m_viewer->setFaved(!isHydrusTab() && m_favDb.isOpen() &&
+                       m_favDb.isFavourite(site, pid));
     const QString reason = refreshReason(p);
     m_viewer->setRefreshable(reason.isEmpty(), reason);
     updateViewerBadges();

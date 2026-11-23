@@ -258,9 +258,12 @@ Grid cards follow the default category order Artists, Character,
 Copyright, General, Meta, then native categories from unusual boorus.
 
 ## 09-plus-menu - ＋ new-tab picker (`showPlusMenu`)
-`Home`, `Favourites`, `Downloads`, then one entry per configured booru
-(favicon + label). One click = one tab; merging stays per-tab via
-`Boorus…`.
+`Home`, `Favourites`, `Downloads`, `Hydrus` (only when Preferences →
+Hydrus is enabled), then `Open view-only folder…` (always: the read-only
+gallery-dl/LOSN archive browser; the optional `Open local folder…` entry
+follows when enabled in Preferences → General), then one entry per
+configured booru (favicon + label). One click = one tab; merging stays
+per-tab via `Boorus…`.
 
 ## 10-boorus-menu - Boorus… per-tab picker (`m_sitesMenu`)
 Checkable entries: configured sites by label, then virtual sources
@@ -421,14 +424,22 @@ blacklist locally instead of server `-tags`, for tag-capped accounts),
 for this booru, narrowed by the global mode), `Proxy`.
 
 ## 15b-prefs-hydrus - Preferences → Hydrus
-`Enable Hydrus tag lookups` (off by default), `Server URL` (a hydrus
-client API or a reverse-proxied `hydd`, default
-`http://127.0.0.1:45869`), `Access key` (sent as
-`Hydrus-Client-API-Access-Key`; local `hydd` accepts empty/bogus keys),
-`Proxy` (HTTP/SOCKS for Hydrus only; empty = direct for loopback, the
-global Browse proxy for remote hosts) and `Test connection`
-(`/verify_access_key`, paints the server name + Hydrus version inline).
-Lookups are read-only and hashed locally; nothing is written back.
+`Enable Hydrus tab and tag lookups` (off by default) reveals the Hydrus
+tab in the ＋ menu, the stray-editor fetch button and the read-only
+context-menu lookup. `Server URL` (a hydrus client API or a
+reverse-proxied `hydd`, default `http://127.0.0.1:45869`), `Access key`
+(sent as `Hydrus-Client-API-Access-Key`; local `hydd` accepts
+empty/bogus keys), `Proxy` (HTTP/SOCKS for Hydrus only; empty = direct
+for loopback, the global Browse proxy for remote hosts) and
+`Test connection` (`/verify_access_key`, paints the server name + Hydrus
+version inline).
+`Media folder` and `Database` override the isolated Hydrus storage
+(defaults `<data>/hydrus` and `<data>/hydrus.db`; Browse buttons).
+`Minimum tag posts` (default 10, 0 = off) is the spam filter: automatic
+Hydrus tags whose read-only booru tag count is lower are dropped.
+`Drop tags with no cached post count` makes that strict; off keeps niche
+Hydrus-only tags. All lookups are read-only and hashed locally; nothing
+is written back to Hydrus, and the tag-count cache is never modified.
 
 ## 15-prefs-tags - Preferences → Taxonomies
 `Tag type overrides` (manual `tag → bucket`, wins over fetches),
@@ -555,6 +566,30 @@ file to every listed stray, `Save all` writes `tags` + `tags_*` sidecars
 Any post's right-click menu (grid or viewer) also has read-only
 `Hydrus tags…` when a local file or booru md5 can be hashed: grouped
 chips, the matched hash kind, the Hydrus file id, `Copy all tags`.
+
+## 21-hydrus-tab - Hydrus library tab (`mainwindow_hydrus.cpp`)
+Grid of media from the local Hydrus library (`hydrus.db` + its media
+folder). Omnibar searches native tags (`creator:alice`, `character:bob`,
+plain General tags; OR-groups work); suggestions come from the library's
+own vocabulary. Toolbar: `Import…` (Add files…, Add folder…, Add from
+URL(s)… via gallery-dl), `Refresh tags` (selection, else the whole tab;
+manual edits skipped), `Not on Hydrus` (only rows whose last lookup
+missed), sort box and post count. The rating/category/media pickers,
+Boorus…, download and AI buttons are hidden: there is no favourite or
+download concept. Files/folders can be dropped on the grid to import.
+Sidebar sections are the Hydrus namespaces present in the library
+(GENERAL, CREATOR, CHARACTER, SERIES, STUDIO, SPECIES, RATING, META and
+anything else), each with its own colour; clicking a tag adds its
+namespaced token. Cards honour the same grid size/aspect/stagger
+settings; thumbnails stay session-only (never in the booru media cache).
+Right-click a card or the open post: `Edit Hydrus tags…`, `Refresh Hydrus
+tags`, `Force refresh Hydrus tags…` (includes manual edits and previews
+each before/after), `Show in folder`, `Copy file path`, `Copy file
+(clipboard)`, `Open file`. The viewer hides favourite/download/comment/
+refresh buttons. Import flow: SHA-256 copy as `<sha256>.<ext>` ->
+Hydrus lookup -> native tags (spam-filtered) or a per-file manual tag
+dialog when Hydrus does not know the file; files already in the folder
+but missing from the DB are indexed untagged on open.
 
 ## Not yet documented (keep unchecked until done)
 - [ ] Downloads tab (non-empty: sidecar-backed offline rows)

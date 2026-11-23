@@ -60,15 +60,24 @@ struct AppSettings {
     // Strays pulled in via File -> Download/Add Stray get favourited
     // automatically. On by default (they have no home tab otherwise).
     bool strayAutoFav = true;
-    // Read-only Hydrus tag lookups (Preferences → Hydrus): a local hydd /
-    // Hydrus client API or a reverse proxy in front of one. Disabled by
-    // default; the app never writes tags back to Hydrus.
+    // Read-only Hydrus tag lookups + the Hydrus tab (Preferences → Hydrus):
+    // a local hydd / Hydrus client API or a reverse proxy in front of one.
+    // Disabled by default; the app never writes tags back to Hydrus.
     bool hydrusEnabled = false;
     QString hydrusUrl = QStringLiteral("http://127.0.0.1:45869");
     QString hydrusAccessKey;
     // Optional HTTP/SOCKS proxy for Hydrus traffic; empty = direct for
     // loopback URLs, global proxy otherwise.
     QString hydrusProxy;
+    // Hydrus tab storage, isolated from the booru library: a media folder
+    // and its own hydrus.db. Empty = <data>/hydrus and <data>/hydrus.db.
+    QString hydrusDir;
+    QString hydrusDb;
+    // Spam filter for automatic Hydrus tags: drop tags whose booru cache
+    // count is below this (0 = keep everything). Unknown tags are kept
+    // unless hydrusDropUnknownTags is on. Read-only cache access.
+    int hydrusMinTagPosts = 10;
+    bool hydrusDropUnknownTags = false;
     // Blacklisted tags: hidden everywhere (local + browse).
     QStringList blacklist;
     // Ugoira downloads: converted from the served .zip to an animated
@@ -135,6 +144,7 @@ struct AppSettings {
         QString rating = QStringLiteral("all");
         QString category;
         QString sort = QStringLiteral("id-desc");
+        bool hydrusOnlyMissing = false;
         QString viewerKey; // open post identity; empty = grid
         int scrollRow = -1; // first visible grid row
         bool operator==(const SavedTab &) const = default;
@@ -262,6 +272,28 @@ inline QString effectiveDownloadDir(const AppSettings &s) {
     return effectiveDataDir(s) + QStringLiteral("/downloads");
 }
 
+// Hydrus tab media folder + database. The tab is isolated: these never
+// point at downloads/ or store.db unless the user explicitly does so.
+inline QString effectiveHydrusDir(const AppSettings &s) {
+    if (!s.hydrusDir.trimmed().isEmpty()) {
+        QString d = s.hydrusDir;
+        while (d.endsWith(u'/') && d.size() > 1)
+            d.chop(1);
+        return d;
+    }
+    return effectiveDataDir(s) + QStringLiteral("/hydrus");
+}
+
+inline QString effectiveHydrusDbPath(const AppSettings &s) {
+    if (!s.hydrusDb.trimmed().isEmpty()) {
+        QString p = s.hydrusDb;
+        while (p.endsWith(u'/') && p.size() > 1)
+            p.chop(1);
+        return p;
+    }
+    return effectiveDataDir(s) + QStringLiteral("/hydrus.db");
+}
+
 // True when every persisted field matches (window geometry excluded:
 // it changes on every move and must not keep Apply lit).
 inline bool operator==(const AppSettings &a, const AppSettings &b) {
@@ -294,6 +326,9 @@ inline bool operator==(const AppSettings &a, const AppSettings &b) {
            a.hydrusEnabled == b.hydrusEnabled && a.hydrusUrl == b.hydrusUrl &&
            a.hydrusAccessKey == b.hydrusAccessKey &&
            a.hydrusProxy == b.hydrusProxy &&
+           a.hydrusDir == b.hydrusDir && a.hydrusDb == b.hydrusDb &&
+           a.hydrusMinTagPosts == b.hydrusMinTagPosts &&
+           a.hydrusDropUnknownTags == b.hydrusDropUnknownTags &&
            a.dragLinkMode == b.dragLinkMode &&
            a.blacklist == b.blacklist &&
            a.hideAi == b.hideAi && a.wallAutoPopup == b.wallAutoPopup &&

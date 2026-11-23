@@ -120,7 +120,10 @@ void MainWindow::requestVisibleThumbs() {
         if (row < 0 || row >= m_current.size())
             return;
         const Post &p = m_current[row];
-        const bool persistThumb = MediaCache::persistForPost(p);
+        // Hydrus has its own storage: never write its thumbnails into the
+        // booru media cache. Session-memory previews only.
+        const bool persistThumb =
+            !isHydrusTab() && MediaCache::persistForPost(p);
         const bool nsfwThumb =
             MediaCache::isNsfwRating(p.rating) ||
             MediaCache::postHasBlacklistedTag(p);

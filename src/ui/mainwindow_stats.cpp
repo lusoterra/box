@@ -71,7 +71,7 @@ void MainWindow::showStatistics() {
     BrowserTab *tab = currentTab();
     const QString downloadRoot =
         QDir(effectiveDownloadDir(m_settings)).absolutePath();
-    if (tab && !tab->isRemote && !tab->isFavourites &&
+    if (tab && !tab->isRemote && !tab->isFavourites && !tab->isHydrus &&
         QDir(tab->root).absolutePath() != downloadRoot) {
         const Stats archive = m_index.stats();
         report.archive.posts = archive.total;

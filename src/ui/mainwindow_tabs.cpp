@@ -101,11 +101,12 @@ void MainWindow::saveCurrentTab() {
     if (hi >= 0)
         t->scrollRow = lo; // keep the old position if the model was empty
     if (!t->isRemote) {
-        if (!t->isFavourites)
+        if (!t->isFavourites && !t->isHydrus)
             t->localPosts = m_index.posts();
         // else: favourites list is DB-owned (re-listed on activation);
         // overwriting it here is what made new favourites vanish on tab
-        // switches until the next manual refresh.
+        // switches until the next manual refresh. Hydrus rows are also
+        // DB-owned and must never borrow the archive index.
     } else
         t->browseMerged = m_browseMerged;
 }
@@ -149,9 +150,11 @@ void MainWindow::stageTabs() {
     if (BrowserTab *c = currentTab()) {
         m_settings.hasLastPlace = true;
         AppSettings::SavedTab &lp = m_settings.lastPlace;
-        lp.kind = c->isFavourites ? QStringLiteral("favs")
-                                  : (c->isRemote ? QStringLiteral("browse")
-                                                 : QStringLiteral("local"));
+        lp.kind = c->isHydrus ? QStringLiteral("hydrus")
+                              : (c->isFavourites ? QStringLiteral("favs")
+                                                 : (c->isRemote
+                                                        ? QStringLiteral("browse")
+                                                        : QStringLiteral("local")));
         lp.root = c->isRemote ? QString() : c->root;
         lp.sites = c->isRemote ? c->sites : QStringList();
         lp.tags = c->activeTags;
@@ -159,15 +162,18 @@ void MainWindow::stageTabs() {
         lp.rating = c->rating;
         lp.category = c->category;
         lp.sort = c->sort;
+        lp.hydrusOnlyMissing = c->hydrusOnlyMissing;
         lp.viewerKey = c->viewerKey;
         lp.scrollRow = c->scrollRow;
     }
     m_settings.savedTabs.clear();
     for (BrowserTab *t : m_tabs) {
-        if (!t->isRemote && !t->isFavourites)
+        if (!t->isRemote && !t->isFavourites && !t->isHydrus)
             continue; // local archives never persist (library untouched)
         AppSettings::SavedTab st;
-        if (t->isFavourites)
+        if (t->isHydrus)
+            st.kind = QStringLiteral("hydrus");
+        else if (t->isFavourites)
             st.kind = QStringLiteral("favs");
         else if (t->isRemote) {
             st.kind = QStringLiteral("browse");
@@ -181,6 +187,7 @@ void MainWindow::stageTabs() {
         st.rating = t->rating;
         st.category = t->category;
         st.sort = t->sort;
+        st.hydrusOnlyMissing = t->hydrusOnlyMissing;
         st.viewerKey = t->viewerKey;
         st.scrollRow = t->scrollRow;
         m_settings.savedTabs.append(st);
@@ -212,6 +219,10 @@ bool MainWindow::restoreTabs() {
             addRemoteTab(st.sites, st.tags);
         } else if (st.kind == QStringLiteral("favs")) {
             openFavTab(); // each saved fav tab restores with its own filters
+        } else if (st.kind == QStringLiteral("hydrus")) {
+            if (!m_settings.hydrusEnabled)
+                continue;
+            openHydrusTab();
         } else {
             continue;
         }
@@ -220,6 +231,7 @@ bool MainWindow::restoreTabs() {
         t->rating = st.rating.isEmpty() ? QStringLiteral("all") : st.rating;
         t->category = st.category;
         t->sort = st.sort.isEmpty() ? QStringLiteral("added") : st.sort;
+        t->hydrusOnlyMissing = st.hydrusOnlyMissing;
         t->viewerKey = st.viewerKey;
         t->scrollRow = st.scrollRow;
         updateTabTitle(static_cast<int>(m_tabs.size()) - 1);
@@ -336,6 +348,12 @@ void MainWindow::updateTabTitle(int tabIdx) {
         // would double it and can't be colored).
         m_tabBar->setTabIcon(tabIdx + 1,
                               UiIcons::heart(UiIcons::favRed(), true));
+    } else if (t->isHydrus) {
+        t->title = tr("Hydrus");
+        if (!tags.isEmpty())
+            t->title += QStringLiteral(" · ") + tags.join(u' ');
+        m_tabBar->setTabIcon(tabIdx + 1,
+                              UiIcons::icon(QStringLiteral("image")));
     } else if (t->isRemote) {
         const QStringList shown = siteDisplayNames(t->sites);
         t->title = tags.isEmpty() ? shown.join(QStringLiteral(" + ")) : tags.join(u' ');
@@ -357,6 +375,8 @@ void MainWindow::updateTabTitle(int tabIdx) {
     if (tabIdx == m_curTab) {
         if (t->isFavourites)
             setWindowTitle(QStringLiteral("Box - Favourites"));
+        else if (t->isHydrus)
+            setWindowTitle(QStringLiteral("Box - Hydrus"));
         else
             setWindowTitle(QStringLiteral("Box - ") + t->title);
     }
@@ -487,7 +507,7 @@ void MainWindow::openDefaultTab() {
 void MainWindow::reopenClosedTab() {
     while (!m_closedTabs.isEmpty()) {
         BrowserTab *t = m_closedTabs.takeFirst();
-        if (!t->isRemote && !t->isFavourites &&
+        if (!t->isRemote && !t->isFavourites && !t->isHydrus &&
             (t->root.isEmpty() || !QDir(t->root).exists())) {
             const QString root = t->root;
             delete t; // folder vanished while the tab sat in history
@@ -566,6 +586,8 @@ void MainWindow::activateTab(int tabIdx) {
     updateTabTitle(tabIdx);
     if (t->isFavourites)
         setWindowTitle(QStringLiteral("Box - Favourites"));
+    else if (t->isHydrus)
+        setWindowTitle(QStringLiteral("Box - Hydrus"));
     else if (t->isRemote)
         setWindowTitle(QStringLiteral("Box - ") +
                        (t->title.isEmpty() ? tr("Browse") : t->title));
@@ -611,6 +633,8 @@ void MainWindow::activateTab(int tabIdx) {
     QString busy;
     if (t->isFavourites)
         busy = tr("Loading favourites…");
+    else if (t->isHydrus)
+        busy = tr("Loading Hydrus…");
     else if (t->isRemote)
         busy = tr("Loading %1…")
                    .arg(t->title.isEmpty() ? tr("browse") : t->title);
@@ -642,9 +666,9 @@ void MainWindow::finishActivateTab(int tabIdx) {
     if (tabIdx < 0 || tabIdx >= m_tabs.size() || tabIdx != m_curTab)
         return;
     BrowserTab *t = m_tabs[tabIdx];
-    if (t->isRemote && !t->isFavourites)
-        maybeClassifyBrowse(t);
-    if (t->isFavourites) {
+    if (t->isHydrus) {
+        loadHydrusTab(t);
+    } else if (t->isFavourites) {
         relinkFavourites(); // point rows at files already on disk (once)
         // Re-use the rows this tab already holds: refreshFavTabs() re-lists
         // the DB whenever it actually changes (favourite from the
@@ -672,6 +696,7 @@ void MainWindow::finishActivateTab(int tabIdx) {
         setSidebarLoading(false);     // filter rebuild above may have raced
         hideTabLoading(t);
     } else if (t->isRemote) {
+        maybeClassifyBrowse(t);
         syncSitesMenu();
         m_pageLabel->setText(tr("Page %1").arg(t->page));
         if (t->browseMerged.isEmpty())
@@ -762,24 +787,39 @@ bool MainWindow::isDownloadsTab() {
 void MainWindow::setBrowseUi(bool browse) {
     const BrowserTab *t = currentTab();
     const bool favs = t && t->isFavourites;
+    const bool hydrus = t && t->isHydrus;
     const bool downloads = isDownloadsTab();
     // Rating/sort work client-side on favourites and both downloads views.
     // Real browse tabs keep them for the server-side query/append path.
     const bool showFilters = browse || favs || downloads;
-    m_ratingBox->setVisible(showFilters);
+    m_ratingBox->setVisible(showFilters && !hydrus);
     // Source filter: favourites and downloads mix several boorus/folders,
     // so the dropdown earns its place there (plain browse tabs are one
     // source and use the Boorus picker instead).
-    m_categoryBox->setVisible(favs || downloads);
+    m_categoryBox->setVisible((favs || downloads) && !hydrus);
     // Downloads media type: extension-based, so it only makes sense on
     // tabs backed by the download folder.
     if (m_mediaBox)
-        m_mediaBox->setVisible(downloads);
-    m_sortBox->setVisible(showFilters);
-    m_sitesBtn->setVisible(browse);
-    m_pageLabel->setVisible(browse);
-    m_countLabel->setVisible(!browse && !favs);
+        m_mediaBox->setVisible(downloads && !hydrus);
+    m_sortBox->setVisible(showFilters || hydrus);
+    m_sitesBtn->setVisible(browse && !hydrus);
+    m_pageLabel->setVisible(browse && !hydrus);
+    if (m_hydrusImportBtn)
+        m_hydrusImportBtn->setVisible(hydrus);
+    if (m_hydrusRefreshBtn)
+        m_hydrusRefreshBtn->setVisible(hydrus);
+    if (m_hydrusMissingBtn) {
+        m_hydrusMissingBtn->setVisible(hydrus);
+        if (hydrus) {
+            m_hydrusMissingBtn->blockSignals(true);
+            m_hydrusMissingBtn->setChecked(t->hydrusOnlyMissing);
+            m_hydrusMissingBtn->blockSignals(false);
+        }
+    }
+    if (m_aiBtn)
+        m_aiBtn->setVisible(!hydrus);
+    m_countLabel->setVisible(hydrus || (!browse && !favs));
     updateDots();
     updateDownloadButton();
-    m_countLabel->setVisible(!browse && !favs);
+    m_countLabel->setVisible(hydrus || (!browse && !favs));
 }

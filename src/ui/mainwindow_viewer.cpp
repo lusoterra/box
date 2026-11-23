@@ -91,10 +91,12 @@ void MainWindow::showViewer(int row) {
     if (row >= 0 && row < m_current.size())
         if (BrowserTab *t = currentTab())
             t->viewerKey = viewerKeyFor(m_current.at(row));
+    const bool hydrusTab = currentTab() && currentTab()->isHydrus;
     // Favourites rows keep isRemote; their downloaded sidecars are only
     // reachable through the DB link. Hand the viewer "site#id" -> path so
-    // cached notes work regardless of which tab opened the post.
-    if (m_viewer && m_favDb.isOpen()) {
+    // cached notes work regardless of which tab opened the post. The
+    // Hydrus tab is independent: do not even read the favourites DB.
+    if (m_viewer && m_favDb.isOpen() && !hydrusTab) {
         QHash<QString, QString> idx;
         const auto paths = m_favDb.localPaths();
         for (auto it = paths.begin(); it != paths.end(); ++it) {
@@ -109,11 +111,13 @@ void MainWindow::showViewer(int row) {
     m_viewer->showThumbPreview(
         qvariant_cast<QPixmap>(m_model->data(idx, Qt::DecorationRole)));
     m_viewer->setPosts(m_current);
+    m_viewer->setHydrusMode(currentTab() && currentTab()->isHydrus);
     m_viewer->showRow(row);
     if (row >= 0 && row < m_current.size()) {
         const Post &p = m_current[row];
         const auto [site, pid] = favIdentity(p);
-        m_viewer->setFaved(m_favDb.isOpen() && m_favDb.isFavourite(site, pid));
+        m_viewer->setFaved(!hydrusTab && m_favDb.isOpen() &&
+                           m_favDb.isFavourite(site, pid));
         updateViewerBadges();
         const QString reason = refreshReason(p);
         m_viewer->setRefreshable(reason.isEmpty(), reason);
@@ -220,6 +224,10 @@ void MainWindow::changeEvent(QEvent *e) {
 
 void MainWindow::showViewerContextMenu(const Post &post,
                                        const QPoint &globalPos) {
+    if (BrowserTab *ht = currentTab(); ht && ht->isHydrus) {
+        showHydrusViewerMenu(post, globalPos);
+        return;
+    }
     QMenu menu(this);
     QAction *full = menu.addAction(
         m_viewerFullscreen ? tr("Exit fullscreen") : tr("Fullscreen"));

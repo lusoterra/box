@@ -65,8 +65,21 @@
   `GET /get_files/file_metadata`, merge tags into stray editors or show
   them in the read-only `Hydrus tags…` popup. `hydd` = the standalone
   read-only Public Tag Repository mirror daemon used here (default
-  `http://127.0.0.1:45869`); hydrus namespaces (`creator:`, `series:`, …)
-  fold into the five app buckets.
+  `http://127.0.0.1:45869`); these lookups fold hydrus namespaces
+  (`creator:`, `series:`, …) into the five app buckets.
+- hydrus tab = the isolated local Hydrus library (`BrowserTab.isHydrus`,
+  `src/library/hydrusstore.h`, `src/ui/mainwindow_hydrus.cpp`): its own
+  `hydrus.db` + media folder, SHA-256 file names, native Hydrus namespace
+  groups (no booru classifier), no favourites/download concepts. Import
+  stages `<sha256>.<ext>`, looks the hash up read-only, applies the
+  spam filter against the read-only booru tag-count cache, and stores
+  native tags. `manual override` = a hand-edited tag set protected from
+  `Refresh Hydrus tags` (only `Force refresh` re-queries it, with a
+  before/after preview). `not on Hydrus` = rows whose last lookup found
+  nothing, reselectable for a later refresh.
+- view-only folder = the read-only archive reader (`openFolder` +
+  `addLocalTab`), always available as `Open view-only folder…` in the ＋
+  menu; it never writes sidecars or touches the library.
 - mascot = home-page image (`home/mascot*`, `src/settings.h`); shipped
   default is `マニフェスト.jpg` (empty path), Remove hides it, Reset
   restores the default; any grid file can replace it, rendered by

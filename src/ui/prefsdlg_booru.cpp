@@ -757,6 +757,14 @@ void PrefsDialog::harvestInto(AppSettings &out) {
         out.hydrusAccessKey = m_hydrusKey->text().trimmed();
     if (m_hydrusProxy)
         out.hydrusProxy = m_hydrusProxy->text().trimmed();
+    if (m_hydrusDir)
+        out.hydrusDir = m_hydrusDir->text().trimmed();
+    if (m_hydrusDb)
+        out.hydrusDb = m_hydrusDb->text().trimmed();
+    if (m_hydrusMinPosts)
+        out.hydrusMinTagPosts = m_hydrusMinPosts->value();
+    if (m_hydrusDropUnknown)
+        out.hydrusDropUnknownTags = m_hydrusDropUnknown->isChecked();
     if (m_defaultImageViewer)
         out.defaultImageViewer = m_defaultImageViewer->text().trimmed();
     if (m_defaultGifViewer)

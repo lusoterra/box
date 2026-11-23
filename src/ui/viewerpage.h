@@ -315,6 +315,9 @@ public:
     // into the shared temp folder first.
     void openExternally(const Post &post);
     void setFaved(bool faved);
+    // Hydrus posts are local library rows: no favourite/download/comment
+    // toolbar concepts, so hide those buttons entirely.
+    void setHydrusMode(bool on);
     void setDownloaded(bool downloaded); // green toggle when on disk
     // Status marks next to the title: AI-generated / favourited /
     // downloaded. Refreshed live while the viewer stays open.
@@ -467,6 +470,9 @@ private:
     QPushButton *m_downloadBtn = nullptr;
     QPushButton *m_favBtn = nullptr;
     QPushButton *m_refreshBtn = nullptr;
+    // Hydrus tab posts render their native namespaces verbatim (no booru
+    // taxonomy/merges, no favourite/download buttons).
+    bool m_hydrusMode = false;
     bool m_downloaded = false; // current post is on disk
     QPushButton *m_variantsBtn = nullptr; // parent/child family search
     QPushButton *m_commentsBtn = nullptr; // popup with the post's thread

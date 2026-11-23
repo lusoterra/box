@@ -88,6 +88,11 @@ void MainWindow::onSearchEdited(const QString &text) {
     // Suggestions follow the tag being typed (2nd, 3rd, inside ~(groups)),
     // not just the first one.
     const QString bare = QueryOr::suggestBare(text);
+    if (BrowserTab *ht = currentTab(); ht && ht->isHydrus) {
+        m_suggester->cancel();
+        showHydrusSuggestions(bare);
+        return;
+    }
     if (bare.length() < 2) {
         // Nothing in progress (fresh box or a trailing space): offer the
         // favourite tags instead of leaving an empty popup.
@@ -489,6 +494,9 @@ void MainWindow::commitSearch() {
             t->page = 1;
         updateTabTitle(m_curTab);
         doBrowseSearch();
+    } else if (BrowserTab *t = currentTab(); t && t->isHydrus) {
+        rebuildHydrusSidebar();
+        applyHydrusFilter();
     } else {
         rebuildSidebar();
         applyFilter();

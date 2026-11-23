@@ -1,7 +1,7 @@
 .\" Manual page for box
-.TH BOX 1 "2026-11-22" "box 0.7.0" "User Commands"
+.TH BOX 1 "2026-11-23" "box 0.9.0" "User Commands"
 .SH NAME
-box \- browse local image archives and online boorus
+box \- browse local image archives, online boorus and a Hydrus library
 .SH SYNOPSIS
 .B box
 [\fIOPTIONS\fR] [\fIROOT\fR]
@@ -12,7 +12,9 @@ image archives written by gallery\-dl or similar tools.
 It reads per\-file sidecar metadata from local folders, browses Danbooru,
 Gelbooru, Moebooru, Szurubooru, Shimmie, HyBooru, Nuuru, Philomena and
 Booru\-on\-Rails instances, downloads posts in full quality and keeps
-favourites in a local SQLite store.
+favourites in a local SQLite store. An optional Hydrus tab keeps a
+separate local library keyed by SHA\-256 and reads tags from a local
+Hydrus/hydd API without writing back.
 .PP
 Booru instances, storage folders, themes and download behaviour are managed
 from the graphical Preferences dialog; settings persist in
@@ -48,8 +50,9 @@ Optional theme drop\-ins, one INI file per theme. A file with the same name
 as a bundled theme overrides it.
 .TP
 .I ~/.local/share/box/
-Data folder: favourites store, tag category database, cache bookkeeping
-database, default downloads and the rotating
+Data folder: favourites store, Hydrus tab database and media folder, tag
+category database, cache bookkeeping database, default downloads and the
+rotating
 .IR box.log .
 .TP
 .I ~/.cache/box/

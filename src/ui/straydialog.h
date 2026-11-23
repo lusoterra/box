@@ -52,6 +52,9 @@ public slots:
     void appendLog(const QString &line);
     void showCurrent(const QString &current);
     void showFinished(bool ok, int filesFound, const QString &error);
+    // Hide "Open folder"/"Browse in app" (Hydrus staging is temporary and
+    // imported into the Hydrus tab, not _Stray).
+    void setShowFolderActions(bool on);
 
 signals:
     void cancelRequested();
@@ -63,6 +66,8 @@ private:
     QProgressBar *m_bar = nullptr;
     QPushButton *m_cancelBtn = nullptr;
     QPushButton *m_closeBtn = nullptr;
+    QPushButton *m_openFolderBtn = nullptr;
+    QPushButton *m_browseBtn = nullptr;
     QString m_destDir;
 };
 

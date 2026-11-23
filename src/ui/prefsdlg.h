@@ -101,6 +101,10 @@ private:
     QLineEdit *m_hydrusUrl = nullptr;
     QLineEdit *m_hydrusKey = nullptr;
     QLineEdit *m_hydrusProxy = nullptr;
+    QLineEdit *m_hydrusDir = nullptr;
+    QLineEdit *m_hydrusDb = nullptr;
+    QSpinBox *m_hydrusMinPosts = nullptr;
+    QCheckBox *m_hydrusDropUnknown = nullptr;
     QPushButton *m_hydrusTest = nullptr;
     QLabel *m_hydrusStatus = nullptr;
     QComboBox *m_dragMode = nullptr;

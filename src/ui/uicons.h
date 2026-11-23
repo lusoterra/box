@@ -44,6 +44,10 @@ inline QColor tagBucketColor(const QString &bucket) {
         return QColor(0xb5, 0x70, 0xe0); // purple (IP/copyright)
     if (bucket == QStringLiteral("meta"))
         return QColor(0xe0, 0x9a, 0x3c); // orange
+    if (bucket == QStringLiteral("species"))
+        return QColor(0x4d, 0xd0, 0xe1); // cyan
+    if (bucket == QStringLiteral("rating"))
+        return QColor(0xff, 0x6b, 0x81); // rose
     if (bucket == QStringLiteral("custom"))
         return QColor(0x7c, 0x9e, 0xf8); // native instance categories
     return QColor(0xe8, 0xe8, 0xec); // general: white

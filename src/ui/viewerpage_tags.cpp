@@ -11,6 +11,40 @@
 #include <QStringList>
 #include <QVBoxLayout>
 
+namespace {
+// Native Hydrus namespace -> app colour bucket. Unknown namespaces stay
+// visible with the accent colour; nothing is folded into a booru bucket.
+QString hydrusNamespaceBucket(const QString &ns) {
+    const QString n = ns.toLower();
+    if (n.isEmpty())
+        return QStringLiteral("general");
+    if (n == QStringLiteral("creator") || n == QStringLiteral("artist") ||
+        n == QStringLiteral("person"))
+        return QStringLiteral("artist");
+    if (n == QStringLiteral("character") || n == QStringLiteral("char"))
+        return QStringLiteral("character");
+    if (n == QStringLiteral("series") || n == QStringLiteral("copyright") ||
+        n == QStringLiteral("studio") || n == QStringLiteral("franchise"))
+        return QStringLiteral("copyright");
+    if (n == QStringLiteral("species"))
+        return QStringLiteral("species");
+    if (n == QStringLiteral("rating"))
+        return QStringLiteral("rating");
+    if (n == QStringLiteral("meta") || n == QStringLiteral("title") ||
+        n == QStringLiteral("filename") || n == QStringLiteral("source"))
+        return QStringLiteral("meta");
+    return QStringLiteral("custom");
+}
+
+QString hydrusNamespaceLabel(const QString &ns) {
+    QString s = ns;
+    s.replace(u'_', u' ');
+    if (!s.isEmpty())
+        s[0] = s[0].toUpper();
+    return s;
+}
+} // namespace
+
 void ViewerPage::refreshCurrentPost() {
     if (m_row < 0 || m_row >= m_posts.size())
         return;
@@ -33,6 +67,21 @@ void ViewerPage::renderTags() {    if (m_row < 0 || m_row >= m_posts.size())
         auto *l = new QLabel(tr("No metadata"), this);
         l->setStyleSheet(QStringLiteral("color:#4a5068;"));
         m_tagLayout->addWidget(l);
+    } else if (m_hydrusMode) {
+        // Native Hydrus namespaces, exactly as stored. The booru
+        // classifier, custom categories and merge rules never apply here.
+        if (!p.tagsGeneral.isEmpty()) {
+            addTagGroup(m_tagLayout, tr("General"), p.tagsGeneral,
+                        UiIcons::tagBucketColor(QStringLiteral("general")).name());
+        }
+        for (auto it = p.customTags.begin(); it != p.customTags.end(); ++it) {
+            if (it.value().isEmpty())
+                continue;
+            addTagGroup(m_tagLayout, hydrusNamespaceLabel(it.key()),
+                        it.value().join(QChar::Space),
+                        UiIcons::tagBucketColor(hydrusNamespaceBucket(it.key()))
+                            .name());
+        }
     } else {
         const QString siteKey =
             !p.siteKey.isEmpty() ? p.siteKey

@@ -73,6 +73,10 @@ struct Post {
     // same file collapse across entries (Tor onion vs I2P mirror twins).
     // Empty = unknown, never deduped on.
     QString md5;
+    // SHA-256 content identity (Hydrus tab only). Runtime value, never
+    // persisted in booru sidecars; the hydrus.db row is the source of
+    // truth for the tab.
+    QString sha256;
     QJsonObject rawJson; // original API post object (written as download sidecar)
     // Notes cached in the download sidecar (`box_notes`). `notesCached`
     // separates "confirmed empty" from "never fetched" so a downloaded

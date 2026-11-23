@@ -106,6 +106,26 @@ void addUnique(QStringList &list, const QString &tag) {
         list.append(tag);
 }
 
+// Hydrus tags are free-form strings (apostrophes, commas, quotes and
+// spaces are legal). Boilerplate hygiene from booru imports must not
+// silently drop them here; only trim and dedupe case-insensitively.
+QStringList cleanHydrusTags(const QStringList &tags) {
+    QStringList out;
+    QSet<QString> seen;
+    for (const QString &raw : tags) {
+        const QString tag = raw.trimmed();
+        if (tag.isEmpty())
+            continue;
+        const QString key = tag.toLower();
+        if (seen.contains(key))
+            continue;
+        seen.insert(key);
+        out << tag;
+    }
+    out.sort(Qt::CaseInsensitive);
+    return out;
+}
+
 } // namespace
 
 namespace Hydrus {
@@ -210,7 +230,7 @@ FileTags parseMetadata(const QByteArray &body, const QString &wantedHash) {
             continue;
         appendServiceTags(it.value().toObject(), out.tags, seen);
     }
-    out.tags = cleanTagTokens(out.tags);
+    out.tags = cleanHydrusTags(out.tags);
     out.tags.sort(Qt::CaseInsensitive);
     return out;
 }

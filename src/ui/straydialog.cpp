@@ -624,6 +624,7 @@ GalleryDlDialog::GalleryDlDialog(const QString &destDir, QWidget *parent)
     lay->addWidget(m_log, 1);
     auto *row = new QHBoxLayout();
     auto *openBtn = new QPushButton(tr("Open folder"), this);
+    m_openFolderBtn = openBtn;
     connect(openBtn, &QPushButton::clicked, this, [this] {
         QDesktopServices::openUrl(QUrl::fromLocalFile(m_destDir));
     });
@@ -635,6 +636,7 @@ GalleryDlDialog::GalleryDlDialog(const QString &destDir, QWidget *parent)
     connect(m_closeBtn, &QPushButton::clicked, this, &QDialog::accept);
     row->addWidget(openBtn);
     auto *browseBtn = new QPushButton(tr("Browse in app"), this);
+    m_browseBtn = browseBtn;
     browseBtn->setToolTip(tr("Open the download folder as a library tab"));
     connect(browseBtn, &QPushButton::clicked, this,
             [this] { emit browseRequested(m_destDir); });
@@ -655,6 +657,13 @@ void GalleryDlDialog::appendLog(const QString &line) {
 void GalleryDlDialog::showCurrent(const QString &current) {
     if (!current.isEmpty())
         m_current->setText(current);
+}
+
+void GalleryDlDialog::setShowFolderActions(bool on) {
+    if (m_openFolderBtn)
+        m_openFolderBtn->setVisible(on);
+    if (m_browseBtn)
+        m_browseBtn->setVisible(on);
 }
 
 void GalleryDlDialog::showFinished(bool ok, int filesFound,

@@ -6,9 +6,12 @@
 #include "mainwindow.h"
 #include "metadatadialog.h"
 #include "statsdialog.h"
+#include "filehash.h"
+#include "hydrusstore.h"
 
 #include <QApplication>
 #include <QComboBox>
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QGraphicsRectItem>
@@ -17,12 +20,14 @@
 #include <QJsonObject>
 #include <QLabel>
 #include <QLineEdit>
+#include <QListWidget>
 #include <QMenu>
 #include <QMenuBar>
 #include <QPainter>
 #include <QPixmap>
 #include <QPushButton>
 #include <QScrollBar>
+#include <QSettings>
 #include <QStandardItemModel>
 #include <QTemporaryDir>
 #include <QTextBrowser>
@@ -774,6 +779,103 @@ private slots:
                 r && r->isVisible())
                 ++visibleRects;
         QCOMPARE(visibleRects, 1);
+    }
+
+    // Hydrus tab: a seeded hydrus.db (+ media) opens from the private slot,
+    // shows native namespace groups, counts one post and keeps the booru
+    // favourites DB untouched. Also covers the "Not on Hydrus" filter.
+    void hydrusTabStaysIsolated() {
+        QTemporaryDir xdg;
+        QVERIFY(xdg.isValid());
+        qputenv("XDG_CONFIG_HOME", xdg.filePath(QStringLiteral("config")).toUtf8());
+        qputenv("XDG_DATA_HOME", xdg.filePath(QStringLiteral("data")).toUtf8());
+        qputenv("XDG_CACHE_HOME", xdg.filePath(QStringLiteral("cache")).toUtf8());
+
+        const QString dataDir = xdg.filePath(QStringLiteral("data/box"));
+        const QString mediaDir = dataDir + QStringLiteral("/hydrus");
+        const QString dbPath = dataDir + QStringLiteral("/hydrus.db");
+        QVERIFY(QDir().mkpath(mediaDir));
+
+        QImage img(16, 16, QImage::Format_RGB32);
+        img.fill(QColor(200, 80, 80));
+        const QString src = xdg.filePath(QStringLiteral("source.png"));
+        QVERIFY(img.save(src));
+        const QString sha = fileContentSha256(src);
+        QVERIFY(!sha.isEmpty());
+        const QString fileName = sha + QStringLiteral(".png");
+        QVERIFY(QFile::copy(src, mediaDir + QStringLiteral("/") + fileName));
+
+        HydrusStore::Db seed;
+        QVERIFY(seed.open(dbPath));
+        HydrusStore::Record row;
+        row.sha256 = sha;
+        row.fileName = fileName;
+        row.ext = QStringLiteral("png");
+        row.addedMs = QDateTime::currentMSecsSinceEpoch();
+        row.found = true;
+        row.tags = {QStringLiteral("creator:alice"),
+                    QStringLiteral("character:bob"),
+                    QStringLiteral("rating:safe"),
+                    QStringLiteral("plain_tag")};
+        QVERIFY(seed.insert(row));
+        seed.close();
+
+        QVERIFY(QDir().mkpath(xdg.filePath(QStringLiteral("config/box"))));
+        {
+            QSettings c(xdg.filePath(QStringLiteral("config/box/settings.ini")),
+                        QSettings::IniFormat);
+            c.setValue(QStringLiteral("hydrus/enabled"), true);
+            c.setValue(QStringLiteral("hydrus/mediaDir"), mediaDir);
+            c.setValue(QStringLiteral("hydrus/dbPath"), dbPath);
+            c.setValue(QStringLiteral("hydrus/minTagPosts"), 0);
+            c.setValue(QStringLiteral("storage/dataDir"), dataDir);
+            c.setValue(QStringLiteral("startup/defaultTab"),
+                       QStringLiteral("welcome"));
+            c.sync();
+        }
+
+        MainWindow w(xdg.filePath(QStringLiteral("empty")), true);
+        w.resize(900, 620);
+        QVERIFY(QMetaObject::invokeMethod(&w, "openHydrusTab",
+                                          Qt::DirectConnection));
+        auto *grid = w.findChild<GridView *>();
+        QVERIFY(grid);
+        QTRY_COMPARE(rowCount(grid), 1);
+
+        bool sawCreator = false;
+        bool sawCharacter = false;
+        bool sawGeneral = false;
+        for (QListWidget *list : w.findChildren<QListWidget *>()) {
+            for (int i = 0; i < list->count(); ++i) {
+                const QString token =
+                    list->item(i)->data(Qt::UserRole).toString();
+                if (token == QStringLiteral("creator:alice"))
+                    sawCreator = true;
+                else if (token == QStringLiteral("character:bob"))
+                    sawCharacter = true;
+                else if (token == QStringLiteral("plain_tag"))
+                    sawGeneral = true;
+            }
+        }
+        QVERIFY(sawCreator);
+        QVERIFY(sawCharacter);
+        QVERIFY(sawGeneral);
+
+        // Found row: "Not on Hydrus" hides it, turning the filter off
+        // restores it.
+        QVERIFY(QMetaObject::invokeMethod(&w, "setHydrusMissingOnly",
+                                          Qt::DirectConnection,
+                                          Q_ARG(bool, true)));
+        QTRY_COMPARE(rowCount(grid), 0);
+        QVERIFY(QMetaObject::invokeMethod(&w, "setHydrusMissingOnly",
+                                          Qt::DirectConnection,
+                                          Q_ARG(bool, false)));
+        QTRY_COMPARE(rowCount(grid), 1);
+
+        // The Hydrus tab never added a favourite.
+        FavDb favs;
+        QVERIFY(favs.open(dataDir));
+        QCOMPARE(favs.count(), 0);
     }
 };
 

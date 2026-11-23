@@ -2,6 +2,7 @@
 
 #include "flowlayout.h"
 #include "favdb.h"
+#include "hydrusstore.h"
 #include "index.h"
 #include "remotesource.h"
 #include "settings.h"
@@ -29,9 +30,12 @@ class QComboBox;
 class QDialog;
 class QCompleter;
 class QDrag;
+class QDragEnterEvent;
+class QDropEvent;
 class QLabel;
 class QLineEdit;
 class QListWidget;
+class QProgressDialog;
 class QPushButton;
 class QScrollArea;
 class QStackedWidget;
@@ -50,6 +54,10 @@ class DownloadManager;
 class ImageCache;
 class GalleryDlRunner;
 class GalleryDlDialog;
+
+namespace Hydrus {
+class Client;
+}
 
 std::pair<QString, qint64> favIdentity(const Post &p);
 QString favVetoKey(const QString &site, qint64 pid);
@@ -73,6 +81,10 @@ struct BrowserTab {
     QString title;
     bool isRemote = false;
     bool isFavourites = false;
+    // Hydrus tab: a local, isolated library (hydrus.db + hydrus media
+    // folder), never a booru session and never the main favourites DB.
+    bool isHydrus = false;
+    bool hydrusOnlyMissing = false; // "Not on Hydrus" grid filter
     QString root;              // local
     QStringList sites;         // remote site keys
     QStringList activeTags;
@@ -161,6 +173,12 @@ protected:
     void wheelEvent(QWheelEvent *e) override;
     void resizeEvent(QResizeEvent *e) override;
     void keyPressEvent(QKeyEvent *e) override; // Space toggles selection
+    void dragEnterEvent(QDragEnterEvent *e) override;
+    void dropEvent(QDropEvent *e) override;
+
+signals:
+    // Local files/folders dropped on the grid (Hydrus tab import).
+    void localPathsDropped(const QStringList &paths);
 
 private:
     double m_scrollRows = 0.5; // grid rows per wheel notch (0.1-3.0)
@@ -187,6 +205,14 @@ public:
         int sidecars = 0;
         QStringList errors;
         bool cancelled = false;
+    };
+
+    // One sequential Hydrus hash lookup (import verification or refresh).
+    struct HydrusLookupJob {
+        QString sha256;
+        bool promptMissing = false; // import fallback to manual tags
+        bool refresh = false;       // update an existing row
+        bool force = false;         // include manual-override rows
     };
 
 protected:
@@ -399,6 +425,35 @@ private slots:
     // Right-click "Hydrus tags…": read-only tag view for any post with a
     // local file (SHA-256) or a booru md5; never edits Hydrus.
     void showHydrusTags(const Post &post);
+    // ── Hydrus tab ─────────────────────────────────────────────
+    void openHydrusTab();
+    bool isHydrusTab();
+    bool ensureHydrusDb();
+    void loadHydrusTab(BrowserTab *t);
+    void rebuildHydrusSidebar();
+    void applyHydrusFilter();
+    void showHydrusImportMenu();
+    void importHydrusFiles();
+    void importHydrusFolder();
+    void importHydrusUrls();
+    // Stage + copy into the hydrus media folder, then look tags up.
+    void importHydrusPaths(const QStringList &paths, const QString &source);
+    void startHydrusLookups(const QList<HydrusLookupJob> &jobs);
+    void nextHydrusLookup();
+    void finishHydrusLookups();
+    // Files already in the media folder but absent from hydrus.db.
+    void maybeScanHydrusOrphans(bool force = false);
+    void showHydrusGridMenu(const QPoint &pos);
+    void showHydrusViewerMenu(const Post &post, const QPoint &globalPos);
+    void editHydrusTags(const QVector<Post> &posts);
+    void refreshHydrusTags(const QVector<Post> &posts, bool force);
+    // Automatic tags -> read-only booru popularity cache, never written.
+    QStringList hydrusFilterTags(const QStringList &raw) const;
+    HydrusStore::Record hydrusRecordFor(const Post &p) const;
+    void showHydrusSuggestions(const QString &prefix);
+    void setHydrusMissingOnly(bool on);
+    void startNextHydrusGallery();
+    void finishHydrusGallery();
 
 private:
     void startScan(const QString &root);
@@ -650,6 +705,42 @@ private:
     // files show up without a manual F5. Cleared once consumed.
     QSet<QString> m_dirtyRoots;
     FavDb m_favDb;
+    // Hydrus tab: isolated DB + media folder, import/lookup state.
+    HydrusStore::Db m_hydrusDb;
+    QSet<QString> m_hydrusMissing; // rows whose last lookup found nothing
+    bool m_hydrusOrphanScanDone = false;
+    QFutureWatcher<QVector<HydrusStore::Record>> *m_hydrusOrphanWatcher =
+        nullptr;
+    QProgressDialog *m_hydrusProgress = nullptr;
+    QFutureWatcher<QVector<HydrusStore::StagedFile>> *m_hydrusStageWatcher =
+        nullptr;
+    QList<HydrusLookupJob> m_hydrusLookupQueue;
+    HydrusLookupJob m_hydrusCurrentJob;
+    Hydrus::Client *m_hydrusLookupClient = nullptr;
+    bool m_hydrusLookupRefresh = false;
+    int m_hydrusLookupDone = 0;
+    int m_hydrusLookupTotal = 0;
+    int m_hydrusLookupMissing = 0;
+    int m_hydrusLookupManual = 0;
+    int m_hydrusLookupErrors = 0;
+    int m_hydrusLookupSkipped = 0;
+    int m_hydrusImportNew = 0;
+    int m_hydrusImportDup = 0;
+    int m_hydrusImportFail = 0;
+    bool m_hydrusLookupActive = false;
+    QString m_hydrusImportCleanupDir;
+    // Gallery-dl URL import (Hydrus tab) runs one flight at a time and
+    // stages every downloaded media file at the end.
+    QStringList m_hydrusDlUrls;
+    QString m_hydrusDlDir;
+    QString m_hydrusDlFirst;
+    GalleryDlRunner *m_hydrusDlRunner = nullptr;
+    GalleryDlDialog *m_hydrusDlDialog = nullptr;
+    bool m_hydrusDlCancelled = false;
+    QPushButton *m_hydrusImportBtn = nullptr;
+    QPushButton *m_hydrusRefreshBtn = nullptr;
+    QPushButton *m_hydrusMissingBtn = nullptr;
+    QPushButton *m_aiBtn = nullptr;
     // Last browse error with its raw request/response attached. The status
     // bar shows a one-liner; clicking it opens the full inspector.
     QString m_statusProbeTitle;

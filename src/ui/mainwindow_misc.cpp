@@ -141,7 +141,8 @@ void MainWindow::applyThemeFromSettings() {
 
 void MainWindow::runClassifyPopup() {
     BrowserTab *t = currentTab();
-    if (!t || (!t->isRemote && !t->isFavourites && m_index.posts().isEmpty())) {
+    if (!t || t->isHydrus ||
+        (!t->isRemote && !t->isFavourites && m_index.posts().isEmpty())) {
         statusBar()->showMessage(tr("Open an archive first"), 4000);
         return;
     }
@@ -338,7 +339,7 @@ void MainWindow::persistFavBuckets(const QVector<Post> &posts) {
 void MainWindow::applyManualBuckets(BrowserTab *t,
                                     const QHash<QString, QString> &buckets,
                                     bool autoVerdicts) {
-    if (!t || buckets.isEmpty())
+    if (!t || t->isHydrus || buckets.isEmpty())
         return;
     const bool current = (t == currentTab());
     const bool gridShowing = m_pages->currentIndex() == 0;

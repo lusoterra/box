@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(Box VERSION 0.8.2 LANGUAGES C CXX)
+project(Box VERSION 0.9.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -16,6 +16,7 @@ add_executable(box
     src/library/cache.cpp
     src/library/cachejanitor.cpp
     src/library/favdb.cpp
+    src/library/hydrusstore.cpp
     src/library/index.cpp
     src/settings.cpp
     src/library/tagtypes.cpp
@@ -85,6 +86,7 @@ add_executable(box
     src/ui/prefsdlg_booru.cpp
     src/ui/straydialog.cpp
     src/ui/hydrusdialog.cpp
+    src/ui/hydrustagdialog.cpp
     src/ui/mainwindow.cpp
     src/ui/mainwindow_gridmenu.cpp
     src/ui/mainwindow_tabs.cpp
@@ -113,6 +115,7 @@ add_executable(box
     src/ui/mainwindow_prefs.cpp
     src/ui/mainwindow_close.cpp
     src/ui/mainwindow_misc2.cpp
+    src/ui/mainwindow_hydrus.cpp
     src/ui/mainwindow_metadata.cpp
     src/ui/metadatadialog.cpp
     src/ui/statsdialog.cpp

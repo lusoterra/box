@@ -277,7 +277,7 @@ void MainWindow::importStrayFiles(const QStringList &paths) {
                         tr("Imported %1 file(s) to _Stray").arg(ok), 6000);
                 }
                 BrowserTab *t = currentTab();
-                if (t && !t->isRemote && !t->isFavourites &&
+                if (t && !t->isRemote && !t->isFavourites && !t->isHydrus &&
                     (t->root == dest ||
                      t->root.startsWith(dest + u'/')))
                     startScan(m_root);
@@ -622,7 +622,9 @@ void MainWindow::applyStrayTagUpdates(
     // Current tab: favourites/local filter from their row lists, a
     // downloads merge goes through the browse filter.
     if (BrowserTab *t = currentTab()) {
-        if (t->isFavourites || !t->isRemote) {
+        if (t->isHydrus) {
+            loadHydrusTab(t);
+        } else if (t->isFavourites || !t->isRemote) {
             if (!t->isFavourites)
                 t->localPosts = m_index.posts();
             rebuildCombos();

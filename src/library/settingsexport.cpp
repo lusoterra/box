@@ -240,6 +240,10 @@ QJsonObject exportJson(const AppSettings &s, const QVector<Post> &favs) {
     hydrus[QStringLiteral("url")] = s.hydrusUrl;
     hydrus[QStringLiteral("accessKey")] = s.hydrusAccessKey;
     hydrus[QStringLiteral("proxy")] = s.hydrusProxy;
+    hydrus[QStringLiteral("mediaDir")] = s.hydrusDir;
+    hydrus[QStringLiteral("dbPath")] = s.hydrusDb;
+    hydrus[QStringLiteral("minTagPosts")] = s.hydrusMinTagPosts;
+    hydrus[QStringLiteral("dropUnknownTags")] = s.hydrusDropUnknownTags;
     o[QStringLiteral("hydrus")] = hydrus;
     o[QStringLiteral("viewerMaxSide")] = s.viewerMaxSide;
     QJsonObject grid;
@@ -392,6 +396,16 @@ bool importJson(const QJsonObject &o, AppSettings *s, QVector<Post> *favs,
             hydrus.value(QStringLiteral("accessKey")).toString();
     if (hydrus.contains(QStringLiteral("proxy")))
         s->hydrusProxy = hydrus.value(QStringLiteral("proxy")).toString();
+    if (hydrus.contains(QStringLiteral("mediaDir")))
+        s->hydrusDir = hydrus.value(QStringLiteral("mediaDir")).toString();
+    if (hydrus.contains(QStringLiteral("dbPath")))
+        s->hydrusDb = hydrus.value(QStringLiteral("dbPath")).toString();
+    if (hydrus.contains(QStringLiteral("minTagPosts")))
+        s->hydrusMinTagPosts = qBound(
+            0, hydrus.value(QStringLiteral("minTagPosts")).toInt(10), 1000000);
+    if (hydrus.contains(QStringLiteral("dropUnknownTags")))
+        s->hydrusDropUnknownTags =
+            hydrus.value(QStringLiteral("dropUnknownTags")).toBool();
     const QJsonObject cache = o.value(QStringLiteral("cache")).toObject();
     if (cache.contains(QStringLiteral("dir")))
         s->cacheDir = cache.value(QStringLiteral("dir")).toString();

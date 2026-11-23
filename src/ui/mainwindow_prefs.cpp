@@ -232,6 +232,16 @@ void MainWindow::applyPreferences(const AppSettings &app) {
         appCacheDir(), qint64(m_settings.cacheLimitMB) * 1024 * 1024);
     MediaCache::configure(m_settings.cacheMode, m_settings.boorus);
     MediaCache::setSfwBlacklist(m_settings.blacklist);
+    // Hydrus storage moved: close the old connection and let the next
+    // activation reopen the new one. An open hydrus tab reloads now.
+    if (effectiveDataDir(m_settings) != oldDataDir ||
+        old.hydrusDir != m_settings.hydrusDir ||
+        old.hydrusDb != m_settings.hydrusDb) {
+        m_hydrusDb.close();
+        m_hydrusOrphanScanDone = false;
+        if (BrowserTab *t = currentTab(); t && t->isHydrus)
+            loadHydrusTab(t);
+    }
     setActiveExplicitTags(
         QSet<QString>(m_settings.explicitTags.begin(), m_settings.explicitTags.end()));
     RemoteSource::setConfiguredBoorus(m_settings.boorus);
@@ -268,7 +278,8 @@ void MainWindow::applyPreferences(const AppSettings &app) {
             manual.insert(it.key(), it.value());
         BrowserTab *cur = currentTab();
         for (BrowserTab *tb : m_tabs) {
-            if (!tb->isRemote && !tb->isFavourites && tb != cur) {
+            if (!tb->isRemote && !tb->isFavourites && !tb->isHydrus &&
+                tb != cur) {
                 // Snapshot-only: the shared index backs the current tab.
                 applyTagBuckets(tb->localPosts, manual);
                 continue;

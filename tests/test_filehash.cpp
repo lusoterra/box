@@ -95,6 +95,29 @@ private slots:
         QCOMPARE(fileContentMd5(onePath),
                  QStringLiteral("0cc175b9c0f1b6a831c399e269772661"));
     }
+
+    void sha256Hash() {
+        // src/library/filehash.h: fileContentSha256 (Hydrus identity)
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString path = dir.filePath(QStringLiteral("abc.bin"));
+        QFile f(path);
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write("abc");
+        f.close();
+        QCOMPARE(fileContentSha256(path),
+                 QStringLiteral("ba7816bf8f01cfea414140de5dae2223b00361a396177a"
+                                "9cb410ff61f20015ad"));
+        const QString empty = dir.filePath(QStringLiteral("empty.bin"));
+        QFile e(empty);
+        QVERIFY(e.open(QIODevice::WriteOnly));
+        e.close();
+        QCOMPARE(fileContentSha256(empty),
+                 QStringLiteral("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934c"
+                                "a495991b7852b855"));
+        QVERIFY(fileContentSha256(dir.path()).isEmpty());
+        QVERIFY(fileContentSha256(QStringLiteral("/nonexistent/x")).isEmpty());
+    }
 };
 
 QTEST_APPLESS_MAIN(TestFileHash)

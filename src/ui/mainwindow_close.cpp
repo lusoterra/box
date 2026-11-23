@@ -6,6 +6,7 @@
 #include "cookiegrab.h"
 #include "downloadmanager.h"
 #include "filehash.h"
+#include "gallerydl.h"
 #include "imagecache.h"
 #include "losnimport.h"
 #include "metaparser.h"
@@ -129,6 +130,15 @@ void MainWindow::closeEvent(QCloseEvent *e) {
     m_settings.geometry = saveGeometry();
     if (m_sideSplit)
         m_settings.sideSplitter = m_sideSplit->saveState();
+    // Hydrus: stop network lookups and the gallery-dl flight, then let a
+    // staged copy finish on its own (the worker only touches files).
+    if (m_hydrusLookupClient)
+        m_hydrusLookupClient->cancel();
+    if (m_hydrusDlRunner) {
+        m_hydrusDlCancelled = true;
+        m_hydrusDlRunner->cancel();
+    }
+    m_hydrusDb.close();
     flushSavedTabs(); // includes saveSettings
     QMainWindow::closeEvent(e);
 }
@@ -386,6 +396,11 @@ QVector<Post> MainWindow::keyboardTargets() const {
 }
 
 void MainWindow::downloadCurrentOrSelection() {
+    if (isHydrusTab()) {
+        statusBar()->showMessage(
+            tr("Hydrus media is already stored in the Hydrus library"), 4000);
+        return;
+    }
     const QVector<Post> posts = keyboardTargets();
     if (posts.isEmpty()) {
         statusBar()->showMessage(tr("Select a post to download first"), 3000);

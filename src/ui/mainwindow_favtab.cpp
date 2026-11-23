@@ -117,6 +117,8 @@ QString MainWindow::describeLastPlace() const {
     const AppSettings::SavedTab &lp = m_settings.lastPlace;
     if (lp.kind == QStringLiteral("favs"))
         return tr("Favourites");
+    if (lp.kind == QStringLiteral("hydrus"))
+        return tr("Hydrus");
     if (lp.kind == QStringLiteral("browse")) {
         const QStringList shown = siteDisplayNames(lp.sites);
         const QString where = lp.tags.isEmpty()
@@ -201,6 +203,35 @@ void MainWindow::openLastPlace() {
         else
             m_tabBar->setCurrentIndex(favIdx + 1);
         saveTabsNow();
+        return;
+    }
+    if (lp.kind == QStringLiteral("hydrus")) {
+        int idx = -1;
+        for (int i = 0; i < m_tabs.size(); ++i) {
+            if (m_tabs[i]->isHydrus) {
+                idx = i;
+                break;
+            }
+        }
+        if (idx < 0) {
+            openHydrusTab();
+            idx = static_cast<int>(m_tabs.size()) - 1;
+        }
+        if (idx >= 0 && idx < m_tabs.size()) {
+            BrowserTab *t = m_tabs[idx];
+            t->activeTags = lp.tags;
+            t->searchQuery = lp.query;
+            t->rating = lp.rating;
+            t->sort = lp.sort;
+            t->hydrusOnlyMissing = lp.hydrusOnlyMissing;
+            t->viewerKey = lp.viewerKey;
+            t->scrollRow = lp.scrollRow;
+            if (m_tabBar->currentIndex() == idx + 1)
+                activateTab(idx);
+            else
+                m_tabBar->setCurrentIndex(idx + 1);
+            saveTabsNow();
+        }
         return;
     }
     if (lp.kind == QStringLiteral("browse") && !lp.sites.isEmpty()) {

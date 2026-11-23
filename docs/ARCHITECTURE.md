@@ -1,8 +1,11 @@
 # ARCHITECTURE - box (booru client, Qt6 C++)
 
-Native C++/Qt6 client for local image archives + online boorus. Local
-archives are read-only; downloads + favourites feed back into offline browsing.
-Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
+Native C++/Qt6 client for local image archives, online boorus and a
+local Hydrus library. Local archives are read-only; downloads + favourites
+feed back into offline browsing. The Hydrus tab is a separate, isolated
+library (`hydrus.db` + a Hydrus media folder) that never touches the
+booru favourites/downloads/scan caches. Entry: `src/main.cpp:40` (`box`,
+single-instance via `session.lock`).
 
 - Process/thread model: one GUI-thread process (second copy exits,
   `src/main.cpp:112`). Close is instant: `closeEvent` (`mainwindow.cpp`)
@@ -179,6 +182,9 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     popup paints the count right-aligned (`500`, `7k`, `1.5M`); a merge
     dup keeps the higher count and the richer bucket, so a count-less
     rebuild of the visible rows cannot erase popularity.
+    `countsFor(dbPath, tags)` is the Hydrus tab's read-only lookup for
+    its spam filter: it opens the existing DB read-only, never creates,
+    upgrades or writes it.
   - `queryor.h:16` `QueryOr`: `~(...)` OR-groups - `parse()` (`:28`),
     `expand()` cartesian cap `kMaxCombos = 12` (`:36`), `groupsMatch()`
     (`:40`), `suggestBare()` (`:45`), `mergeActiveTokens()` (`:50`) = the
@@ -217,6 +223,14 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     hash -> SHA-256 -> legacy SHA-1/MD5 fallback with Ask/Silent policy;
     `HydrusTagsDialog` is the read-only chip view. Settings
     `hydrus/enabled|url|accessKey|proxy`; no write endpoints exist.
+  - `hydrusstore.h` (`src/library/`): the Hydrus tab's isolated SQLite
+    store (`hydrus.db`) - SHA-256 keyed rows with native namespace tags,
+    hydrus file id, `hydrus_found` and `manual_override` flags. Pure
+    helpers: `normalizeTag(s)` (lowercase, whitespace -> `_`, sort),
+    `splitTag`, `groupByNamespace`, `fileNameForHash`, `applySpamFilter`;
+    `Record::toPost` builds the grid/viewer row (namespaced + stripped
+    search tokens, `customTags` per namespace). The only foreign read is
+    `TagCountCache::countsFor` (read-only booru counts for spam filtering).
 - `tagcategories.h`: per-booru category merge/rename rules
   (`TagCategoryMerge`, source aliases + classic/custom target); consumed
   by the browse sidebar, filter pills and viewer tag groups.
@@ -229,6 +243,14 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
   `docs/MIGRATIONS.md`.
 - `src/ui/` - `mainwindow.h:105` `MainWindow` (all tabs, all searches);
   `BrowserTab` session state (`:47-61`); `PendingSite` OR fan-out (`:342-350`).
+  - Hydrus tab: `BrowserTab::isHydrus|hydrusOnlyMissing`, activation and
+    import pipeline in `mainwindow_hydrus.cpp` (files/folder/gallery-dl
+    URL/drag-drop, SHA-256 staging, sequential `Hydrus::Client` lookups,
+    orphan indexing, native namespace sidebar, Refresh/Force refresh,
+    "Not on Hydrus" filter). Per-file editor `hydrustagdialog`; the viewer
+    hides favourite/download/comment/refresh buttons through
+    `ViewerPage::setHydrusMode`. Hydrus thumbnails are session-memory only
+    (`requestVisibleThumbs` passes `persistToDisk=false`).
   - `viewerpage.h:170` `ViewerPage` (same-window viewer; member defs split across `src/ui/viewerpage.cpp`, `viewerpage_mediaviews.cpp` (`ImageView`/`GifView`/`VideoView`), `viewerpage_nav.cpp` navigation/prefetch, `viewerpage_meta.cpp` metadata/notes/comments/commentary popups+reload, `viewerpage_tags.cpp` tag rendering, `viewerpage_load.cpp` notes/cache/web load, `viewerpage_setters.cpp` state/setters/badges, `viewerpage_detail.cpp` Hybooru detail fetch; `ImageView` `:33`,
     `GifView` `:65`, `VideoView` `:93`); software video decoding forced in
     `main.cpp` (`QT_FFMPEG_DECODING_HW_DEVICE_TYPES=,`, user-overridable;
@@ -245,7 +267,7 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     `metatext` (untrusted DText/BBCode/Markdown -> escaped Qt rich text
     with http(s)/mailto-only links, relative targets resolved per entry;
     used by the commentary popup and comment bodies);
-    `prefsdlg` (tabbed preferences; booru editor/detect/probe + swatches/`harvestInto` split to `src/ui/prefsdlg_booru.cpp`); `straydialog` (Download/Add Stray + stray tag editors); `hydrusdialog` (Hydrus fetch flow + read-only tag view);
+    `prefsdlg` (tabbed preferences; booru editor/detect/probe + swatches/`harvestInto` split to `src/ui/prefsdlg_booru.cpp`); `straydialog` (Download/Add Stray + stray tag editors); `hydrusdialog` (Hydrus fetch flow + read-only tag view); `hydrustagdialog` (Hydrus tab manual namespace editor + force-refresh preview);
     `statsdialog` (Info -> Statistics: favourites/download sizes, cache
     tree, tag vocabulary and ranked tags/artists/characters/series/boorus;
     DB side read on the UI thread, download/cache walk on a worker via
@@ -436,6 +458,36 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     (`keyForLabel`, `remotesource.cpp:940`) and fall back to the post/file
     URL host (`entryForHost`), so a renamed entry keeps its favicon and
     short name.
+- Hydrus tab (`mainwindow_hydrus.cpp`):
+  - The plus menu opens it only when `hydrus/enabled` is on. It uses
+    `hydrus.db` (default `<data>/hydrus.db`) and a media folder (default
+    `<data>/hydrus`); neither is `store.db`, `downloads/`, `roots/` nor
+    `tag_types.db`.
+  - Import: files/folders, gallery-dl URLs (system binary, temp staging)
+    or file/folder drops on the grid. Each source is SHA-256 hashed
+    (`fileContentSha256`) and copied as `<sha256>.<ext>` (`.part` ->
+    rename); an existing hash is skipped. Pixiv ugoira zips are converted
+    like downloads, other archives are reported.
+  - After a copy, one `GET /get_files/file_metadata?hash=<sha256>` per
+    file (sequential `Hydrus::Client`). Storage tags are normalized with
+    their native namespaces (creator/character/series/species/rating/…),
+    never the booru classifier. `applySpamFilter` compares each tag with
+    the read-only booru tag-count cache (`TagCountCache::countsFor`, never
+    written): minimum post count (default 10, 0 = off) and optional
+    drop-unknown-tags. Misses are stored as `hydrus_found=0` with no tags
+    and prompt the per-file `HydrusTagDialog`; manual saves set
+    `manual_override`.
+  - Native namespace groups drive the sidebar (`rebuildHydrusSidebar`) and
+    the viewer (tags land in `Post::customTags`; unnamespaced in General).
+    Search tokens carry both `creator:alice` and `alice`; OR-groups ride
+    `QueryOr`. Favourite/download marks and toolbar actions are suppressed.
+  - `Refresh Hydrus tags` re-queries the selection (manual overrides are
+    skipped). `Force refresh` includes them and shows a before/after
+    preview per overridden post; accepting the refreshed set clears the
+    override. "Not on Hydrus" filters `hydrus_found=0` rows (manual tags
+    or not) so they can be retried later. Files already in the media
+    folder without a row are indexed in a worker (hash-trusting
+    `<sha256>.<ext>` names) and appear untagged.
 - Tag classification waterfall (`src/library/tagtypes.h:112` `TagTypeFetcher`):
   Gelbooru-with-creds -> anon Danbooru -> Safebooru -> yandere; misses
   (type -1) cached, transient (`kTransientFailure = -2`) not cached and
@@ -478,7 +530,7 @@ ini + `boorus.json` to the target and leaves only the pointer stub.
 | Kind    | Path | Notes |
 |---|---|---|
 | Config  | `~/.config/box/settings.ini` (+ `.bak` last-good backup, `.tmp` stage) | all keys below; `boorus/*` registry; atomic tmp+rename writes |
-| Data    | `~/.local/share/box/` (or `storage/dataDir`) | `store.db` favs, `tag_types.db` verdicts, `downloads/`, `download_queue.db` unfinished download journal, `session.lock`, `box.log[.1-.3]` rotating logs (`src/applog.cpp`) (`settings.h:122-167`, `main.cpp:112`) |
+| Data    | `~/.local/share/box/` (or `storage/dataDir`) | `store.db` favs, `hydrus.db` + `hydrus/` (isolated Hydrus tab), `tag_types.db` verdicts, `downloads/`, `download_queue.db` unfinished download journal, `session.lock`, `box.log[.1-.3]` rotating logs (`src/applog.cpp`) (`settings.h:122-167`, `main.cpp:112`) |
 | Cache   | `~/.cache/box/` (`appCacheDir`, `settings.cpp:15`) | `roots/` scan index, `thumbs/`, full-image cache, `cache.db`; `clearIndexCache()` drops `roots/` only. Media deletes go through `CacheJanitor::purgeMedia()` (SFW-only keeps provably SFW entries; everything removes `thumbs/`+`full/`) and never touch favourites, downloads, or the scan index. SFW-only still caches explicitly downloaded media (`Post::downloaded`); a favourite with no downloaded file stays filtered. |
 
 Key `settings.ini` groups: `cache/` (index, mode=all|sfw|none, full, limitMB,
@@ -493,7 +545,8 @@ Startup safeguard (`main.cpp`): if a configured `storage/dataDir`, `cache/dir`, 
 `storage/dataDir`, `startup/defaultTab`, `window/`, `boorus/` (+ per-entry
 `cacheMode`), `explicit/tags`, `theme/` (values are `assets/themes/*.ini` keys),
 `home/mascot*` (default embedded `マニフェスト.jpg`), `grid/`, `viewer/`,
-`hydrus/` (`enabled`, `url`, `accessKey`, `proxy`; read-only lookups).
+`hydrus/` (`enabled`, `url`, `accessKey`, `proxy`, `mediaDir`, `dbPath`,
+`minTagPosts`, `dropUnknownTags`; read-only lookups + the isolated tab).
 Never a group named `General` (QSettings reserves it; see
 `src/settings.cpp:39-43`).
 

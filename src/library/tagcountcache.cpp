@@ -196,3 +196,37 @@ int TagCountCache::size() const {
         return 0;
     return q.value(0).toInt();
 }
+
+QHash<QString, int> TagCountCache::countsFor(const QString &dbPath,
+                                             const QStringList &tags) {
+    QHash<QString, int> out;
+    if (dbPath.trimmed().isEmpty() || tags.isEmpty() ||
+        !QFileInfo::exists(dbPath))
+        return out; // never create the cache as a side effect
+    const QString conn = cacheConnName(dbPath);
+    {
+        QSqlDatabase db =
+            QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), conn);
+        db.setDatabaseName(dbPath);
+        db.setConnectOptions(QStringLiteral("QSQLITE_OPEN_READONLY"));
+        if (db.open()) {
+            {
+                QSqlQuery q(db);
+                q.prepare(QStringLiteral(
+                    "SELECT count FROM tags WHERE name = ? LIMIT 1"));
+                for (const QString &raw : tags) {
+                    const QString key = raw.trimmed().toLower();
+                    if (key.isEmpty() || out.contains(key))
+                        continue;
+                    q.bindValue(0, key);
+                    if (q.exec() && q.next())
+                        out.insert(key, q.value(0).toInt());
+                    q.finish();
+                }
+            }
+            db.close();
+        }
+    }
+    QSqlDatabase::removeDatabase(conn);
+    return out;
+}

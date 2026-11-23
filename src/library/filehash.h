@@ -20,6 +20,24 @@ inline QString fileContentMd5(const QString &path) {
     return QString::fromLatin1(h.result().toHex());
 }
 
+// SHA-256 of the whole file (Hydrus content identity). Empty on read
+// error; chunked like the md5 helper.
+inline QString fileContentSha256(const QString &path) {
+    QFile f(path);
+    if (!f.open(QIODevice::ReadOnly))
+        return {};
+    QCryptographicHash h(QCryptographicHash::Sha256);
+    while (!f.atEnd()) {
+        const QByteArray chunk = f.read(1 << 20);
+        if (chunk.isEmpty())
+            break;
+        h.addData(chunk);
+    }
+    if (f.error() != QFileDevice::NoError)
+        return {};
+    return QString::fromLatin1(h.result().toHex());
+}
+
 // One read pass, three digests. Hydrus indexes files by SHA-256 (modern)
 // or, in old databases, SHA-1/MD5; a fallback lookup never re-reads a
 // multi-hundred-MB video. Empty fields mean the file could not be read.

@@ -14,6 +14,7 @@
 // spelling and trimmed back when the table grows past its cap. Zero-post
 // rows are pruned on open (aliases/empties reported with count 0 never
 // complete a search; anything real is re-reported with its count).
+#include <QHash>
 #include <QSet>
 #include <QString>
 #include <QVector>
@@ -50,6 +51,12 @@ public:
     QVector<CachedTag> suggest(const QString &prefix, int limit,
                                const QSet<QString> &favTags = {}) const;
     int size() const; // stored rows (tests / status)
+
+    // Read-only popularity lookup for the Hydrus spam filter: tag ->
+    // stored post count. Never creates, upgrades or writes the DB; a
+    // missing/corrupt file simply yields no answers.
+    static QHash<QString, int> countsFor(const QString &dbPath,
+                                         const QStringList &tags);
 
     static QString dbPath(const QString &dataDir);
 

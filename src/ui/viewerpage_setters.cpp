@@ -105,6 +105,14 @@ void ViewerPage::setFaved(bool faved) {
         m_favBtn->setIcon(UiIcons::heart(QColor(0x78, 0x80, 0xa0), false));
 }
 
+void ViewerPage::setHydrusMode(bool on) {
+    m_hydrusMode = on;
+    m_favBtn->setVisible(!on);
+    m_downloadBtn->setVisible(!on);
+    m_commentsBtn->setVisible(!on);
+    m_refreshBtn->setVisible(!on);
+}
+
 void ViewerPage::setDownloaded(bool downloaded) {
     m_downloaded = downloaded;
     // Keep the snapshot's cache-policy hint in sync: a post downloaded

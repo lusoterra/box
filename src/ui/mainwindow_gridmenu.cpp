@@ -149,6 +149,10 @@ void MainWindow::copyPostFilesToClipboard(const QVector<Post> &posts) {
 }
 
 void MainWindow::showGridMenu(const QPoint &pos) {
+    if (BrowserTab *ht = currentTab(); ht && ht->isHydrus) {
+        showHydrusGridMenu(pos);
+        return;
+    }
     const QModelIndex clicked = m_grid->indexAt(pos);
     if (!clicked.isValid() || clicked.row() < 0 ||
         clicked.row() >= m_current.size())

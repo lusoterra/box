@@ -112,7 +112,8 @@ void MainWindow::maybeClassifyBrowse(BrowserTab *t) {
     // Same cached pass for remote grids and Favourites: both carry
     // category-less tags (LOSN rows, flat API blobs) that live in
     // `untyped` until a verdict exists.
-    if (!t || (!t->isRemote && !t->isFavourites) || !m_settings.classifyTags)
+    if (!t || (!t->isRemote && !t->isFavourites) || t->isHydrus ||
+        !m_settings.classifyTags)
         return;
     QVector<Post> &target = t->isFavourites ? t->localPosts : t->browseMerged;
     // Manual overrides are explicit user intent: they apply to every post,
