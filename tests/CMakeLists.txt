@@ -81,6 +81,7 @@ add_unit_test(test_downloadplan test_downloadplan.cpp ../src/remote/downloadmana
               ../src/remote/imagecache.cpp ../src/library/cachejanitor.cpp ../src/settings.cpp ${MIGRATION_SOURCES})
 add_unit_test(test_migrations test_migrations.cpp ${MIGRATION_SOURCES}
               ../src/settings.cpp ../src/library/favdb.cpp
+              ../src/library/metaparser.cpp
               ${REMOTE_SOURCES})
 set_tests_properties(test_migrations PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
@@ -91,6 +92,7 @@ add_unit_test(test_configmove test_configmove.cpp ../src/settings.cpp
 set_tests_properties(test_configmove PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_unit_test(test_favdb test_favdb.cpp ../src/library/favdb.cpp
+              ../src/library/metaparser.cpp
               ../src/migrations/m_favdb_schema.cpp
               ../src/migrations/m_favdb_hash_ids.cpp)
 add_unit_test(test_cachejanitor test_cachejanitor.cpp ../src/library/cachejanitor.cpp
@@ -230,6 +232,7 @@ add_unit_test(test_powsolver test_powsolver.cpp ../src/remote/powsolver.cpp
               ${REMOTE_SOURCES})
 add_unit_test(test_settingsexport test_settingsexport.cpp
               ../src/library/settingsexport.cpp ../src/settings.cpp ../src/library/favdb.cpp
+              ../src/library/metaparser.cpp
               ${REMOTE_SOURCES} ${MIGRATION_SOURCES})
 add_unit_test(test_ugoira test_ugoira.cpp ../src/library/ugoioconvert.cpp
               ../src/library/miniz/miniz.c)

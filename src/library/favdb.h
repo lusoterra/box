@@ -48,6 +48,10 @@ public:
     // (empty when never linked). One query backing the grid's
     // downloaded/favourite marks.
     QHash<QPair<QString, qint64>, QString> localPaths();
+    // Like localPaths(), but also resolves legacy/backing-file rows whose
+    // media path sits in post_url (strays added as remote posts with no
+    // local_path). Used for tag write-back so those rows are not skipped.
+    QHash<QPair<QString, qint64>, QString> mediaPaths();
     // Remember where a favourite lives on disk (download/import target).
     // rowToPost serves it as a local post when the file exists.
     bool setLocalPath(const QString &site, qint64 postId, const QString &path);

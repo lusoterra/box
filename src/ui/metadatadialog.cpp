@@ -1,6 +1,7 @@
 #include "metadatadialog.h"
 
 #include "desktopfiles.h"
+#include "metaparser.h"
 #include "settings.h"
 
 #include <QColor>
@@ -126,6 +127,44 @@ MetadataDialog::MetadataDialog(const Post &post, const QString &jsonPath,
     auto *lay = new QVBoxLayout(this);
     auto *tabs = new QTabWidget(this);
 
+    // The grid row can lag behind the sidecar (a favourite snapshot taken
+    // before a tag edit, or a remote/backing-path row). Never claim "No
+    // tags recorded" while the JSON tab right next to it shows tags: fill
+    // the empty overview fields from the sidecar.
+    Post view = post;
+    if (!raw.isEmpty()) {
+        Post parsed;
+        if (MetaParser::parse(raw, parsed)) {
+            if (view.tags.trimmed().isEmpty()) {
+                view.tags = parsed.tags;
+                view.tagsArtist = parsed.tagsArtist;
+                view.tagsCharacter = parsed.tagsCharacter;
+                view.tagsCopyright = parsed.tagsCopyright;
+                view.tagsGeneral = parsed.tagsGeneral;
+                view.tagsMeta = parsed.tagsMeta;
+                view.customTags = parsed.customTags;
+                view.untyped = parsed.untyped;
+            }
+            if (view.rating.trimmed().isEmpty() ||
+                view.rating == QStringLiteral("general"))
+                view.rating = parsed.rating;
+            if (view.score == 0)
+                view.score = parsed.score;
+            if (view.width <= 0)
+                view.width = parsed.width;
+            if (view.height <= 0)
+                view.height = parsed.height;
+            if (view.ext.isEmpty())
+                view.ext = parsed.ext;
+            if (view.date.isEmpty())
+                view.date = parsed.date;
+            if (view.source.isEmpty())
+                view.source = parsed.source;
+            if (view.title.isEmpty())
+                view.title = parsed.title;
+        }
+    }
+
     // ── Overview ────────────────────────────────────────────────
     auto *overview = new QTextBrowser(this);
     overview->setOpenExternalLinks(true);
@@ -134,8 +173,8 @@ MetadataDialog::MetadataDialog(const Post &post, const QString &jsonPath,
     const QColor chipBg = pal.color(QPalette::Highlight);
     const QColor chipFg = pal.color(QPalette::HighlightedText);
     QString html;
-    const QString title = !post.title.trimmed().isEmpty()
-                              ? post.title
+    const QString title = !view.title.trimmed().isEmpty()
+                              ? view.title
                               : QStringLiteral("%1 #%2")
                                     .arg(post.siteName.isEmpty()
                                              ? tr("Post")
@@ -154,15 +193,15 @@ MetadataDialog::MetadataDialog(const Post &post, const QString &jsonPath,
     html += QStringLiteral("<table cellspacing=\"0\" cellpadding=\"0\">");
     row(tr("Site"), post.siteName);
     row(tr("Post ID"), post.id > 0 ? QString::number(post.id) : QString());
-    row(tr("Rating"), post.rating);
-    row(tr("Score"), post.score != 0 ? QString::number(post.score) : QString());
+    row(tr("Rating"), view.rating);
+    row(tr("Score"), view.score != 0 ? QString::number(view.score) : QString());
     row(tr("Dimensions"),
-        post.width > 0 && post.height > 0
-            ? QStringLiteral("%1 x %2").arg(post.width).arg(post.height)
+        view.width > 0 && view.height > 0
+            ? QStringLiteral("%1 x %2").arg(view.width).arg(view.height)
             : QString());
-    row(tr("Type"), post.ext);
-    row(tr("Date"), post.date);
-    row(tr("Source"), post.source);
+    row(tr("Type"), view.ext);
+    row(tr("Date"), view.date);
+    row(tr("Source"), view.source);
     row(tr("File"), post.absFile);
     row(tr("JSON sidecar"), m_jsonPath);
     html += QStringLiteral("</table>");
@@ -177,20 +216,20 @@ MetadataDialog::MetadataDialog(const Post &post, const QString &jsonPath,
                                "<a href=\"%2\">%2</a></p>")
                     .arg(esc(tr("Media URL")), esc(post.fileUrl));
     }
-    html += tagSection(tr("Artist"), post.tagsArtist, chipBg, chipFg);
-    html += tagSection(tr("Character"), post.tagsCharacter, chipBg, chipFg);
-    html += tagSection(tr("Copyright"), post.tagsCopyright, chipBg, chipFg);
-    html += tagSection(tr("Meta"), post.tagsMeta, chipBg, chipFg);
-    html += tagSection(tr("General"), post.tagsGeneral, chipBg, chipFg);
-    for (auto it = post.customTags.begin(); it != post.customTags.end(); ++it)
+    html += tagSection(tr("Artist"), view.tagsArtist, chipBg, chipFg);
+    html += tagSection(tr("Character"), view.tagsCharacter, chipBg, chipFg);
+    html += tagSection(tr("Copyright"), view.tagsCopyright, chipBg, chipFg);
+    html += tagSection(tr("Meta"), view.tagsMeta, chipBg, chipFg);
+    html += tagSection(tr("General"), view.tagsGeneral, chipBg, chipFg);
+    for (auto it = view.customTags.begin(); it != view.customTags.end(); ++it)
         html += tagSection(it.key(), it.value().join(u' '), chipBg, chipFg);
     const bool noBuckets =
-        post.tagsArtist.isEmpty() && post.tagsCharacter.isEmpty() &&
-        post.tagsCopyright.isEmpty() && post.tagsMeta.isEmpty() &&
-        post.tagsGeneral.isEmpty() && post.customTags.isEmpty();
-    if (noBuckets && !post.tags.trimmed().isEmpty())
-        html += tagSection(tr("Tags"), post.tags, chipBg, chipFg);
-    else if (noBuckets && post.tags.trimmed().isEmpty())
+        view.tagsArtist.isEmpty() && view.tagsCharacter.isEmpty() &&
+        view.tagsCopyright.isEmpty() && view.tagsMeta.isEmpty() &&
+        view.tagsGeneral.isEmpty() && view.customTags.isEmpty();
+    if (noBuckets && !view.tags.trimmed().isEmpty())
+        html += tagSection(tr("Tags"), view.tags, chipBg, chipFg);
+    else if (noBuckets && view.tags.trimmed().isEmpty())
         html += QStringLiteral("<p style=\"color:%1\">%2</p>")
                     .arg(muted.name(), esc(tr("No tags recorded.")));
     overview->setHtml(html);

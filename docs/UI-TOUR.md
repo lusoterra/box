@@ -321,7 +321,9 @@ clippings, `Copy file (clipboard)` / `Open file` (favourite-only remote
 rows fetch the media into the temp folder first; challenge/login pages
 are rejected and retried through the browser, never opened as if they
 were the picture), `View metadata…` (readable summary/tags + raw JSON
-tree, with `Open JSON in editor…` and `Show in folder`), `Hydrus tags…`
+tree, with `Open JSON in editor…` and `Show in folder`; Overview fills
+missing tags/fields from the sidecar, so it never contradicts the JSON
+tab), `Hydrus tags…`
 (read-only, when enabled and the post has a local file or booru md5),
 `Show in folder`
 for local files, download/delete and favourite. Esc leaves fullscreen first, then the
@@ -470,7 +472,9 @@ by md5. Tags classify like browse tabs: cached verdicts apply immediately,
 new ones fetch once and persist to `store.db`, so the left categories and
 the viewer's right-hand tag groups show the same buckets and counts. A
 tag appears in exactly one bucket; still-unclassified tags stay under
-General instead of disappearing. `Delete from disk…` also removes kept favourites left with no
+General instead of disappearing. Favourite rows whose tag columns are
+empty (older stray imports, remote/backing-path rows) read their local
+sidecar once and persist it, so the tab matches the JSON. `Delete from disk…` also removes kept favourites left with no
 renderable source (no file, no remote media/post link) instead of leaving
 empty cards; post-linked rows stay (viewer refresh can heal them). Files
 removed outside the app hide from the grid the same way (never marked

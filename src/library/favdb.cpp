@@ -1,10 +1,12 @@
 #include "favdb.h"
 #include "explicittags.h"
+#include "metaparser.h"
 #include "migrations/migrations.h"
 #include "settings.h"
 
 #include <QDateTime>
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QHash>
 #include <QJsonArray>
@@ -328,6 +330,31 @@ QHash<QPair<QString, qint64>, QString> FavDb::localPaths() {
     return out;
 }
 
+QHash<QPair<QString, qint64>, QString> FavDb::mediaPaths() {
+    QHash<QPair<QString, qint64>, QString> out;
+    if (!m_open)
+        return out;
+    QSqlQuery q(QSqlDatabase::database(m_conn));
+    if (!q.exec(QStringLiteral(
+            "SELECT site, post_id, local_path, post_url FROM favourites")))
+        return out;
+    while (q.next()) {
+        QString local = q.value(2).toString();
+        // Strays favourited as remote rows can carry their backing file in
+        // the post_url column with no local_path. They still must receive
+        // tag edits written from the scanner/Downloads row.
+        if (local.isEmpty()) {
+            const QString backing = q.value(3).toString();
+            if (!backing.isEmpty() && !isHttpLike(backing))
+                local = backing;
+        }
+        if (isSidecarPath(local))
+            local = mediaPathForSidecar(local);
+        out.insert({q.value(0).toString(), q.value(1).toLongLong()}, local);
+    }
+    return out;
+}
+
 bool FavDb::add(const Post &post) {
     if (!m_open)
         return false;
@@ -618,6 +645,10 @@ QVector<Post> FavDb::list(int limit) {
     if (!q.exec())
         return out;
     QHash<QPair<QString, qint64>, QString> heal;
+    // Rows whose tag columns are empty (old write-back misses) heal from
+    // their local sidecar once and persist, so Favourites stops showing a
+    // blank post while the JSON clearly has the hand-written tags.
+    QHash<QPair<QString, qint64>, FavDb::TagSplit> tagHeal;
     // Canonical local path and canonical post page both collapse twins:
     // the remote favourite may never have been linked to its downloaded
     // copy, so a path-only rule still showed "the same post twice".
@@ -640,6 +671,42 @@ QVector<Post> FavDb::list(int limit) {
                 canon = QFileInfo(localPath).absoluteFilePath();
         }
         Post p = rowToPost(q);
+        if (p.tags.trimmed().isEmpty() && !p.absFile.isEmpty()) {
+            const QString sidecar = localSidecarPath(p.absFile);
+            if (!sidecar.isEmpty()) {
+                QFile f(sidecar);
+                if (f.open(QIODevice::ReadOnly)) {
+                    QJsonParseError err;
+                    const QJsonDocument doc =
+                        QJsonDocument::fromJson(f.readAll(), &err);
+                    Post parsed;
+                    if (err.error == QJsonParseError::NoError &&
+                        doc.isObject() &&
+                        MetaParser::parse(doc.object(), parsed) &&
+                        !parsed.tags.trimmed().isEmpty()) {
+                        p.tags = parsed.tags;
+                        p.tagsArtist = parsed.tagsArtist;
+                        p.tagsCharacter = parsed.tagsCharacter;
+                        p.tagsCopyright = parsed.tagsCopyright;
+                        p.tagsGeneral = parsed.tagsGeneral;
+                        p.tagsMeta = parsed.tagsMeta;
+                        p.customTags = parsed.customTags;
+                        p.untyped = parsed.untyped;
+                        if (!parsed.rating.isEmpty())
+                            p.rating = parsed.rating;
+                        FavDb::TagSplit split;
+                        split.tags = p.tags;
+                        split.artist = p.tagsArtist;
+                        split.character = p.tagsCharacter;
+                        split.copyright = p.tagsCopyright;
+                        split.general = p.tagsGeneral;
+                        split.meta = p.tagsMeta;
+                        split.untyped = p.untyped;
+                        tagHeal.insert({storedSite, storedPid}, split);
+                    }
+                }
+            }
+        }
         // Persist explicit upgrades (see rowToPost): the stored value
         // feeds rating counts/filters, so heal it once.
         if (p.ratingInferred)
@@ -698,6 +765,8 @@ QVector<Post> FavDb::list(int limit) {
             byPost.insert(postKey, hit);
         localRow[hit] = localRow.value(hit) || isLocalRow;
     }
+    if (!tagHeal.isEmpty())
+        setTagSplits(tagHeal);
     if (!heal.isEmpty()) {
         QSqlDatabase db = QSqlDatabase::database(m_conn);
         if (db.transaction()) {

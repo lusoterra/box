@@ -660,8 +660,75 @@ private slots:
         QSqlDatabase::removeDatabase(QStringLiteral("healcheck"));
     }
 
-    void localPathsMap() {
+    void mediaPathsIncludesBackingFile() {
+        // A stray favourited as a remote row (id 0, no post page) stores
+        // its media path in post_url and leaves local_path NULL. Tag
+        // write-back must still find it.
         QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        FavDb db;
+        QVERIFY(db.open(tmp.path()));
+        const QString file = tmp.filePath(QStringLiteral("_Stray_abc.png"));
+        QFile f(file);
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write("png");
+        f.close();
+        Post p = samplePost();
+        p.siteName = QStringLiteral("_Stray");
+        p.id = 0;
+        p.fileUrl = QStringLiteral("https://example.com/stray.png");
+        p.postUrl.clear();
+        p.absFile = file;
+        p.tags.clear();
+        p.tagsGeneral.clear();
+        QVERIFY(db.add(p));
+        const auto key = QPair<QString, qint64>(QStringLiteral("_Stray"),
+                                                FavDb::pidFor(p));
+        QVERIFY(db.localPaths().value(key).isEmpty());
+        QCOMPARE(db.mediaPaths().value(key), file);
+        FavDb::TagSplit split;
+        split.tags = QStringLiteral("hand_tag");
+        split.general = split.tags;
+        QHash<QPair<QString, qint64>, FavDb::TagSplit> splits;
+        splits.insert(key, split);
+        QCOMPARE(db.setTagSplits(splits), 1);
+        const Post row = db.list().first();
+        QCOMPARE(row.tags, QStringLiteral("hand_tag"));
+        QCOMPARE(row.absFile, file);
+    }
+
+    void listHealsEmptyTagsFromSidecar() {
+        // Rows whose tag write-back was missed (old downloads, remote
+        // backing-path strays) must show the sidecar tags on the tab
+        // instead of a blank post; the heal persists once.
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        FavDb db;
+        QVERIFY(db.open(tmp.path()));
+        const QString file = tmp.filePath(QStringLiteral("_Stray_abc.png"));
+        QFile f(file);
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write("png");
+        f.close();
+        QFile s(tmp.filePath(QStringLiteral("_Stray_abc.json")));
+        QVERIFY(s.open(QIODevice::WriteOnly));
+        s.write(R"({"stray":true,"tags":"hand_tag other",
+                    "file_ext":"png"})");
+        s.close();
+        Post p;
+        p.isRemote = false;
+        p.absFile = file;
+        p.file = file;
+        p.ext = QStringLiteral("png");
+        p.rating = QStringLiteral("general");
+        QVERIFY(db.add(p));
+        QCOMPARE(db.list().first().tags, QStringLiteral("hand_tag other"));
+        // Persisted: a second list does not depend on the JSON.
+        QFile::remove(tmp.filePath(QStringLiteral("_Stray_abc.json")));
+        QCOMPARE(db.list().first().tags, QStringLiteral("hand_tag other"));
+    }
+
+    void localPathsMap() {        QTemporaryDir tmp;
         QVERIFY(tmp.isValid());
         FavDb db;
         QVERIFY(db.open(tmp.path()));

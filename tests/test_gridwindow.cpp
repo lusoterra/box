@@ -4,6 +4,7 @@
 // asserts far rows share the single placeholder pixmap (one cache key)
 // while near rows carry real thumbs - i.e. memory stays flat.
 #include "mainwindow.h"
+#include "metadatadialog.h"
 #include "statsdialog.h"
 
 #include <QApplication>
@@ -616,6 +617,28 @@ private slots:
     // Fullscreen must not leak grid chrome onto the post: leaving it
     // while still on the viewer keeps the omnibar hidden (backToGrid
     // is what brings it back).
+    void metadataOverviewFallsBackToSidecar() {
+        // A favourite snapshot can have empty tag fields while the sidecar
+        // has the hand-written tags; Overview must not contradict JSON.
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString sidecar = dir.filePath(QStringLiteral("stray.json"));
+        QFile f(sidecar);
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write(R"({"stray":true,"tags":"hand_tag other","file_ext":"png"})");
+        f.close();
+        Post p;
+        p.isRemote = false;
+        p.absFile = dir.filePath(QStringLiteral("stray.png"));
+        p.ext = QStringLiteral("png");
+        MetadataDialog dlg(p, sidecar, QJsonObject(), nullptr);
+        auto *browser = dlg.findChild<QTextBrowser *>();
+        QVERIFY(browser);
+        const QString text = browser->toPlainText();
+        QVERIFY2(text.contains(QStringLiteral("hand_tag")), qPrintable(text));
+        QVERIFY(text.contains(QStringLiteral("other")));
+    }
+
     void viewerFullscreenKeepsOmnibarHidden() {
         QTemporaryDir xdg;
         QVERIFY(xdg.isValid());

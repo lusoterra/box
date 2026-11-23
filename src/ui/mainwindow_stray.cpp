@@ -555,7 +555,7 @@ void MainWindow::applyStrayTagUpdates(
     // Only tag/rating presence travels: identity (site/id/post URL, local
     // path) always stays with the row being patched.
     auto mergeTags = [&updates, &canon](Post &p) {
-        if (p.isRemote || p.absFile.isEmpty())
+        if (p.absFile.isEmpty())
             return false;
         const auto it = updates.constFind(canon(p.absFile));
         if (it == updates.constEnd())
@@ -594,7 +594,7 @@ void MainWindow::applyStrayTagUpdates(
         QHash<QString, const Post *> byPath;
         for (auto it = updates.constBegin(); it != updates.constEnd(); ++it)
             byPath.insert(it.key(), &it.value());
-        const auto paths = m_favDb.localPaths();
+        const auto paths = m_favDb.mediaPaths();
         QHash<QPair<QString, qint64>, FavDb::TagSplit> splits;
         for (auto it = paths.constBegin(); it != paths.constEnd(); ++it) {
             const auto hit = byPath.constFind(canon(it.value()));
@@ -611,8 +611,13 @@ void MainWindow::applyStrayTagUpdates(
             s.untyped = u.untyped;
             splits.insert(it.key(), s);
         }
-        if (!splits.isEmpty())
+        if (!splits.isEmpty()) {
             m_favDb.setTagSplits(splits);
+            // The DB now has the new tags, but an open Favourites tab still
+            // holds the old Post snapshots (empty for a remote/backing-path
+            // stray). Reload them so the grid/sidebar/metadata match.
+            refreshFavTabs();
+        }
     }
     // Current tab: favourites/local filter from their row lists, a
     // downloads merge goes through the browse filter.
