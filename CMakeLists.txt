@@ -178,7 +178,9 @@ endif()
 
 include(GNUInstallDirs)
 include(CTest)
-add_subdirectory(tests)
+if(BUILD_TESTING)
+    add_subdirectory(tests)
+endif()
 install(TARGETS box RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(FILES assets/box.desktop
         DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)

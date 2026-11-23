@@ -11,6 +11,24 @@
   uninstall by removing the paths listed in `build/install_manifest.txt`.
 - Do NOT build in doc-writing sessions unless asked (read-only + docs).
 
+## Fast dev builds
+
+- `scripts/dev-build.sh` configures `build-dev/` as Debug with
+  `-O0 -g1`, Ninja + `ld.lld` when installed, `BUILD_TESTING=OFF`, and
+  builds only the `box` target. No optimisation flags leak into the
+  release/PKGBUILD build.
+- Rebuild after a source edit:
+  `cmake --build build-dev --target box -j"$(( $(nproc) / 2 ))"` (or
+  `ninja -C build-dev -j4 box`). A no-op build is instant; a single
+  `mainwindow.cpp` rebuild is ~20 s instead of ~38 s at `-O3`.
+- `JOBS=8 scripts/dev-build.sh` uses all cores for one run if you do not
+  need the half-core default.
+- Install `ccache` and rerun the script to enable the compiler launcher;
+  clean rebuilds and branch switches then reuse object files.
+- Tests live in the normal `build/` tree. To use tests in the dev tree,
+  reconfigure it without `-DBUILD_TESTING=OFF` (or run
+  `cmake --build build-dev --target test_favdb` after re-enabling).
+
 ## Test layout
 
 - One binary per file: `add_unit_test(name sources...)` in
