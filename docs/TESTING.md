@@ -25,6 +25,12 @@
   need the half-core default.
 - Install `ccache` and rerun the script to enable the compiler launcher;
   clean rebuilds and branch switches then reuse object files.
+- `scripts/install-latest.sh` defaults to `build/` + CMake `Release` and
+  builds only the `box` target (tests are not needed to install). Override
+  with `BOX_BUILD_TYPE=Debug`, `BOX_BUILD_DIR=build-dev`, `BOX_PREFIX=…`.
+- Fatal signals write a backtrace to `box-crash.log` next to `box.log`
+  (`~/.local/share/box/box-crash.log` by default), then re-raise so
+  `coredumpctl` still captures a core. Attach it to crash reports.
 - Tests live in the normal `build/` tree. To use tests in the dev tree,
   reconfigure it without `-DBUILD_TESTING=OFF` (or run
   `cmake --build build-dev --target test_favdb` after re-enabling).

@@ -765,6 +765,10 @@ QVector<Post> FavDb::list(int limit) {
             byPost.insert(postKey, hit);
         localRow[hit] = localRow.value(hit) || isLocalRow;
     }
+    // Release the read statement before the heal writes start a
+    // transaction on the same connection (SQLite otherwise sees an
+    // active statement on some builds).
+    q.finish();
     if (!tagHeal.isEmpty())
         setTagSplits(tagHeal);
     if (!heal.isEmpty()) {

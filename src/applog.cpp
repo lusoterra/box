@@ -3,11 +3,25 @@
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QMutex>
 #include <QMutexLocker>
 #include <QtMessageHandler>
 
+#include <csignal>
 #include <cstdio>
+#include <cstdlib>
+#if defined(__unix__) || defined(__APPLE__)
+#include <fcntl.h>
+#include <signal.h>
+#include <unistd.h>
+#endif
+#if defined(__has_include)
+#if __has_include(<execinfo.h>)
+#include <execinfo.h>
+#define BOX_HAVE_BACKTRACE 1
+#endif
+#endif
 
 namespace {
 QMutex g_lock;
@@ -16,6 +30,56 @@ QString g_path;
 qint64 g_maxBytes = 0;
 int g_backups = 0;
 qint64 g_size = 0; // bytes written to the current generation
+
+#if defined(__unix__) || defined(__APPLE__)
+int g_crashFd = -1;
+
+// Best-effort fatal-signal report. Writes a backtrace to the crash log and
+// stderr, then re-raises with the default handler so coredumpctl still
+// gets its core. Async-signal-safe APIs only (write/raise); backtrace()
+// is only called after a warm-up during install.
+void crashHandler(int sig) {
+    char header[128];
+    const int len = std::snprintf(header, sizeof(header),
+                                  "\n=== box crash: signal %d ===\n", sig);
+    if (len > 0) {
+        if (g_crashFd >= 0)
+            (void)!::write(g_crashFd, header, static_cast<size_t>(len));
+        (void)!::write(STDERR_FILENO, header, static_cast<size_t>(len));
+    }
+#ifdef BOX_HAVE_BACKTRACE
+    void *frames[64];
+    const int n = backtrace(frames, 64);
+    backtrace_symbols_fd(frames, n, g_crashFd >= 0 ? g_crashFd : STDERR_FILENO);
+#endif
+    if (g_crashFd >= 0)
+        (void)!::fsync(g_crashFd);
+    // SA_RESETHAND already restored the default action; re-raise so the
+    // kernel writes a core and coredumpctl/systemd-coredump can pick it up.
+    ::raise(sig);
+    std::_Exit(128 + sig);
+}
+
+void installCrashHandler(const QString &logPath) {
+    const QString path =
+        QFileInfo(logPath).absolutePath() + QStringLiteral("/box-crash.log");
+    g_crashFd = ::open(QFile::encodeName(path).constData(),
+                       O_WRONLY | O_CREAT | O_APPEND, 0644);
+#ifdef BOX_HAVE_BACKTRACE
+    void *warm[1];
+    (void)backtrace(warm, 1); // allocate loader state before a signal
+#endif
+    for (const int sig : {SIGSEGV, SIGBUS, SIGILL, SIGFPE, SIGABRT}) {
+        struct sigaction sa {};
+        sa.sa_handler = crashHandler;
+        sigemptyset(&sa.sa_mask);
+        sa.sa_flags = SA_RESETHAND;
+        sigaction(sig, &sa, nullptr);
+    }
+}
+#else
+void installCrashHandler(const QString &) {}
+#endif
 
 // Harmless-but-chatty subsystems: their Debug/Info output is volume, not
 // signal (hardware-decode probes, audio backends, Chromium internals).
@@ -118,6 +182,7 @@ void install(const QString &filePath, qint64 maxBytes, int backups) {
         g_file.setFileName(QString()); // stderr only from here
     g_size = g_file.size();
     lock.unlock();
+    installCrashHandler(filePath);
     qInstallMessageHandler(handler);
 }
 } // namespace AppLog

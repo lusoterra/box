@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(Box VERSION 0.8.1 LANGUAGES C CXX)
+project(Box VERSION 0.8.2 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -128,6 +128,11 @@ target_include_directories(box PRIVATE src src/engines src/remote src/library sr
 target_link_libraries(box PRIVATE Qt6::Widgets Qt6::Concurrent Qt6::Sql
                                              Qt6::Multimedia Qt6::MultimediaWidgets
                                              Qt6::Network Qt6::WebEngineWidgets Qt6::WebEngineCore)
+# Export function names so box-crash.log backtraces are readable even in
+# the optimised package build (addresses alone need the unstripped binary).
+if(UNIX AND NOT APPLE)
+    target_link_options(box PRIVATE "-rdynamic")
+endif()
 target_compile_definitions(box PRIVATE
     BOX_VERSION="${PROJECT_VERSION}")
 
