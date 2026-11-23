@@ -208,6 +208,15 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     per-entry rating/site tracking so "delete NSFW cache" can keep SFW
     files); `cachepolicy` (global + per-booru disk-cache mode, applied to
     thumbnails and full-image cache).
+  - `hydrus.h` / `hydrusdialog.h`: read-only Hydrus tag lookup. Hash a
+    local file once with `fileContentHashes` (SHA-256 + SHA-1 + MD5),
+    `GET <base>/get_files/file_metadata?hash=…` (optional
+    `Hydrus-Client-API-Access-Key`), parse `metadata[].tags` storage
+    tags, fold `creator:`/`character:`/`series:`/`studio:`/`meta:`
+    namespaces into the five buckets. `HydrusFetch` drives the
+    hash -> SHA-256 -> legacy SHA-1/MD5 fallback with Ask/Silent policy;
+    `HydrusTagsDialog` is the read-only chip view. Settings
+    `hydrus/enabled|url|accessKey|proxy`; no write endpoints exist.
 - `tagcategories.h`: per-booru category merge/rename rules
   (`TagCategoryMerge`, source aliases + classic/custom target); consumed
   by the browse sidebar, filter pills and viewer tag groups.
@@ -236,7 +245,7 @@ Entry: `src/main.cpp:40` (`box`, single-instance via `session.lock`).
     `metatext` (untrusted DText/BBCode/Markdown -> escaped Qt rich text
     with http(s)/mailto-only links, relative targets resolved per entry;
     used by the commentary popup and comment bodies);
-    `prefsdlg` (tabbed preferences; booru editor/detect/probe + swatches/`harvestInto` split to `src/ui/prefsdlg_booru.cpp`); `straydialog` (Download/Add Stray);
+    `prefsdlg` (tabbed preferences; booru editor/detect/probe + swatches/`harvestInto` split to `src/ui/prefsdlg_booru.cpp`); `straydialog` (Download/Add Stray + stray tag editors); `hydrusdialog` (Hydrus fetch flow + read-only tag view);
     `statsdialog` (Info -> Statistics: favourites/download sizes, cache
     tree, tag vocabulary and ranked tags/artists/characters/series/boorus;
     DB side read on the UI thread, download/cache walk on a worker via
@@ -483,7 +492,8 @@ Startup safeguard (`main.cpp`): if a configured `storage/dataDir`, `cache/dir`, 
 
 `storage/dataDir`, `startup/defaultTab`, `window/`, `boorus/` (+ per-entry
 `cacheMode`), `explicit/tags`, `theme/` (values are `assets/themes/*.ini` keys),
-`home/mascot*` (default embedded `マニフェスト.jpg`), `grid/`, `viewer/`.
+`home/mascot*` (default embedded `マニフェスト.jpg`), `grid/`, `viewer/`,
+`hydrus/` (`enabled`, `url`, `accessKey`, `proxy`; read-only lookups).
 Never a group named `General` (QSettings reserves it; see
 `src/settings.cpp:39-43`).
 

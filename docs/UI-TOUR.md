@@ -164,7 +164,9 @@ only (never videos, still or animated), and `Copy post
 link` / `Copy media link` / `Copy file path` / `Copy file (clipboard)`
 put the selected rows on the clipboard (stills, GIFs and videos alike).
 A single selected row also has `View metadata…` (summary + tags + raw
-JSON tree) and `Show in folder` (file manager opens with the file
+JSON tree), `Hydrus tags…` when Preferences → Hydrus is enabled and a
+local file or booru md5 is available (read-only lookup by content hash),
+and `Show in folder` (file manager opens with the file
 selected). Multi-row `Unfavourite` and any multi-post `Download` ask for
 confirmation first (count + destination; unfavourite also warns when
 the settings delete files); `Delete from disk…` always confirms.
@@ -319,7 +321,9 @@ clippings, `Copy file (clipboard)` / `Open file` (favourite-only remote
 rows fetch the media into the temp folder first; challenge/login pages
 are rejected and retried through the browser, never opened as if they
 were the picture), `View metadata…` (readable summary/tags + raw JSON
-tree, with `Open JSON in editor…` and `Show in folder`), `Show in folder`
+tree, with `Open JSON in editor…` and `Show in folder`), `Hydrus tags…`
+(read-only, when enabled and the post has a local file or booru md5),
+`Show in folder`
 for local files, download/delete and favourite. Esc leaves fullscreen first, then the
 viewer; F11 toggles it; arrow keys keep stepping posts while fullscreen.
 `Ctrl+D` downloads the post, `Ctrl+O` opens its page, `Ctrl+Shift+O` opens
@@ -413,6 +417,16 @@ media vs post page; `Use global` follows Preferences → Browse), `Blacklist` (f
 blacklist locally instead of server `-tags`, for tag-capped accounts),
 `Default tags`, `Media cache` (`Global` / `All` / `SFW only` / `Nothing`
 for this booru, narrowed by the global mode), `Proxy`.
+
+## 15b-prefs-hydrus - Preferences → Hydrus
+`Enable Hydrus tag lookups` (off by default), `Server URL` (a hydrus
+client API or a reverse-proxied `hydd`, default
+`http://127.0.0.1:45869`), `Access key` (sent as
+`Hydrus-Client-API-Access-Key`; local `hydd` accepts empty/bogus keys),
+`Proxy` (HTTP/SOCKS for Hydrus only; empty = direct for loopback, the
+global Browse proxy for remote hosts) and `Test connection`
+(`/verify_access_key`, paints the server name + Hydrus version inline).
+Lookups are read-only and hashed locally; nothing is written back.
 
 ## 15-prefs-tags - Preferences → Taxonomies
 `Tag type overrides` (manual `tag → bucket`, wins over fetches),
@@ -520,14 +534,23 @@ API refuses anonymous calls (Gelbooru 401) the page itself is read
 (`og:image` + typed tag list). Unreadable links are reported once,
 without queues of wall pages.
 Grid right-click `Edit tags…` on strays: one stray opens the one-box
-editor (flat, auto-categorized on save); two or more (`Edit tags…
+editor (flat; a Hydrus fetch writes its namespaced tags straight into the
+matching buckets on save, manual additions stay General) with `Fetch from
+Hydrus` (when Preferences → Hydrus is enabled: hashes the file SHA-256,
+then offers legacy SHA-1/MD5 retries); two or more (`Edit tags…
 (N strays)`) open `Mass edit stray tags (N)`: file list, per-bucket boxes
 (Artist / Character / Copyright / General / Meta in that order), `Paste
 tags:` (`Add pasted` appends tokens to General), `Copy from URL:` +
 `Fetch` steals buckets from a booru post link (same resolver as above,
-merged into the current file), `Copy to all` duplicates the current
+merged into the current file), `Fetch tags from Hydrus` hashes/merges the
+current file into the buckets (Hydrus `creator:`/`character:`/`series:`/
+`studio:`/`meta:` namespaces fold into their boxes; other tags stay
+General), `Copy to all` duplicates the current
 file to every listed stray, `Save all` writes `tags` + `tags_*` sidecars
 (category order kept). Status bar reports `Saved tags for N stray(s)`.
+Any post's right-click menu (grid or viewer) also has read-only
+`Hydrus tags…` when a local file or booru md5 can be hashed: grouped
+chips, the matched hash kind, the Hydrus file id, `Copy all tags`.
 
 ## Not yet documented (keep unchecked until done)
 - [ ] Downloads tab (non-empty: sidecar-backed offline rows)

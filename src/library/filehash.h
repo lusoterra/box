@@ -20,6 +20,39 @@ inline QString fileContentMd5(const QString &path) {
     return QString::fromLatin1(h.result().toHex());
 }
 
+// One read pass, three digests. Hydrus indexes files by SHA-256 (modern)
+// or, in old databases, SHA-1/MD5; a fallback lookup never re-reads a
+// multi-hundred-MB video. Empty fields mean the file could not be read.
+struct FileContentHashes {
+    QString md5;
+    QString sha1;
+    QString sha256;
+    bool ok = false;
+};
+
+inline FileContentHashes fileContentHashes(const QString &path) {
+    FileContentHashes out;
+    QFile f(path);
+    if (!f.open(QIODevice::ReadOnly))
+        return out;
+    QCryptographicHash md5(QCryptographicHash::Md5);
+    QCryptographicHash sha1(QCryptographicHash::Sha1);
+    QCryptographicHash sha256(QCryptographicHash::Sha256);
+    while (!f.atEnd()) {
+        const QByteArray chunk = f.read(1 << 20);
+        if (chunk.isEmpty())
+            break;
+        md5.addData(chunk);
+        sha1.addData(chunk);
+        sha256.addData(chunk);
+    }
+    out.md5 = QString::fromLatin1(md5.result().toHex());
+    out.sha1 = QString::fromLatin1(sha1.result().toHex());
+    out.sha256 = QString::fromLatin1(sha256.result().toHex());
+    out.ok = f.error() == QFileDevice::NoError;
+    return out;
+}
+
 // True when a filename stem already carries a content hash
 // (<Site>_<32 hex>), i.e. nothing to fix up.
 inline bool isMd5Stem(const QString &stem) {

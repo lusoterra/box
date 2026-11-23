@@ -189,6 +189,15 @@ AppSettings loadSettings() {
         c.value(QStringLiteral("fav/deleteUnfavs"), s.deleteUnfavs).toBool();
     s.strayAutoFav =
         c.value(QStringLiteral("stray/autoFav"), s.strayAutoFav).toBool();
+    s.hydrusEnabled =
+        c.value(QStringLiteral("hydrus/enabled"), s.hydrusEnabled).toBool();
+    s.hydrusUrl = c.value(QStringLiteral("hydrus/url"), s.hydrusUrl).toString();
+    if (s.hydrusUrl.trimmed().isEmpty())
+        s.hydrusUrl = QStringLiteral("http://127.0.0.1:45869");
+    s.hydrusAccessKey =
+        c.value(QStringLiteral("hydrus/accessKey"), s.hydrusAccessKey).toString();
+    s.hydrusProxy =
+        c.value(QStringLiteral("hydrus/proxy"), s.hydrusProxy).toString();
     if (c.contains(QStringLiteral("filter/blacklist")))
         s.blacklist =
             normalizeExplicitTags(c.value(QStringLiteral("filter/blacklist")).toStringList());
@@ -450,6 +459,10 @@ void writeSettingsTo(QSettings &c, const AppSettings &s) {
     }
     c.setValue(QStringLiteral("downloads/dir"), s.downloadDir);
     c.setValue(QStringLiteral("network/proxy"), s.globalProxy);
+    c.setValue(QStringLiteral("hydrus/enabled"), s.hydrusEnabled);
+    c.setValue(QStringLiteral("hydrus/url"), s.hydrusUrl);
+    c.setValue(QStringLiteral("hydrus/accessKey"), s.hydrusAccessKey);
+    c.setValue(QStringLiteral("hydrus/proxy"), s.hydrusProxy);
     c.setValue(QStringLiteral("storage/dataDir"), s.dataDir);
     c.setValue(QStringLiteral("startup/defaultTab"), s.tabsDefault);
     c.setValue(QStringLiteral("window/geometry"), s.geometry);

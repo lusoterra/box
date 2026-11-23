@@ -7,6 +7,7 @@
 #include "downloadmanager.h"
 #include "filehash.h"
 #include "gallerydl.h"
+#include "hydrusdialog.h"
 #include "imagecache.h"
 #include "losnimport.h"
 #include "metaparser.h"
@@ -340,9 +341,31 @@ void MainWindow::editStrayTags(const Post &post) {
     }
     if (tags.isEmpty())
         tags = post.tags;
-    StrayTagDialog dlg(fi.fileName(), tags, this);
+    StrayTagEdit existing;
+    existing.absFile = post.absFile;
+    existing.fileName = fi.fileName();
+    auto bucket = [&obj](const char *key, const QString &fallback) {
+        const QString value =
+            obj.value(QString::fromLatin1(key)).toString();
+        return value.isEmpty() ? fallback : value;
+    };
+    existing.artist = bucket("tags_artist", post.tagsArtist);
+    existing.character = bucket("tags_character", post.tagsCharacter);
+    existing.copyright = bucket("tags_copyright", post.tagsCopyright);
+    existing.general = bucket("tags_general", post.tagsGeneral);
+    existing.meta = bucket("tags_meta", post.tagsMeta);
+    StrayTagDialog dlg(fi.fileName(), tags,
+                       hydrusConfigFromSettings(m_settings), existing, this);
     if (dlg.exec() != QDialog::Accepted)
         return;
+    // A Hydrus fetch knows its namespaces (artist/character/series/meta),
+    // so write those buckets directly; manual additions after the fetch
+    // land in General. Without a fetch the old flat/auto-classify path
+    // stays in charge.
+    if (dlg.hasHydrusTags()) {
+        applyStrayTagEdits({dlg.hydrusTagSplit()});
+        return;
+    }
     // Normalize like the rest of the tag universe: all whitespace runs
     // become single spaces (Tab/Enter must never glue itself to a tag),
     // lowercase, deduped. (The classifier, search and sidebar all key on
@@ -389,6 +412,30 @@ void MainWindow::editStrayTags(const Post &post) {
     }
     applyStrayTagUpdates({{post.absFile, obj}});
     statusBar()->showMessage(tr("Tags saved"), 4000);
+}
+
+void MainWindow::showHydrusTags(const Post &post) {
+    if (!m_settings.hydrusEnabled)
+        return;
+    QString path = post.absFile;
+    if (!path.isEmpty() && !QFileInfo::exists(path))
+        path.clear();
+    if (path.isEmpty() && m_favDb.isOpen()) {
+        const QString linked = m_favDb.localPaths().value(favIdentity(post));
+        if (!linked.isEmpty() && QFileInfo::exists(linked))
+            path = linked;
+    }
+    const QString md5 = isMd5Hex(post.md5) ? post.md5.toLower() : QString();
+    QString label = post.file.isEmpty() ? QString()
+                                        : QFileInfo(post.file).fileName();
+    if (label.isEmpty() && !path.isEmpty())
+        label = QFileInfo(path).fileName();
+    if (label.isEmpty())
+        label = post.postUrl.isEmpty() ? tr("post #%1").arg(post.id)
+                                       : post.postUrl;
+    HydrusTagsDialog dlg(hydrusConfigFromSettings(m_settings), label, path, md5,
+                         this);
+    dlg.exec();
 }
 
 void MainWindow::applyStrayTagEdits(const QVector<StrayTagEdit> &edits) {

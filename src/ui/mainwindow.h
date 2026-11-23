@@ -396,6 +396,9 @@ private slots:
     QString postJsonSidecar(const Post &post);
     // Summary + raw JSON dialog (grid/viewer context menu).
     void showPostMetadata(const Post &post);
+    // Right-click "Hydrus tags…": read-only tag view for any post with a
+    // local file (SHA-256) or a booru md5; never edits Hydrus.
+    void showHydrusTags(const Post &post);
 
 private:
     void startScan(const QString &root);

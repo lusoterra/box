@@ -4,6 +4,7 @@
 #include "cookiegrab.h"
 #include "faviconcache.h"
 #include "flowlayout.h"
+#include "hydrusdialog.h"
 #include "tagtypes.h"
 #include "theme.h"
 #include "uicons.h"
@@ -174,6 +175,7 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     QVBoxLayout *lay = makePage(tr("General"));
     QVBoxLayout *libraryPage = makePage(tr("Library"));
     QVBoxLayout *browsePage = makePage(tr("Browse"));
+    QVBoxLayout *hydrusPage = makePage(tr("Hydrus"));
     QVBoxLayout *tagsPage = makePage(tr("Taxonomies"));
     QVBoxLayout *lookPage = makePage(tr("Appearance"));
 
@@ -1025,6 +1027,84 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
         "Applies to searches, media, tags, favicons and downloads. "
         "A proxy set on one booru (below) wins for that booru only.")));
     browsePage->addWidget(browse);
+
+    // ── Hydrus (read-only Public Tag Repository lookups) ──
+    auto *hydrus = new QGroupBox(tr("Hydrus tag lookup"), this);
+    auto *hydrusLay = new QVBoxLayout(hydrus);
+    m_hydrusEnabled = new QCheckBox(tr("Enable Hydrus tag lookups"), this);
+    m_hydrusEnabled->setChecked(current.hydrusEnabled);
+    m_hydrusEnabled->setToolTip(
+        tr("Adds a Fetch from Hydrus button to the stray tag editor and a "
+           "read-only Hydrus tags entry to post context menus. Off by "
+           "default; nothing is sent anywhere until enabled."));
+    connect(m_hydrusEnabled, &QCheckBox::toggled, this,
+            &PrefsDialog::updateApplyState);
+    hydrusLay->addWidget(m_hydrusEnabled);
+    auto *hydrusForm = new QFormLayout();
+    m_hydrusUrl = new QLineEdit(current.hydrusUrl, this);
+    m_hydrusUrl->setPlaceholderText(QStringLiteral("http://127.0.0.1:45869"));
+    m_hydrusUrl->setToolTip(
+        tr("Hydrus client API base URL, or the URL of a reverse proxy in "
+           "front of hydd. 127.0.0.1 daemons usually need no access key."));
+    connect(m_hydrusUrl, &QLineEdit::textChanged, this,
+            &PrefsDialog::updateApplyState);
+    hydrusForm->addRow(tr("Server URL:"), m_hydrusUrl);
+    m_hydrusKey = new QLineEdit(current.hydrusAccessKey, this);
+    m_hydrusKey->setEchoMode(QLineEdit::Password);
+    m_hydrusKey->setPlaceholderText(tr("optional, may be empty on localhost"));
+    m_hydrusKey->setToolTip(
+        tr("Sent as the Hydrus-Client-API-Access-Key header. hydd accepts "
+           "bogus/empty keys on localhost by default; a real Hydrus client "
+           "usually requires one."));
+    connect(m_hydrusKey, &QLineEdit::textChanged, this,
+            &PrefsDialog::updateApplyState);
+    hydrusForm->addRow(tr("Access key:"), m_hydrusKey);
+    m_hydrusProxy = new QLineEdit(current.hydrusProxy, this);
+    m_hydrusProxy->setPlaceholderText(
+        QStringLiteral("http://127.0.0.1:8080 (optional)"));
+    m_hydrusProxy->setToolTip(
+        tr("HTTP/SOCKS proxy for Hydrus requests only. Empty = direct for "
+           "localhost/127.0.0.1, the global Browse proxy for remote hosts. "
+           "Set the Server URL above instead when hydd sits behind a "
+           "reverse proxy."));
+    connect(m_hydrusProxy, &QLineEdit::textChanged, this,
+            &PrefsDialog::updateApplyState);
+    hydrusForm->addRow(tr("Proxy:"), m_hydrusProxy);
+    hydrusLay->addLayout(hydrusForm);
+    auto *hydrusTestRow = new QHBoxLayout();
+    m_hydrusTest = new QPushButton(tr("Test connection"), this);
+    m_hydrusStatus = new QLabel(this);
+    m_hydrusStatus->setWordWrap(true);
+    m_hydrusStatus->setStyleSheet(QStringLiteral("color:#4a5068;"));
+    connect(m_hydrusTest, &QPushButton::clicked, this, [this] {
+        auto *client = new Hydrus::Client(
+            hydrusConfigFromFields(m_hydrusUrl->text(), m_hydrusKey->text(),
+                                   m_hydrusProxy->text()),
+            this);
+        m_hydrusTest->setEnabled(false);
+        m_hydrusStatus->setStyleSheet(QStringLiteral("color:#4a5068;"));
+        m_hydrusStatus->setText(tr("Testing…"));
+        connect(client, &Hydrus::Client::verified, this,
+                [this, client](bool ok, const QString &message) {
+                    client->deleteLater();
+                    m_hydrusTest->setEnabled(true);
+                    m_hydrusStatus->setStyleSheet(
+                        ok ? QStringLiteral("color:#2e7d32;")
+                           : QStringLiteral("color:#c0392b;"));
+                    m_hydrusStatus->setText(message);
+                });
+        client->verify();
+    });
+    hydrusTestRow->addWidget(m_hydrusTest);
+    hydrusTestRow->addWidget(m_hydrusStatus, 1);
+    hydrusLay->addLayout(hydrusTestRow);
+    hydrusLay->addWidget(note(tr(
+        "Read-only: box only looks tags up by content hash (SHA-256, then "
+        "legacy SHA-1/MD5) and never edits Hydrus. Strays get the tags in "
+        "their editor; any post with a local file or booru md5 can show "
+        "them from its right-click menu.")));
+    hydrusPage->addWidget(hydrus);
+    hydrusPage->addStretch(1);
 
     // ── Booru manager: presets + user-added instances ──
     auto *acc = new QGroupBox(tr("Booru manager"), this);

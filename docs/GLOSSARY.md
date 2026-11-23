@@ -60,6 +60,13 @@
   (`straydialog`). Pasted booru post links are resolved through the public
   API/HTML (`src/remote/strayresolve.h`) so the sidecar keeps the real tags,
   and `Favourite only` stores the link without downloading the media.
+- hydrus = read-only Hydrus tag lookup (`src/remote/hydrus.h`,
+  `src/ui/hydrusdialog.h`): hash a file (SHA-256, legacy SHA-1/MD5),
+  `GET /get_files/file_metadata`, merge tags into stray editors or show
+  them in the read-only `Hydrus tags…` popup. `hydd` = the standalone
+  read-only Public Tag Repository mirror daemon used here (default
+  `http://127.0.0.1:45869`); hydrus namespaces (`creator:`, `series:`, …)
+  fold into the five app buckets.
 - mascot = home-page image (`home/mascot*`, `src/settings.h`); shipped
   default is `マニフェスト.jpg` (empty path), Remove hides it, Reset
   restores the default; any grid file can replace it, rendered by

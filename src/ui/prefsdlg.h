@@ -97,6 +97,12 @@ private:
     QComboBox *m_ugoiraFormat = nullptr;
     QSpinBox *m_ugoiraDelay = nullptr;
     QLineEdit *m_globalProxy = nullptr;
+    QCheckBox *m_hydrusEnabled = nullptr;
+    QLineEdit *m_hydrusUrl = nullptr;
+    QLineEdit *m_hydrusKey = nullptr;
+    QLineEdit *m_hydrusProxy = nullptr;
+    QPushButton *m_hydrusTest = nullptr;
+    QLabel *m_hydrusStatus = nullptr;
     QComboBox *m_dragMode = nullptr;
     QCheckBox *m_wallAutoPopup = nullptr;
     QListWidget *m_booruList = nullptr;

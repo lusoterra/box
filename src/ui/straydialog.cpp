@@ -1,12 +1,14 @@
 #include "straydialog.h"
 
 #include "gallerydl.h"
+#include "hydrusdialog.h"
 #include "strayresolve.h"
 
 #include <QCheckBox>
 #include <QDesktopServices>
 #include <QDir>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
@@ -15,6 +17,7 @@
 #include <QProgressBar>
 #include <QPushButton>
 #include <QRegularExpression>
+#include <QSet>
 #include <QUrl>
 #include <QVBoxLayout>
 
@@ -109,10 +112,12 @@ StrayDialog::StrayDialog(bool autoFav, QWidget *parent) : QDialog(parent) {
 }
 
 StrayTagDialog::StrayTagDialog(const QString &fileName, const QString &tags,
-                               QWidget *parent)
-    : QDialog(parent) {
+                               const Hydrus::Config &hydrus,
+                               const StrayTagEdit &existing, QWidget *parent)
+    : QDialog(parent), m_hydrus(hydrus), m_existing(existing),
+      m_absFile(existing.absFile) {
     setWindowTitle(tr("Edit tags - %1").arg(fileName));
-    resize(440, 220);
+    resize(440, 260);
     auto *lay = new QVBoxLayout(this);
     lay->addWidget(new QLabel(
         tr("Space-separated tags. Buckets are assigned automatically when "
@@ -123,6 +128,21 @@ StrayTagDialog::StrayTagDialog(const QString &fileName, const QString &tags,
     m_edit->setTabChangesFocus(true); // Tab leaves the box (Save/Cancel),
                                       // it must never become tag text
     lay->addWidget(m_edit, 1);
+    m_status = new QLabel(this);
+    m_status->setStyleSheet(QStringLiteral("color:#4a5068;"));
+    m_status->setWordWrap(true);
+    lay->addWidget(m_status);
+    auto *hydrusRow = new QHBoxLayout();
+    m_hydrusBtn = new QPushButton(tr("Fetch from Hydrus"), this);
+    m_hydrusBtn->setToolTip(
+        tr("Look this file up by SHA-256 in Hydrus and merge its tags"));
+    m_hydrusBtn->setVisible(m_hydrus.enabled);
+    m_hydrusBtn->setEnabled(m_hydrus.enabled && !m_absFile.isEmpty());
+    connect(m_hydrusBtn, &QPushButton::clicked, this,
+            &StrayTagDialog::fetchFromHydrus);
+    hydrusRow->addWidget(m_hydrusBtn);
+    hydrusRow->addStretch(1);
+    lay->addLayout(hydrusRow);
     auto *row = new QHBoxLayout();
     auto *saveBtn = new QPushButton(tr("Save"), this);
     connect(saveBtn, &QPushButton::clicked, this, &QDialog::accept);
@@ -170,9 +190,112 @@ QString mergeTokens(const QString &existing, const QStringList &add,
 
 } // namespace
 
+void StrayTagDialog::fetchFromHydrus() {
+    if (!m_hydrus.enabled || m_absFile.isEmpty())
+        return;
+    m_hydrusBtn->setEnabled(false);
+    auto *fetch = new HydrusFetch(m_hydrus, this, HydrusFetch::Fallback::Ask,
+                                  this);
+    connect(fetch, &HydrusFetch::status, this,
+            [this](const QString &text) { m_status->setText(text); });
+    connect(fetch, &HydrusFetch::found, this,
+            [this](const Hydrus::FileTags &file, Hydrus::HashKind kind) {
+                const Hydrus::CategorizedTags cats =
+                    Hydrus::categorize(file.tags);
+                auto norm = [](const QStringList &in) {
+                    QStringList out;
+                    for (const QString &raw : in) {
+                        const QString tag = raw.trimmed().toLower();
+                        if (!tag.isEmpty() && !out.contains(tag))
+                            out << tag;
+                    }
+                    return out;
+                };
+                m_hydrusArtist = norm(cats.artist);
+                m_hydrusCharacter = norm(cats.character);
+                m_hydrusCopyright = norm(cats.copyright);
+                m_hydrusGeneral = norm(cats.general);
+                m_hydrusMeta = norm(cats.meta);
+                QStringList all;
+                for (const QStringList *bucket :
+                     {&m_hydrusArtist, &m_hydrusCharacter,
+                      &m_hydrusCopyright, &m_hydrusMeta, &m_hydrusGeneral})
+                    all += *bucket;
+                all.removeDuplicates();
+                m_hydrusFlat = all;
+                const QString before = m_edit->toPlainText();
+                m_edit->setPlainText(
+                    mergeTokens(before, all, QString()));
+                const int added =
+                    tagTokens(m_edit->toPlainText()).size() -
+                    tagTokens(before).size();
+                m_status->setText(
+                    tr("Found %1 tag(s) in Hydrus (%2); added %3, "
+                       "categorised by Hydrus namespace.")
+                        .arg(file.tags.size())
+                        .arg(Hydrus::hashKindLabel(kind))
+                        .arg(qMax(0, added)));
+            });
+    connect(fetch, &HydrusFetch::notFound, this, [this] {
+        m_status->setText(tr("No Hydrus tags found for this file."));
+    });
+    connect(fetch, &HydrusFetch::error, this, [this](const QString &message) {
+        m_status->setText(message);
+    });
+    connect(fetch, &HydrusFetch::finished, this, [this, fetch] {
+        m_hydrusBtn->setEnabled(m_hydrus.enabled && !m_absFile.isEmpty());
+        fetch->deleteLater();
+    });
+    fetch->startFile(m_absFile);
+}
+
+StrayTagEdit StrayTagDialog::hydrusTagSplit() const {
+    StrayTagEdit e;
+    e.absFile = m_absFile;
+    e.fileName = QFileInfo(m_absFile).fileName();
+    const QStringList final = tagTokens(m_edit->toPlainText());
+    const QSet<QString> remaining(final.begin(), final.end());
+    QSet<QString> placed;
+    auto take = [&](const QStringList &category, QString &dest) {
+        QStringList out = dest.isEmpty()
+                              ? QStringList()
+                              : dest.split(QChar::Space, Qt::SkipEmptyParts);
+        for (const QString &tag : category) {
+            if (remaining.contains(tag) && !placed.contains(tag)) {
+                out << tag;
+                placed.insert(tag);
+            }
+        }
+        dest = out.join(u' ');
+    };
+    // Hydrus namespaces win; then keep the categories the sidecar had
+    // before the fetch so those tags do not fall back to General.
+    take(m_hydrusArtist, e.artist);
+    take(m_hydrusCharacter, e.character);
+    take(m_hydrusCopyright, e.copyright);
+    take(m_hydrusMeta, e.meta);
+    take(m_hydrusGeneral, e.general);
+    take(tagTokens(m_existing.artist), e.artist);
+    take(tagTokens(m_existing.character), e.character);
+    take(tagTokens(m_existing.copyright), e.copyright);
+    take(tagTokens(m_existing.meta), e.meta);
+    take(tagTokens(m_existing.general), e.general);
+    // Manual additions after the fetch have no namespace: General.
+    QStringList general = tagTokens(e.general);
+    for (const QString &tag : final) {
+        if (!placed.contains(tag)) {
+            general << tag;
+            placed.insert(tag);
+        }
+    }
+    e.general = general.join(u' ');
+    return e;
+}
+
 StrayMassTagDialog::StrayMassTagDialog(const QVector<Post> &strays,
+                                       const Hydrus::Config &hydrus,
                                        QWidget *parent)
-    : QDialog(parent) {
+    : QDialog(parent), m_hydrus(hydrus) {
     setWindowTitle(tr("Mass edit stray tags (%1)").arg(strays.size()));
     resize(720, 560);
     m_edits.reserve(strays.size());
@@ -247,6 +370,17 @@ StrayMassTagDialog::StrayMassTagDialog(const QVector<Post> &strays,
     m_fetch = new QPushButton(tr("Fetch"), this);
     urlRow->addWidget(m_fetch);
     lay->addLayout(urlRow);
+    auto *hydrusRow = new QHBoxLayout();
+    m_hydrusBtn = new QPushButton(tr("Fetch tags from Hydrus"), this);
+    m_hydrusBtn->setToolTip(
+        tr("Hash the current file (SHA-256, then legacy SHA-1/MD5) and merge "
+           "Hydrus tags into the buckets"));
+    m_hydrusBtn->setVisible(m_hydrus.enabled);
+    connect(m_hydrusBtn, &QPushButton::clicked, this,
+            &StrayMassTagDialog::fetchHydrusRow);
+    hydrusRow->addWidget(m_hydrusBtn);
+    hydrusRow->addStretch(1);
+    lay->addLayout(hydrusRow);
     m_status = new QLabel(this);
     m_status->setStyleSheet(QStringLiteral("color:#4a5068;"));
     m_status->setWordWrap(true);
@@ -384,6 +518,91 @@ void StrayMassTagDialog::loadRow(int row) {
     m_copyright->setPlainText(e.copyright);
     m_general->setPlainText(e.general);
     m_meta->setPlainText(e.meta);
+}
+
+void StrayMassTagDialog::fetchHydrusRow() {
+    if (!m_hydrus.enabled)
+        return;
+    commitCurrent();
+    if (m_row < 0 || m_row >= m_edits.size())
+        return;
+    const int row = m_row;
+    const QString path = m_edits.at(row).absFile;
+    if (path.isEmpty()) {
+        m_status->setText(tr("No file to look up."));
+        return;
+    }
+    m_hydrusBtn->setEnabled(false);
+    auto *fetch = new HydrusFetch(m_hydrus, this, HydrusFetch::Fallback::Ask,
+                                  this);
+    connect(fetch, &HydrusFetch::status, this,
+            [this](const QString &text) { m_status->setText(text); });
+    connect(fetch, &HydrusFetch::found, this,
+            [this, row](const Hydrus::FileTags &file, Hydrus::HashKind kind) {
+                if (row < 0 || row >= m_edits.size())
+                    return;
+                const Hydrus::CategorizedTags cats =
+                    Hydrus::categorize(file.tags);
+                StrayTagEdit &e = m_edits[row];
+                const QString before = tagTokens(
+                    e.artist + u' ' + e.character + u' ' + e.copyright +
+                    u' ' + e.general + u' ' + e.meta)
+                                           .join(u' ');
+                auto othersFor = [&e](const QString &skip) {
+                    QStringList all;
+                    if (skip != QStringLiteral("artist"))
+                        all << e.artist;
+                    if (skip != QStringLiteral("character"))
+                        all << e.character;
+                    if (skip != QStringLiteral("copyright"))
+                        all << e.copyright;
+                    if (skip != QStringLiteral("general"))
+                        all << e.general;
+                    if (skip != QStringLiteral("meta"))
+                        all << e.meta;
+                    return tagTokens(all.join(u' ')).join(u' ');
+                };
+                e.artist = mergeTokens(e.artist, cats.artist,
+                                       othersFor(QStringLiteral("artist")));
+                e.character = mergeTokens(
+                    e.character, cats.character,
+                    othersFor(QStringLiteral("character")));
+                e.copyright = mergeTokens(
+                    e.copyright, cats.copyright,
+                    othersFor(QStringLiteral("copyright")));
+                e.general = mergeTokens(e.general, cats.general,
+                                        othersFor(QStringLiteral("general")));
+                e.meta = mergeTokens(e.meta, cats.meta,
+                                     othersFor(QStringLiteral("meta")));
+                if (m_row == row) {
+                    m_artist->setPlainText(e.artist);
+                    m_character->setPlainText(e.character);
+                    m_copyright->setPlainText(e.copyright);
+                    m_general->setPlainText(e.general);
+                    m_meta->setPlainText(e.meta);
+                }
+                const int after = tagTokens(
+                    e.artist + u' ' + e.character + u' ' + e.copyright +
+                    u' ' + e.general + u' ' + e.meta)
+                                      .size();
+                m_status->setText(
+                    tr("Found %1 tag(s) in Hydrus (%2); added %3 to %4.")
+                        .arg(file.tags.size())
+                        .arg(Hydrus::hashKindLabel(kind))
+                        .arg(qMax(0, after - tagTokens(before).size()))
+                        .arg(e.fileName));
+            });
+    connect(fetch, &HydrusFetch::notFound, this, [this] {
+        m_status->setText(tr("No Hydrus tags found for this file."));
+    });
+    connect(fetch, &HydrusFetch::error, this, [this](const QString &message) {
+        m_status->setText(message);
+    });
+    connect(fetch, &HydrusFetch::finished, this, [this, fetch] {
+        m_hydrusBtn->setEnabled(true);
+        fetch->deleteLater();
+    });
+    fetch->startFile(path);
 }
 
 QVector<StrayTagEdit> StrayMassTagDialog::edits() const {

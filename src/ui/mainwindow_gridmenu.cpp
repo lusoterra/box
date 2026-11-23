@@ -7,6 +7,7 @@
 #include "desktopfiles.h"
 #include "downloadmanager.h"
 #include "filehash.h"
+#include "hydrusdialog.h"
 #include "imagecache.h"
 #include "losnimport.h"
 #include "metaparser.h"
@@ -390,6 +391,14 @@ void MainWindow::showGridMenu(const QPoint &pos) {
         connect(meta, &QAction::triggered, this,
                 [this, one] { showPostMetadata(one); });
         const QString res = resolvedFile(one);
+        const bool hasMd5 = isMd5Hex(one.md5);
+        if (m_settings.hydrusEnabled && (!res.isEmpty() || hasMd5)) {
+            QAction *hydrus = menu.addAction(tr("Hydrus tags…"));
+            hydrus->setToolTip(
+                tr("Read-only: look this file up in Hydrus by content hash"));
+            connect(hydrus, &QAction::triggered, this,
+                    [this, one] { showHydrusTags(one); });
+        }
         if (!res.isEmpty()) {
             QAction *show = menu.addAction(tr("Show in folder"));
             connect(show, &QAction::triggered, this, [res] {
@@ -442,7 +451,8 @@ void MainWindow::showGridMenu(const QPoint &pos) {
                 editStrayTags(targets.first());
                 return;
             }
-            StrayMassTagDialog dlg(targets, this);
+            StrayMassTagDialog dlg(targets, hydrusConfigFromSettings(m_settings),
+                                   this);
             if (dlg.exec() == QDialog::Accepted)
                 applyStrayTagEdits(dlg.edits());
         });

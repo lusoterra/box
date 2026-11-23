@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(Box VERSION 0.7.0 LANGUAGES C CXX)
+project(Box VERSION 0.8.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -42,6 +42,7 @@ add_executable(box
     src/library/miniz/miniz.c
     src/remote/remotesource.cpp
     src/remote/strayresolve.cpp
+    src/remote/hydrus.cpp
     src/remote/gallerydl.cpp
     src/remote/powsolver.cpp
     src/remote/downloadmanager.cpp
@@ -83,6 +84,7 @@ add_executable(box
     src/ui/prefsdlg.cpp
     src/ui/prefsdlg_booru.cpp
     src/ui/straydialog.cpp
+    src/ui/hydrusdialog.cpp
     src/ui/mainwindow.cpp
     src/ui/mainwindow_gridmenu.cpp
     src/ui/mainwindow_tabs.cpp

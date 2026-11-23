@@ -235,6 +235,12 @@ QJsonObject exportJson(const AppSettings &s, const QVector<Post> &favs) {
     video[QStringLiteral("loop")] = s.videoLoop;
     video[QStringLiteral("volume")] = s.volume;
     o[QStringLiteral("video")] = video;
+    QJsonObject hydrus;
+    hydrus[QStringLiteral("enabled")] = s.hydrusEnabled;
+    hydrus[QStringLiteral("url")] = s.hydrusUrl;
+    hydrus[QStringLiteral("accessKey")] = s.hydrusAccessKey;
+    hydrus[QStringLiteral("proxy")] = s.hydrusProxy;
+    o[QStringLiteral("hydrus")] = hydrus;
     o[QStringLiteral("viewerMaxSide")] = s.viewerMaxSide;
     QJsonObject grid;
     grid[QStringLiteral("aspectNum")] = s.aspectNum;
@@ -376,6 +382,16 @@ bool importJson(const QJsonObject &o, AppSettings *s, QVector<Post> *favs,
             20, ugoira.value(QStringLiteral("frameDelayMs")).toInt(100), 2000);
     if (!o.value(QStringLiteral("tabsDefault")).toString().isEmpty())
         s->tabsDefault = o.value(QStringLiteral("tabsDefault")).toString();
+    const QJsonObject hydrus = o.value(QStringLiteral("hydrus")).toObject();
+    if (hydrus.contains(QStringLiteral("enabled")))
+        s->hydrusEnabled = hydrus.value(QStringLiteral("enabled")).toBool();
+    if (hydrus.contains(QStringLiteral("url")))
+        s->hydrusUrl = hydrus.value(QStringLiteral("url")).toString();
+    if (hydrus.contains(QStringLiteral("accessKey")))
+        s->hydrusAccessKey =
+            hydrus.value(QStringLiteral("accessKey")).toString();
+    if (hydrus.contains(QStringLiteral("proxy")))
+        s->hydrusProxy = hydrus.value(QStringLiteral("proxy")).toString();
     const QJsonObject cache = o.value(QStringLiteral("cache")).toObject();
     if (cache.contains(QStringLiteral("dir")))
         s->cacheDir = cache.value(QStringLiteral("dir")).toString();

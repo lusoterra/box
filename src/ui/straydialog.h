@@ -6,6 +6,7 @@
 #include <QDialog>
 #include <QVector>
 
+#include "hydrus.h"
 #include "post.h"
 
 class QPlainTextEdit;
@@ -65,20 +66,6 @@ private:
     QString m_destDir;
 };
 
-// Single-box tag editor for one stray file: space-separated tags,
-// auto-categorized by the scan pipeline afterwards. Reopen to fix
-// anything miscategorized.
-class StrayTagDialog : public QDialog {
-    Q_OBJECT
-public:
-    explicit StrayTagDialog(const QString &fileName, const QString &tags,
-                            QWidget *parent = nullptr);
-    QString tags() const;
-
-private:
-    QPlainTextEdit *m_edit = nullptr;
-};
-
 // One stray's per-bucket tag set (space-separated, lowercase). The mass
 // editor shows tags ordered by category (artist/character/copyright/
 // general/meta) and writes both the flat `tags` union and the `tags_*`
@@ -93,6 +80,39 @@ struct StrayTagEdit {
     QString meta;
 };
 
+// Single-box tag editor for one stray file: space-separated tags,
+// auto-categorized by the scan pipeline afterwards. Reopen to fix
+// anything miscategorized.
+class StrayTagDialog : public QDialog {
+    Q_OBJECT
+public:
+    explicit StrayTagDialog(const QString &fileName, const QString &tags,
+                            const Hydrus::Config &hydrus,
+                            const StrayTagEdit &existing,
+                            QWidget *parent = nullptr);
+    QString tags() const;
+    // True when a Hydrus fetch populated the box: saving then writes the
+    // fetched namespace categories (plus any manual additions as General)
+    // instead of leaving everything untyped for the online classifier.
+    bool hasHydrusTags() const { return !m_hydrusFlat.isEmpty(); }
+    StrayTagEdit hydrusTagSplit() const;
+
+private:
+    void fetchFromHydrus();
+    QPlainTextEdit *m_edit = nullptr;
+    QLabel *m_status = nullptr;
+    QPushButton *m_hydrusBtn = nullptr;
+    Hydrus::Config m_hydrus;
+    StrayTagEdit m_existing; // buckets already in the sidecar
+    QString m_absFile;
+    QStringList m_hydrusArtist;
+    QStringList m_hydrusCharacter;
+    QStringList m_hydrusCopyright;
+    QStringList m_hydrusGeneral;
+    QStringList m_hydrusMeta;
+    QStringList m_hydrusFlat;
+};
+
 // Mass tag editor for 2+ strays: one window with a file list, per-bucket
 // boxes for the selected file, a paste field (whitespace/comma tokens go
 // to General) and "Copy from URL" stealing (booru post link resolved via
@@ -102,12 +122,14 @@ class StrayMassTagDialog : public QDialog {
     Q_OBJECT
 public:
     explicit StrayMassTagDialog(const QVector<Post> &strays,
+                                const Hydrus::Config &hydrus,
                                 QWidget *parent = nullptr);
     QVector<StrayTagEdit> edits() const;
 
 private:
     void commitCurrent();
     void loadRow(int row);
+    void fetchHydrusRow();
     QVector<StrayTagEdit> m_edits;
     int m_row = -1;
     QListWidget *m_list = nullptr;
@@ -120,4 +142,6 @@ private:
     QLineEdit *m_url = nullptr;
     QLabel *m_status = nullptr;
     QPushButton *m_fetch = nullptr;
+    QPushButton *m_hydrusBtn = nullptr;
+    Hydrus::Config m_hydrus;
 };

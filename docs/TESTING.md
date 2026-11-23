@@ -21,7 +21,7 @@
 - Remote tests link the split set (`REMOTE_SOURCES`, `:20-28`):
   `sitequirks` + `booruengine` + 6 engine impls + `remotesource.cpp`.
 - Files: `test_cachejanitor/downloadplan/explicittags/favdb/favicon/
-  filehash/index/losnimport/metaparser/mediafilter/metatext/queryor/
+  filehash/hydrus/index/losnimport/metaparser/mediafilter/metatext/queryor/
   remotesource/scanner/security/settings/sidecarrefresh/tagsuggest/
   tagtypes/thumbloader` + `check_translations.py` (ctest case,
   `:72-78`). ViewerPage meta tail (notes bodies, comment expand layout,

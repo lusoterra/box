@@ -747,6 +747,16 @@ void PrefsDialog::harvestInto(AppSettings &out) {
         out.downloadDir.clear(); // default stays implicit
     out.globalProxy = m_globalProxy ? m_globalProxy->text().trimmed()
                                     : QString();
+    if (m_hydrusEnabled)
+        out.hydrusEnabled = m_hydrusEnabled->isChecked();
+    if (m_hydrusUrl)
+        out.hydrusUrl = m_hydrusUrl->text().trimmed();
+    if (out.hydrusUrl.isEmpty())
+        out.hydrusUrl = QStringLiteral("http://127.0.0.1:45869");
+    if (m_hydrusKey)
+        out.hydrusAccessKey = m_hydrusKey->text().trimmed();
+    if (m_hydrusProxy)
+        out.hydrusProxy = m_hydrusProxy->text().trimmed();
     if (m_defaultImageViewer)
         out.defaultImageViewer = m_defaultImageViewer->text().trimmed();
     if (m_defaultGifViewer)

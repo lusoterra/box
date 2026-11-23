@@ -56,6 +56,7 @@ set(MIGRATION_SOURCES
 
 add_unit_test(test_explicittags test_explicittags.cpp)
 add_unit_test(test_filehash test_filehash.cpp)
+add_unit_test(test_hydrus test_hydrus.cpp ../src/remote/hydrus.cpp)
 add_unit_test(test_csvbackup test_csvbackup.cpp ../src/library/csvbackup.cpp)
 add_unit_test(test_metaparser test_metaparser.cpp ../src/library/metaparser.cpp)
 add_unit_test(test_gallerydl test_gallerydl.cpp ../src/remote/gallerydl.cpp
@@ -169,7 +170,8 @@ add_unit_test(test_gridwindow test_gridwindow.cpp
               ../src/ui/theme.cpp ../src/ui/flowlayout.cpp
               ../src/ui/metatext.cpp
               ../src/ui/prefsdlg.cpp ../src/ui/prefsdlg_booru.cpp ../src/remote/cookiegrab.cpp
-              ../src/ui/straydialog.cpp ../src/ui/progressbar.cpp
+              ../src/ui/straydialog.cpp ../src/ui/hydrusdialog.cpp
+              ../src/remote/hydrus.cpp ../src/ui/progressbar.cpp
               ../src/ui/gridloadingoverlay.cpp
               ../src/remote/imagecache.cpp ../src/remote/postmeta.cpp
               ../src/remote/downloadmanager.cpp ../src/remote/downloadqueue.cpp ../src/library/losnimport.cpp

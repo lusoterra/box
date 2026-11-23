@@ -283,6 +283,13 @@ void MainWindow::showViewerContextMenu(const Post &post,
     QAction *meta = menu.addAction(tr("View metadata…"));
     connect(meta, &QAction::triggered, this,
             [this, post] { showPostMetadata(post); });
+    if (m_settings.hydrusEnabled && (hasLocal || isMd5Hex(post.md5))) {
+        QAction *hydrus = menu.addAction(tr("Hydrus tags…"));
+        hydrus->setToolTip(
+            tr("Read-only: look this file up in Hydrus by content hash"));
+        connect(hydrus, &QAction::triggered, this,
+                [this, post] { showHydrusTags(post); });
+    }
     // Downloaded posts read notes from the sidecar; force an online
     // refresh here (the result is written back when the row is local).
     if (!post.isRemote && RemotePosts::entryForPost(post)) {
