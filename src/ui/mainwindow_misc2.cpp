@@ -117,7 +117,7 @@ void MainWindow::showPlusMenu() {
             [this] { addLocalTab(effectiveDownloadDir(m_settings)); });
     if (m_settings.hydrusEnabled) {
         QAction *hydrusAct = menu.addAction(
-            UiIcons::icon(QStringLiteral("image")), tr("Hydrus"));
+            UiIcons::icon(QStringLiteral("hydrus")), tr("Hydrus"));
         hydrusAct->setToolTip(
             tr("Import and browse media from the local Hydrus library"));
         connect(hydrusAct, &QAction::triggered, this,

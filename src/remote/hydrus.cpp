@@ -177,6 +177,56 @@ QUrl metadataUrl(const QString &baseUrl, const QString &hash) {
     return url;
 }
 
+QUrl tagCountsUrl(const QString &baseUrl, const QStringList &tags) {
+    QUrl url(normalizedBase(baseUrl) + QStringLiteral("/hyd/tag_counts"));
+    QJsonArray arr;
+    for (const QString &t : tags) {
+        const QString tag = t.trimmed().toLower();
+        if (!tag.isEmpty())
+            arr.append(tag);
+    }
+    QUrlQuery query;
+    query.addQueryItem(
+        QStringLiteral("tags"),
+        QString::fromUtf8(QJsonDocument(arr).toJson(QJsonDocument::Compact)));
+    url.setQuery(query);
+    return url;
+}
+
+TagCounts parseTagCounts(const QByteArray &body) {
+    TagCounts out;
+    QJsonParseError err;
+    const QJsonDocument doc = QJsonDocument::fromJson(body, &err);
+    if (err.error != QJsonParseError::NoError || !doc.isObject()) {
+        out.error = QCoreApplication::translate(
+            "Hydrus", "Invalid Hydrus tag-count response");
+        return out;
+    }
+    const QJsonObject root = doc.object();
+    const QJsonValue countsValue = root.value(QStringLiteral("counts"));
+    if (!countsValue.isObject()) {
+        out.error = QCoreApplication::translate(
+            "Hydrus", "Hydrus tag-count response has no counts object");
+        return out;
+    }
+    const QJsonObject counts = countsValue.toObject();
+    for (auto it = counts.begin(); it != counts.end(); ++it) {
+        const QString tag = it.key().trimmed().toLower();
+        if (!tag.isEmpty())
+            out.counts.insert(tag, it.value().toInt());
+    }
+    for (const QJsonValue &v :
+         root.value(QStringLiteral("unknown")).toArray()) {
+        if (!v.isString())
+            continue;
+        const QString tag = v.toString().trimmed().toLower();
+        if (!tag.isEmpty())
+            out.unknown << tag;
+    }
+    out.ok = true;
+    return out;
+}
+
 FileTags parseMetadata(const QByteArray &body, const QString &wantedHash) {
     FileTags out;
     out.hash = wantedHash;
@@ -297,22 +347,25 @@ void Client::cancel() {
 }
 
 void Client::verify() {
-    m_verify = true;
+    m_request = Request::Verify;
     send(QUrl(normalizedBase(m_config.baseUrl) +
-              QStringLiteral("/verify_access_key")),
-         true);
+              QStringLiteral("/verify_access_key")));
 }
 
 void Client::lookup(const QString &hashHex, HashKind kind) {
     m_kind = kind;
     m_hash = hashHex.trimmed();
-    m_verify = false;
-    send(metadataUrl(m_config.baseUrl, m_hash), false);
+    m_request = Request::Metadata;
+    send(metadataUrl(m_config.baseUrl, m_hash));
 }
 
-void Client::send(const QUrl &url, bool verify) {
+void Client::tagCounts(const QStringList &tags) {
+    m_request = Request::TagCounts;
+    send(tagCountsUrl(m_config.baseUrl, tags));
+}
+
+void Client::send(const QUrl &url) {
     cancel();
-    m_verify = verify;
     QNetworkRequest req(url);
     req.setTransferTimeout(15000);
     req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
@@ -339,16 +392,27 @@ void Client::send(const QUrl &url, bool verify) {
             QString message = replyBody(body);
             if (message.isEmpty())
                 message = reply->errorString();
-            if (m_verify) {
+            if (m_request == Request::Verify) {
                 emit verified(false, QStringLiteral("Connection failed: %1")
                                          .arg(message));
+            } else if (m_request == Request::TagCounts) {
+                emit tagCountsFailed(message, status);
             } else {
                 emit error(message);
             }
             return;
         }
-        if (m_verify) {
+        if (m_request == Request::Verify) {
             emit verified(true, verifySummary(body));
+            return;
+        }
+        if (m_request == Request::TagCounts) {
+            const TagCounts parsed = parseTagCounts(body);
+            if (!parsed.ok) {
+                emit tagCountsFailed(parsed.error, status);
+                return;
+            }
+            emit tagCountsReady(parsed.counts, parsed.unknown);
             return;
         }
         const FileTags info = parseMetadata(body, m_hash);

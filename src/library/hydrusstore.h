@@ -3,8 +3,8 @@
 // Hydrus tab storage. This is deliberately its own little world:
 // `hydrus.db` + a hydrus media folder, keyed by SHA-256. Nothing here
 // reads or writes the booru favourites DB, downloaded files, the scan
-// index or the tag-type cache. The only foreign data the tab may read
-// is the booru tag-count cache (read-only) for the spam filter.
+// index or any cache. Automatic tag masking uses hydd's `/hyd/tag_counts`
+// extension only, through the caller.
 //
 // Tags are stored in their native Hydrus namespaces (`creator:`,
 // `character:`, `series:`, `species:`, `rating:`, ...). The namespace
@@ -45,17 +45,20 @@ QString fileNameForHash(const QString &sha256, const QString &ext);
 
 bool isSha256Hex(const QString &s);
 
-// Read-only spam filter over the booru tag-count cache. Candidate keys
-// are the full tag and the namespace-stripped value (both lowercase).
-// Unknown tags are kept unless `dropUnknown` is set; 0 disables the
-// filter entirely.
-struct SpamFilter {
+// Tag masking for automatic Hydrus tags. Counts come from hydd's
+// `/hyd/tag_counts` extension (the official client/PTR cannot answer
+// network-wide counts). A known tag below `minPosts` is dropped; a tag
+// hydd reports as unknown (or omits) is kept unless `dropUnknown` is set.
+// 0 disables masking. Applied only to automatically fetched tags, never
+// to a manual edit.
+struct TagMask {
     int minPosts = 10;
     bool dropUnknown = false;
 };
-QStringList applySpamFilter(const QStringList &tags,
-                            const QHash<QString, int> &cachedCounts,
-                            const SpamFilter &filter);
+QStringList maskTagsByCounts(const QStringList &tags,
+                             const QHash<QString, int> &counts,
+                             const QStringList &unknown,
+                             const TagMask &mask);
 
 // One staged source file after hashing/copying (worker result).
 struct StagedFile {

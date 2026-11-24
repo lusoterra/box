@@ -109,30 +109,25 @@ bool isSha256Hex(const QString &s) {
     return true;
 }
 
-QStringList applySpamFilter(const QStringList &tags,
-                            const QHash<QString, int> &cachedCounts,
-                            const SpamFilter &filter) {
+QStringList maskTagsByCounts(const QStringList &tags,
+                             const QHash<QString, int> &counts,
+                             const QStringList &unknown,
+                             const TagMask &mask) {
     const QStringList normalized = normalizeTags(tags);
-    if (filter.minPosts <= 0)
+    if (mask.minPosts <= 0)
         return normalized;
+    Q_UNUSED(unknown); // unknown and omitted are the same: no count
     QStringList kept;
     for (const QString &tag : normalized) {
-        const SplitTag s = splitTag(tag);
-        int best = -1;
-        const auto check = [&](const QString &key) {
-            const auto it = cachedCounts.constFind(key.trimmed().toLower());
-            if (it == cachedCounts.constEnd())
-                return;
-            best = qMax(best, it.value());
-        };
-        check(tag);
-        if (s.namespaced())
-            check(s.tag);
-        if (best >= filter.minPosts)
+        const auto it = counts.constFind(tag);
+        if (it != counts.constEnd()) {
+            if (it.value() >= mask.minPosts)
+                kept.append(tag);
+            continue; // known but below the threshold: masked
+        }
+        // hydd listed it as undefined, or omitted it entirely: no count.
+        if (!mask.dropUnknown)
             kept.append(tag);
-        else if (best < 0 && !filter.dropUnknown)
-            kept.append(tag);
-        // Known but under the threshold: spam, drop.
     }
     return kept;
 }

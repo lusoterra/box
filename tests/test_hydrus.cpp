@@ -1,6 +1,8 @@
 #include "hydrus.h"
 
 #include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QUrlQuery>
@@ -108,6 +110,50 @@ private slots:
         QCOMPARE(q.queryItemValue(QStringLiteral("hash")), QStringLiteral("abc"));
         QCOMPARE(q.queryItemValue(QStringLiteral("include_services_object")),
                  QStringLiteral("false"));
+    }
+
+    void tagCountsUrlShape() {
+        const QUrl u = Hydrus::tagCountsUrl(
+            QStringLiteral("http://127.0.0.1:45869/"),
+            {QStringLiteral("creator:alice"), QStringLiteral("Plain Tag"),
+             QString()});
+        QCOMPARE(u.path(), QStringLiteral("/hyd/tag_counts"));
+        const QUrlQuery q(u);
+        const QJsonDocument doc = QJsonDocument::fromJson(
+            q.queryItemValue(QStringLiteral("tags"),
+                             QUrl::FullyDecoded)
+                .toUtf8());
+        QVERIFY(doc.isArray());
+        const QJsonArray arr = doc.array();
+        QCOMPARE(arr.size(), 2);
+        QCOMPARE(arr.at(0).toString(), QStringLiteral("creator:alice"));
+        QCOMPARE(arr.at(1).toString(), QStringLiteral("plain tag"));
+    }
+
+    void tagCountsParse() {
+        const QByteArray body = R"({
+            "counts": {"series:alpha": 2, "Creator:Gamma": 3},
+            "unknown": ["no:such-tag"],
+            "as_of": 1764000000,
+            "last_sync_at": null
+        })";
+        const Hydrus::TagCounts c = Hydrus::parseTagCounts(body);
+        QVERIFY(c.ok);
+        QVERIFY(c.error.isEmpty());
+        QCOMPARE(c.counts.value(QStringLiteral("series:alpha")), 2);
+        QCOMPARE(c.counts.value(QStringLiteral("creator:gamma")), 3);
+        QCOMPARE(c.unknown, QStringList{QStringLiteral("no:such-tag")});
+    }
+
+    void tagCountsParseGarbage() {
+        const Hydrus::TagCounts a =
+            Hydrus::parseTagCounts(QByteArrayLiteral("<html>nope</html>"));
+        QVERIFY(!a.ok);
+        QVERIFY(!a.error.isEmpty());
+        const Hydrus::TagCounts b =
+            Hydrus::parseTagCounts(QByteArrayLiteral("{\"unknown\":[]}"));
+        QVERIFY(!b.ok);
+        QVERIFY(!b.error.isEmpty());
     }
 
     void verifyText() {

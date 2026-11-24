@@ -435,11 +435,12 @@ for loopback, the global Browse proxy for remote hosts) and
 version inline).
 `Media folder` and `Database` override the isolated Hydrus storage
 (defaults `<data>/hydrus` and `<data>/hydrus.db`; Browse buttons).
-`Minimum tag posts` (default 10, 0 = off) is the spam filter: automatic
-Hydrus tags whose read-only booru tag count is lower are dropped.
-`Drop tags with no cached post count` makes that strict; off keeps niche
-Hydrus-only tags. All lookups are read-only and hashed locally; nothing
-is written back to Hydrus, and the tag-count cache is never modified.
+`Mask tags below this count` (default 10, 0 = off) drops automatically
+fetched Hydrus tags whose network-wide mapping count is lower, using
+hydd's `/hyd/tag_counts` extension (the official client and PTR cannot
+answer that). `Also mask tags with no Hydrus count` controls tags hydd
+reports as undefined. If the extension is disabled/missing/building, tags
+are kept unmasked and the tab says so. Manual edits are never masked.
 
 ## 15-prefs-tags - Preferences → Taxonomies
 `Tag type overrides` (manual `tag → bucket`, wins over fetches),
@@ -587,9 +588,13 @@ tags`, `Force refresh Hydrus tags…` (includes manual edits and previews
 each before/after), `Show in folder`, `Copy file path`, `Copy file
 (clipboard)`, `Open file`. The viewer hides favourite/download/comment/
 refresh buttons. Import flow: SHA-256 copy as `<sha256>.<ext>` ->
-Hydrus lookup -> native tags (spam-filtered) or a per-file manual tag
-dialog when Hydrus does not know the file; files already in the folder
-but missing from the DB are indexed untagged on open.
+Hydrus lookup -> native tags (masked below the configured count when
+hydd's `/hyd/tag_counts` is available) or a per-file manual tag dialog
+when Hydrus does not know the file; files already in the folder but
+missing from the DB are indexed untagged on open. If counts are
+unavailable (official client/PTR, extension disabled, or still building),
+every fetched tag is kept and the status bar/summary explains that
+masking was skipped.
 
 ## Not yet documented (keep unchecked until done)
 - [ ] Downloads tab (non-empty: sidecar-backed offline rows)

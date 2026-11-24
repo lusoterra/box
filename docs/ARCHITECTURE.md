@@ -182,9 +182,6 @@ single-instance via `session.lock`).
     popup paints the count right-aligned (`500`, `7k`, `1.5M`); a merge
     dup keeps the higher count and the richer bucket, so a count-less
     rebuild of the visible rows cannot erase popularity.
-    `countsFor(dbPath, tags)` is the Hydrus tab's read-only lookup for
-    its spam filter: it opens the existing DB read-only, never creates,
-    upgrades or writes it.
   - `queryor.h:16` `QueryOr`: `~(...)` OR-groups - `parse()` (`:28`),
     `expand()` cartesian cap `kMaxCombos = 12` (`:36`), `groupsMatch()`
     (`:40`), `suggestBare()` (`:45`), `mergeActiveTokens()` (`:50`) = the
@@ -221,16 +218,18 @@ single-instance via `session.lock`).
     tags, fold `creator:`/`character:`/`series:`/`studio:`/`meta:`
     namespaces into the five buckets. `HydrusFetch` drives the
     hash -> SHA-256 -> legacy SHA-1/MD5 fallback with Ask/Silent policy;
-    `HydrusTagsDialog` is the read-only chip view. Settings
-    `hydrus/enabled|url|accessKey|proxy`; no write endpoints exist.
+    `HydrusTagsDialog` is the read-only chip view. `tagCounts()` uses the
+    hydd-only `/hyd/tag_counts` extension (network-wide mapping counts;
+    absent on the official client/PTR) and degrades to all-kept tags on
+    404/501/503. Settings `hydrus/enabled|url|accessKey|proxy`; no write
+    endpoints exist.
   - `hydrusstore.h` (`src/library/`): the Hydrus tab's isolated SQLite
     store (`hydrus.db`) - SHA-256 keyed rows with native namespace tags,
     hydrus file id, `hydrus_found` and `manual_override` flags. Pure
     helpers: `normalizeTag(s)` (lowercase, whitespace -> `_`, sort),
-    `splitTag`, `groupByNamespace`, `fileNameForHash`, `applySpamFilter`;
+    `splitTag`, `groupByNamespace`, `fileNameForHash`, `maskTagsByCounts`;
     `Record::toPost` builds the grid/viewer row (namespaced + stripped
-    search tokens, `customTags` per namespace). The only foreign read is
-    `TagCountCache::countsFor` (read-only booru counts for spam filtering).
+    search tokens, `customTags` per namespace). No foreign store is read.
 - `tagcategories.h`: per-booru category merge/rename rules
   (`TagCategoryMerge`, source aliases + classic/custom target); consumed
   by the browse sidebar, filter pills and viewer tag groups.
@@ -471,12 +470,15 @@ single-instance via `session.lock`).
   - After a copy, one `GET /get_files/file_metadata?hash=<sha256>` per
     file (sequential `Hydrus::Client`). Storage tags are normalized with
     their native namespaces (creator/character/series/species/rating/…),
-    never the booru classifier. `applySpamFilter` compares each tag with
-    the read-only booru tag-count cache (`TagCountCache::countsFor`, never
-    written): minimum post count (default 10, 0 = off) and optional
-    drop-unknown-tags. Misses are stored as `hydrus_found=0` with no tags
-    and prompt the per-file `HydrusTagDialog`; manual saves set
-    `manual_override`.
+    never the booru classifier. When `hydrus/minTagPosts` > 0 and hydd has
+    its `/hyd/tag_counts` extension, one count request per file masks
+    automatic tags below the threshold (`maskTagsByCounts`; undefined tags
+    only when `hydrus/dropUnknownTags`). The official client/PTR cannot
+    answer network-wide counts, so a 404/501/503 keeps every tag and the
+    status bar/import summary says masking was skipped. Misses are stored
+    as `hydrus_found=0` with no tags and prompt the per-file
+    `HydrusTagDialog`; manual saves set `manual_override` and are never
+    masked.
   - Native namespace groups drive the sidebar (`rebuildHydrusSidebar`) and
     the viewer (tags land in `Post::customTags`; unnamespaced in General).
     Search tokens carry both `creator:alice` and `alice`; OR-groups ride

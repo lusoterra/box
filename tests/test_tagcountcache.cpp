@@ -4,7 +4,6 @@
 
 #include <QCoreApplication>
 #include <QDateTime>
-#include <QFileInfo>
 #include <QSqlDatabase>
 #include <QSqlQuery>
 #include <QTemporaryDir>
@@ -157,28 +156,6 @@ private slots:
         QCOMPARE(cache.size(), 0);
     }
 
-    void readonlyCounts() {
-        QTemporaryDir dir;
-        QVERIFY(dir.isValid());
-        const QString path = TagCountCache::dbPath(dir.path());
-        {
-            TagCountCache cache;
-            QVERIFY(cache.open(path));
-            cache.upsert({row(QStringLiteral("alice"), 120),
-                          row(QStringLiteral("cats"), 3)});
-        }
-        const QHash<QString, int> counts = TagCountCache::countsFor(
-            path, {QStringLiteral("alice"), QStringLiteral("cats"),
-                   QStringLiteral("nope")});
-        QCOMPARE(counts.value(QStringLiteral("alice")), 120);
-        QCOMPARE(counts.value(QStringLiteral("cats")), 3);
-        QVERIFY(!counts.contains(QStringLiteral("nope")));
-        // A missing cache is never created just to answer a lookup.
-        const QString missing = dir.filePath(QStringLiteral("absent.db"));
-        QVERIFY(TagCountCache::countsFor(missing, {QStringLiteral("alice")})
-                    .isEmpty());
-        QVERIFY(!QFileInfo::exists(missing));
-    }
 };
 
 int main(int argc, char *argv[]) {

@@ -106,8 +106,9 @@ keeps its own `hydrus.db` and media folder (defaults under the data dir),
 imports files, folders or gallery-dl URLs, stores media as
 `<sha256>.<ext>`, and pulls native namespaced tags from a local `hydd` or
 Hydrus client API. It is read-only towards Hydrus and independent from the
-favourites/downloads library; automatically fetched tags can be filtered
-against the cached booru tag counts to cut imported spam.
+favourites/downloads library; automatic tags below a configurable network
+count can be masked through hydd's `/hyd/tag_counts` extension (when the
+endpoint is unavailable, all tags are kept and the tab explains why).
 
 ## Themes
 

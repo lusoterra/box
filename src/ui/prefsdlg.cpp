@@ -1120,18 +1120,19 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     m_hydrusMinPosts->setRange(0, 1000000);
     m_hydrusMinPosts->setValue(qBound(0, current.hydrusMinTagPosts, 1000000));
     m_hydrusMinPosts->setToolTip(
-        tr("Spam filter: drop automatic Hydrus tags whose post count in the "
-           "read-only booru tag cache is below this. 0 = keep every tag. "
-           "The cache is only read, never written."));
+        tr("Mask automatic Hydrus tags with fewer than this many mappings. "
+           "Uses hydd's /hyd/tag_counts extension; the official Hydrus "
+           "client and the PTR cannot answer network-wide counts. 0 = keep "
+           "every tag. Manual edits are never masked."));
     connect(m_hydrusMinPosts, QOverload<int>::of(&QSpinBox::valueChanged),
             this, &PrefsDialog::updateApplyState);
-    hydrusForm->addRow(tr("Minimum tag posts:"), m_hydrusMinPosts);
+    hydrusForm->addRow(tr("Mask tags below this count:"), m_hydrusMinPosts);
     m_hydrusDropUnknown = new QCheckBox(
-        tr("Drop tags with no cached post count"), this);
+        tr("Also mask tags with no Hydrus count"), this);
     m_hydrusDropUnknown->setChecked(current.hydrusDropUnknownTags);
     m_hydrusDropUnknown->setToolTip(
-        tr("Off: keep niche Hydrus-only tags no configured booru has cached. "
-           "On: only tags confirmed popular by the read-only booru cache."));
+        tr("Off: keep niche Hydrus-only tags that hydd reports as undefined. "
+           "On: only keep automatically fetched tags hydd can count."));
     connect(m_hydrusDropUnknown, &QCheckBox::toggled, this,
             &PrefsDialog::updateApplyState);
     hydrusForm->addRow(QString(), m_hydrusDropUnknown);
@@ -1167,8 +1168,9 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
         "The Hydrus tab keeps its own hydrus.db and media folder; it never "
         "reads or writes the booru favourites, downloads or scan cache. "
         "Tag lookups are read-only (SHA-256, then legacy SHA-1/MD5) and "
-        "nothing is ever written back to Hydrus. The spam filter only reads "
-        "the existing booru tag counts; it never updates them.")));
+        "nothing is ever written back to Hydrus. Tag masking needs hydd's "
+        "/hyd/tag_counts extension; without it, tags are kept unmasked and "
+        "the tab explains why.")));
     hydrusPage->addWidget(hydrus);
     hydrusPage->addStretch(1);
 

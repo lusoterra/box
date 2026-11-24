@@ -132,6 +132,8 @@ void MainWindow::reload() {
     }
     if (BrowserTab *t = currentTab(); t && t->isHydrus) {
         m_hydrusOrphanScanDone = false;
+        m_hydrusCountsUnavailable = false; // retry the counts extension
+        m_hydrusCountsWhy.clear();
         loadHydrusTab(t);
         return;
     }

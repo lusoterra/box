@@ -73,9 +73,10 @@ struct AppSettings {
     // and its own hydrus.db. Empty = <data>/hydrus and <data>/hydrus.db.
     QString hydrusDir;
     QString hydrusDb;
-    // Spam filter for automatic Hydrus tags: drop tags whose booru cache
-    // count is below this (0 = keep everything). Unknown tags are kept
-    // unless hydrusDropUnknownTags is on. Read-only cache access.
+    // Tag masking for automatic Hydrus tags: drop tags whose hydd
+    // network-wide mapping count is below this (0 = keep everything).
+    // Needs hydd /hyd/tag_counts; without it, all tags are kept and the
+    // tab explains why. Manual edits are never masked.
     int hydrusMinTagPosts = 10;
     bool hydrusDropUnknownTags = false;
     // Blacklisted tags: hidden everywhere (local + browse).

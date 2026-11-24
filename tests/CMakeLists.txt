@@ -192,7 +192,8 @@ add_unit_test(test_gridwindow test_gridwindow.cpp
               ../src/remote/faviconcache.cpp ../src/library/sidecarrefresh.cpp
               ../src/library/index.cpp ../src/library/cachejanitor.cpp
               ../src/settings.cpp ${REMOTE_SOURCES} ${UGOIRA_SOURCES}
-              ../src/library/settingsexport.cpp ../src/remote/tempmedia.cpp ${MIGRATION_SOURCES})
+              ../src/library/settingsexport.cpp ../src/remote/tempmedia.cpp ${MIGRATION_SOURCES}
+              ../src/icons.qrc)
 target_link_libraries(test_gridwindow PRIVATE Qt6::WebEngineWidgets Qt6::WebEngineCore)
 set_tests_properties(test_gridwindow PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

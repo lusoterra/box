@@ -242,6 +242,14 @@ void MainWindow::applyPreferences(const AppSettings &app) {
         if (BrowserTab *t = currentTab(); t && t->isHydrus)
             loadHydrusTab(t);
     }
+    if (old.hydrusUrl != m_settings.hydrusUrl ||
+        old.hydrusAccessKey != m_settings.hydrusAccessKey ||
+        old.hydrusProxy != m_settings.hydrusProxy ||
+        old.hydrusMinTagPosts != m_settings.hydrusMinTagPosts) {
+        // Let a fixed/re-enabled hydd extension be retried.
+        m_hydrusCountsUnavailable = false;
+        m_hydrusCountsWhy.clear();
+    }
     setActiveExplicitTags(
         QSet<QString>(m_settings.explicitTags.begin(), m_settings.explicitTags.end()));
     RemoteSource::setConfiguredBoorus(m_settings.boorus);

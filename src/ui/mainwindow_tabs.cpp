@@ -353,7 +353,7 @@ void MainWindow::updateTabTitle(int tabIdx) {
         if (!tags.isEmpty())
             t->title += QStringLiteral(" · ") + tags.join(u' ');
         m_tabBar->setTabIcon(tabIdx + 1,
-                              UiIcons::icon(QStringLiteral("image")));
+                              UiIcons::icon(QStringLiteral("hydrus")));
     } else if (t->isRemote) {
         const QStringList shown = siteDisplayNames(t->sites);
         t->title = tags.isEmpty() ? shown.join(QStringLiteral(" + ")) : tags.join(u' ');

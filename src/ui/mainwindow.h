@@ -440,6 +440,9 @@ private slots:
     void importHydrusPaths(const QStringList &paths, const QString &source);
     void startHydrusLookups(const QList<HydrusLookupJob> &jobs);
     void nextHydrusLookup();
+    // Store one fetched tag set (after optional hydd count masking),
+    // respecting the force-refresh preview.
+    void applyHydrusFetched(const QStringList &tags);
     void finishHydrusLookups();
     // Files already in the media folder but absent from hydrus.db.
     void maybeScanHydrusOrphans(bool force = false);
@@ -447,8 +450,6 @@ private slots:
     void showHydrusViewerMenu(const Post &post, const QPoint &globalPos);
     void editHydrusTags(const QVector<Post> &posts);
     void refreshHydrusTags(const QVector<Post> &posts, bool force);
-    // Automatic tags -> read-only booru popularity cache, never written.
-    QStringList hydrusFilterTags(const QStringList &raw) const;
     HydrusStore::Record hydrusRecordFor(const Post &p) const;
     void showHydrusSuggestions(const QString &prefix);
     void setHydrusMissingOnly(bool on);
@@ -727,6 +728,14 @@ private:
     int m_hydrusImportNew = 0;
     int m_hydrusImportDup = 0;
     int m_hydrusImportFail = 0;
+    int m_hydrusMaskedTags = 0;
+    bool m_hydrusCountsUnavailable = false; // hydd extension missing (404)
+    bool m_hydrusCountsSkipBatch = false;   // counts unavailable this batch
+    bool m_hydrusCountsWarned = false;      // explain once per batch
+    QString m_hydrusCountsWhy;              // last failure reason
+    bool m_hydrusAwaitingCounts = false;
+    QStringList m_hydrusCurrentRawTags;
+    qint64 m_hydrusCurrentFileId = 0;
     bool m_hydrusLookupActive = false;
     QString m_hydrusImportCleanupDir;
     // Gallery-dl URL import (Hydrus tab) runs one flight at a time and

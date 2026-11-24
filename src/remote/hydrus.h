@@ -11,6 +11,7 @@
 // a 40- or 32-character hash. Nothing here ever writes to Hydrus: the app
 // only reads tags for stray editing (and a read-only viewer for any post).
 #include <QByteArray>
+#include <QHash>
 #include <QNetworkProxy>
 #include <QObject>
 #include <QString>
@@ -73,6 +74,18 @@ QString verifySummary(const QByteArray &body);
 // Build the endpoint URL for a hash lookup (pure; unit-tested).
 QUrl metadataUrl(const QString &baseUrl, const QString &hash);
 
+// hydd extension: exact network-wide mapping counts (`/hyd/tag_counts`).
+// The official Hydrus client and the PTR have no equivalent; a server
+// without the extension answers 404/501 and the caller keeps all tags.
+struct TagCounts {
+    bool ok = false;
+    QHash<QString, int> counts; // normalized lowercase tag -> count
+    QStringList unknown;       // tags hydd reports as undefined (normalized)
+    QString error;
+};
+TagCounts parseTagCounts(const QByteArray &body);
+QUrl tagCountsUrl(const QString &baseUrl, const QStringList &tags);
+
 // Network client. One request at a time; a new lookup cancels the old one.
 class Client : public QObject {
     Q_OBJECT
@@ -81,6 +94,10 @@ public:
 
     void verify();
     void lookup(const QString &hashHex, HashKind kind);
+    // Requires hydd with tag_counts enabled. On a 404/501 (server without
+    // the extension) or any transient failure, tagCountsFailed carries the
+    // HTTP status so the caller can fall back to keeping every tag.
+    void tagCounts(const QStringList &tags);
     void cancel();
 
 signals:
@@ -88,15 +105,19 @@ signals:
     void notFound(Hydrus::HashKind kind);
     void error(const QString &message);
     void verified(bool ok, const QString &message);
+    void tagCountsReady(const QHash<QString, int> &counts,
+                        const QStringList &unknown);
+    void tagCountsFailed(const QString &message, int httpStatus);
 
 private:
-    void send(const QUrl &url, bool verify);
+    enum class Request { Metadata, Verify, TagCounts };
+    void send(const QUrl &url);
     QNetworkAccessManager *m_nam = nullptr;
     QNetworkReply *m_reply = nullptr;
     Config m_config;
     HashKind m_kind = HashKind::Sha256;
     QString m_hash;
-    bool m_verify = false;
+    Request m_request = Request::Metadata;
 };
 
 } // namespace Hydrus

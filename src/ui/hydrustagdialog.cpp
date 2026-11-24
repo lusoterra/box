@@ -81,7 +81,7 @@ HydrusRefreshPreviewDialog::HydrusRefreshPreviewDialog(
             ? tr("This post was edited by hand. Keep the current tags or "
                  "replace them with the freshly fetched Hydrus tags.")
             : tr("Current tags versus the freshly fetched Hydrus tags "
-                 "(after the spam filter)."),
+                 "(after tag masking)."),
         this);
     note->setWordWrap(true);
     lay->addWidget(note);

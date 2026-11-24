@@ -23,6 +23,7 @@
         <file alias="heart.svg">../assets/icons/heart.svg</file>
         <file alias="history.svg">../assets/icons/history.svg</file>
         <file alias="house.svg">../assets/icons/house.svg</file>
+        <file alias="hydrus.svg">../assets/icons/hydrus.svg</file>
         <file alias="image.svg">../assets/icons/image.svg</file>
         <file alias="minus.svg">../assets/icons/minus.svg</file>
         <file alias="pause.svg">../assets/icons/pause.svg</file>

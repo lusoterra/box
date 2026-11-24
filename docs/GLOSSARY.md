@@ -71,12 +71,14 @@
   `src/library/hydrusstore.h`, `src/ui/mainwindow_hydrus.cpp`): its own
   `hydrus.db` + media folder, SHA-256 file names, native Hydrus namespace
   groups (no booru classifier), no favourites/download concepts. Import
-  stages `<sha256>.<ext>`, looks the hash up read-only, applies the
-  spam filter against the read-only booru tag-count cache, and stores
-  native tags. `manual override` = a hand-edited tag set protected from
-  `Refresh Hydrus tags` (only `Force refresh` re-queries it, with a
-  before/after preview). `not on Hydrus` = rows whose last lookup found
-  nothing, reselectable for a later refresh.
+  stages `<sha256>.<ext>`, looks the hash up read-only, masks automatic
+  tags below the configured count through hydd's `/hyd/tag_counts`
+  extension, and stores native tags. `manual override` = a hand-edited
+  tag set protected from `Refresh Hydrus tags` and never masked (only
+  `Force refresh` re-queries it, with a before/after preview). `not on
+  Hydrus` = rows whose last lookup found nothing, reselectable for a
+  later refresh. Without hydd's counts extension, tags are kept and the
+  tab explains why.
 - view-only folder = the read-only archive reader (`openFolder` +
   `addLocalTab`), always available as `Open view-only folder…` in the ＋
   menu; it never writes sidecars or touches the library.

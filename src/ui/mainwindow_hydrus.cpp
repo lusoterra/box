@@ -10,7 +10,6 @@
 #include "queryor.h"
 #include "straydialog.h"
 #include "tabbar.h"
-#include "tagcountcache.h"
 #include "ugoioconvert.h"
 #include "uicons.h"
 
@@ -827,25 +826,6 @@ void MainWindow::importHydrusPaths(const QStringList &paths,
     watcher->setFuture(QtConcurrent::run(&stageHydrusFiles, files, dest, known));
 }
 
-QStringList MainWindow::hydrusFilterTags(const QStringList &raw) const {
-    const QStringList normalized = HydrusStore::normalizeTags(raw);
-    HydrusStore::SpamFilter filter;
-    filter.minPosts = m_settings.hydrusMinTagPosts;
-    filter.dropUnknown = m_settings.hydrusDropUnknownTags;
-    if (filter.minPosts <= 0)
-        return normalized;
-    QStringList lookup;
-    for (const QString &tag : normalized) {
-        lookup << tag;
-        const HydrusStore::SplitTag s = HydrusStore::splitTag(tag);
-        if (s.namespaced())
-            lookup << s.tag;
-    }
-    const QHash<QString, int> counts = TagCountCache::countsFor(
-        TagCountCache::dbPath(effectiveDataDir(m_settings)), lookup);
-    return HydrusStore::applySpamFilter(normalized, counts, filter);
-}
-
 HydrusStore::Record MainWindow::hydrusRecordFor(const Post &p) const {
     if (p.sha256.isEmpty() || !m_hydrusDb.isOpen())
         return {};
@@ -924,6 +904,11 @@ void MainWindow::startHydrusLookups(const QList<HydrusLookupJob> &jobs) {
     m_hydrusLookupManual = 0;
     m_hydrusLookupErrors = 0;
     m_hydrusLookupSkipped = 0;
+    m_hydrusMaskedTags = 0;
+    m_hydrusCountsSkipBatch =
+        m_hydrusCountsUnavailable && m_settings.hydrusMinTagPosts > 0;
+    m_hydrusCountsWarned = false;
+    m_hydrusAwaitingCounts = false;
     m_hydrusLookupActive = true;
     m_hydrusLookupRefresh =
         std::all_of(jobs.begin(), jobs.end(),
@@ -934,31 +919,60 @@ void MainWindow::startHydrusLookups(const QList<HydrusLookupJob> &jobs) {
     auto *client = m_hydrusLookupClient;
     connect(client, &Hydrus::Client::found, this,
             [this](const Hydrus::FileTags &file, Hydrus::HashKind) {
-                const HydrusLookupJob job = m_hydrusCurrentJob;
-                const QStringList filtered = hydrusFilterTags(file.tags);
-                bool replace = true;
-                if (job.refresh) {
-                    const HydrusStore::Record rec =
-                        m_hydrusDb.record(job.sha256);
-                    if (job.force && rec.manualOverride) {
-                        HydrusRefreshPreviewDialog dlg(
-                            rec.fileName, true, rec.tags, filtered, this);
-                        dlg.exec();
-                        replace =
-                            dlg.choice() ==
-                            HydrusRefreshPreviewDialog::Choice::Replace;
-                    }
-                    m_hydrusDb.updateTags(
-                        job.sha256, replace ? filtered : rec.tags, true,
-                        file.fileId, QDateTime::currentMSecsSinceEpoch(),
-                        replace && job.force && rec.manualOverride);
-                } else {
-                    m_hydrusDb.updateTags(
-                        job.sha256, filtered, true, file.fileId,
-                        QDateTime::currentMSecsSinceEpoch());
+                m_hydrusCurrentFileId = file.fileId;
+                m_hydrusCurrentRawTags =
+                    HydrusStore::normalizeTags(file.tags);
+                // Masking is a hydd extension. Without it, or after a
+                // failure in this batch, keep every fetched tag and let
+                // the summary/status explain why.
+                if (m_settings.hydrusMinTagPosts > 0 &&
+                    !m_hydrusCountsUnavailable && !m_hydrusCountsSkipBatch &&
+                    !m_hydrusCurrentRawTags.isEmpty()) {
+                    m_hydrusAwaitingCounts = true;
+                    m_hydrusLookupClient->tagCounts(m_hydrusCurrentRawTags);
+                    return;
                 }
-                m_hydrusMissing.remove(job.sha256);
-                nextHydrusLookup();
+                applyHydrusFetched(m_hydrusCurrentRawTags);
+            });
+    connect(client, &Hydrus::Client::tagCountsReady, this,
+            [this](const QHash<QString, int> &counts,
+                   const QStringList &unknown) {
+                if (!m_hydrusAwaitingCounts)
+                    return;
+                m_hydrusAwaitingCounts = false;
+                HydrusStore::TagMask mask;
+                mask.minPosts = m_settings.hydrusMinTagPosts;
+                mask.dropUnknown = m_settings.hydrusDropUnknownTags;
+                const QStringList kept = HydrusStore::maskTagsByCounts(
+                    m_hydrusCurrentRawTags, counts, unknown, mask);
+                m_hydrusMaskedTags +=
+                    m_hydrusCurrentRawTags.size() - kept.size();
+                applyHydrusFetched(kept);
+            });
+    connect(client, &Hydrus::Client::tagCountsFailed, this,
+            [this](const QString &message, int status) {
+                if (!m_hydrusAwaitingCounts)
+                    return;
+                m_hydrusAwaitingCounts = false;
+                m_hydrusCountsSkipBatch = true;
+                if (status == 404 || status == 501)
+                    m_hydrusCountsUnavailable = true;
+                if (!m_hydrusCountsWarned) {
+                    m_hydrusCountsWarned = true;
+                    const QString why =
+                        status == 404 || status == 501
+                            ? tr("hydd /hyd/tag_counts is disabled; reload "
+                                 "to retry")
+                            : status == 503
+                                  ? tr("hydd is still building tag counts")
+                                  : message;
+                    m_hydrusCountsWhy = why;
+                    statusBar()->showMessage(
+                        tr("Hydrus tag counts unavailable (%1); tags are "
+                           "kept unmasked.").arg(why),
+                        12000);
+                }
+                applyHydrusFetched(m_hydrusCurrentRawTags);
             });
     connect(client, &Hydrus::Client::notFound, this, [this](Hydrus::HashKind) {
         const HydrusLookupJob job = m_hydrusCurrentJob;
@@ -999,6 +1013,9 @@ void MainWindow::nextHydrusLookup() {
         return;
     }
     m_hydrusCurrentJob = m_hydrusLookupQueue.takeFirst();
+    m_hydrusAwaitingCounts = false;
+    m_hydrusCurrentRawTags.clear();
+    m_hydrusCurrentFileId = 0;
     ++m_hydrusLookupDone;
     statusBar()->showMessage(
         tr("Querying Hydrus tags… %1 / %2")
@@ -1007,6 +1024,32 @@ void MainWindow::nextHydrusLookup() {
         0);
     m_hydrusLookupClient->lookup(m_hydrusCurrentJob.sha256,
                                  Hydrus::HashKind::Sha256);
+}
+
+void MainWindow::applyHydrusFetched(const QStringList &tags) {
+    const HydrusLookupJob job = m_hydrusCurrentJob;
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    bool replace = true;
+    if (job.refresh) {
+        const HydrusStore::Record rec = m_hydrusDb.record(job.sha256);
+        if (job.force && rec.manualOverride) {
+            HydrusRefreshPreviewDialog dlg(rec.fileName, true, rec.tags,
+                                           tags, this);
+            dlg.exec();
+            replace = dlg.choice() ==
+                      HydrusRefreshPreviewDialog::Choice::Replace;
+        }
+        m_hydrusDb.updateTags(
+            job.sha256, replace ? tags : rec.tags, true,
+            m_hydrusCurrentFileId, now,
+            replace && job.force && rec.manualOverride);
+    } else {
+        m_hydrusDb.updateTags(job.sha256, tags, true,
+                              m_hydrusCurrentFileId, now);
+    }
+    m_hydrusMissing.remove(job.sha256);
+    m_hydrusAwaitingCounts = false;
+    nextHydrusLookup();
 }
 
 void MainWindow::finishHydrusLookups() {
@@ -1046,6 +1089,13 @@ void MainWindow::finishHydrusLookups() {
         if (missing - manual > 0)
             msg += tr(", %1 without Hydrus tags").arg(missing - manual);
     }
+    if (m_hydrusMaskedTags > 0)
+        msg += tr(", %1 masked tag(s)").arg(m_hydrusMaskedTags);
+    if (m_settings.hydrusMinTagPosts > 0 && m_hydrusCountsSkipBatch)
+        msg += tr(", tag masking skipped (%1)")
+                   .arg(m_hydrusCountsWhy.isEmpty()
+                            ? tr("counts unavailable")
+                            : m_hydrusCountsWhy);
     if (errors)
         msg += tr(", %1 lookup error(s)").arg(errors);
     statusBar()->showMessage(msg, 12000);

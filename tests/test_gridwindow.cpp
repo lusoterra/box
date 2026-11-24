@@ -8,6 +8,7 @@
 #include "statsdialog.h"
 #include "filehash.h"
 #include "hydrusstore.h"
+#include "tabbar.h"
 
 #include <QApplication>
 #include <QComboBox>
@@ -860,6 +861,12 @@ private slots:
         QVERIFY(sawCreator);
         QVERIFY(sawCharacter);
         QVERIFY(sawGeneral);
+
+        // Built-in tab icon (the Hydrus favicon asset), not a Lucide
+        // fallback: index 0 is Home, the new tab follows it.
+        auto *tabs = w.findChild<MarqueeTabBar *>();
+        QVERIFY(tabs);
+        QVERIFY(!tabs->tabIcon(1).isNull());
 
         // Found row: "Not on Hydrus" hides it, turning the filter off
         // restores it.

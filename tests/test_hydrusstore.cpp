@@ -1,5 +1,5 @@
 // Isolated Hydrus tab storage: SHA-256 names, native namespace tags,
-// read-only spam filter, manual overrides and the record -> Post view.
+// hydd count masking, manual overrides and the record -> Post view.
 #include "hydrusstore.h"
 
 #include <QDateTime>
@@ -79,26 +79,31 @@ private slots:
         QVERIFY(!isSha256Hex(sha.left(63) + QStringLiteral("g")));
     }
 
-    void spamFilterUsesReadOnlyCounts() {
+    void masksTagsByNetworkCounts() {
         QHash<QString, int> counts;
-        counts.insert(QStringLiteral("alice"), 100);
+        counts.insert(QStringLiteral("creator:alice"), 100);
         counts.insert(QStringLiteral("spamtag"), 2);
         const QStringList tags{QStringLiteral("creator:alice"),
                                QStringLiteral("spamtag"),
                                QStringLiteral("unknown_tag")};
-        SpamFilter f;
-        f.minPosts = 10;
-        f.dropUnknown = false;
-        QCOMPARE(applySpamFilter(tags, counts, f),
+        TagMask m;
+        m.minPosts = 10;
+        m.dropUnknown = false;
+        QCOMPARE(maskTagsByCounts(tags, counts, {}, m),
                  (QStringList{QStringLiteral("creator:alice"),
                               QStringLiteral("unknown_tag")}));
-        // Strict mode has no mercy for tags no booru ever cached.
-        f.dropUnknown = true;
-        QCOMPARE(applySpamFilter(tags, counts, f),
+        // Strict mode has no mercy for tags the PTR cannot count.
+        m.dropUnknown = true;
+        QCOMPARE(maskTagsByCounts(tags, counts, {}, m),
                  QStringList{QStringLiteral("creator:alice")});
-        // 0 disables the filter.
-        f.minPosts = 0;
-        QCOMPARE(applySpamFilter(tags, counts, f), normalizeTags(tags));
+        // 0 disables masking.
+        m.minPosts = 0;
+        QCOMPARE(maskTagsByCounts(tags, counts, {}, m), normalizeTags(tags));
+        // An empty count map (extension unavailable) must keep everything
+        // when unknown tags are not dropped.
+        m.minPosts = 10;
+        m.dropUnknown = false;
+        QCOMPARE(maskTagsByCounts(tags, {}, {}, m), normalizeTags(tags));
     }
 
     void recordBuildsNativePost() {
