@@ -47,3 +47,21 @@ npm run check
   `preview_file_url`)
 
 The app is read-only. It has no upload, favourite, or account features.
+
+## Server address
+
+When Box serves this page at `http://<box-ip>:7071/`, the API is same-origin:
+open the Box LAN address on the phone or another computer, not `localhost`.
+The page uses `window.location.origin`, so it automatically talks to the same
+host and port it was loaded from.
+
+A separately hosted copy can point at another server via the settings panel, or
+once through the address bar:
+
+```text
+/?api=https://danbooru.donmai.us
+/?server=http://192.168.1.50:7071
+```
+
+The override is saved in the `box_share_api` cookie and in localStorage, then
+removed from the address bar. The target server must send CORS headers.

@@ -1,6 +1,7 @@
 import type { DanbooruPost, TagSuggestion } from './types';
 
 const API_KEY = 'box-share-api';
+const API_COOKIE = 'box_share_api';
 const REQUEST_TIMEOUT_MS = 20_000;
 
 export class ApiError extends Error {
@@ -12,6 +13,31 @@ export class ApiError extends Error {
     this.name = 'ApiError';
     this.status = status;
     this.body = body;
+  }
+}
+
+function cookieValue(name: string): string | null {
+  const prefix = `${name}=`;
+  for (const part of document.cookie.split(';')) {
+    const item = part.trim();
+    if (item.startsWith(prefix)) {
+      try {
+        return decodeURIComponent(item.slice(prefix.length));
+      } catch {
+        return item.slice(prefix.length);
+      }
+    }
+  }
+  return null;
+}
+
+function writeCookie(name: string, value: string): void {
+  try {
+    const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+    const maxAge = value ? 60 * 60 * 24 * 365 : 0;
+    document.cookie = `${name}=${encodeURIComponent(value)}; Max-Age=${maxAge}; Path=/; SameSite=Lax${secure}`;
+  } catch {
+    // cookie support can be disabled
   }
 }
 
@@ -29,6 +55,12 @@ export function normalizeApiBase(value: string): string {
 
 export function getApiBase(): string {
   try {
+    const cookie = cookieValue(API_COOKIE);
+    if (cookie && cookie.trim()) return normalizeApiBase(cookie);
+  } catch {
+    // fall through
+  }
+  try {
     const stored = localStorage.getItem(API_KEY);
     if (stored != null) return normalizeApiBase(stored);
   } catch {
@@ -40,12 +72,43 @@ export function getApiBase(): string {
 export function setApiBase(value: string): string {
   const normalized = normalizeApiBase(value);
   try {
-    if (!value.trim()) localStorage.removeItem(API_KEY);
-    else localStorage.setItem(API_KEY, normalized);
+    if (!value.trim()) {
+      localStorage.removeItem(API_KEY);
+      writeCookie(API_COOKIE, '');
+    } else {
+      localStorage.setItem(API_KEY, normalized);
+      writeCookie(API_COOKIE, normalized);
+    }
   } catch {
     // ignore quota/privacy failures
   }
   return normalized;
+}
+
+/**
+ * A buried testing override:
+ *   /?api=https://danbooru.donmai.us
+ * or /?server=http://192.168.1.50:7071
+ *
+ * The value is saved in a cookie and localStorage, then removed from the
+ * address bar so the normal hash route stays clean.
+ */
+export function consumeApiOverride(): string | null {
+  try {
+    const url = new URL(window.location.href);
+    const raw =
+      url.searchParams.get('api') ?? url.searchParams.get('server');
+    if (raw == null) return null;
+    const normalized = setApiBase(raw);
+    url.searchParams.delete('api');
+    url.searchParams.delete('server');
+    const query = url.searchParams.toString();
+    const clean = `${url.pathname}${query ? `?${query}` : ''}${url.hash}`;
+    window.history.replaceState(window.history.state, '', clean);
+    return normalized;
+  } catch {
+    return null;
+  }
 }
 
 export function apiUrl(path: string): string {

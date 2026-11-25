@@ -62,6 +62,12 @@
     api = defaultApiBase();
     testText = '';
   }
+
+  function useDanbooru(): void {
+    api = 'https://danbooru.donmai.us';
+    testText = '';
+    testOk = false;
+  }
 </script>
 
 <div
@@ -93,9 +99,12 @@
       <section class="block">
         <h3>Server</h3>
         <p class="hint">
-          The read-only Box share API. Leave the default when this page is
-          served by Box. A separately hosted webapp can point at another Box
-          instance.
+          When this page is served by Box, leave the default. It uses the
+          host and IP you opened the page with, so another computer should
+          open the Box LAN address (for example
+          <code>http://192.168.1.5:7071/</code>), not
+          <code>localhost</code>. A separately hosted copy can point here;
+          Box must allow CORS.
         </p>
         <div class="row">
           <input
@@ -115,6 +124,27 @@
         {#if testText}
           <p class="status" class:ok={testOk}>{testText}</p>
         {/if}
+
+        <details class="dev">
+          <summary>Testing against another server</summary>
+          <p>
+            Point the same UI at a public Danbooru server to exercise the
+            gallery without a Box share. Posts, tags and media come directly
+            from that server. You can also open
+            <code>/?api=https://danbooru.donmai.us</code> once; the choice is
+            saved in a browser cookie and localStorage. Public boorus behind
+            Cloudflare can reject cross-origin browser requests, so use a
+            server that allows CORS if the test reports a fetch failure.
+          </p>
+          <div class="row">
+            <button type="button" class="small" onclick={useDanbooru}>
+              Use Danbooru
+            </button>
+            <button type="button" class="small" onclick={useDefault}>
+              Use this Box
+            </button>
+          </div>
+        </details>
       </section>
 
       <section class="block">
@@ -317,6 +347,41 @@
 
   .status.ok {
     color: var(--ok);
+  }
+
+  code {
+    padding: 1px 4px;
+    border-radius: 4px;
+    background: var(--panel-2);
+    color: var(--text-dim);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 11px;
+    overflow-wrap: anywhere;
+  }
+
+  .dev {
+    margin-top: 11px;
+    padding-top: 9px;
+    border-top: 1px solid var(--border);
+  }
+
+  .dev summary {
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 11.5px;
+    user-select: none;
+  }
+
+  .dev summary:hover {
+    color: var(--text-dim);
+  }
+
+  .dev p {
+    margin: 7px 0 8px;
+    color: var(--muted);
+    font-size: 11.5px;
+    line-height: 1.5;
+    max-width: 62ch;
   }
 
   .note {
