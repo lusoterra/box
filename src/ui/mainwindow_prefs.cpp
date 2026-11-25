@@ -335,7 +335,7 @@ void MainWindow::applyPreferences(const AppSettings &app) {
     m_downloads->setUgoiraFormat(m_settings.ugoiraFormat);
     m_downloads->setUgoiraFrameDelayMs(m_settings.ugoiraFrameDelayMs);
     m_viewer->setPlaybackDefaults(m_settings.videoMuted, m_settings.videoLoop,
-                                  m_settings.volume);
+                                  m_settings.volume, m_settings.videoPitch);
     m_viewer->setMaxSide(m_settings.viewerMaxSide);
     m_viewer->setCategoryMerges(m_settings.tagCategoryMerges);
     m_viewer->setDragLinkMode(m_settings.dragLinkMode);

@@ -345,7 +345,10 @@ badges mirroring the grid marks. Downloading or (un)favouriting from
 the viewer never leaves it; the grid refreshes behind and the viewer
 follows it (removed rows resolve to the nearest surviving post,
 twin copies collapse so stepping never sticks). Media area: wheel-zoom/drag-pan stills, GIFs,
-looping video with seek/volume/rate (playback halts on every post
+looping video with seek/volume/rate (the `1.00×` button opens a popup with
+a 0.25×–2.00× slider in 0.05× stops plus a `Pitch correction` toggle;
+pitch stays constant unless disabled, and the choice is remembered;
+playback halts on every post
 switch - no background audio, guarded by a wanted-source gate so stale
 `LoadedMedia` ticks never restart the previous video from 0:00; audio
 follows the system default output device, including sink switches made

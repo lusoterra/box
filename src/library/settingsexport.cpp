@@ -233,6 +233,7 @@ QJsonObject exportJson(const AppSettings &s, const QVector<Post> &favs) {
     QJsonObject video;
     video[QStringLiteral("muted")] = s.videoMuted;
     video[QStringLiteral("loop")] = s.videoLoop;
+    video[QStringLiteral("pitchCompensation")] = s.videoPitch;
     video[QStringLiteral("volume")] = s.volume;
     o[QStringLiteral("video")] = video;
     QJsonObject hydrus;
@@ -420,6 +421,8 @@ bool importJson(const QJsonObject &o, AppSettings *s, QVector<Post> *favs,
         s->videoMuted = video.value(QStringLiteral("muted")).toBool();
     if (video.contains(QStringLiteral("loop")))
         s->videoLoop = video.value(QStringLiteral("loop")).toBool();
+    if (video.contains(QStringLiteral("pitchCompensation")))
+        s->videoPitch = video.value(QStringLiteral("pitchCompensation")).toBool();
     if (video.contains(QStringLiteral("volume")))
         s->volume = qBound(0, video.value(QStringLiteral("volume")).toInt(100), 100);
     if (o.contains(QStringLiteral("viewerMaxSide")))

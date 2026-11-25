@@ -7,11 +7,13 @@
 #include <QApplication>
 #include <QAudioDevice>
 #include <QAudioOutput>
+#include <QCheckBox>
 #include <QCryptographicHash>
 #include <QDir>
 #include <QDrag>
 #include <QFile>
 #include <QFileInfo>
+#include <QFrame>
 #include <QGraphicsEllipseItem>
 #include <QGraphicsRectItem>
 #include <QGraphicsScene>
@@ -20,13 +22,14 @@
 #include <QLabel>
 #include <QMediaDevices>
 #include <QMediaPlayer>
-#include <QMenu>
 #include <QMimeData>
 #include <QMouseEvent>
 #include <QMovie>
 #include <QPainter>
 #include <QPixmap>
 #include <QPushButton>
+#include <QScreen>
+#include <QSignalBlocker>
 #include <QSlider>
 #include <QStandardPaths>
 #include <QStyle>
@@ -712,24 +715,77 @@ VideoPane::VideoPane(QWidget *parent) : QWidget(parent) {
     m_vol->setValue(100);
     m_vol->setFixedWidth(80);
     m_vol->setToolTip(tr("Volume (system audio device)"));
-    m_rateBtn = new QPushButton(QStringLiteral("1×"), this);
-    m_rateBtn->setToolTip(tr("Playback speed"));
-    m_rateBtn->setFixedWidth(44);
+    m_rateBtn = new QPushButton(QStringLiteral("1.00×"), this);
+    m_rateBtn->setObjectName(QStringLiteral("rateBtn"));
+    m_rateBtn->setToolTip(tr("Playback speed and pitch correction"));
+    m_rateBtn->setFixedWidth(58);
+    // Tucked-away speed control: a popup with a slider (0.05× stops)
+    // plus the pitch-correction toggle instead of a fixed list of rates.
+    m_ratePopup = new QFrame(this, Qt::Popup);
+    m_ratePopup->setObjectName(QStringLiteral("ratePopup"));
+    m_ratePopup->setFrameShape(QFrame::StyledPanel);
+    auto *pop = new QVBoxLayout(m_ratePopup);
+    pop->setContentsMargins(10, 8, 10, 8);
+    pop->setSpacing(6);
+    m_rateVal = new QLabel(QStringLiteral("1.00×"), m_ratePopup);
+    m_rateVal->setAlignment(Qt::AlignCenter);
+    m_rateSlider = new QSlider(Qt::Horizontal, m_ratePopup);
+    m_rateSlider->setObjectName(QStringLiteral("rateSpeedSlider"));
+    m_rateSlider->setRange(25, 200); // 0.25× - 2.00×
+    m_rateSlider->setSingleStep(5);  // 0.05× per stop
+    m_rateSlider->setPageStep(25);
+    m_rateSlider->setFixedWidth(190);
+    m_rateSlider->setToolTip(tr("Playback speed (0.05× steps)"));
+    m_pitchBox = new QCheckBox(tr("Pitch correction"), m_ratePopup);
+    m_pitchBox->setObjectName(QStringLiteral("pitchCompensationBox"));
+    m_pitchBox->setToolTip(
+        tr("Keep the audio pitch when playing faster or slower"));
+    pop->addWidget(m_rateVal);
+    pop->addWidget(m_rateSlider);
+    pop->addWidget(m_pitchBox);
     {
-        auto *rateMenu = new QMenu(m_rateBtn);
-        m_rateBtn->setMenu(rateMenu);
-        connect(rateMenu, &QMenu::aboutToShow, this, [this, rateMenu] {
-            rateMenu->clear();
-            for (const double r : {0.25, 0.5, 1.0, 1.5, 2.0}) {
-                QAction *a = rateMenu->addAction(
-                    QStringLiteral("%1×").arg(r));
-                a->setCheckable(true);
-                a->setChecked(qFuzzyCompare(r + 1.0, m_rate + 1.0));
-                connect(a, &QAction::triggered, this,
-                        [this, r] { setRate(r); });
-            }
-        });
+        // Availability never changes for a backend; show the toggle even
+        // when locked so the state is explicit instead of silently absent.
+        bool pitch = true;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
+        switch (m_player->pitchCompensationAvailability()) {
+        case QMediaPlayer::PitchCompensationAvailability::AlwaysOn:
+            m_pitchBox->setEnabled(false);
+            m_pitchBox->setToolTip(tr("This backend always preserves pitch"));
+            break;
+        case QMediaPlayer::PitchCompensationAvailability::Unavailable:
+            pitch = false;
+            m_pitchBox->setEnabled(false);
+            m_pitchBox->setToolTip(tr("This backend cannot preserve pitch"));
+            break;
+        case QMediaPlayer::PitchCompensationAvailability::Available:
+            pitch = m_player->pitchCompensation();
+            break;
+        }
+#else
+        pitch = false;
+        m_pitchBox->setEnabled(false);
+        m_pitchBox->setToolTip(tr("Pitch correction needs Qt 6.10 or newer"));
+#endif
+        m_pitch = pitch;
+        m_pitchBox->setChecked(pitch);
     }
+    connect(m_rateBtn, &QPushButton::clicked, this, [this] {
+        // Show after the click event unwinds: a popup opened during the
+        // button's release would immediately treat that release as an
+        // outside click and close itself again.
+        QTimer::singleShot(0, this, &VideoPane::showRatePopup);
+    });
+    connect(m_rateSlider, &QSlider::valueChanged, this, [this](int v) {
+        setRate(v / 100.0);
+    });
+    connect(m_pitchBox, &QCheckBox::toggled, this, [this](bool on) {
+        if (m_pitch == on)
+            return;
+        applyPitchCompensation(on);
+        emit pitchCompensationChanged(m_pitch);
+    });
+    setRate(m_rate); // sync the button label and slider to the default 1.00×
     m_buf = new QLabel(this);
     m_buf->setStyleSheet(QStringLiteral("color:#7c9ef8;"));
     m_buf->setVisible(false);
@@ -766,6 +822,7 @@ VideoPane::VideoPane(QWidget *parent) : QWidget(parent) {
                  m_player->source() == m_expectedSource)) {
                 m_player->setPlaybackRate(
                     m_rate); // stick across videos in-session
+                applyPitchCompensation(m_pitch);
                 m_player->play(); // setSource() is async: play when ready
             }
         }
@@ -837,6 +894,50 @@ VideoPane::VideoPane(QWidget *parent) : QWidget(parent) {
     connect(m_slider, &QSlider::sliderMoved, m_player, &QMediaPlayer::setPosition);
 }
 
+void VideoPane::showRatePopup() {
+    if (!m_ratePopup || !m_rateBtn)
+        return;
+    m_ratePopup->adjustSize();
+    const QPoint anchor = m_rateBtn->mapToGlobal(QPoint(0, 0));
+    QPoint pos(anchor.x(), anchor.y() - m_ratePopup->height() - 4);
+    if (QScreen *scr = m_rateBtn->screen()) {
+        const QRect avail = scr->availableGeometry();
+        pos.setX(qBound(avail.left(), pos.x(),
+                        qMax(avail.left(),
+                             avail.right() - m_ratePopup->width() + 1)));
+        if (pos.y() < avail.top()) // controls at the very top: open below
+            pos.setY(anchor.y() + m_rateBtn->height() + 4);
+    }
+    m_ratePopup->move(pos);
+    m_ratePopup->show();
+}
+
+void VideoPane::applyPitchCompensation(bool on) {
+    bool effective = on;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
+    if (m_player) {
+        switch (m_player->pitchCompensationAvailability()) {
+        case QMediaPlayer::PitchCompensationAvailability::AlwaysOn:
+            effective = true;
+            break;
+        case QMediaPlayer::PitchCompensationAvailability::Unavailable:
+            effective = false;
+            break;
+        case QMediaPlayer::PitchCompensationAvailability::Available:
+            m_player->setPitchCompensation(effective);
+            break;
+        }
+    }
+#else
+    effective = false;
+#endif
+    m_pitch = effective;
+    if (m_pitchBox) {
+        const QSignalBlocker block(m_pitchBox);
+        m_pitchBox->setChecked(effective);
+    }
+}
+
 void VideoPane::togglePlayPause() {
     if (m_player->playbackState() == QMediaPlayer::PlayingState)
         m_player->pause();
@@ -906,19 +1007,29 @@ bool VideoPane::eventFilter(QObject *watched, QEvent *e) {
     return QWidget::eventFilter(watched, e);
 }
 
-void VideoPane::setDefaults(bool muted, bool loop, int volume) {
+void VideoPane::setDefaults(bool muted, bool loop, int volume, bool pitch) {
     m_muteDefault = muted;
     m_audio->setMuted(muted);
     m_audio->setVolume(static_cast<float>(qBound(0, volume, 100)) / 100.0f);
     m_vol->setValue(qBound(0, volume, 100));
     m_player->setLoops(loop ? QMediaPlayer::Infinite : 1);
+    applyPitchCompensation(pitch);
 }
 
 void VideoPane::setRate(double rate) {
     m_rate = qBound(0.25, rate, 2.0);
+    // Snap to the 0.05 stop grid so the label and slider never drift.
+    m_rate = std::round(m_rate / 0.05) * 0.05;
     m_player->setPlaybackRate(m_rate);
+    const QString text = QStringLiteral("%1×").arg(m_rate, 0, 'f', 2);
     if (m_rateBtn)
-        m_rateBtn->setText(QString::number(m_rate) + QChar(0xD7)); // 1×
+        m_rateBtn->setText(text);
+    if (m_rateVal)
+        m_rateVal->setText(text);
+    if (m_rateSlider) {
+        const QSignalBlocker block(m_rateSlider);
+        m_rateSlider->setValue(int(std::lround(m_rate * 100.0)));
+    }
 }
 
 void VideoPane::setFile(const QString &path) {

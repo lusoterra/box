@@ -1527,8 +1527,15 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
             &MainWindow::toggleViewerFullscreen);
     connect(m_viewer, &ViewerPage::postContextRequested, this,
             &MainWindow::showViewerContextMenu);
+    connect(m_viewer, &ViewerPage::videoPitchCompensationChanged, this,
+            [this](bool on) {
+                if (m_settings.videoPitch == on)
+                    return;
+                m_settings.videoPitch = on;
+                saveSettings(m_settings);
+            });
     m_viewer->setPlaybackDefaults(m_settings.videoMuted, m_settings.videoLoop,
-                                  m_settings.volume);
+                                  m_settings.volume, m_settings.videoPitch);
     m_viewer->setMaxSide(m_settings.viewerMaxSide);
     applyBooruCreds();
     m_imgCache->setBaseDir(appCacheDir() + u'/' + QStringLiteral("full"));

@@ -378,6 +378,7 @@ AppSettings loadSettings() {
     }
     s.videoMuted = c.value(QStringLiteral("viewer/muted"), s.videoMuted).toBool();
     s.videoLoop = c.value(QStringLiteral("viewer/loop"), s.videoLoop).toBool();
+    s.videoPitch = c.value(QStringLiteral("viewer/pitchCompensation"), true).toBool();
     s.volume = qBound(0, c.value(QStringLiteral("viewer/volume"), s.volume).toInt(), 100);
     s.viewerMaxSide = qBound(
         512, c.value(QStringLiteral("viewer/maxSide"), s.viewerMaxSide).toInt(),
@@ -515,6 +516,7 @@ void writeSettingsTo(QSettings &c, const AppSettings &s) {
     c.setValue(QStringLiteral("grid/scrollRows"), s.gridScrollRows);
     c.setValue(QStringLiteral("viewer/muted"), s.videoMuted);
     c.setValue(QStringLiteral("viewer/loop"), s.videoLoop);
+    c.setValue(QStringLiteral("viewer/pitchCompensation"), s.videoPitch);
     c.setValue(QStringLiteral("viewer/volume"), s.volume);
     c.setValue(QStringLiteral("viewer/maxSide"), s.viewerMaxSide);
     c.remove(QStringLiteral("privacy/paranoia")); // retired: false promise

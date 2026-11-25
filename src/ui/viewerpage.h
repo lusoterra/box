@@ -30,6 +30,8 @@
 
 class QBoxLayout;
 class QAbstractItemModel;
+class QCheckBox;
+class QFrame;
 
 class ImageCache;
 class PostMetaFetcher;
@@ -194,7 +196,7 @@ public:
     void setFile(const QString &path);
     void setUrl(const QUrl &url, const Post &post = {});
     void stop();
-    void setDefaults(bool muted, bool loop, int volume);
+    void setDefaults(bool muted, bool loop, int volume, bool pitch = true);
     // Playback rate for the session (sticks across videos until changed).
     void setRate(double rate);
     void setDragUrl(const QString &url) {
@@ -220,12 +222,16 @@ signals:
     void errorDetailsRequested(const QString &url, const QString &error);
     void fullscreenToggleRequested();
     void contextMenuRequested(const QPoint &globalPos);
+    // The speed popup's pitch-correction toggle changed: persist it.
+    void pitchCompensationChanged(bool on);
 
 protected:
     bool eventFilter(QObject *watched, QEvent *e) override; // click video = pause/resume
 
 private:
     void togglePlayPause();
+    void showRatePopup();
+    void applyPitchCompensation(bool on);
     // Follow the desktop's default output device (Plasma/PipeWire sink
     // switches happen while the app runs; the device captured at startup
     // must not pin playback to stale speakers).
@@ -261,7 +267,12 @@ private:
     Post m_lastRemotePost;
     QSlider *m_vol;
     QPushButton *m_rateBtn = nullptr;
+    QFrame *m_ratePopup = nullptr;
+    QSlider *m_rateSlider = nullptr;
+    QLabel *m_rateVal = nullptr;
+    QCheckBox *m_pitchBox = nullptr;
     double m_rate = 1.0; // session playback rate, applied on every load
+    bool m_pitch = true; // preserve pitch at non-1× rates
     QLabel *m_time;
     QLabel *m_buf;
     bool m_muteDefault = true;
@@ -337,7 +348,8 @@ public:
     void onStillWebFinished(qint64 id, bool ok, const QString &error);
     void onOpenWebFinished(qint64 id, bool ok, const QString &error);
     void dropStillWeb(); // cancel a browser-backed still/gif fetch
-    void setPlaybackDefaults(bool muted, bool loop, int volume);
+    void setPlaybackDefaults(bool muted, bool loop, int volume,
+                             bool pitch = true);
     // Hide toolbar/sidebar so the media fills the window (fullscreen).
     void setImmersive(bool on);
     // Drag payload policy for remote posts (per-booru overrides applied
@@ -403,6 +415,8 @@ signals:
     void fullscreenToggleRequested();
     // Right-click on the media: shell shows the post action menu.
     void postContextRequested(const Post &post, const QPoint &globalPos);
+    // Pitch-correction toggle moved: the shell stores it in settings.
+    void videoPitchCompensationChanged(bool on);
 
 protected:
     void keyPressEvent(QKeyEvent *e) override;

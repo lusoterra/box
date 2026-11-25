@@ -200,6 +200,8 @@ struct AppSettings {
     // Playback
     bool videoMuted = true;
     bool videoLoop = true;
+    // Preserve audio pitch when the playback rate is not 1× (Qt 6.10+).
+    bool videoPitch = true;
     int volume = 100; // 0..100 default output volume
     // Viewer
     int viewerMaxSide = 2560; // huge-image decode cap
@@ -362,7 +364,8 @@ inline bool operator==(const AppSettings &a, const AppSettings &b) {
            a.gridStaggered == b.gridStaggered &&
            a.gridScrollRows == b.gridScrollRows &&
            a.videoMuted == b.videoMuted &&
-           a.videoLoop == b.videoLoop && a.volume == b.volume &&
+           a.videoLoop == b.videoLoop && a.videoPitch == b.videoPitch &&
+           a.volume == b.volume &&
            a.viewerMaxSide == b.viewerMaxSide &&
            a.tabsDefault == b.tabsDefault && a.sideSplitter == b.sideSplitter &&
            a.sidebarSingleScroll == b.sidebarSingleScroll &&

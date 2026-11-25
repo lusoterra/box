@@ -71,6 +71,8 @@ ViewerPage::ViewerPage(QWidget *parent) : QWidget(parent) {
             &ViewerPage::showNotePopup);
     connect(m_gif, &GifView::contextMenuRequested, this, mediaContext);
     connect(m_video, &VideoPane::contextMenuRequested, this, mediaContext);
+    connect(m_video, &VideoPane::pitchCompensationChanged, this,
+            &ViewerPage::videoPitchCompensationChanged);
     connect(m_video, &VideoPane::errorDetailsRequested, this,
             [this](const QString &url, const QString &error) {
                 emit probeRequested(

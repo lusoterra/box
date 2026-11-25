@@ -14,8 +14,9 @@ void ViewerPage::setPosts(QVector<Post> posts) {
     m_posts = std::move(posts);
 }
 
-void ViewerPage::setPlaybackDefaults(bool muted, bool loop, int volume) {
-    m_video->setDefaults(muted, loop, volume);
+void ViewerPage::setPlaybackDefaults(bool muted, bool loop, int volume,
+                                     bool pitch) {
+    m_video->setDefaults(muted, loop, volume, pitch);
 }
 
 void ViewerPage::setImmersive(bool on) {

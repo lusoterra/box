@@ -11,6 +11,7 @@
 #include "tabbar.h"
 
 #include <QApplication>
+#include <QCheckBox>
 #include <QComboBox>
 #include <QDateTime>
 #include <QDir>
@@ -29,6 +30,7 @@
 #include <QPushButton>
 #include <QScrollBar>
 #include <QSettings>
+#include <QSlider>
 #include <QStandardItemModel>
 #include <QTemporaryDir>
 #include <QTextBrowser>
@@ -884,6 +886,35 @@ private slots:
         QVERIFY(favs.open(dataDir));
         QCOMPARE(favs.count(), 0);
     }
+    // The speed control is a tucked-away popup with a 0.05-step slider
+    // and the pitch-correction toggle, not a fixed rate menu.
+    void videoSpeedUsesSliderAndPitchToggle() {
+        QTemporaryDir xdg;
+        QVERIFY(xdg.isValid());
+        qputenv("XDG_CONFIG_HOME", xdg.filePath(QStringLiteral("config")).toUtf8());
+        qputenv("XDG_DATA_HOME", xdg.filePath(QStringLiteral("data")).toUtf8());
+        qputenv("XDG_CACHE_HOME", xdg.filePath(QStringLiteral("cache")).toUtf8());
+        bool ok = false;
+        const QString archive = makeArchive(1, ok);
+        QVERIFY(ok);
+        MainWindow w(archive, true);
+        auto *slider =
+            w.findChild<QSlider *>(QStringLiteral("rateSpeedSlider"));
+        QVERIFY(slider);
+        QCOMPARE(slider->minimum(), 25);
+        QCOMPARE(slider->maximum(), 200);
+        QCOMPARE(slider->singleStep(), 5); // 0.05× stops
+        auto *pitch = w.findChild<QCheckBox *>(
+            QStringLiteral("pitchCompensationBox"));
+        QVERIFY(pitch);
+        auto *rate = w.findChild<QPushButton *>(QStringLiteral("rateBtn"));
+        QVERIFY(rate);
+        QCOMPARE(rate->text(), QStringLiteral("1.00×"));
+        slider->setValue(150);
+        QCOMPARE(rate->text(), QStringLiteral("1.50×"));
+        QCOMPARE(slider->value(), 150);
+    }
+
 };
 
 int main(int argc, char *argv[]) {
