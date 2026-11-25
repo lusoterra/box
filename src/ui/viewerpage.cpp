@@ -385,6 +385,9 @@ ViewerPage::ViewerPage(QWidget *parent) : QWidget(parent) {
     pl->addWidget(m_metaBusy);
     m_tagScroll = new QScrollArea(this);
     m_tagScroll->setWidgetResizable(true);
+    // Tags and metadata are a vertical stack: a long tag or a URL must
+    // wrap (or clip) instead of spawning a horizontal scrollbar.
+    m_tagScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     pl->addWidget(m_tagScroll, 1);
     m_srcLabel = new QLabel(this);
     m_srcLabel->setWordWrap(true);

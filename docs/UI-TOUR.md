@@ -296,6 +296,8 @@ Downloaded files paint their notes straight from the sidecar
 fetched online on every open. Right-click the media → `Refresh notes`
 forces a fresh online fetch and rewrites the sidecar (archive roots are
 read-only and are never written).
+The panel scrolls vertically only: long tags wrap onto their own line and
+wide metadata clips rather than spawning a horizontal scrollbar.
 The tag panel below the groups shows
 three threads when the engine provides them, in this order: NOTES
 (translation bodies, box coordinates on the tooltip; deleted annotations

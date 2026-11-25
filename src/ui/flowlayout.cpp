@@ -97,17 +97,23 @@ int FlowLayout::doLayout(const QRect &rect, bool testOnly) const {
     for (QLayoutItem *item : m_items) {
         const int spaceX = horizontalSpacing();
         const int spaceY = verticalSpacing();
-        int nextX = x + item->sizeHint().width() + spaceX;
+        QSize hint = item->sizeHint();
+        // A tag longer than the panel must not push the row past the
+        // viewport (and spawn a horizontal scrollbar): clamp its width so
+        // it sits alone on its line and the text clips.
+        if (hint.width() > area.width())
+            hint.setWidth(area.width());
+        int nextX = x + hint.width() + spaceX;
         if (nextX - spaceX > area.right() && lineHeight > 0) {
             x = area.x();
             y = y + lineHeight + spaceY;
-            nextX = x + item->sizeHint().width() + spaceX;
+            nextX = x + hint.width() + spaceX;
             lineHeight = 0;
         }
         if (!testOnly)
-            item->setGeometry(QRect(QPoint(x, y), item->sizeHint()));
+            item->setGeometry(QRect(QPoint(x, y), hint));
         x = nextX;
-        lineHeight = qMax(lineHeight, item->sizeHint().height());
+        lineHeight = qMax(lineHeight, hint.height());
     }
     return y + lineHeight - rect.y() + bottom;
 }

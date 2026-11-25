@@ -8,6 +8,7 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QSet>
+#include <QSizePolicy>
 #include <QStringList>
 #include <QVBoxLayout>
 
@@ -59,6 +60,10 @@ void ViewerPage::renderTags() {    if (m_row < 0 || m_row >= m_posts.size())
     // all previous tag buttons with it (deleting layouts alone orphans them).
     delete m_tagHost;
     m_tagHost = new QWidget(this);
+    // Let the scroll area shrink the host to the viewport width even when
+    // one tag is wider than the panel; QScrollArea otherwise honors the
+    // layout's minimum width and shows a horizontal scrollbar.
+    m_tagHost->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     m_tagLayout = new QVBoxLayout(m_tagHost);
     m_tagLayout->setContentsMargins(0, 0, 0, 0);
     m_tagScroll->setWidget(m_tagHost);
