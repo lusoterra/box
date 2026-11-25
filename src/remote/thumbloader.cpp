@@ -137,6 +137,15 @@ ThumbLoader::ThumbLoader(QObject *parent) : QObject(parent) {
     m_pool->setMaxThreadCount(4);
 }
 
+ThumbLoader::~ThumbLoader() {
+    // Queued tasks may still be running. They call releaseKey() on their
+    // way out, so drain the pool while the inflight set/mutex are still
+    // alive; otherwise the QThreadPool member (destroyed last) waits after
+    // those members are gone and the worker touches freed memory.
+    cancel();
+    m_pool->waitForDone();
+}
+
 void ThumbLoader::setAspect(int num, int den) {
     m_aspectNum = qMax(1, num);
     m_aspectDen = qMax(1, den);

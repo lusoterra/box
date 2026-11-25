@@ -20,6 +20,7 @@ class ThumbLoader : public QObject {
     Q_OBJECT
 public:
     explicit ThumbLoader(QObject *parent = nullptr);
+    ~ThumbLoader() override;
 
     void setAspect(int num, int den); // e.g. 1,1 or 4,3
     void setCacheDir(const QString &dir);
