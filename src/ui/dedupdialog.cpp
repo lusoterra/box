@@ -62,7 +62,7 @@ DedupDialog::DedupDialog(const DedupDialogSources &sources,
     setObjectName(QStringLiteral("dedupDialog"));
     setWindowTitle(tr("Duplicate media"));
     setWindowModality(Qt::WindowModal);
-    resize(1020, 720);
+    resize(1080, 760);
     if (!m_db.open(m_sources.dbPath))
         m_sources.dbPath.clear(); // report below; scans stay disabled
     buildUi();
@@ -116,7 +116,7 @@ void DedupDialog::buildUi() {
     m_archives = new QListWidget(m_sourcesBox);
     m_archives->setSelectionMode(QAbstractItemView::NoSelection);
     m_archives->setTextElideMode(Qt::ElideMiddle);
-    m_archives->setMaximumHeight(112);
+    m_archives->setMaximumHeight(78);
     sg->addWidget(m_archives);
     const QString current = QDir(m_sources.currentRoot).canonicalPath();
     for (const QString &dir : m_sources.archiveRoots) {
@@ -129,10 +129,13 @@ void DedupDialog::buildUi() {
         item->setCheckState(canon == current ? Qt::Checked : Qt::Unchecked);
         item->setToolTip(QDir::toNativeSeparators(canon));
     }
+    auto *addRow = new QHBoxLayout();
     auto *addFolder = new QPushButton(tr("Add folder…"), m_sourcesBox);
     connect(addFolder, &QPushButton::clicked, this,
             &DedupDialog::addArchiveFolder);
-    sg->addWidget(addFolder);
+    addRow->addWidget(addFolder);
+    addRow->addStretch(1);
+    sg->addLayout(addRow);
 
     auto *thresholdRow = new QHBoxLayout();
     thresholdRow->addWidget(new QLabel(tr("Pixel match tolerance:"), this));
@@ -172,6 +175,7 @@ void DedupDialog::buildUi() {
                              tr("Tags"), tr("Family")});
     m_tree->setRootIsDecorated(true);
     m_tree->setAlternatingRowColors(true);
+    m_tree->setIconSize(QSize(52, 52));
     m_tree->setUniformRowHeights(false);
     m_tree->setSelectionMode(QAbstractItemView::SingleSelection);
     m_tree->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -191,7 +195,7 @@ void DedupDialog::buildUi() {
 
     m_details = new QPlainTextEdit(this);
     m_details->setReadOnly(true);
-    m_details->setMaximumHeight(110);
+    m_details->setMaximumHeight(92);
     m_details->setPlaceholderText(
         tr("Select a copy to inspect its tags and paths"));
     root->addWidget(m_details);
@@ -533,7 +537,7 @@ void DedupDialog::reloadGroups() {
             const QPixmap thumb = thumbFor(f);
             if (!thumb.isNull())
                 item->setIcon(2, QIcon(thumb));
-            item->setSizeHint(2, QSize(74, 74));
+            item->setSizeHint(2, QSize(54, 54));
         }
     }
     m_tree->blockSignals(false);
