@@ -142,27 +142,33 @@ endpoint is unavailable, all tags are kept and the tab explains why).
 
 ## LAN sharing
 
-`File → Share library on LAN…` starts a read-only Danbooru API over your
-LAN. Pick the Hydrus tab, downloads, favourites, a local archive folder,
-or any mix; duplicate rows are collapsed. The default bind is
-`0.0.0.0:7071`, editable in the dialog and saved in `settings.ini`
-(`share/*`).
+`File → Share library on LAN…` starts a read-only Box Share web gallery
+and Danbooru API over your LAN. Pick the Hydrus tab, downloads,
+favourites, a local archive folder, or any mix; duplicate rows are
+collapsed. The default bind is `0.0.0.0:7071`, editable in the dialog and
+saved in `settings.ini` (`share/*`).
+
+Open `http://<box-ip>:7071/` in any browser on the LAN for the Svelte
+single-page gallery (search, autocomplete, rating filter, viewer, video).
+The same server speaks the Danbooru API under `/posts.json`,
+`/posts/<id>.json`, `/tags.json`, `/counts/posts.json`,
+`/share/file/<id>` and `/share/thumb/<id>`, so LoliSnatcher or another Box
+can add the root URL as a normal Danbooru entry. Media serves with Range
+support; local thumbnails are cached under `~/.cache/box/share-thumbs`.
+The web UI is embedded in the binary as one self-contained HTML file, so
+the packaged app does not need Node or a separate asset folder at runtime.
+
+There is no authentication and nothing is writable; anyone who can reach
+the address can browse the selected posts. The server stops when Box
+quits; there is no auto-start. A red `LIVE` badge appears in the
+bottom-right status bar while it runs (tooltip lists the web and API URLs;
+click it to manage or stop sharing).
 
 ```sh
 # From another machine on the LAN:
 curl 'http://192.168.1.10:7071/posts.json?tags=cat&limit=10'
 curl 'http://192.168.1.10:7071/tags.json?search[name_matches]=blue*'
 ```
-
-Add it to LoliSnatcher, or to another Box instance, as a Danbooru entry
-with that base URL. Endpoints: `/posts.json`, `/posts/<id>.json`,
-`/tags.json`, `/counts/posts.json`, `/share/file/<id>`,
-`/share/thumb/<id>`. Media serves with Range support; local thumbnails
-are cached under `~/.cache/box/share-thumbs`. There is no authentication
-and nothing is writable; anyone who can reach the address can browse the
-selected posts. The server stops when Box quits; there is no auto-start.
-`API is live` in the bottom-right status bar reopens the picker while it is
-running.
 
 ## Duplicate detection
 

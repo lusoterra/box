@@ -64,7 +64,8 @@ void MainWindow::openShareDialog() {
     }
 
     const bool running = m_shareServer && m_shareServer->isRunning();
-    ShareDialog dlg(current, hydrusAvailable, hydrusCount, running,
+    const bool webUi = running && m_shareServer->hasWebUi();
+    ShareDialog dlg(current, hydrusAvailable, hydrusCount, running, webUi,
                     m_shareServer ? m_shareServer->postCount() : 0,
                     m_shareServer ? m_shareServer->urls() : QStringList(),
                     this);
@@ -269,7 +270,7 @@ void MainWindow::finishShareBuild(
     server->setRequestDecorator([](QNetworkRequest &req) {
         RemoteSource::applyCookies(req);
         req.setHeader(QNetworkRequest::UserAgentHeader,
-                      QStringLiteral("box/0.12 (share)"));
+                      QStringLiteral("box/0.13 (share)"));
     });
     server->setNetworkProxy(RemotePosts::proxyFromSpec(QString()));
     QString error;
@@ -289,7 +290,9 @@ void MainWindow::finishShareBuild(
     updateShareStatus();
     const QString first = server->urls().value(0);
     statusBar()->showMessage(
-        tr("API is live: %1 post(s) at %2").arg(catalog->size()).arg(first),
+        tr("Share is live: %1 post(s) at %2")
+            .arg(catalog->size())
+            .arg(first),
         12000);
 }
 
@@ -326,12 +329,26 @@ void MainWindow::updateShareStatus() {
     if (!running)
         return;
     const QStringList urls = m_shareServer->urls();
-    m_shareStatusBtn->setText(tr("API is live"));
-    m_shareStatusBtn->setToolTip(
-        tr("%1 post(s) shared read-only.\n%2\nClick to manage")
-            .arg(m_shareServer->postCount())
-            .arg(urls.join(u'\n')));
-    m_shareStatusBtn->setAccessibleName(tr("API is live"));
+    const bool web = m_shareServer->hasWebUi();
+    m_shareStatusBtn->setText(tr("LIVE"));
+    const QString url = urls.value(0);
+    QString tip = tr("%1 post(s) shared read-only.\n\n")
+                      .arg(m_shareServer->postCount());
+    if (web) {
+        tip += tr("Web UI: %1\n").arg(url);
+        tip += tr("Danbooru API: %1/posts.json\n").arg(url);
+    } else {
+        tip += tr("API: %1/posts.json\n").arg(url);
+        tip += tr("The Box Share web UI is not embedded in this build; "
+                  "the server root shows a plain page.\n");
+    }
+    tip += tr("\nClick to manage");
+    if (urls.size() > 1)
+        tip += tr("\n\nAll addresses:\n%1").arg(urls.join(u'\n'));
+    m_shareStatusBtn->setToolTip(tip);
+    m_shareStatusBtn->setAccessibleName(
+        web ? tr("Box Share is live (web UI and API)")
+            : tr("Box Share API is live"));
 }
 
 void MainWindow::resolveShareMedia(

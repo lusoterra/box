@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(Box VERSION 0.12.0 LANGUAGES C CXX)
+project(Box VERSION 0.13.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -193,6 +193,21 @@ if(APP_THEME_FILES)
         PREFIX "/themes"
         FILES ${APP_THEME_FILES}
     )
+endif()
+
+# Box Share web UI: a single self-contained index.html (Svelte/Vite
+# singlefile) served at the LAN share root. The built file is committed so
+# packagers do not need Node at build time; regenerate with
+# `npm ci && npm run build` in web/ after frontend changes.
+set(BOX_SHARE_WEB "${CMAKE_CURRENT_SOURCE_DIR}/web/dist/index.html")
+if(EXISTS "${BOX_SHARE_WEB}")
+    set_source_files_properties("${BOX_SHARE_WEB}" PROPERTIES
+        QT_RESOURCE_ALIAS "index.html")
+    qt_add_resources(box "share_web"
+        PREFIX "/share"
+        FILES "${BOX_SHARE_WEB}")
+else()
+    message(STATUS "Box Share: web/dist/index.html missing; serving the plain fallback page")
 endif()
 
 include(GNUInstallDirs)

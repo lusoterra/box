@@ -687,13 +687,20 @@ void MainWindow::finishActivateTab(int tabIdx) {
         if (t->localPosts.isEmpty())
             t->localPosts = m_favDb.list();
         // Remote-only favourites use the browser fallback for walled
-        // previews/videos. Build it on first visit, not at startup.
+        // previews/videos. Downloaded favourites have a local file and do
+        // not need Chromium, so build it only when something is truly
+        // remote (also keeps the first favourites open fast).
+        bool needsWeb = false;
         for (const Post &p : t->localPosts) {
-            if (p.isRemote) {
-                ensureWebBackend();
+            if (!p.isRemote)
+                continue;
+            if (p.absFile.isEmpty() || !QFileInfo::exists(p.absFile)) {
+                needsWeb = true;
                 break;
             }
         }
+        if (needsWeb)
+            ensureWebBackend();
         setWindowTitle(QStringLiteral("Box - Favourites"));
         m_rating = t->rating;
         m_category = t->category;

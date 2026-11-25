@@ -1316,7 +1316,7 @@ private slots:
         auto *btn = w.findChild<QPushButton *>(
             QStringLiteral("shareStatusBtn"));
         QVERIFY(btn);
-        QCOMPARE(btn->text(), QStringLiteral("API is live"));
+        QCOMPARE(btn->text(), QStringLiteral("LIVE"));
         QVERIFY(!btn->isVisible());
     }
 
@@ -1422,12 +1422,15 @@ private slots:
             QStringLiteral("shareStatusBtn"));
         QVERIFY(shareBtn);
         QTRY_VERIFY_WITH_TIMEOUT(shareBtn->isVisible(), 10000);
-        QCOMPARE(shareBtn->text(), QStringLiteral("API is live"));
+        QCOMPARE(shareBtn->text(), QStringLiteral("LIVE"));
+        QVERIFY(shareBtn->toolTip().contains(QStringLiteral("Web UI")));
+        QVERIFY(shareBtn->toolTip().contains(QStringLiteral("/posts.json")));
 
         QString base;
         for (const QString &line : shareBtn->toolTip().split(u'\n')) {
-            if (line.startsWith(QStringLiteral("http://"))) {
-                base = line;
+            const int at = line.indexOf(QStringLiteral("http://"));
+            if (at >= 0) {
+                base = line.mid(at).trimmed();
                 break;
             }
         }

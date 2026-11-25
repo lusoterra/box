@@ -625,26 +625,34 @@ masking was skipped.
 `File → Share library on LAN…` opens a per-start picker: `Hydrus tab`
 (disabled when Hydrus is off/empty), `Online mode: downloads`, `Online
 mode: favourites`, and `Local archive folder` with Browse. Any mix is
-merged into one read-only Danbooru API; duplicate rows collapse by
-site+id, content hash, media URL or path. Network fields: `Bind address`
-(default `0.0.0.0` = LAN) and `Port` (default `7071`). Buttons: `Start
-sharing` / `Restart with these sources`, `Refresh snapshot` (rebuild while
-the listener stays up), `Stop sharing`, `Close`. While live the dialog
-shows `API is live`, the post count, the primary URL and `Copy API URL`.
-A warning says there is no authentication: anyone who can reach the
-address can browse the selected posts.
+merged into one read-only Box Share gallery + Danbooru API; duplicate
+rows collapse by site+id, content hash, media URL or path. Network
+fields: `Bind address` (default `0.0.0.0` = LAN) and `Port` (default
+`7071`). Buttons: `Start sharing` / `Restart with these sources`,
+`Refresh snapshot` (rebuild while the listener stays up), `Stop
+sharing`, `Close`. While live the dialog shows a red `LIVE` line, the
+post count, the primary URL, `Copy URL` and `Open in browser`. A warning
+says there is no authentication: anyone who can reach the address can
+browse the selected posts.
 
-The API is Danbooru-shaped: `/posts.json?tags=…&page=…&limit=…`,
+The root URL is the single-page Box Share web UI (search, autocomplete,
+rating filter, infinite scroll, viewer, video, themes). The same server
+is Danbooru-shaped under `/posts.json?tags=…&page=…&limit=…`,
 `/posts/<id>.json`, `/tags.json?search[name_matches]=…` and
 `/counts/posts.json`; media at `/share/file/<id>` (Range supported),
 previews at `/share/thumb/<id>` (generated and cached for local files,
 booru preview for remote-only rows). IDs are stable hash-based numbers.
 Local files serve directly; remote-only favourites use the media cache
 when enabled and a temporary proxy otherwise; videos stream through Box.
-Local thumbnails are cached under `~/.cache/box/share-thumbs`. When the
-server runs, a green `API is live` button sits in the bottom-right status
-bar; clicking it reopens the picker with the current URL/count. The
-listener stops on quit; there is no auto-start.
+Local thumbnails are cached under `~/.cache/box/share-thumbs`. The web
+UI is one embedded HTML file (`web/dist/index.html`), so the binary needs
+no Node or asset folder at runtime; a build without it still serves a
+plain API index.
+
+When the server runs, a red OBS-style `LIVE` badge sits in the
+bottom-right status bar; its tooltip lists the web and API URLs and
+clicking it reopens the picker with the current URL/count. The listener
+stops on quit; there is no auto-start.
 
 ## 23-duplicate-media - Tools → Find duplicate media… (`dedupdialog`)
 The dialog hashes decoded pixels, so tags, sidecars and container format

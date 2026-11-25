@@ -27,7 +27,8 @@ if [[ -x "$BUILD/box" ]]; then
 	# Skip compile if binary is newer than sources/build files.
 	need_build=0
 	if find "$ROOT/src" "$ROOT/CMakeLists.txt" "$ROOT/assets" \
-		"$ROOT/translations" -type f -newer "$BUILD/box" | grep -q .; then
+		"$ROOT/translations" "$ROOT/web/dist" -type f \
+		-newer "$BUILD/box" 2>/dev/null | grep -q .; then
 		need_build=1
 	fi
 	if [[ "$need_build" == "0" ]]; then

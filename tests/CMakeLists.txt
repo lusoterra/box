@@ -67,6 +67,13 @@ add_unit_test(test_sharecatalog test_sharecatalog.cpp
 add_unit_test(test_shareserver test_shareserver.cpp
               ../src/library/sharecatalog.cpp ../src/library/queryor.cpp
               ../src/remote/shareserver.cpp)
+if(EXISTS "${CMAKE_SOURCE_DIR}/web/dist/index.html")
+    set_source_files_properties("${CMAKE_SOURCE_DIR}/web/dist/index.html"
+        PROPERTIES QT_RESOURCE_ALIAS "index.html")
+    qt_add_resources(test_shareserver "share_web"
+        PREFIX "/share"
+        FILES "${CMAKE_SOURCE_DIR}/web/dist/index.html")
+endif()
 set_tests_properties(test_shareserver PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_unit_test(test_csvbackup test_csvbackup.cpp ../src/library/csvbackup.cpp)
@@ -208,6 +215,13 @@ add_unit_test(test_gridwindow test_gridwindow.cpp
               ../src/library/settingsexport.cpp ../src/remote/tempmedia.cpp ${MIGRATION_SOURCES}
               ../src/icons.qrc)
 target_link_libraries(test_gridwindow PRIVATE Qt6::WebEngineWidgets Qt6::WebEngineCore)
+if(EXISTS "${CMAKE_SOURCE_DIR}/web/dist/index.html")
+    set_source_files_properties("${CMAKE_SOURCE_DIR}/web/dist/index.html"
+        PROPERTIES QT_RESOURCE_ALIAS "index.html")
+    qt_add_resources(test_gridwindow "share_web"
+        PREFIX "/share"
+        FILES "${CMAKE_SOURCE_DIR}/web/dist/index.html")
+endif()
 set_tests_properties(test_gridwindow PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_unit_test(test_nuuru test_nuuru.cpp ${REMOTE_SOURCES}

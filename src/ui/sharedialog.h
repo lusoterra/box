@@ -27,7 +27,7 @@ public:
     enum class Action { None, Start, Stop, Refresh };
 
     ShareDialog(const ShareOptions &current, bool hydrusAvailable,
-                int hydrusCount, bool running, int postCount,
+                int hydrusCount, bool running, bool webUi, int postCount,
                 const QStringList &urls, QWidget *parent = nullptr);
 
     ShareOptions options() const;
@@ -49,6 +49,7 @@ private:
     QLabel *m_status = nullptr;
     QLineEdit *m_url = nullptr;
     QPushButton *m_copyUrl = nullptr;
+    QPushButton *m_openUrl = nullptr;
     QPushButton *m_start = nullptr;
     QPushButton *m_refresh = nullptr;
     QPushButton *m_stop = nullptr;

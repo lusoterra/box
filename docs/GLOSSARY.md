@@ -106,14 +106,16 @@
 - dedup.db = derived hash cache in the data dir
   (`dedup/allowArchiveDelete` only stores the archive-delete opt-in). Safe
   to delete; the next scan rebuilds it.
-- LAN sharing / share server = the read-only Danbooru API started from
-  `File → Share library on LAN…` (`src/remote/shareserver.h`,
-  `src/library/sharecatalog.h`, `src/ui/sharedialog.h`). It merges any
-  mix of Hydrus tab, downloads, favourites and a local folder into one
-  snapshot (`share/bind`, `share/port`, default `0.0.0.0:7071`); IDs are
-  stable hash numbers, media is `/share/file/<id>` and previews are
-  `/share/thumb/<id>`. Local media serves directly; remote-only
-  favourites use ImageCache or a temporary proxy. `API is live` in the
+- LAN sharing / share server = the read-only Box Share gallery + Danbooru
+  API started from `File → Share library on LAN…`
+  (`src/remote/shareserver.h`, `src/library/sharecatalog.h`,
+  `src/ui/sharedialog.h`). It merges any mix of Hydrus tab, downloads,
+  favourites and a local folder into one snapshot (`share/bind`,
+  `share/port`, default `0.0.0.0:7071`); IDs are stable hash numbers,
+  media is `/share/file/<id>` and previews are `/share/thumb/<id>`.
+  `/` serves the embedded single-file Svelte UI; `/posts.json` etc. are
+  the Danbooru API. Local media serves directly; remote-only favourites
+  use ImageCache or a temporary proxy. A red `LIVE` badge in the
   bottom-right status bar opens the picker while it runs. No auth, no
   writes, stopped on quit.
 - mascot = home-page image (`home/mascot*`, `src/settings.h`); shipped

@@ -23,7 +23,9 @@ npm run build
 ```
 
 `dist/index.html` is the single resource the box CMake build embeds. The
-frontend does not run on Node at runtime.
+built file is committed so packagers do not need Node at build time; after
+changing the frontend run `npm ci && npm run build` and commit the updated
+`dist/index.html`. The frontend does not run on Node at runtime.
 
 The default theme is Box dark. The theme picker mirrors the desktop themes in
 `assets/themes/*.ini` (Box, KeePassXC, Light, Nord, Catppuccin, Dracula, Atom
@@ -35,6 +37,15 @@ The grid follows Box's layout: uniform centre-cropped thumbnails, the same
 thumbnail-ratio list, a card-size slider, and a rating/score/id strip plus
 filename under each card. Video playback defaults (mute, loop, volume) mirror
 Box's Preferences -> Appearance -> Video playback.
+
+## Packaging
+
+The built `dist/index.html` is committed. A source tarball made from the
+repository therefore already contains it; the PKGBUILD needs no `nodejs`
+or `npm` makedepends and no extra `install()` entry. CMake embeds it into
+the binary as `:/share/index.html`. If a packaging step strips generated
+files, keep this one or run `npm ci && npm run build` in `build()` before
+invoking CMake.
 
 ## Check
 

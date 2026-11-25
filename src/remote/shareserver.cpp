@@ -31,6 +31,18 @@
 
 namespace {
 
+// The Svelte Box Share page is embedded as a Qt resource at build time
+// (`web/dist/index.html`, single file). Missing resource = plain fallback.
+const QByteArray &shareWebPage() {
+    static const QByteArray page = [] {
+        QFile f(QStringLiteral(":/share/index.html"));
+        if (!f.open(QIODevice::ReadOnly))
+            return QByteArray();
+        return f.readAll();
+    }();
+    return page;
+}
+
 QString mimeForFile(const QFileInfo &fi) {
     QMimeDatabase db;
     QString type = db.mimeTypeForFile(fi).name();
@@ -287,7 +299,13 @@ void ShareConnection::handle() {
     const QString path = url.path();
     const QUrlQuery query(url);
 
-    if (path == QStringLiteral("/")) {
+    if (path == QStringLiteral("/") ||
+        path == QStringLiteral("/index.html")) {
+        const QByteArray &web = shareWebPage();
+        if (!web.isEmpty()) {
+            respond(200, "text/html; charset=utf-8", web);
+            return;
+        }
         const QString html =
             QStringLiteral(
                 "<!doctype html><meta charset=\"utf-8\"><title>box share</title>"
@@ -756,7 +774,7 @@ void ShareConnection::proxyRemote(const ShareItem &item, const QUrl &url) {
     req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                      QNetworkRequest::NoLessSafeRedirectPolicy);
     req.setHeader(QNetworkRequest::UserAgentHeader,
-                  QStringLiteral("box/0.12 (share)"));
+                  QStringLiteral("box/0.13 (share)"));
     req.setRawHeader("Accept", "*/*");
     if (!m_headers.value("range").isEmpty())
         req.setRawHeader("Range", m_headers.value("range"));
@@ -899,6 +917,10 @@ void ShareServer::stop() {
 
 bool ShareServer::isRunning() const {
     return m_tcp && m_tcp->isListening();
+}
+
+bool ShareServer::hasWebUi() const {
+    return !shareWebPage().isEmpty();
 }
 
 int ShareServer::postCount() const {

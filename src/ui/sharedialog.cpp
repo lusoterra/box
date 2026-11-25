@@ -3,6 +3,7 @@
 #include <QApplication>
 #include <QCheckBox>
 #include <QClipboard>
+#include <QDesktopServices>
 #include <QDir>
 #include <QFileDialog>
 #include <QFileInfo>
@@ -14,11 +15,13 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QSpinBox>
+#include <QUrl>
 #include <QVBoxLayout>
 
 ShareDialog::ShareDialog(const ShareOptions &current, bool hydrusAvailable,
-                         int hydrusCount, bool running, int postCount,
-                         const QStringList &urls, QWidget *parent)
+                         int hydrusCount, bool running, bool webUi,
+                         int postCount, const QStringList &urls,
+                         QWidget *parent)
     : QDialog(parent), m_current(current) {
     setWindowTitle(tr("Share library on LAN"));
     setModal(true);
@@ -26,9 +29,9 @@ ShareDialog::ShareDialog(const ShareOptions &current, bool hydrusAvailable,
 
     auto *lay = new QVBoxLayout(this);
     auto *intro = new QLabel(
-        tr("Expose the selected posts as a read-only Danbooru API. "
-           "LoliSnatcher or another Box instance can add it as a normal "
-           "Danbooru entry."),
+        tr("Expose the selected posts as a read-only Box Share gallery and "
+           "Danbooru API. Open the URL in any browser on your LAN, or add "
+           "it to LoliSnatcher / another Box as a normal Danbooru entry."),
         this);
     intro->setWordWrap(true);
     lay->addWidget(intro);
@@ -101,8 +104,14 @@ ShareDialog::ShareDialog(const ShareOptions &current, bool hydrusAvailable,
     m_status = new QLabel(this);
     m_status->setWordWrap(true);
     if (running) {
-        m_status->setStyleSheet(QStringLiteral("color:#2e8b6e;font-weight:bold;"));
-        m_status->setText(tr("API is live: %1 post(s).").arg(postCount));
+        m_status->setStyleSheet(QStringLiteral("color:#c62828;font-weight:700;"));
+        m_status->setText(
+            webUi
+                ? tr("LIVE: %1 post(s). Web UI and API are being served.")
+                      .arg(postCount)
+                : tr("LIVE: %1 post(s). API only; this build has no "
+                     "embedded web UI.")
+                      .arg(postCount));
     } else {
         m_status->setStyleSheet(QStringLiteral("color:#4a5068;"));
         m_status->setText(tr("Not sharing."));
@@ -111,21 +120,34 @@ ShareDialog::ShareDialog(const ShareOptions &current, bool hydrusAvailable,
     auto *urlRow = new QHBoxLayout();
     m_url = new QLineEdit(this);
     m_url->setReadOnly(true);
-    m_url->setPlaceholderText(tr("API URL appears here"));
+    m_url->setPlaceholderText(tr("Web / API URL appears here"));
     if (!urls.isEmpty()) {
         m_url->setText(urls.first());
         m_url->setToolTip(urls.join(u'\n'));
     }
-    m_copyUrl = new QPushButton(tr("Copy API URL"), this);
+    m_copyUrl = new QPushButton(tr("Copy URL"), this);
     m_copyUrl->setEnabled(!urls.isEmpty());
     connect(m_copyUrl, &QPushButton::clicked, this, [this] {
         if (m_url->text().isEmpty())
             return;
         QApplication::clipboard()->setText(m_url->text());
     });
+    m_openUrl = new QPushButton(tr("Open in browser"), this);
+    m_openUrl->setEnabled(!urls.isEmpty());
+    connect(m_openUrl, &QPushButton::clicked, this, [this] {
+        if (!m_url->text().isEmpty())
+            QDesktopServices::openUrl(QUrl(m_url->text()));
+    });
     urlRow->addWidget(m_url, 1);
     urlRow->addWidget(m_copyUrl);
+    urlRow->addWidget(m_openUrl);
     lay->addLayout(urlRow);
+    auto *webNote = new QLabel(
+        tr("The browser page and the API share one address: open it for the "
+           "Box Share gallery, or use it as the Danbooru base URL."),
+        this);
+    webNote->setWordWrap(true);
+    lay->addWidget(webNote);
 
     auto *warn = new QLabel(
         tr("Read-only. Anyone who can reach this address can browse the "

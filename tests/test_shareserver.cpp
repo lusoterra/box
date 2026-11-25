@@ -4,6 +4,7 @@
 
 #include <QApplication>
 #include <QEventLoop>
+#include <QFile>
 #include <QHostAddress>
 #include <QImage>
 #include <QJsonArray>
@@ -166,6 +167,25 @@ private slots:
             port, "/share/file/" + QByteArray::number(id), {}, "HEAD");
         QCOMPARE(head.status, 200);
         QVERIFY(head.body.isEmpty());
+        server.stop();
+    }
+
+    void rootServesTheSharePage() {
+        ShareServer server;
+        server.setCatalog(std::make_shared<ShareCatalog>());
+        QString error;
+        QVERIFY2(server.start(QStringLiteral("127.0.0.1"), 0, {}, &error),
+                 qPrintable(error));
+        const Resp root = http(server.port(), "/");
+        QCOMPARE(root.status, 200);
+        QVERIFY(root.type.startsWith("text/html"));
+        QVERIFY(!root.body.isEmpty());
+        QVERIFY(root.body.toLower().contains("box"));
+        if (QFile::exists(QStringLiteral(":/share/index.html")))
+            QVERIFY(server.hasWebUi());
+        const Resp index = http(server.port(), "/index.html");
+        QCOMPARE(index.status, 200);
+        QCOMPARE(index.body, root.body);
         server.stop();
     }
 

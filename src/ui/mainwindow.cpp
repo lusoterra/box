@@ -1935,14 +1935,20 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     connect(m_wallSolveBtn, &QPushButton::clicked, this,
             &MainWindow::solveWallFromButton);
     statusBar()->addPermanentWidget(m_wallSolveBtn);
-    // Bottom-right "API is live" indicator for the read-only LAN server.
-    m_shareStatusBtn = new QPushButton(tr("API is live"), this);
+    // Bottom-right OBS-style LIVE badge for the read-only LAN server.
+    // The same server serves the Box Share web UI at "/" and the
+    // Danbooru-compatible API under /posts.json etc.
+    m_shareStatusBtn = new QPushButton(tr("LIVE"), this);
     m_shareStatusBtn->setObjectName(QStringLiteral("shareStatusBtn"));
     m_shareStatusBtn->setIcon(UiIcons::icon(
-        QStringLiteral("globe"), QColor(0x43, 0xd1, 0x7c)));
-    m_shareStatusBtn->setIconSize(QSize(14, 14));
-    m_shareStatusBtn->setFlat(true);
+        QStringLiteral("circle"), QColor(Qt::white), 10));
+    m_shareStatusBtn->setIconSize(QSize(10, 10));
     m_shareStatusBtn->setCursor(Qt::PointingHandCursor);
+    m_shareStatusBtn->setStyleSheet(QStringLiteral(
+        "QPushButton { background:#c62828; color:white; border:none;"
+        " border-radius:9px; padding:1px 9px; font-weight:700; }"
+        "QPushButton:hover { background:#e53935; }"
+        "QPushButton:pressed { background:#8e0000; }"));
     m_shareStatusBtn->setVisible(false);
     connect(m_shareStatusBtn, &QPushButton::clicked, this,
             &MainWindow::openShareDialog);

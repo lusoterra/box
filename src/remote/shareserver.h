@@ -43,6 +43,9 @@ public:
                const QString &thumbCacheDir, QString *error = nullptr);
     void stop();
     bool isRunning() const;
+    // True when the single-file Box Share UI is embedded. The same root
+    // URL serves it; without it the root renders the plain API fallback.
+    bool hasWebUi() const;
     int port() const { return m_port; }
     int postCount() const;
     // http://<lan-ip>:<port> entries, loopback included last.

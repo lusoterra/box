@@ -58,6 +58,18 @@ the dialog, scans exact copies, and exercises archive + Hydrus deletion
   namespace dictionary; `test_gridwindow::tagsPreferencesBuild` opens
   the Tags page and the backend combo.
 
+## Box Share web UI
+
+- `test_shareserver::rootServesTheSharePage` checks `/` and `/index.html`
+  return HTML and that the embedded `:/share/index.html` resource is
+  present when `web/dist/index.html` was embedded.
+- The file is committed as a single built page; after frontend changes run
+  `npm ci && npm run build` in `web/` and commit `web/dist/index.html`.
+  CMake prints a status line and falls back to the plain API page when the
+  file is missing, so a source tree without it still builds.
+- `test_gridwindow` starts the server from the dialog and checks the red
+  `LIVE` badge and its web/API tooltip.
+
 ## Test layout
 
 - One binary per file: `add_unit_test(name sources...)` in

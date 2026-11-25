@@ -249,12 +249,15 @@ single-instance via `session.lock`).
   - `shareserver.h` (`src/remote/`): read-only `QTcpServer` Danbooru API
     (`/posts.json`, `/posts/<id>.json`, `/tags.json`,
     `/counts/posts.json`, `/share/file/<id>`, `/share/thumb/<id>`).
-    Binds 0.0.0.0:7071 by default; media is streamed with Range support.
-    Local files are served directly; remote-only favourites resolve
-    through a callback (ImageCache when enabled, otherwise a live proxy)
-    and videos proxy with cookies/referer. Local thumbnails are generated
-    and cached under `<cache>/share-thumbs`; remote-only previews use the
-    booru preview URL. Nothing is writable.
+    `/` and `/index.html` serve the embedded single-file Box Share
+    Svelte UI (`web/dist/index.html` as `:/share/index.html`); when the
+    resource is absent, a plain API index is rendered. `hasWebUi()`
+    drives the UI label. Binds 0.0.0.0:7071 by default; media is streamed
+    with Range support. Local files are served directly; remote-only
+    favourites resolve through a callback (ImageCache when enabled,
+    otherwise a live proxy) and videos proxy with cookies/referer. Local
+    thumbnails are generated and cached under `<cache>/share-thumbs`;
+    remote-only previews use the booru preview URL. Nothing is writable.
   - `phash.h` + `dedupdb.h` + `dedupgroups.h` + `dedupscanner.h`
     (`src/library/`): duplicate detection. `phash` decodes a still (or the
     first frame of an animation) to 32x32 grayscale, runs a 2D DCT and
@@ -296,11 +299,16 @@ single-instance via `session.lock`).
     `ViewerPage::setHydrusMode`. Hydrus thumbnails are session-memory only
     (`requestVisibleThumbs` passes `persistToDisk=false`).
   - LAN sharing: `File → Share library on LAN…` opens `sharedialog`
-    (source checkboxes, bind/port, copy URL, Start/Restart/Refresh/Stop);
-    `mainwindow_share.cpp` builds the snapshot (FavDb, HydrusStore,
-    `Scanner` in a worker) and owns `ShareServer`. A permanent bottom-right
-    `API is live` status-bar button opens the dialog; clicking it while live
-    shows the current URL/post count. The listener stops on quit.
+    (source checkboxes, bind/port, copy URL, open in browser,
+    Start/Restart/Refresh/Stop); `mainwindow_share.cpp` builds the
+    snapshot (FavDb, HydrusStore, `Scanner` in a worker) and owns
+    `ShareServer`. The built `web/dist/index.html` is committed and
+    embedded via `qt_add_resources` (`PREFIX /share`), so the package
+    needs no Node or runtime asset folder; rebuild it with
+    `npm ci && npm run build` in `web/` and commit the single file. The
+    bottom-right red `LIVE` badge appears only while the server listens;
+    its tooltip has the web/API URLs and it reopens the dialog. The
+    listener stops on quit.
   - Duplicate media: `Tools → Find duplicate media…` opens `dedupdialog`
     (`src/ui/`, `mainwindow_dedup.cpp`). It picks sources (archive roots,
     downloads, Hydrus), scans in `DedupScanTask`, shows one group per
