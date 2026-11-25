@@ -29,6 +29,7 @@
 #include <QListWidget>
 #include <QMenu>
 #include <QMenuBar>
+#include <QMessageBox>
 #include <QPainter>
 #include <QPixmap>
 #include <QPushButton>
@@ -40,6 +41,7 @@
 #include <QTcpSocket>
 #include <QTemporaryDir>
 #include <QTextBrowser>
+#include <QTreeWidget>
 #include <QTimer>
 #include <QUrl>
 #include <QtTest>
@@ -897,6 +899,345 @@ private slots:
         FavDb favs;
         QVERIFY(favs.open(dataDir));
         QCOMPARE(favs.count(), 0);
+    }
+
+    // Tools -> Find duplicate media opens the review dialog without
+    // crashing (the hash database is created on demand).
+    void dedupDialogOpens() {
+        QTemporaryDir xdg;
+        QVERIFY(xdg.isValid());
+        qputenv("XDG_CONFIG_HOME", xdg.filePath(QStringLiteral("config")).toUtf8());
+        qputenv("XDG_DATA_HOME", xdg.filePath(QStringLiteral("data")).toUtf8());
+        qputenv("XDG_CACHE_HOME", xdg.filePath(QStringLiteral("cache")).toUtf8());
+        bool ok = false;
+        const QString archive = makeArchive(1, ok);
+        QVERIFY(ok);
+        MainWindow w(archive, true);
+        QAction *dedup = nullptr;
+        for (QAction *a : w.findChildren<QAction *>()) {
+            if (a->text().contains(QStringLiteral("duplicate media"))) {
+                dedup = a;
+                break;
+            }
+        }
+        QVERIFY(dedup);
+        dedup->trigger();
+        QApplication::processEvents();
+        QWidget *dlg = w.findChild<QWidget *>(QStringLiteral("dedupDialog"));
+        QVERIFY(dlg);
+        QVERIFY(dlg->isVisible());
+        dlg->close();
+        QApplication::processEvents();
+    }
+
+    // End-to-end duplicate scan: two byte-identical files under the open
+    // archive form one group in the dialog.
+    void dedupDialogFindsExactDuplicates() {
+        QTemporaryDir xdg;
+        QVERIFY(xdg.isValid());
+        qputenv("XDG_CONFIG_HOME", xdg.filePath(QStringLiteral("config")).toUtf8());
+        qputenv("XDG_DATA_HOME", xdg.filePath(QStringLiteral("data")).toUtf8());
+        qputenv("XDG_CACHE_HOME", xdg.filePath(QStringLiteral("cache")).toUtf8());
+
+        QTemporaryDir archiveDir;
+        QVERIFY(archiveDir.isValid());
+        QImage img(64, 64, QImage::Format_RGB32);
+        img.fill(QColor(30, 120, 210));
+        QPainter p(&img);
+        p.setPen(Qt::white);
+        p.drawRect(8, 8, 48, 48);
+        p.end();
+        const QString one = archiveDir.filePath(QStringLiteral("one.png"));
+        const QString two = archiveDir.filePath(QStringLiteral("two.png"));
+        QVERIFY(img.save(one));
+        QVERIFY(QFile::copy(one, two));
+
+        MainWindow w(archiveDir.path(), true);
+        QTest::qWait(200);
+        QAction *dedup = nullptr;
+        for (QAction *a : w.findChildren<QAction *>()) {
+            if (a->text().contains(QStringLiteral("duplicate media"))) {
+                dedup = a;
+                break;
+            }
+        }
+        QVERIFY(dedup);
+        dedup->trigger();
+        QApplication::processEvents();
+        QWidget *dlg = w.findChild<QWidget *>(QStringLiteral("dedupDialog"));
+        QVERIFY(dlg);
+        QPushButton *scan = nullptr;
+        for (QPushButton *b : dlg->findChildren<QPushButton *>()) {
+            if (b->text().startsWith(QStringLiteral("Scan selected"))) {
+                scan = b;
+                break;
+            }
+        }
+        QVERIFY(scan);
+        scan->click();
+        auto *tree = dlg->findChild<QTreeWidget *>();
+        QVERIFY(tree);
+        QTRY_VERIFY_WITH_TIMEOUT(tree->topLevelItemCount() > 0, 15000);
+        QCOMPARE(tree->topLevelItem(0)->childCount(), 2);
+        dlg->close();
+        QApplication::processEvents();
+    }
+
+    // Archive cleanup: with the opt-in setting on, deleting the checked
+    // copy moves the media to the trash and removes its sidecar.
+    void dedupDialogDeletesArchiveCopyAndSidecar() {
+        QTemporaryDir xdg;
+        QVERIFY(xdg.isValid());
+        qputenv("XDG_CONFIG_HOME", xdg.filePath(QStringLiteral("config")).toUtf8());
+        qputenv("XDG_DATA_HOME", xdg.filePath(QStringLiteral("data")).toUtf8());
+        qputenv("XDG_CACHE_HOME", xdg.filePath(QStringLiteral("cache")).toUtf8());
+        QVERIFY(QDir().mkpath(xdg.filePath(QStringLiteral("config/box"))));
+        {
+            QSettings c(xdg.filePath(QStringLiteral("config/box/settings.ini")),
+                        QSettings::IniFormat);
+            c.setValue(QStringLiteral("dedup/allowArchiveDelete"), true);
+            c.setValue(QStringLiteral("startup/defaultTab"),
+                       QStringLiteral("welcome"));
+            c.sync();
+        }
+
+        QTemporaryDir archiveDir;
+        QVERIFY(archiveDir.isValid());
+        QImage img(64, 64, QImage::Format_RGB32);
+        img.fill(QColor(160, 40, 190));
+        QPainter p(&img);
+        p.setPen(Qt::white);
+        p.drawEllipse(8, 8, 48, 48);
+        p.end();
+        const QString one = archiveDir.filePath(QStringLiteral("one.png"));
+        const QString two = archiveDir.filePath(QStringLiteral("two.png"));
+        const QString sidecar = two + QStringLiteral(".json");
+        QVERIFY(img.save(one));
+        QVERIFY(QFile::copy(one, two));
+        {
+            QFile sc(sidecar);
+            QVERIFY(sc.open(QIODevice::WriteOnly));
+            sc.write("{\"not\":\"a post\"}");
+        }
+        const auto setMtime = [](const QString &path, const QDateTime &when) {
+            QFile f(path);
+            if (!f.open(QIODevice::ReadWrite))
+                return false;
+            return f.setFileTime(when, QFileDevice::FileModificationTime);
+        };
+        QVERIFY(setMtime(one, QDateTime::currentDateTime()));
+        QVERIFY(setMtime(two, QDateTime(QDate(2000, 1, 1), QTime(0, 0))));
+
+        MainWindow w(archiveDir.path(), true);
+        QTest::qWait(200);
+        QAction *dedup = nullptr;
+        for (QAction *a : w.findChildren<QAction *>()) {
+            if (a->text().contains(QStringLiteral("duplicate media"))) {
+                dedup = a;
+                break;
+            }
+        }
+        QVERIFY(dedup);
+        dedup->trigger();
+        QApplication::processEvents();
+        QWidget *dlg = w.findChild<QWidget *>(QStringLiteral("dedupDialog"));
+        QVERIFY(dlg);
+        QPushButton *scan = nullptr;
+        for (QPushButton *b : dlg->findChildren<QPushButton *>()) {
+            if (b->text().startsWith(QStringLiteral("Scan selected"))) {
+                scan = b;
+                break;
+            }
+        }
+        QVERIFY(scan);
+        scan->click();
+        auto *tree = dlg->findChild<QTreeWidget *>();
+        QVERIFY(tree);
+        QTRY_VERIFY_WITH_TIMEOUT(tree->topLevelItemCount() > 0, 15000);
+        QCOMPARE(tree->topLevelItem(0)->childCount(), 2);
+
+        QPushButton *del = nullptr;
+        for (QPushButton *b : dlg->findChildren<QPushButton *>()) {
+            if (b->text().startsWith(QStringLiteral("Delete selected"))) {
+                del = b;
+                break;
+            }
+        }
+        QVERIFY(del);
+        QVERIFY(del->isEnabled());
+        QTimer::singleShot(200, [&] {
+            auto *mb = qobject_cast<QMessageBox *>(
+                QApplication::activeModalWidget());
+            if (!mb)
+                return;
+            for (QAbstractButton *b : mb->buttons()) {
+                if (b->text().contains(QStringLiteral("Move to Trash"))) {
+                    b->click();
+                    return;
+                }
+            }
+        });
+        QTimer::singleShot(900, [&] {
+            auto *mb = qobject_cast<QMessageBox *>(
+                QApplication::activeModalWidget());
+            if (!mb)
+                return;
+            for (QAbstractButton *b : mb->buttons()) {
+                if (b->text().contains(QStringLiteral("permanently"))) {
+                    b->click();
+                    return;
+                }
+            }
+        });
+        del->click();
+        QTRY_VERIFY_WITH_TIMEOUT(!QFile::exists(two), 10000);
+        QVERIFY(QFile::exists(one));
+        QVERIFY(!QFile::exists(sidecar));
+        dlg->close();
+        QApplication::processEvents();
+    }
+
+    // Hydrus cleanup: deleting the checked copy also removes its
+    // hydrus.db row (the media folder is app-managed).
+    void dedupDialogDeletesHydrusCopyAndRow() {
+        QTemporaryDir xdg;
+        QVERIFY(xdg.isValid());
+        qputenv("XDG_CONFIG_HOME", xdg.filePath(QStringLiteral("config")).toUtf8());
+        qputenv("XDG_DATA_HOME", xdg.filePath(QStringLiteral("data")).toUtf8());
+        qputenv("XDG_CACHE_HOME", xdg.filePath(QStringLiteral("cache")).toUtf8());
+
+        QTemporaryDir hydrusDir;
+        QVERIFY(hydrusDir.isValid());
+        const QString dbPath = xdg.filePath(QStringLiteral("hydrus.db"));
+
+        QImage img(96, 96, QImage::Format_RGB32);
+        img.fill(QColor(220, 180, 70));
+        QPainter p(&img);
+        p.setPen(QPen(Qt::black, 3));
+        p.drawRect(10, 10, 76, 76);
+        p.end();
+        const QString tmpPng = hydrusDir.filePath(QStringLiteral("tmp.png"));
+        const QString tmpBmp = hydrusDir.filePath(QStringLiteral("tmp.bmp"));
+        QVERIFY(img.save(tmpPng));
+        QVERIFY(img.save(tmpBmp));
+
+        const QString pngSha = fileContentSha256(tmpPng);
+        const QString bmpSha = fileContentSha256(tmpBmp);
+        QVERIFY(!pngSha.isEmpty());
+        QVERIFY(!bmpSha.isEmpty());
+        const QString pngPath =
+            hydrusDir.filePath(pngSha + QStringLiteral(".png"));
+        const QString bmpPath =
+            hydrusDir.filePath(bmpSha + QStringLiteral(".bmp"));
+        QVERIFY(QFile::rename(tmpPng, pngPath));
+        QVERIFY(QFile::rename(tmpBmp, bmpPath));
+
+        {
+            HydrusStore::Db db;
+            QVERIFY(db.open(dbPath));
+            HydrusStore::Record a;
+            a.sha256 = pngSha;
+            a.fileName = pngSha + QStringLiteral(".png");
+            a.ext = QStringLiteral("png");
+            a.bytes = QFileInfo(pngPath).size();
+            a.width = img.width();
+            a.height = img.height();
+            a.tags = {QStringLiteral("alpha"), QStringLiteral("beta")};
+            QVERIFY(db.insert(a));
+            HydrusStore::Record b;
+            b.sha256 = bmpSha;
+            b.fileName = bmpSha + QStringLiteral(".bmp");
+            b.ext = QStringLiteral("bmp");
+            b.bytes = QFileInfo(bmpPath).size();
+            b.width = img.width();
+            b.height = img.height();
+            b.tags = {QStringLiteral("alpha")};
+            QVERIFY(db.insert(b));
+            db.close();
+        }
+
+        QVERIFY(QDir().mkpath(xdg.filePath(QStringLiteral("config/box"))));
+        {
+            QSettings c(xdg.filePath(QStringLiteral("config/box/settings.ini")),
+                        QSettings::IniFormat);
+            c.setValue(QStringLiteral("hydrus/enabled"), true);
+            c.setValue(QStringLiteral("hydrus/mediaDir"), hydrusDir.path());
+            c.setValue(QStringLiteral("hydrus/dbPath"), dbPath);
+            c.setValue(QStringLiteral("startup/defaultTab"),
+                       QStringLiteral("welcome"));
+            c.sync();
+        }
+
+        MainWindow w(QString(), false);
+        QTest::qWait(200);
+        QAction *dedup = nullptr;
+        for (QAction *a : w.findChildren<QAction *>()) {
+            if (a->text().contains(QStringLiteral("duplicate media"))) {
+                dedup = a;
+                break;
+            }
+        }
+        QVERIFY(dedup);
+        dedup->trigger();
+        QApplication::processEvents();
+        QWidget *dlg = w.findChild<QWidget *>(QStringLiteral("dedupDialog"));
+        QVERIFY(dlg);
+        QPushButton *scan = nullptr;
+        for (QPushButton *b : dlg->findChildren<QPushButton *>()) {
+            if (b->text().startsWith(QStringLiteral("Scan selected"))) {
+                scan = b;
+                break;
+            }
+        }
+        QVERIFY(scan);
+        scan->click();
+        auto *tree = dlg->findChild<QTreeWidget *>();
+        QVERIFY(tree);
+        QTRY_VERIFY_WITH_TIMEOUT(tree->topLevelItemCount() > 0, 15000);
+        QCOMPARE(tree->topLevelItem(0)->childCount(), 2);
+
+        QPushButton *del = nullptr;
+        for (QPushButton *b : dlg->findChildren<QPushButton *>()) {
+            if (b->text().startsWith(QStringLiteral("Delete selected"))) {
+                del = b;
+                break;
+            }
+        }
+        QVERIFY(del);
+        QVERIFY(del->isEnabled());
+        QTimer::singleShot(200, [&] {
+            auto *mb = qobject_cast<QMessageBox *>(
+                QApplication::activeModalWidget());
+            if (!mb)
+                return;
+            for (QAbstractButton *b : mb->buttons()) {
+                if (b->text().contains(QStringLiteral("Move to Trash"))) {
+                    b->click();
+                    return;
+                }
+            }
+        });
+        QTimer::singleShot(900, [&] {
+            auto *mb = qobject_cast<QMessageBox *>(
+                QApplication::activeModalWidget());
+            if (!mb)
+                return;
+            for (QAbstractButton *b : mb->buttons()) {
+                if (b->text().contains(QStringLiteral("permanently"))) {
+                    b->click();
+                    return;
+                }
+            }
+        });
+        del->click();
+        QTRY_VERIFY_WITH_TIMEOUT(!QFile::exists(bmpPath), 10000);
+        QVERIFY(QFile::exists(pngPath));
+        HydrusStore::Db db;
+        QVERIFY(db.open(dbPath));
+        QVERIFY(db.record(bmpSha).sha256.isEmpty());
+        QVERIFY(!db.record(pngSha).sha256.isEmpty());
+        dlg->close();
+        QApplication::processEvents();
     }
 
     // The bottom-right API indicator exists but stays hidden until a

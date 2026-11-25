@@ -154,6 +154,7 @@ private:
     // row switch). While set, commitBooruEditor is a no-op.
     bool m_loadingBooru = false;
     QCheckBox *m_indexCache;
+    QCheckBox *m_dedupAllowArchiveDelete = nullptr;
     QRadioButton *m_cacheAll = nullptr;
     QRadioButton *m_cacheSfw = nullptr;
     QRadioButton *m_cacheNone = nullptr;

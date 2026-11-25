@@ -239,6 +239,19 @@ single-instance via `session.lock`).
     and videos proxy with cookies/referer. Local thumbnails are generated
     and cached under `<cache>/share-thumbs`; remote-only previews use the
     booru preview URL. Nothing is writable.
+  - `phash.h` + `dedupdb.h` + `dedupgroups.h` + `dedupscanner.h`
+    (`src/library/`): duplicate detection. `phash` decodes a still (or the
+    first frame of an animation) to 32x32 grayscale, runs a 2D DCT and
+    emits a 64-bit pHash; `phashDistance` is the Hamming distance. The
+    SHA-256 of the file bytes is stored alongside for exact copies.
+    `dedup.db` (in the data dir) caches `(scope, root, path, size, mtime,
+    kind, sha256, phash, dimensions)`; unchanged files are skipped and
+    vanished rows pruned. Scopes (`archive`, `download`, `hydrus`) and
+    kinds (`image`, `animated`, `video`) never mix. `buildDedupGroups`
+    matches exact SHAs and pHashes within the threshold, using
+    representative linkage (no transitive chaining). `DedupScanTask`
+    walks a source in a worker, reuses Hydrus SHA/dimensions, hashes only
+    new or changed files and writes in batched transactions.
   - `hydrusstore.h` (`src/library/`): the Hydrus tab's isolated SQLite
     store (`hydrus.db`) - SHA-256 keyed rows with native namespace tags,
     hydrus file id, `hydrus_found` and `manual_override` flags. Pure
@@ -272,6 +285,15 @@ single-instance via `session.lock`).
     `Scanner` in a worker) and owns `ShareServer`. A permanent bottom-right
     `API is live` status-bar button opens the dialog; clicking it while live
     shows the current URL/post count. The listener stops on quit.
+  - Duplicate media: `Tools → Find duplicate media…` opens `dedupdialog`
+    (`src/ui/`, `mainwindow_dedup.cpp`). It picks sources (archive roots,
+    downloads, Hydrus), scans in `DedupScanTask`, shows one group per
+    keeper plus copies, tag counts and a details pane, and deletes the
+    selected copies. Deletion is path-checked; archives require
+    `dedup/allowArchiveDelete` (default off). Media goes to the trash,
+    `<stem>.json`/`<media>.json` sidecars are removed, and Hydrus rows are
+    deleted from `hydrus.db`. The shell then invalidates the download
+    index, marks archive roots dirty and reloads a live Hydrus tab.
   - `viewerpage.h:170` `ViewerPage` (same-window viewer; member defs split across `src/ui/viewerpage.cpp`, `viewerpage_mediaviews.cpp` (`ImageView`/`GifView`/`VideoView`), `viewerpage_nav.cpp` navigation/prefetch, `viewerpage_meta.cpp` metadata/notes/comments/commentary popups+reload, `viewerpage_tags.cpp` tag rendering, `viewerpage_load.cpp` notes/cache/web load, `viewerpage_setters.cpp` state/setters/badges, `viewerpage_detail.cpp` Hybooru detail fetch; `ImageView` `:33`,
     `GifView` `:65`, `VideoView` `:93`); software video decoding forced in
     `main.cpp` (`QT_FFMPEG_DECODING_HW_DEVICE_TYPES=,`, user-overridable;
@@ -598,7 +620,8 @@ Startup safeguard (`main.cpp`): if a configured `storage/dataDir`, `cache/dir`, 
 `hydrus/` (`enabled`, `url`, `accessKey`, `proxy`, `mediaDir`, `dbPath`,
 `minTagPosts`, `dropUnknownTags`; read-only lookups + the isolated tab),
 `share/` (`bind`, `port`, `hydrus`, `downloads`, `favourites`,
-`localFolder`, `folder`; read-only LAN API).
+`localFolder`, `folder`; read-only LAN API), `dedup/allowArchiveDelete`
+(default off; archive duplicate cleanup).
 Never a group named `General` (QSettings reserves it; see
 `src/settings.cpp:39-43`).
 

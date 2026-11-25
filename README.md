@@ -134,6 +134,22 @@ selected posts. The server stops when Box quits; there is no auto-start.
 `API is live` in the bottom-right status bar reopens the picker while it is
 running.
 
+## Duplicate detection
+
+`Tools → Find duplicate media…` (`Ctrl+Shift+D`) hashes decoded pixels
+(plus SHA-256 for exact bytes) and groups duplicates per source family:
+local archives, downloads/downloaded favourites, and the Hydrus tab never
+match each other. Matching stills works across PNG/WebP/BMP and other
+lossless conversions; heavily recompressed JPEGs may fall outside the
+perceptual tolerance.
+
+Each group lets you pick the copy to keep (the starred suggestion favours
+the richest tag set) and delete the rest. Deletions go to the trash and
+remove the matching JSON sidecars; archive cleanup is opt-in via
+Preferences → Library, and Hydrus deletions also remove the `hydrus.db`
+row. The hash cache lives in `dedup.db` (derived data: deleting it just
+forces a rescan).
+
 ## Themes
 
 Bundled themes live in `assets/themes/*.ini` and are embedded into the binary

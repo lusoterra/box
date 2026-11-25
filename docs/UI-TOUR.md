@@ -240,6 +240,10 @@ download dir (Syncthing-safe).
 `Preferences…` (`Ctrl+,`, tabbed dialog shots 12–16), `Load Custom
 Stylesheet…` (`.qss` overlay).
 
+## 06b-tools-menu - Tools
+`Find duplicate media…` (`Ctrl+Shift+D`) opens the duplicate review
+dialog (section 23).
+
 ## 07-info-menu / 08-about - Info
 `Statistics…` (popup report: favourited/downloaded post counts and disk
 usage, cache size split into thumbnails/full images/scan indexes, cached
@@ -394,7 +398,8 @@ substitution). Bottom: `Defaults` (reset page), `OK` / `Apply` (greys out
 when clean - `updateApplyState`) / `Cancel`.
 
 ## 13-prefs-library - Preferences → Library
-Scan index cache, `Media cache` radios (`Cache everything` /
+Scan index cache, `Allow duplicate cleanup to delete files in local
+archives` (default off; only gates the duplicate dialog), `Media cache` radios (`Cache everything` /
 `Cache only SFW pictures/videos` / `Cache nothing (session only)`),
 `Also cache full-quality images…`, auto tag classification,
 `Cache size limit`, `Thumbnail size`, `Delete cached media…` (greyed
@@ -629,6 +634,37 @@ Local thumbnails are cached under `~/.cache/box/share-thumbs`. When the
 server runs, a green `API is live` button sits in the bottom-right status
 bar; clicking it reopens the picker with the current URL/count. The
 listener stops on quit; there is no auto-start.
+
+## 23-duplicate-media - Tools → Find duplicate media… (`dedupdialog`)
+The dialog hashes decoded pixels, so tags, sidecars and container format
+do not affect matching; lossy JPEG recompression can cross the perceptual
+threshold, which is accepted. Exact file bytes (SHA-256) always match.
+Matching never crosses a source family (local archive, downloads /
+downloaded favourites, Hydrus) or a media type (image, animated first
+frame, video), so those libraries do not interact.
+
+Sources: `Downloads / downloaded favourites`, `Hydrus media`, and one or
+more `Local archives` (the open archive + recent history, plus
+`Add folder…`). `Pixel match tolerance` is the pHash Hamming threshold
+(0-16 of 64; default 6). `Scan selected` runs in a worker; the first pass
+hashes every file, later passes skip unchanged `(size, mtime)` entries.
+`Stop` cancels without pruning; `Forget cached hashes` empties
+`dedup.db` (derived data, safe to regenerate). Remote-only favourites are
+never downloaded just to dedupe; their downloaded copies are already in
+the download family.
+
+Groups show a preview, relative path, size, dimensions, tag count and
+family. The starred row is the suggested keeper (most tags, then largest
+image, then bytes); select another copy and press `Keep selected copy` to
+change it. Every other copy has a delete checkbox. The details pane shows
+the full path, hashes and sidecar/Hydrus tags for the selected copy, so
+the one with the richer metadata can be kept. `Delete selected…` moves
+the media to the trash (falling back to permanent deletion after a second
+confirmation), removes both sidecar layouts (`<stem>.json` and
+`<media>.json`), and for Hydrus removes the `hydrus.db` row. Archive
+copies can only be checked when Preferences → Library → `Allow duplicate
+cleanup to delete files in local archives` is on; everything else in Box
+still treats archives as read-only.
 
 ## Not yet documented (keep unchecked until done)
 - [ ] Downloads tab (non-empty: sidecar-backed offline rows)

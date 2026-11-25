@@ -440,6 +440,15 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
         tr("Scan index cache (fast rescans of large archives)"), this);
     m_indexCache->setChecked(current.indexCache);
     libLay->addWidget(m_indexCache);
+    m_dedupAllowArchiveDelete = new QCheckBox(
+        tr("Allow duplicate cleanup to delete files in local archives"),
+        this);
+    m_dedupAllowArchiveDelete->setChecked(current.dedupAllowArchiveDelete);
+    m_dedupAllowArchiveDelete->setToolTip(
+        tr("Off by default. Archives stay read-only everywhere else; this "
+           "only enables Tools -> Find duplicate media to delete the copies "
+           "you explicitly select."));
+    libLay->addWidget(m_dedupAllowArchiveDelete);
     libLay->addWidget(new QLabel(tr("Media cache:"), this));
     m_cacheAll = new QRadioButton(tr("Cache everything"), lib);
     m_cacheSfw = new QRadioButton(
@@ -2024,6 +2033,9 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
                             : Qt::Unchecked);
                 }
                 m_indexCache->setChecked(d.indexCache);
+                if (m_dedupAllowArchiveDelete)
+                    m_dedupAllowArchiveDelete->setChecked(
+                        d.dedupAllowArchiveDelete);
                 switch (d.cacheMode) {
                 case CacheMode::None:
                     m_cacheNone->setChecked(true);

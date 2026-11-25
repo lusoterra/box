@@ -35,6 +35,11 @@
   reconfigure it without `-DBUILD_TESTING=OFF` (or run
   `cmake --build build-dev --target test_favdb` after re-enabling).
 
+`test_dedup` covers the pHash/JPEG tolerance, family/type grouping,
+`dedup.db` caching/pruning and a real archive scan; the GUI suite opens
+the dialog, scans exact copies, and exercises archive + Hydrus deletion
+(trash, sidecars, hydrus.db row).
+
 ## Test layout
 
 - One binary per file: `add_unit_test(name sources...)` in

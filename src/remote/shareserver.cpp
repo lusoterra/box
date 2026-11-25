@@ -756,7 +756,7 @@ void ShareConnection::proxyRemote(const ShareItem &item, const QUrl &url) {
     req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                      QNetworkRequest::NoLessSafeRedirectPolicy);
     req.setHeader(QNetworkRequest::UserAgentHeader,
-                  QStringLiteral("box/0.10 (share)"));
+                  QStringLiteral("box/0.11 (share)"));
     req.setRawHeader("Accept", "*/*");
     if (!m_headers.value("range").isEmpty())
         req.setRawHeader("Range", m_headers.value("range"));

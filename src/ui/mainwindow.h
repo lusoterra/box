@@ -466,6 +466,10 @@ private slots:
     void finishHydrusGallery();
     // ── LAN sharing ────────────────────────────────────────────
     void openShareDialog();
+    // ── Duplicate media ────────────────────────────────────────
+    void openDedupDialog();
+    void onDedupFilesDeleted(const QStringList &paths,
+                             const QStringList &archiveRoots);
 
 private:
     void startScan(const QString &root);
@@ -779,6 +783,7 @@ private:
     QPointer<QProgressDialog> m_shareProgress;
     qint64 m_shareGeneration = 0;
     QPushButton *m_shareStatusBtn = nullptr;
+    QPointer<QWidget> m_dedupDialog;
     // Last browse error with its raw request/response attached. The status
     // bar shows a one-liner; clicking it opens the full inspector.
     QString m_statusProbeTitle;

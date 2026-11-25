@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(Box VERSION 0.10.0 LANGUAGES C CXX)
+project(Box VERSION 0.11.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -58,6 +58,10 @@ add_executable(box
     src/remote/faviconcache.cpp
     src/library/sidecarrefresh.cpp
     src/library/settingsexport.cpp
+    src/library/phash.cpp
+    src/library/dedupdb.cpp
+    src/library/dedupgroups.cpp
+    src/library/dedupscanner.cpp
     src/remote/webdlbackend.h
     src/library/losnimport.cpp
     src/library/csvbackup.cpp
@@ -120,6 +124,8 @@ add_executable(box
     src/ui/mainwindow_misc2.cpp
     src/ui/mainwindow_hydrus.cpp
     src/ui/mainwindow_share.cpp
+    src/ui/mainwindow_dedup.cpp
+    src/ui/dedupdialog.cpp
     src/ui/mainwindow_metadata.cpp
     src/ui/metadatadialog.cpp
     src/ui/statsdialog.cpp

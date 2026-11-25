@@ -33,6 +33,7 @@ private slots:
         QCOMPARE(s.cacheLimitMB, 10240);
         QVERIFY(s.videoMuted && s.videoLoop);
         QVERIFY(s.videoPitch); // pitch-correct sped-up/slowed video by default
+        QVERIFY(!s.dedupAllowArchiveDelete); // archive deletion is opt-in
         QCOMPARE(s.ugoiraFormat, QStringLiteral("webp"));
         QCOMPARE(s.ugoiraFrameDelayMs, 100);
         QCOMPARE(s.explicitTags, defaultExplicitTagList());
@@ -97,6 +98,7 @@ private slots:
         s.disabledBuckets = {QStringLiteral("gelbooru:character")};
         s.volume = 42;
         s.videoPitch = false;
+        s.dedupAllowArchiveDelete = true;
         s.ugoiraFormat = QStringLiteral("jxl");
         s.ugoiraFrameDelayMs = 150;
         s.aspectNum = 4;
@@ -165,6 +167,7 @@ private slots:
         QCOMPARE(back.explicitTags, QStringList({QStringLiteral("customtag")}));
         QCOMPARE(back.volume, 42);
         QVERIFY(!back.videoPitch);
+        QVERIFY(back.dedupAllowArchiveDelete);
         QCOMPARE(back.ugoiraFormat, QStringLiteral("jxl"));
         QCOMPARE(back.ugoiraFrameDelayMs, 150);
         QCOMPARE(back.aspectNum, 4);

@@ -20,6 +20,10 @@
 struct AppSettings {
     // Library
     bool indexCache = true;
+    // Duplicate cleanup: allow deleting files inside read-only local
+    // archive roots (Preferences -> Library). Off by default; downloads
+    // and Hydrus duplicates can still be removed when off.
+    bool dedupAllowArchiveDelete = false;
     // On-disk media cache policy (thumbnails + full-quality browsing
     // cache). "Nothing" keeps only in-memory/session data; explicit
     // downloads are never affected. "SFW only" still caches explicitly
@@ -324,7 +328,9 @@ inline bool operator==(const AppSettings &a, const AppSettings &b) {
         return false;
     if (a.hasLastPlace && !(a.lastPlace == b.lastPlace))
         return false;
-    return a.indexCache == b.indexCache && a.cacheMode == b.cacheMode &&
+    return a.indexCache == b.indexCache &&
+           a.dedupAllowArchiveDelete == b.dedupAllowArchiveDelete &&
+           a.cacheMode == b.cacheMode &&
            a.fullCache == b.fullCache && a.cacheLimitMB == b.cacheLimitMB &&
            a.cacheDir == b.cacheDir &&
            a.cacheFavs == b.cacheFavs &&

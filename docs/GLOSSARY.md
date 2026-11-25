@@ -82,6 +82,16 @@
 - view-only folder = the read-only archive reader (`openFolder` +
   `addLocalTab`), always available as `Open view-only folder…` in the ＋
   menu; it never writes sidecars or touches the library.
+- duplicate family = one dedup `scope`: `archive` (all local archive
+  roots together), `download` (the download folder, including downloaded
+  favourites) or `hydrus` (the Hydrus media folder). `kind` further splits
+  image/animated/video. Groups never cross either boundary.
+- pHash = 64-bit perceptual DCT hash of the decoded first frame/picture
+  (`src/library/phash.h`); Hamming distance <= the dialog tolerance means
+  "visually the same". Exact file bytes group by SHA-256 regardless.
+- dedup.db = derived hash cache in the data dir
+  (`dedup/allowArchiveDelete` only stores the archive-delete opt-in). Safe
+  to delete; the next scan rebuilds it.
 - LAN sharing / share server = the read-only Danbooru API started from
   `File → Share library on LAN…` (`src/remote/shareserver.h`,
   `src/library/sharecatalog.h`, `src/ui/sharedialog.h`). It merges any

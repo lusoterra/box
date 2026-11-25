@@ -143,6 +143,8 @@ AppSettings loadSettings() {
     AppSettings s;
     QSettings c = openSettings();
     s.indexCache = c.value(QStringLiteral("cache/index"), s.indexCache).toBool();
+    s.dedupAllowArchiveDelete =
+        c.value(QStringLiteral("dedup/allowArchiveDelete"), false).toBool();
     if (c.contains(QStringLiteral("cache/mode"))) {
         s.cacheMode = MediaCache::modeFromKey(
             c.value(QStringLiteral("cache/mode")).toString(), s.cacheMode);
@@ -406,6 +408,8 @@ namespace {
 // can stage through a temp file (atomic replace, see below).
 void writeSettingsTo(QSettings &c, const AppSettings &s) {
     c.setValue(QStringLiteral("cache/index"), s.indexCache);
+    c.setValue(QStringLiteral("dedup/allowArchiveDelete"),
+               s.dedupAllowArchiveDelete);
     c.setValue(QStringLiteral("cache/mode"), MediaCache::modeKey(s.cacheMode));
     // Legacy key kept in sync for older builds reading the same ini.
     c.setValue(QStringLiteral("cache/thumbs"),

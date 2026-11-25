@@ -984,6 +984,11 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
         }
     });
 
+    auto *toolsMenu = menuBar()->addMenu(tr("&Tools"));
+    QAction *dedupAct = toolsMenu->addAction(
+        tr("Find &duplicate media…"), this, &MainWindow::openDedupDialog);
+    dedupAct->setShortcut(QKeySequence(QStringLiteral("Ctrl+Shift+D")));
+
     auto *infoMenu = menuBar()->addMenu(tr("&Info"));
     infoMenu->addAction(tr("&Statistics…"), this, &MainWindow::showStatistics);
     infoMenu->addSeparator();

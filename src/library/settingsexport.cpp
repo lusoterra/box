@@ -246,6 +246,9 @@ QJsonObject exportJson(const AppSettings &s, const QVector<Post> &favs) {
     hydrus[QStringLiteral("minTagPosts")] = s.hydrusMinTagPosts;
     hydrus[QStringLiteral("dropUnknownTags")] = s.hydrusDropUnknownTags;
     o[QStringLiteral("hydrus")] = hydrus;
+    QJsonObject dedup;
+    dedup[QStringLiteral("allowArchiveDelete")] = s.dedupAllowArchiveDelete;
+    o[QStringLiteral("dedup")] = dedup;
     QJsonObject share;
     share[QStringLiteral("bind")] = s.shareBind;
     share[QStringLiteral("port")] = s.sharePort;
@@ -416,6 +419,10 @@ bool importJson(const QJsonObject &o, AppSettings *s, QVector<Post> *favs,
     if (hydrus.contains(QStringLiteral("dropUnknownTags")))
         s->hydrusDropUnknownTags =
             hydrus.value(QStringLiteral("dropUnknownTags")).toBool();
+    const QJsonObject dedup = o.value(QStringLiteral("dedup")).toObject();
+    if (dedup.contains(QStringLiteral("allowArchiveDelete")))
+        s->dedupAllowArchiveDelete =
+            dedup.value(QStringLiteral("allowArchiveDelete")).toBool();
     const QJsonObject share = o.value(QStringLiteral("share")).toObject();
     if (share.contains(QStringLiteral("bind")))
         s->shareBind = share.value(QStringLiteral("bind")).toString();

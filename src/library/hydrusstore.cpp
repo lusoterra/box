@@ -433,4 +433,13 @@ bool Db::updateFile(const QString &sha256, const QString &fileName,
     return q.exec() && q.numRowsAffected() > 0;
 }
 
+bool Db::remove(const QString &sha256) {
+    if (!m_open || sha256.trimmed().isEmpty())
+        return false;
+    QSqlQuery q(dbFor(m_conn));
+    q.prepare(QStringLiteral("DELETE FROM posts WHERE sha256 = ?"));
+    q.addBindValue(sha256.trimmed().toLower());
+    return q.exec() && q.numRowsAffected() > 0;
+}
+
 } // namespace HydrusStore

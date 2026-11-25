@@ -127,6 +127,8 @@ public:
     // Orphan file discovered in the media folder: bind a real name/ext.
     bool updateFile(const QString &sha256, const QString &fileName,
                     const QString &ext, qint64 bytes);
+    // Remove a media row after its file has been deleted from disk.
+    bool remove(const QString &sha256);
 
 private:
     bool exec(const QString &sql) const;

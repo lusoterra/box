@@ -779,6 +779,9 @@ void PrefsDialog::harvestInto(AppSettings &out) {
         out.defaultVideoPlayer = m_defaultVideoPlayer->text().trimmed();
     if (m_defaultTextEditor)
         out.defaultTextEditor = m_defaultTextEditor->text().trimmed();
+    if (m_dedupAllowArchiveDelete)
+        out.dedupAllowArchiveDelete =
+            m_dedupAllowArchiveDelete->isChecked();
     if (m_loopGif)
         out.loopGif = m_loopGif->isChecked();
     if (m_loopVideo)
