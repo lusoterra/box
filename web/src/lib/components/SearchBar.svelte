@@ -16,19 +16,23 @@
     rating = 'all',
     total = null,
     loading = false,
+    cardWidth = 184,
     onsubmit,
     onrating,
     onsettings,
     onrefresh,
+    oncardwidth,
   }: {
     query?: string;
     rating?: Rating;
     total?: number | null;
     loading?: boolean;
+    cardWidth?: number;
     onsubmit: (query: string) => void;
     onrating: (rating: Rating) => void;
     onsettings: () => void;
     onrefresh: () => void;
+    oncardwidth: (width: number) => void;
   } = $props();
 
   let text = $state('');
@@ -127,6 +131,7 @@
     <span class="lead" aria-hidden="true"><Icon name="search" size={17} /></span>
     <input
       bind:this={input}
+      id="search-input"
       bind:value={text}
       onkeydown={onkeydown}
       onfocus={() => {
@@ -224,6 +229,19 @@
     >
       <Icon name="settings" size={16} />
     </button>
+
+    <label class="size-slider" title="Grid card size">
+      <Icon name="grid" size={14} />
+      <input
+        type="range"
+        min="96"
+        max="384"
+        step="8"
+        value={cardWidth}
+        oninput={(e) => oncardwidth(Number(e.currentTarget.value))}
+        aria-label="Grid card size"
+      />
+    </label>
   </div>
 </div>
 
@@ -377,6 +395,22 @@
     text-transform: uppercase;
   }
 
+  .size-slider {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 2px;
+    color: var(--muted);
+    flex: 0 0 auto;
+  }
+
+  .size-slider input {
+    width: 92px;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+
   .suggestions {
     position: absolute;
     z-index: 40;
@@ -437,6 +471,10 @@
     }
 
     .readonly {
+      display: none;
+    }
+
+    .size-slider {
       display: none;
     }
   }

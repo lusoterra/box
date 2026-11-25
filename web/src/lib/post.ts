@@ -94,6 +94,21 @@ export function tagDisplay(tag: string): string {
   return tag.replace(/_/g, ' ');
 }
 
+export function fileNameOf(url: string | undefined): string {
+  if (!url) return '';
+  try {
+    const parsed = new URL(url, window.location.origin);
+    const name = parsed.pathname.split('/').pop() || '';
+    try {
+      return decodeURIComponent(name);
+    } catch {
+      return name;
+    }
+  } catch {
+    return url.split('/').pop() || '';
+  }
+}
+
 export function ratingOf(post: DanbooruPost): string {
   const r = (post.rating || '').toLowerCase();
   if (r === 'safe' || r === 'g') return 'general';

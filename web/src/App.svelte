@@ -21,10 +21,33 @@
     writeHash,
     type Route,
   } from './lib/router';
+  import {
+    DEFAULT_GRID,
+    normalizeGrid,
+    type GridSettings,
+  } from './lib/grid';
+  import {
+    DEFAULT_PLAYBACK,
+    normalizePlayback,
+    type PlaybackSettings,
+  } from './lib/playback';
   import { DEFAULT_THEME, normalizeTheme, themeFor } from './lib/themes';
   import type { DanbooruPost, Rating } from './lib/types';
 
   const PAGE_LIMIT = 40;
+  const LAST_HOME_KEY = 'box-share-last-home';
+
+  function readStoredHome(): { tags: string; rating: Rating } | null {
+    try {
+      const raw = localStorage.getItem(LAST_HOME_KEY);
+      if (!raw) return null;
+      const parsed = parseLocation(raw);
+      if (parsed.kind !== 'home') return null;
+      return { tags: parsed.tags, rating: parsed.rating };
+    } catch {
+      return null;
+    }
+  }
 
   function readTheme(): string {
     try {
@@ -34,16 +57,40 @@
     }
   }
 
+  function readGrid(): GridSettings {
+    try {
+      const raw = localStorage.getItem('box-share-grid');
+      if (raw) return normalizeGrid(JSON.parse(raw) as Partial<GridSettings>);
+    } catch {
+      // storage or JSON unavailable
+    }
+    return { ...DEFAULT_GRID };
+  }
+
+  function readPlayback(): PlaybackSettings {
+    try {
+      const raw = localStorage.getItem('box-share-playback');
+      if (raw) {
+        return normalizePlayback(
+          JSON.parse(raw) as Partial<PlaybackSettings>,
+        );
+      }
+    } catch {
+      // storage or JSON unavailable
+    }
+    return { ...DEFAULT_PLAYBACK };
+  }
+
   const first = parseLocation();
+  const storedHome = first.kind === 'post' ? readStoredHome() : null;
+  const initialTags = first.kind === 'home' ? first.tags : storedHome?.tags ?? '';
+  const initialRating =
+    first.kind === 'home' ? first.rating : storedHome?.rating ?? 'all';
 
   let route = $state<Route>(first);
-  let query = $state(first.kind === 'home' ? first.tags : '');
-  let rating = $state<Rating>(
-    first.kind === 'home' ? first.rating : 'all',
-  );
-  let lastHomeHash = $state(
-    first.kind === 'home' ? homeHash(first.tags, first.rating) : '#/',
-  );
+  let query = $state(initialTags);
+  let rating = $state<Rating>(initialRating);
+  let lastHomeHash = $state(homeHash(initialTags, initialRating));
   let posts = $state<DanbooruPost[]>([]);
   let page = $state(1);
   let hasMore = $state(true);
@@ -57,6 +104,8 @@
   let settingsOpen = $state(false);
   let apiBase = $state(getApiBase());
   let theme = $state(readTheme());
+  let grid = $state<GridSettings>(readGrid());
+  let playback = $state<PlaybackSettings>(readPlayback());
   let prefersLight = $state(false);
 
   let searchSeq = 0;
@@ -97,6 +146,33 @@
         : themeFor(theme);
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute('content', palette.window);
+  });
+
+  $effect(() => {
+    try {
+      localStorage.setItem('box-share-grid', JSON.stringify(grid));
+    } catch {
+      // storage unavailable
+    }
+  });
+
+  $effect(() => {
+    try {
+      localStorage.setItem(
+        'box-share-playback',
+        JSON.stringify(playback),
+      );
+    } catch {
+      // storage unavailable
+    }
+  });
+
+  $effect(() => {
+    try {
+      localStorage.setItem(LAST_HOME_KEY, lastHomeHash);
+    } catch {
+      // storage unavailable
+    }
   });
 
   async function runSearch(reset = true): Promise<void> {
@@ -212,6 +288,7 @@
     viewerError = '';
     route = { kind: 'home', tags: query, rating };
     writeHash(lastHomeHash, false);
+    if (posts.length === 0) void runSearch(true);
     requestAnimationFrame(() => window.scrollTo(0, gridScroll));
   }
 
@@ -252,10 +329,17 @@
     writeHash(lastHomeHash, true);
   }
 
-  function saveSettings(newApi: string, newTheme: string): void {
+  function saveSettings(
+    newApi: string,
+    newTheme: string,
+    newGrid: GridSettings,
+    newPlayback: PlaybackSettings,
+  ): void {
     const oldApi = getApiBase();
     apiBase = setApiBase(newApi);
     theme = normalizeTheme(newTheme);
+    grid = normalizeGrid(newGrid);
+    playback = normalizePlayback(newPlayback);
     settingsOpen = false;
     if (oldApi !== getApiBase()) {
       void runSearch(true);
@@ -283,6 +367,7 @@
     viewerFromGrid = false;
     query = next.tags;
     rating = next.rating;
+    lastHomeHash = homeHash(next.tags, next.rating);
     if (changed || posts.length === 0) {
       void runSearch(true);
     } else {
@@ -302,8 +387,40 @@
     };
     media.addEventListener('change', onScheme);
 
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      if (settingsOpen || route.kind === 'post') return;
+      if (
+        event.key === '/' ||
+        (event.ctrlKey && event.key.toLowerCase() === 'l')
+      ) {
+        event.preventDefault();
+        document.getElementById('search-input')?.focus();
+        return;
+      }
+      if (
+        event.key === 'Escape' &&
+        (query || rating !== 'all')
+      ) {
+        event.preventDefault();
+        rating = 'all';
+        submitSearch('');
+      }
+    };
+    window.addEventListener('keydown', onKey);
+
     if (route.kind === 'post') {
       void loadPost(route.id);
+      if (query || rating !== 'all') void runSearch(true);
     } else {
       if (!window.location.hash) writeHash(lastHomeHash, false);
       void runSearch(true);
@@ -313,6 +430,7 @@
       window.removeEventListener('popstate', onLocation);
       window.removeEventListener('hashchange', onLocation);
       media.removeEventListener('change', onScheme);
+      window.removeEventListener('keydown', onKey);
     };
   });
 </script>
@@ -332,15 +450,19 @@
       {query}
       {rating}
       {total}
+      cardWidth={grid.cardWidth}
       loading={loading || loadingMore}
       onsubmit={submitSearch}
       onrating={changeRating}
       onsettings={() => (settingsOpen = true)}
       onrefresh={refresh}
+      oncardwidth={(width) => (grid = { ...grid, cardWidth: width })}
     />
   </header>
 
-  <main>
+  <main
+    style={`--card-w:${grid.cardWidth}px;--thumb-aspect:${grid.aspectNum} / ${grid.aspectDen}`}
+  >
     <PostGrid
       {posts}
       {loading}
@@ -367,6 +489,8 @@
   <SettingsPanel
     {apiBase}
     {theme}
+    {grid}
+    {playback}
     onclose={() => (settingsOpen = false)}
     onsave={saveSettings}
   />
@@ -379,6 +503,7 @@
     error={viewerError}
     {canPrev}
     {canNext}
+    {playback}
     onclose={closeViewer}
     onprev={() => stepPost(-1)}
     onnext={() => stepPost(1)}

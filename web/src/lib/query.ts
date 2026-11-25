@@ -36,6 +36,25 @@ export function ratingColor(rating: string): string {
   }
 }
 
+export function ratingLetter(rating: string): string {
+  switch (rating) {
+    case 'sensitive':
+      return 'S';
+    case 'questionable':
+      return 'Q';
+    case 'explicit':
+      return 'E';
+    default:
+      return 'G';
+  }
+}
+
+export function formatScore(score: number | null | undefined): string {
+  const n = Number(score);
+  if (!Number.isFinite(n)) return '0';
+  return n > 0 ? `+${Math.round(n)}` : String(Math.round(n));
+}
+
 export function tagBucketColor(bucket: string): string {
   switch (bucket) {
     case 'artist':
@@ -132,11 +151,13 @@ export function lastToken(text: string): string {
   return match[1].replace(/^-/, '');
 }
 
-/** Replace the token being typed (preserving its leading `-`). */
+/** Replace the token being typed (preserving its leading `-`) without
+ *  dropping earlier tokens. */
 export function replaceLastToken(text: string, replacement: string): string {
   const match = text.match(/(^|\s)(-?)([^\s]*)$/);
-  if (!match) return replacement;
-  return `${match[1]}${match[2]}${replacement}`;
+  if (!match || match.index == null) return replacement;
+  const before = text.slice(0, match.index);
+  return `${before}${match[1]}${match[2]}${replacement}`;
 }
 
 export function formatCount(n: number | null | undefined): string {

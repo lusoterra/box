@@ -31,6 +31,11 @@ One Dark, Tokyo Night, Steam Classic), plus System for the browser/OS
 preference. Booru Explorer's box mark and wordmark are used in the header,
 settings dialog, footer and favicon.
 
+The grid follows Box's layout: uniform centre-cropped thumbnails, the same
+thumbnail-ratio list, a card-size slider, and a rating/score/id strip plus
+filename under each card. Video playback defaults (mute, loop, volume) mirror
+Box's Preferences -> Appearance -> Video playback.
+
 ## Check
 
 ```sh

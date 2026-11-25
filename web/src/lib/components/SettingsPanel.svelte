@@ -3,21 +3,53 @@
   import Icon from './Icon.svelte';
   import ThemePicker from './ThemePicker.svelte';
   import { defaultApiBase, pingServerAt } from '../api';
+  import { THUMB_RATIOS, type GridSettings } from '../grid';
+  import type { PlaybackSettings } from '../playback';
 
   let {
     apiBase,
     theme,
+    grid,
+    playback,
     onclose,
     onsave,
   }: {
     apiBase: string;
     theme: string;
+    grid: GridSettings;
+    playback: PlaybackSettings;
     onclose: () => void;
-    onsave: (apiBase: string, theme: string) => void;
+    onsave: (
+      apiBase: string,
+      theme: string,
+      grid: GridSettings,
+      playback: PlaybackSettings,
+    ) => void;
   } = $props();
+
+  let ratioOptions = $derived.by(() => {
+    const options = [...THUMB_RATIOS];
+    if (
+      !options.some(
+        (r) => r.num === grid.aspectNum && r.den === grid.aspectDen,
+      )
+    ) {
+      options.push({
+        label: `Custom ${grid.aspectNum}:${grid.aspectDen}`,
+        num: grid.aspectNum,
+        den: grid.aspectDen,
+      });
+    }
+    return options;
+  });
 
   let api = $state('');
   let selectedTheme = $state('');
+  let aspectKey = $state('');
+  let cardWidth = $state(0);
+  let pbMuted = $state(true);
+  let pbLoop = $state(true);
+  let pbVolume = $state(100);
   let testing = $state(false);
   let testOk = $state(false);
   let testText = $state('');
@@ -27,6 +59,11 @@
     // the parent ever changes them while the dialog is open.
     api = apiBase;
     selectedTheme = theme;
+    aspectKey = `${grid.aspectNum}:${grid.aspectDen}`;
+    cardWidth = grid.cardWidth;
+    pbMuted = playback.muted;
+    pbLoop = playback.loop;
+    pbVolume = playback.volume;
   });
 
   $effect(() => {
@@ -55,7 +92,17 @@
   }
 
   function save(): void {
-    onsave(api, selectedTheme);
+    const [num, den] = aspectKey.split(':').map(Number);
+    onsave(
+      api,
+      selectedTheme,
+      {
+        aspectNum: Number.isFinite(num) && num > 0 ? num : 1,
+        aspectDen: Number.isFinite(den) && den > 0 ? den : 1,
+        cardWidth,
+      },
+      { muted: pbMuted, loop: pbLoop, volume: pbVolume },
+    );
   }
 
   function useDefault(): void {
@@ -108,6 +155,7 @@
         </p>
         <div class="row">
           <input
+            class="text-input"
             bind:value={api}
             placeholder={defaultApiBase()}
             spellcheck="false"
@@ -145,6 +193,69 @@
             </button>
           </div>
         </details>
+      </section>
+
+      <section class="block">
+        <h3>Grid</h3>
+        <p class="hint">
+          Thumbnail shape and card width. The ratios match Booru Explorer's
+          Appearance → Grid settings; thumbnails are centre-cropped to fill.
+        </p>
+        <div class="grid-settings">
+          <label class="field">
+            <span>Thumbnail ratio</span>
+            <select bind:value={aspectKey} aria-label="Thumbnail ratio">
+              {#each ratioOptions as ratio (ratio.label)}
+                <option value={`${ratio.num}:${ratio.den}`}>
+                  {ratio.label}
+                </option>
+              {/each}
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Card size <em>{cardWidth}px</em></span>
+            <input
+              type="range"
+              min="96"
+              max="384"
+              step="8"
+              value={cardWidth}
+              oninput={(e) =>
+                (cardWidth = Number(e.currentTarget.value))}
+              aria-label="Card size"
+            />
+          </label>
+        </div>
+      </section>
+
+      <section class="block">
+        <h3>Playback</h3>
+        <p class="hint">
+          Same video defaults as Booru Explorer. The viewer's mute button
+          only affects the current video; each new video starts with this
+          default.
+        </p>
+        <label class="check">
+          <input type="checkbox" bind:checked={pbMuted} />
+          <span>Mute videos by default</span>
+        </label>
+        <label class="check">
+          <input type="checkbox" bind:checked={pbLoop} />
+          <span>Loop videos</span>
+        </label>
+        <label class="field volume-field">
+          <span>Default volume <em>{pbVolume}%</em></span>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            step="1"
+            value={pbVolume}
+            oninput={(e) => (pbVolume = Number(e.currentTarget.value))}
+            aria-label="Default video volume"
+          />
+        </label>
       </section>
 
       <section class="block">
@@ -285,13 +396,74 @@
     max-width: 62ch;
   }
 
+  .grid-settings {
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr);
+    gap: 10px 14px;
+    align-items: end;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+    color: var(--muted);
+    font-size: 11.5px;
+  }
+
+  .field em {
+    color: var(--text-dim);
+    font-style: normal;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .field select {
+    height: 32px;
+    padding: 0 8px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: var(--panel-2);
+    color: var(--text);
+    font-size: 12px;
+  }
+
+  .field input[type='range'] {
+    accent-color: var(--accent);
+    width: 100%;
+    height: 32px;
+    cursor: pointer;
+  }
+
+  .check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 26px;
+    color: var(--text-dim);
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .check input {
+    accent-color: var(--accent);
+    width: 15px;
+    height: 15px;
+    cursor: pointer;
+  }
+
+  .volume-field {
+    margin-top: 6px;
+    max-width: 300px;
+  }
+
   .row {
     display: flex;
     gap: 6px;
     align-items: stretch;
   }
 
-  input {
+  .text-input {
     min-width: 0;
     flex: 1;
     height: 34px;
@@ -304,7 +476,7 @@
     font-size: 12px;
   }
 
-  input:focus {
+  .text-input:focus {
     outline: none;
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-soft);
@@ -474,7 +646,11 @@
       flex-wrap: wrap;
     }
 
-    input {
+    .grid-settings {
+      grid-template-columns: 1fr;
+    }
+
+    .text-input {
       flex-basis: 100%;
     }
 

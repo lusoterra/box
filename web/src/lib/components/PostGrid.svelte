@@ -103,14 +103,15 @@
 <style>
   .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 190px), 1fr));
+    grid-template-columns:
+      repeat(auto-fill, minmax(min(100%, var(--card-w, 184px)), 1fr));
     gap: 10px;
     align-items: start;
     padding-bottom: 20px;
   }
 
   .skeleton {
-    aspect-ratio: 3 / 4;
+    aspect-ratio: var(--thumb-aspect, 1);
     border-radius: var(--radius);
     border: 1px solid var(--border);
     background:
@@ -223,7 +224,7 @@
 
   @media (max-width: 640px) {
     .grid {
-      grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(min(100%, 140px), 1fr));
       gap: 7px;
     }
   }

@@ -3,17 +3,25 @@
   import { absoluteMediaUrl } from '../api';
   import {
     fileUrl,
+    fileNameOf,
     isVideoPost,
-    postAspect,
     postExt,
     previewUrl,
     ratingOf,
   } from '../post';
-  import { altForPost, formatDuration, ratingColor } from '../query';
+  import {
+    altForPost,
+    formatDuration,
+    formatScore,
+    ratingColor,
+    ratingLetter,
+  } from '../query';
   import type { DanbooruPost } from '../types';
 
-  let { post, onopen }: { post: DanbooruPost; onopen: (post: DanbooruPost) => void } =
-    $props();
+  let {
+    post,
+    onopen,
+  }: { post: DanbooruPost; onopen: (post: DanbooruPost) => void } = $props();
 
   let failed = $state(false);
   let useFile = $state(false);
@@ -23,13 +31,8 @@
   let video = $derived(isVideoPost(post));
   let ext = $derived(postExt(post));
   let rating = $derived(ratingOf(post));
-  let aspect = $derived(postAspect(post));
   let duration = $derived(formatDuration(post.media_asset?.duration));
-  let dims = $derived(
-    post.image_width && post.image_height
-      ? `${post.image_width}×${post.image_height}`
-      : '',
-  );
+  let fileName = $derived(fileNameOf(fileUrl(post)) || ext.toUpperCase());
 
   function open(event: MouseEvent): void {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey)
@@ -45,7 +48,7 @@
   onclick={open}
   title={altForPost(post)}
 >
-  <span class="thumb" style={`aspect-ratio:${aspect}`}>
+  <span class="thumb">
     {#if failed || !src}
       <span class="placeholder">
         <Icon name="image" size={28} />
@@ -66,53 +69,60 @@
       />
     {/if}
 
-    <span class="shade"></span>
-
     {#if video}
       <span class="play"><Icon name="play" size={22} /></span>
     {/if}
 
     <span class="badges">
-      <span class="rating" style={`--rating:${ratingColor(rating)}`}></span>
       {#if ext}<span class="ext">{ext.toUpperCase()}</span>{/if}
       {#if duration}<span class="duration">{duration}</span>{/if}
     </span>
-
-    <span class="hover">
-      <span>#{post.id}</span>
-      {#if dims}<span>{dims}</span>{/if}
-    </span>
   </span>
+
+  <span class="info">
+    <span
+      class="rating-letter"
+      style={`--rating:${ratingColor(rating)}`}
+      title={rating}
+    >{ratingLetter(rating)}</span>
+    <span class="score" class:negative={Number(post.score) < 0}>
+      {formatScore(post.score)}
+    </span>
+    <span class="post-id">#{post.id}</span>
+  </span>
+
+  <span class="filename" title={fileName}>{fileName}</span>
 </a>
 
 <style>
   .card {
-    display: block;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
     color: inherit;
     text-decoration: none;
+    background: var(--panel);
+    border: 1px solid var(--border);
     border-radius: var(--radius);
+    overflow: hidden;
     outline-offset: 3px;
+    transition: border-color 0.12s ease, transform 0.12s ease;
   }
 
   .card:hover {
     text-decoration: none;
+    border-color: var(--border-strong);
+    transform: translateY(-1px);
   }
 
   .thumb {
     position: relative;
     display: block;
     width: 100%;
+    aspect-ratio: var(--thumb-aspect, 1);
     overflow: hidden;
-    border-radius: var(--radius);
-    background: var(--panel);
-    border: 1px solid var(--border);
-    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.02);
-    transition: border-color 0.12s ease, transform 0.12s ease;
-  }
-
-  .card:hover .thumb {
-    border-color: var(--border-strong);
-    transform: translateY(-1px);
+    background: var(--panel-2);
+    flex: 0 0 auto;
   }
 
   img {
@@ -134,45 +144,23 @@
     place-items: center;
     color: var(--muted);
     background:
-      linear-gradient(135deg, transparent 0 45%, var(--panel-2) 45% 55%, transparent 55%),
+      linear-gradient(
+        135deg,
+        transparent 0 45%,
+        var(--panel-2) 45% 55%,
+        transparent 55%
+      ),
       var(--panel);
-  }
-
-  .shade {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background: linear-gradient(
-      to bottom,
-      rgba(0, 0, 0, 0.22),
-      transparent 22%,
-      transparent 72%,
-      rgba(0, 0, 0, 0.55)
-    );
-    opacity: 0;
-    transition: opacity 0.15s ease;
-  }
-
-  .card:hover .shade {
-    opacity: 1;
   }
 
   .badges {
     position: absolute;
-    top: 6px;
-    right: 6px;
+    top: 5px;
+    right: 5px;
     display: flex;
     align-items: center;
     gap: 4px;
     pointer-events: none;
-  }
-
-  .rating {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--rating);
-    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.45);
   }
 
   .ext,
@@ -202,24 +190,57 @@
     pointer-events: none;
   }
 
-  .hover {
-    position: absolute;
-    left: 7px;
-    right: 7px;
-    bottom: 7px;
+  .info {
     display: flex;
-    justify-content: space-between;
-    gap: 8px;
-    color: rgba(255, 255, 255, 0.86);
+    align-items: center;
+    gap: 6px;
+    height: 24px;
+    padding: 0 6px;
+    border-top: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text-dim);
     font-size: 10px;
     font-variant-numeric: tabular-nums;
-    opacity: 0;
-    transition: opacity 0.15s ease;
-    pointer-events: none;
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+    flex: 0 0 auto;
   }
 
-  .card:hover .hover {
-    opacity: 1;
+  .rating-letter {
+    width: 14px;
+    height: 14px;
+    display: grid;
+    place-items: center;
+    border: 1px solid color-mix(in srgb, var(--rating) 65%, var(--border));
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--rating) 12%, transparent);
+    color: var(--rating);
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .score {
+    color: var(--text-dim);
+  }
+
+  .score.negative {
+    color: var(--danger);
+  }
+
+  .post-id {
+    margin-left: auto;
+    color: var(--muted);
+    font-size: 9.5px;
+  }
+
+  .filename {
+    display: block;
+    padding: 2px 6px 5px;
+    color: var(--muted);
+    font-size: 9.5px;
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 0 0 auto;
   }
 </style>

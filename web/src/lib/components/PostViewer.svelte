@@ -19,6 +19,7 @@
     tagBucketColor,
   } from '../query';
   import type { DanbooruPost } from '../types';
+  import type { PlaybackSettings } from '../playback';
 
   let {
     post = null,
@@ -26,6 +27,7 @@
     error = '',
     canPrev = false,
     canNext = false,
+    playback,
     onclose,
     onprev,
     onnext,
@@ -37,6 +39,7 @@
     error?: string;
     canPrev?: boolean;
     canNext?: boolean;
+    playback: PlaybackSettings;
     onclose: () => void;
     onprev: () => void;
     onnext: () => void;
@@ -48,6 +51,8 @@
   let videoEl = $state<HTMLVideoElement | null>(null);
   let zoomed = $state(false);
   let muted = $state(true);
+  let volume = $state(100);
+  let volumeInitialized = false;
   let infoOpen = $state(true);
   let mediaError = $state(false);
   let copied = $state('');
@@ -76,14 +81,22 @@
     const id = post?.id;
     if (!id) return;
     zoomed = false;
-    muted = true;
     mediaError = false;
     copied = '';
     infoOpen = window.innerWidth >= 900;
+    // Box resets mute to the configured default for every video; the
+    // viewer's own volume slider persists while stepping.
+    muted = playback.muted;
+    if (!volumeInitialized) {
+      volume = playback.volume;
+      volumeInitialized = true;
+    }
   });
 
   $effect(() => {
-    if (videoEl) videoEl.muted = muted;
+    if (!videoEl) return;
+    videoEl.muted = muted;
+    videoEl.volume = Math.min(1, Math.max(0, volume / 100));
   });
 
   $effect(() => {
@@ -113,6 +126,9 @@
         return;
       }
       if (event.key === 'Escape') {
+        event.preventDefault();
+        onclose();
+      } else if (event.key === 'Backspace') {
         event.preventDefault();
         onclose();
       } else if (event.key === 'ArrowLeft' && canPrev) {
@@ -254,6 +270,20 @@
           >
             <Icon name={muted ? 'volume-off' : 'volume'} size={17} />
           </button>
+          <label class="volume-slider" title="Video volume">
+            <input
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              value={volume}
+              oninput={(e) => {
+                volume = Number(e.currentTarget.value);
+                if (volume > 0) muted = false;
+              }}
+              aria-label="Video volume"
+            />
+          </label>
         {:else}
           <button
             type="button"
@@ -346,7 +376,7 @@
             poster={poster || undefined}
             controls
             autoplay
-            loop
+            loop={playback.loop}
             playsinline
             preload="metadata"
             onerror={() => (mediaError = true)}
@@ -563,6 +593,19 @@
     display: flex;
     align-items: center;
     gap: 2px;
+  }
+
+  .volume-slider {
+    display: inline-flex;
+    align-items: center;
+    width: 74px;
+    padding: 0 4px;
+  }
+
+  .volume-slider input {
+    width: 100%;
+    accent-color: var(--accent);
+    cursor: pointer;
   }
 
   .actions {
@@ -858,6 +901,10 @@
   @media (max-width: 900px) {
     .body {
       flex-direction: column;
+    }
+
+    .volume-slider {
+      display: none;
     }
 
     .stage {
