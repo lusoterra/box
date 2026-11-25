@@ -398,6 +398,28 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
         "auto-download is on.")));
     lay->addWidget(fav);
 
+    // ── LAN sharing defaults ──
+    auto *sharing = new QGroupBox(tr("LAN sharing"), this);
+    auto *sharingForm = new QFormLayout(sharing);
+    m_shareBind = new QLineEdit(current.shareBind, this);
+    m_shareBind->setPlaceholderText(QStringLiteral("0.0.0.0"));
+    m_shareBind->setToolTip(
+        tr("Address the read-only API listens on. 0.0.0.0 means every "
+           "interface (LAN); 127.0.0.1 keeps it local."));
+    connect(m_shareBind, &QLineEdit::textChanged, this,
+            &PrefsDialog::updateApplyState);
+    sharingForm->addRow(tr("Bind address:"), m_shareBind);
+    m_sharePort = new QSpinBox(this);
+    m_sharePort->setRange(1, 65535);
+    m_sharePort->setValue(qBound(1, current.sharePort, 65535));
+    connect(m_sharePort, QOverload<int>::of(&QSpinBox::valueChanged), this,
+            &PrefsDialog::updateApplyState);
+    sharingForm->addRow(tr("Port:"), m_sharePort);
+    sharing->setToolTip(
+        tr("Defaults for File → Share library on LAN…; sources are picked "
+           "again each time the server starts."));
+    lay->addWidget(sharing);
+
     // ── Filtering ──
     auto *filter = new QGroupBox(tr("Filtering"), this);
     auto *filterLay = new QVBoxLayout(filter);

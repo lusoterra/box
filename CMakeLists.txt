@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(Box VERSION 0.9.1 LANGUAGES C CXX)
+project(Box VERSION 0.10.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -45,6 +45,7 @@ add_executable(box
     src/remote/strayresolve.cpp
     src/remote/hydrus.cpp
     src/remote/gallerydl.cpp
+    src/remote/shareserver.cpp
     src/remote/powsolver.cpp
     src/remote/downloadmanager.cpp
     src/remote/downloadqueue.cpp
@@ -61,6 +62,7 @@ add_executable(box
     src/library/losnimport.cpp
     src/library/csvbackup.cpp
     src/library/queryor.cpp
+    src/library/sharecatalog.cpp
     src/migrations/runner.cpp
     src/migrations/m_settings_keys.cpp
     src/migrations/m_booru_credentials.cpp
@@ -87,6 +89,7 @@ add_executable(box
     src/ui/straydialog.cpp
     src/ui/hydrusdialog.cpp
     src/ui/hydrustagdialog.cpp
+    src/ui/sharedialog.cpp
     src/ui/mainwindow.cpp
     src/ui/mainwindow_gridmenu.cpp
     src/ui/mainwindow_tabs.cpp
@@ -116,6 +119,7 @@ add_executable(box
     src/ui/mainwindow_close.cpp
     src/ui/mainwindow_misc2.cpp
     src/ui/mainwindow_hydrus.cpp
+    src/ui/mainwindow_share.cpp
     src/ui/mainwindow_metadata.cpp
     src/ui/metadatadialog.cpp
     src/ui/statsdialog.cpp

@@ -223,6 +223,22 @@ single-instance via `session.lock`).
     absent on the official client/PTR) and degrades to all-kept tags on
     404/501/503. Settings `hydrus/enabled|url|accessKey|proxy`; no write
     endpoints exist.
+  - `sharecatalog.h` (`src/library/`): pure read-only catalog behind the
+    LAN server. `ShareItem` = Post + local/remote media target + stable
+    numeric id; `add()` merges duplicate rows by site+id, media URL,
+    md5/sha256 or canonical path; `search()` implements the Danbooru
+    query subset (AND, `-`, `~()` groups, `rating:`, `filetype:`, `id:`,
+    `md5:`, `sha256:`), `postJson()`/`tagsJson()`/`count()` emit the
+    Danbooru shape. No DB or network access.
+  - `shareserver.h` (`src/remote/`): read-only `QTcpServer` Danbooru API
+    (`/posts.json`, `/posts/<id>.json`, `/tags.json`,
+    `/counts/posts.json`, `/share/file/<id>`, `/share/thumb/<id>`).
+    Binds 0.0.0.0:7071 by default; media is streamed with Range support.
+    Local files are served directly; remote-only favourites resolve
+    through a callback (ImageCache when enabled, otherwise a live proxy)
+    and videos proxy with cookies/referer. Local thumbnails are generated
+    and cached under `<cache>/share-thumbs`; remote-only previews use the
+    booru preview URL. Nothing is writable.
   - `hydrusstore.h` (`src/library/`): the Hydrus tab's isolated SQLite
     store (`hydrus.db`) - SHA-256 keyed rows with native namespace tags,
     hydrus file id, `hydrus_found` and `manual_override` flags. Pure
@@ -250,6 +266,12 @@ single-instance via `session.lock`).
     hides favourite/download/comment/refresh buttons through
     `ViewerPage::setHydrusMode`. Hydrus thumbnails are session-memory only
     (`requestVisibleThumbs` passes `persistToDisk=false`).
+  - LAN sharing: `File → Share library on LAN…` opens `sharedialog`
+    (source checkboxes, bind/port, copy URL, Start/Restart/Refresh/Stop);
+    `mainwindow_share.cpp` builds the snapshot (FavDb, HydrusStore,
+    `Scanner` in a worker) and owns `ShareServer`. A permanent bottom-right
+    `API is live` status-bar button opens the dialog; clicking it while live
+    shows the current URL/post count. The listener stops on quit.
   - `viewerpage.h:170` `ViewerPage` (same-window viewer; member defs split across `src/ui/viewerpage.cpp`, `viewerpage_mediaviews.cpp` (`ImageView`/`GifView`/`VideoView`), `viewerpage_nav.cpp` navigation/prefetch, `viewerpage_meta.cpp` metadata/notes/comments/commentary popups+reload, `viewerpage_tags.cpp` tag rendering, `viewerpage_load.cpp` notes/cache/web load, `viewerpage_setters.cpp` state/setters/badges, `viewerpage_detail.cpp` Hybooru detail fetch; `ImageView` `:33`,
     `GifView` `:65`, `VideoView` `:93`); software video decoding forced in
     `main.cpp` (`QT_FFMPEG_DECODING_HW_DEVICE_TYPES=,`, user-overridable;
@@ -490,6 +512,32 @@ single-instance via `session.lock`).
     or not) so they can be retried later. Files already in the media
     folder without a row are indexed in a worker (hash-trusting
     `<sha256>.<ext>` names) and appear untagged.
+- LAN sharing (`mainwindow_share.cpp`, `shareserver.cpp`):
+  - Sources: Hydrus tab rows, the downloads folder, favourites, and/or a
+    local archive folder. They merge into one `ShareCatalog`; duplicate
+    rows collapse by site+id, media URL, md5/sha256 or canonical path
+    (local copies and richest tags win). Folder scans run in a worker;
+    favourites/Hydrus rows are read on the UI thread. A snapshot is
+    refreshed manually; a running server keeps serving the old snapshot
+    until the new one is ready.
+  - API: Danbooru JSON at `/posts.json` (tags, page, limit),
+    `/posts/<id>.json`, `/tags.json` (`search[name_matches]`) and
+    `/counts/posts.json`. IDs are stable hash-based numbers. Media is
+    `/share/file/<id>` with Range support; previews are
+    `/share/thumb/<id>`. The base URL is derived from the request's Host
+    (or X-Forwarded-Proto). CORS is open; nothing is writable.
+  - Media: local files serve directly. Remote-only favourites use
+    `ImageCache` (persistent when media caching is on, session RAM/temp
+    otherwise) for images; videos and non-images stream through a QNAM
+    proxy with the app's cookies/referer. Local thumbnails are generated
+    on demand (first frame for animated images) and cached under
+    `<cache>/share-thumbs`; local videos use the booru preview if present,
+    otherwise a placeholder. Remote-only previews use the booru
+    `preview_file_url` directly.
+  - Settings `share/bind`, `share/port` (default 0.0.0.0:7071),
+    `share/hydrus`, `share/downloads`, `share/favourites`,
+    `share/localFolder`, `share/folder`. The picker is shown on every
+    start; there is no auto-start.
 - Tag classification waterfall (`src/library/tagtypes.h:112` `TagTypeFetcher`):
   Gelbooru-with-creds -> anon Danbooru -> Safebooru -> yandere; misses
   (type -1) cached, transient (`kTransientFailure = -2`) not cached and
@@ -533,7 +581,7 @@ ini + `boorus.json` to the target and leaves only the pointer stub.
 |---|---|---|
 | Config  | `~/.config/box/settings.ini` (+ `.bak` last-good backup, `.tmp` stage) | all keys below; `boorus/*` registry; atomic tmp+rename writes |
 | Data    | `~/.local/share/box/` (or `storage/dataDir`) | `store.db` favs, `hydrus.db` + `hydrus/` (isolated Hydrus tab), `tag_types.db` verdicts, `downloads/`, `download_queue.db` unfinished download journal, `session.lock`, `box.log[.1-.3]` rotating logs (`src/applog.cpp`) (`settings.h:122-167`, `main.cpp:112`) |
-| Cache   | `~/.cache/box/` (`appCacheDir`, `settings.cpp:15`) | `roots/` scan index, `thumbs/`, full-image cache, `cache.db`; `clearIndexCache()` drops `roots/` only. Media deletes go through `CacheJanitor::purgeMedia()` (SFW-only keeps provably SFW entries; everything removes `thumbs/`+`full/`) and never touch favourites, downloads, or the scan index. SFW-only still caches explicitly downloaded media (`Post::downloaded`); a favourite with no downloaded file stays filtered. |
+| Cache   | `~/.cache/box/` (`appCacheDir`, `settings.cpp:15`) | `roots/` scan index, `thumbs/`, full-image cache, `share-thumbs/`, `cache.db`; `clearIndexCache()` drops `roots/` only. Media deletes go through `CacheJanitor::purgeMedia()` (SFW-only keeps provably SFW entries; everything removes `thumbs/`+`full/`) and never touch favourites, downloads, or the scan index. SFW-only still caches explicitly downloaded media (`Post::downloaded`); a favourite with no downloaded file stays filtered. |
 
 Key `settings.ini` groups: `cache/` (index, mode=all|sfw|none, full, limitMB,
 thumbSize), `library/` (root, history), `app/` (restoreSession, language),
@@ -548,7 +596,9 @@ Startup safeguard (`main.cpp`): if a configured `storage/dataDir`, `cache/dir`, 
 `cacheMode`), `explicit/tags`, `theme/` (values are `assets/themes/*.ini` keys),
 `home/mascot*` (default embedded `マニフェスト.jpg`), `grid/`, `viewer/`,
 `hydrus/` (`enabled`, `url`, `accessKey`, `proxy`, `mediaDir`, `dbPath`,
-`minTagPosts`, `dropUnknownTags`; read-only lookups + the isolated tab).
+`minTagPosts`, `dropUnknownTags`; read-only lookups + the isolated tab),
+`share/` (`bind`, `port`, `hydrus`, `downloads`, `favourites`,
+`localFolder`, `folder`; read-only LAN API).
 Never a group named `General` (QSettings reserves it; see
 `src/settings.cpp:39-43`).
 

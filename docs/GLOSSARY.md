@@ -82,6 +82,16 @@
 - view-only folder = the read-only archive reader (`openFolder` +
   `addLocalTab`), always available as `Open view-only folder…` in the ＋
   menu; it never writes sidecars or touches the library.
+- LAN sharing / share server = the read-only Danbooru API started from
+  `File → Share library on LAN…` (`src/remote/shareserver.h`,
+  `src/library/sharecatalog.h`, `src/ui/sharedialog.h`). It merges any
+  mix of Hydrus tab, downloads, favourites and a local folder into one
+  snapshot (`share/bind`, `share/port`, default `0.0.0.0:7071`); IDs are
+  stable hash numbers, media is `/share/file/<id>` and previews are
+  `/share/thumb/<id>`. Local media serves directly; remote-only
+  favourites use ImageCache or a temporary proxy. `API is live` in the
+  bottom-right status bar opens the picker while it runs. No auth, no
+  writes, stopped on quit.
 - mascot = home-page image (`home/mascot*`, `src/settings.h`); shipped
   default is `マニフェスト.jpg` (empty path), Remove hides it, Reset
   restores the default; any grid file can replace it, rendered by

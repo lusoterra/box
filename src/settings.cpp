@@ -208,6 +208,21 @@ AppSettings loadSettings() {
     s.hydrusDropUnknownTags =
         c.value(QStringLiteral("hydrus/dropUnknownTags"),
                 s.hydrusDropUnknownTags).toBool();
+    s.shareBind =
+        c.value(QStringLiteral("share/bind"), s.shareBind).toString();
+    s.sharePort =
+        qBound(1, c.value(QStringLiteral("share/port"), s.sharePort).toInt(),
+               65535);
+    s.shareHydrus =
+        c.value(QStringLiteral("share/hydrus"), s.shareHydrus).toBool();
+    s.shareDownloads =
+        c.value(QStringLiteral("share/downloads"), s.shareDownloads).toBool();
+    s.shareFavourites =
+        c.value(QStringLiteral("share/favourites"), s.shareFavourites).toBool();
+    s.shareLocalFolder =
+        c.value(QStringLiteral("share/localFolder"), s.shareLocalFolder).toBool();
+    s.shareFolder =
+        c.value(QStringLiteral("share/folder"), s.shareFolder).toString();
     if (c.contains(QStringLiteral("filter/blacklist")))
         s.blacklist =
             normalizeExplicitTags(c.value(QStringLiteral("filter/blacklist")).toStringList());
@@ -484,6 +499,13 @@ void writeSettingsTo(QSettings &c, const AppSettings &s) {
     c.setValue(QStringLiteral("hydrus/dbPath"), s.hydrusDb);
     c.setValue(QStringLiteral("hydrus/minTagPosts"), s.hydrusMinTagPosts);
     c.setValue(QStringLiteral("hydrus/dropUnknownTags"), s.hydrusDropUnknownTags);
+    c.setValue(QStringLiteral("share/bind"), s.shareBind);
+    c.setValue(QStringLiteral("share/port"), s.sharePort);
+    c.setValue(QStringLiteral("share/hydrus"), s.shareHydrus);
+    c.setValue(QStringLiteral("share/downloads"), s.shareDownloads);
+    c.setValue(QStringLiteral("share/favourites"), s.shareFavourites);
+    c.setValue(QStringLiteral("share/localFolder"), s.shareLocalFolder);
+    c.setValue(QStringLiteral("share/folder"), s.shareFolder);
     c.setValue(QStringLiteral("storage/dataDir"), s.dataDir);
     c.setValue(QStringLiteral("startup/defaultTab"), s.tabsDefault);
     c.setValue(QStringLiteral("window/geometry"), s.geometry);

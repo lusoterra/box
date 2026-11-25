@@ -935,6 +935,8 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
                         &MainWindow::importLibraryCsv);
     fileMenu->addAction(tr("Download/Add Stray…"), this,
                         &MainWindow::openStrayDialog);
+    fileMenu->addAction(tr("Share library on LAN…"), this,
+                        &MainWindow::openShareDialog);
     fileMenu->addAction(tr("Update downloaded sidecars…"), this,
                         &MainWindow::updateDownloadSidecars);
     fileMenu->addAction(tr("Redownload missing files…"), this,
@@ -1934,6 +1936,18 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     connect(m_wallSolveBtn, &QPushButton::clicked, this,
             &MainWindow::solveWallFromButton);
     statusBar()->addPermanentWidget(m_wallSolveBtn);
+    // Bottom-right "API is live" indicator for the read-only LAN server.
+    m_shareStatusBtn = new QPushButton(tr("API is live"), this);
+    m_shareStatusBtn->setObjectName(QStringLiteral("shareStatusBtn"));
+    m_shareStatusBtn->setIcon(UiIcons::icon(
+        QStringLiteral("globe"), QColor(0x43, 0xd1, 0x7c)));
+    m_shareStatusBtn->setIconSize(QSize(14, 14));
+    m_shareStatusBtn->setFlat(true);
+    m_shareStatusBtn->setCursor(Qt::PointingHandCursor);
+    m_shareStatusBtn->setVisible(false);
+    connect(m_shareStatusBtn, &QPushButton::clicked, this,
+            &MainWindow::openShareDialog);
+    statusBar()->addPermanentWidget(m_shareStatusBtn);
     m_dlHide = new QTimer(this);
     m_dlHide->setSingleShot(true);
     m_dlHide->setInterval(6000);

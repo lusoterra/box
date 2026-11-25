@@ -110,6 +110,30 @@ favourites/downloads library; automatic tags below a configurable network
 count can be masked through hydd's `/hyd/tag_counts` extension (when the
 endpoint is unavailable, all tags are kept and the tab explains why).
 
+## LAN sharing
+
+`File → Share library on LAN…` starts a read-only Danbooru API over your
+LAN. Pick the Hydrus tab, downloads, favourites, a local archive folder,
+or any mix; duplicate rows are collapsed. The default bind is
+`0.0.0.0:7071`, editable in the dialog and saved in `settings.ini`
+(`share/*`).
+
+```sh
+# From another machine on the LAN:
+curl 'http://192.168.1.10:7071/posts.json?tags=cat&limit=10'
+curl 'http://192.168.1.10:7071/tags.json?search[name_matches]=blue*'
+```
+
+Add it to LoliSnatcher, or to another Box instance, as a Danbooru entry
+with that base URL. Endpoints: `/posts.json`, `/posts/<id>.json`,
+`/tags.json`, `/counts/posts.json`, `/share/file/<id>`,
+`/share/thumb/<id>`. Media serves with Range support; local thumbnails
+are cached under `~/.cache/box/share-thumbs`. There is no authentication
+and nothing is writable; anyone who can reach the address can browse the
+selected posts. The server stops when Box quits; there is no auto-start.
+`API is live` in the bottom-right status bar reopens the picker while it is
+running.
+
 ## Themes
 
 Bundled themes live in `assets/themes/*.ini` and are embedded into the binary

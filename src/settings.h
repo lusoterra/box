@@ -79,6 +79,15 @@ struct AppSettings {
     // tab explains why. Manual edits are never masked.
     int hydrusMinTagPosts = 10;
     bool hydrusDropUnknownTags = false;
+    // Read-only LAN sharing (File -> Share library on LAN…): bind/port and
+    // the last selected sources. Sources are picked again on each start.
+    QString shareBind = QStringLiteral("0.0.0.0");
+    int sharePort = 7071;
+    bool shareHydrus = false;
+    bool shareDownloads = false;
+    bool shareFavourites = false;
+    bool shareLocalFolder = false;
+    QString shareFolder;
     // Blacklisted tags: hidden everywhere (local + browse).
     QStringList blacklist;
     // Ugoira downloads: converted from the served .zip to an animated
@@ -332,6 +341,12 @@ inline bool operator==(const AppSettings &a, const AppSettings &b) {
            a.hydrusDir == b.hydrusDir && a.hydrusDb == b.hydrusDb &&
            a.hydrusMinTagPosts == b.hydrusMinTagPosts &&
            a.hydrusDropUnknownTags == b.hydrusDropUnknownTags &&
+           a.shareBind == b.shareBind && a.sharePort == b.sharePort &&
+           a.shareHydrus == b.shareHydrus &&
+           a.shareDownloads == b.shareDownloads &&
+           a.shareFavourites == b.shareFavourites &&
+           a.shareLocalFolder == b.shareLocalFolder &&
+           a.shareFolder == b.shareFolder &&
            a.dragLinkMode == b.dragLinkMode &&
            a.blacklist == b.blacklist &&
            a.hideAi == b.hideAi && a.wallAutoPopup == b.wallAutoPopup &&

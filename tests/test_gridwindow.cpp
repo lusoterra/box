@@ -14,10 +14,14 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDateTime>
+#include <QDialog>
 #include <QDir>
+#include <QEventLoop>
 #include <QFile>
 #include <QGraphicsRectItem>
+#include <QHostAddress>
 #include <QImage>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLabel>
@@ -32,13 +36,16 @@
 #include <QSettings>
 #include <QSlider>
 #include <QStandardItemModel>
+#include <QTcpServer>
+#include <QTcpSocket>
 #include <QTemporaryDir>
 #include <QTextBrowser>
+#include <QTimer>
+#include <QUrl>
 #include <QtTest>
 
 namespace {
-QString makeArchive(int n, bool &ok) {
-    static QTemporaryDir dir;
+QString makeArchiveFiles(QTemporaryDir &dir, int n, bool &ok) {
     ok = dir.isValid();
     if (!ok)
         return {};
@@ -52,6 +59,11 @@ QString makeArchive(int n, bool &ok) {
         ok = img.save(dir.filePath(QStringLiteral("pic%1.jpg").arg(i)));
     }
     return ok ? dir.path() : QString();
+}
+
+QString makeArchive(int n, bool &ok) {
+    static QTemporaryDir dir;
+    return makeArchiveFiles(dir, n, ok);
 }
 
 int rowCount(GridView *grid) {
@@ -886,6 +898,26 @@ private slots:
         QVERIFY(favs.open(dataDir));
         QCOMPARE(favs.count(), 0);
     }
+
+    // The bottom-right API indicator exists but stays hidden until a
+    // share server is running.
+    void shareIndicatorStartsHidden() {
+        QTemporaryDir xdg;
+        QVERIFY(xdg.isValid());
+        qputenv("XDG_CONFIG_HOME", xdg.filePath(QStringLiteral("config")).toUtf8());
+        qputenv("XDG_DATA_HOME", xdg.filePath(QStringLiteral("data")).toUtf8());
+        qputenv("XDG_CACHE_HOME", xdg.filePath(QStringLiteral("cache")).toUtf8());
+        bool ok = false;
+        const QString archive = makeArchive(1, ok);
+        QVERIFY(ok);
+        MainWindow w(archive, true);
+        auto *btn = w.findChild<QPushButton *>(
+            QStringLiteral("shareStatusBtn"));
+        QVERIFY(btn);
+        QCOMPARE(btn->text(), QStringLiteral("API is live"));
+        QVERIFY(!btn->isVisible());
+    }
+
     // The speed control is a tucked-away popup with a 0.05-step slider
     // and the pitch-correction toggle, not a fixed rate menu.
     void videoSpeedUsesSliderAndPitchToggle() {
@@ -915,6 +947,115 @@ private slots:
         QCOMPARE(slider->value(), 150);
     }
 
+    // End-to-end: File -> Share library on LAN…, pick the archive, Start,
+    // then fetch /posts.json from the live server.
+    void shareServerStartsFromDialog() {
+        QTemporaryDir xdg;
+        QVERIFY(xdg.isValid());
+        qputenv("XDG_CONFIG_HOME", xdg.filePath(QStringLiteral("config")).toUtf8());
+        qputenv("XDG_DATA_HOME", xdg.filePath(QStringLiteral("data")).toUtf8());
+        qputenv("XDG_CACHE_HOME", xdg.filePath(QStringLiteral("cache")).toUtf8());
+
+        QTcpServer probe;
+        QVERIFY(probe.listen(QHostAddress::LocalHost, 0));
+        const int port = probe.serverPort();
+        probe.close();
+
+        QVERIFY(QDir().mkpath(xdg.filePath(QStringLiteral("config/box"))));
+        {
+            QSettings c(xdg.filePath(QStringLiteral("config/box/settings.ini")),
+                        QSettings::IniFormat);
+            c.setValue(QStringLiteral("share/bind"), QStringLiteral("127.0.0.1"));
+            c.setValue(QStringLiteral("share/port"), port);
+            c.setValue(QStringLiteral("startup/defaultTab"),
+                       QStringLiteral("welcome"));
+            c.sync();
+        }
+
+        bool ok = false;
+        // Dedicated dir: the shared makeArchive() fixture accumulates files
+        // across tests, which would leak extra posts into the snapshot.
+        QTemporaryDir shareDir;
+        QVERIFY(shareDir.isValid());
+        const QString archive = makeArchiveFiles(shareDir, 2, ok);
+        QVERIFY(ok);
+        MainWindow w(archive, true);
+        w.show();
+        QTest::qWait(200);
+
+        QTimer::singleShot(200, &w, [&] {
+            auto *dlg =
+                qobject_cast<QDialog *>(QApplication::activeModalWidget());
+            if (!dlg)
+                return;
+            QCheckBox *local = nullptr;
+            QLineEdit *folder = nullptr;
+            for (QCheckBox *cb : dlg->findChildren<QCheckBox *>()) {
+                if (cb->text().startsWith(QStringLiteral("Local archive")))
+                    local = cb;
+            }
+            for (QLineEdit *le : dlg->findChildren<QLineEdit *>()) {
+                if (le->placeholderText().startsWith(QStringLiteral("Choose")))
+                    folder = le;
+            }
+            if (local && !local->isChecked())
+                local->setChecked(true);
+            if (folder)
+                folder->setText(archive);
+            for (QPushButton *b : dlg->findChildren<QPushButton *>()) {
+                if (b->text().startsWith(QStringLiteral("Start sharing"))) {
+                    b->click();
+                    return;
+                }
+            }
+        });
+        // Failure guard: never leave a modal dialog blocking the test.
+        QTimer::singleShot(8000, &w, [&] {
+            if (auto *m = QApplication::activeModalWidget())
+                m->close();
+        });
+        QVERIFY(QMetaObject::invokeMethod(&w, "openShareDialog"));
+
+        auto *shareBtn = w.findChild<QPushButton *>(
+            QStringLiteral("shareStatusBtn"));
+        QVERIFY(shareBtn);
+        QTRY_VERIFY_WITH_TIMEOUT(shareBtn->isVisible(), 10000);
+        QCOMPARE(shareBtn->text(), QStringLiteral("API is live"));
+
+        QString base;
+        for (const QString &line : shareBtn->toolTip().split(u'\n')) {
+            if (line.startsWith(QStringLiteral("http://"))) {
+                base = line;
+                break;
+            }
+        }
+        QVERIFY(!base.isEmpty());
+        const QUrl baseUrl(base);
+        QVERIFY(baseUrl.isValid());
+
+        QTcpSocket socket;
+        QByteArray all;
+        QEventLoop loop;
+        QObject::connect(&socket, &QTcpSocket::readyRead, &socket,
+                         [&socket, &all] { all += socket.readAll(); });
+        QObject::connect(&socket, &QTcpSocket::disconnected, &loop,
+                         &QEventLoop::quit);
+        QTimer::singleShot(8000, &loop, &QEventLoop::quit);
+        socket.connectToHost(QHostAddress::LocalHost,
+                             static_cast<quint16>(baseUrl.port()));
+        QVERIFY(socket.waitForConnected(2000));
+        socket.write("GET /posts.json HTTP/1.1\r\nHost: 127.0.0.1:" +
+                     QByteArray::number(baseUrl.port()) +
+                     "\r\nConnection: close\r\n\r\n");
+        loop.exec();
+        all += socket.readAll();
+        QVERIFY(all.startsWith("HTTP/1.1 200"));
+        const int bodyAt = all.indexOf("\r\n\r\n");
+        QVERIFY(bodyAt > 0);
+        const QJsonDocument doc = QJsonDocument::fromJson(all.mid(bodyAt + 4));
+        QVERIFY(doc.isArray());
+        QCOMPARE(doc.array().size(), 2);
+    }
 };
 
 int main(int argc, char *argv[]) {

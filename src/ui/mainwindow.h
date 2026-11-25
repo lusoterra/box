@@ -26,6 +26,9 @@
 #include <QStyledItemDelegate>
 #include <QVector>
 
+#include <functional>
+#include <memory>
+
 class QComboBox;
 class QDialog;
 class QCompleter;
@@ -54,6 +57,12 @@ class DownloadManager;
 class ImageCache;
 class GalleryDlRunner;
 class GalleryDlDialog;
+class QUrl;
+class ShareCatalog;
+class ShareServer;
+class Scanner;
+struct ShareOptions;
+struct ShareItem;
 
 namespace Hydrus {
 class Client;
@@ -455,6 +464,8 @@ private slots:
     void setHydrusMissingOnly(bool on);
     void startNextHydrusGallery();
     void finishHydrusGallery();
+    // ── LAN sharing ────────────────────────────────────────────
+    void openShareDialog();
 
 private:
     void startScan(const QString &root);
@@ -463,6 +474,16 @@ private:
     void applyThemeFromSettings();
     void setAspect(int num, int den);
     void setBoxW(int w); // grid post size from the size slider
+    // ── LAN sharing (private helpers, not moc slots) ───────────
+    void startShareBuild(const ShareOptions &opts);
+    void finishShareBuild(const std::shared_ptr<ShareCatalog> &catalog,
+                          const ShareOptions &opts);
+    void stopShareServer();
+    void updateShareStatus();
+    void resolveShareMedia(
+        const ShareItem &item,
+        std::function<void(const QString &localPath, const QUrl &remoteUrl,
+                           const QString &error)> done);
     void rebuildSidebar();
     // Tabs
     void saveCurrentTab();
@@ -750,6 +771,14 @@ private:
     QPushButton *m_hydrusRefreshBtn = nullptr;
     QPushButton *m_hydrusMissingBtn = nullptr;
     QPushButton *m_aiBtn = nullptr;
+    // Read-only LAN sharing state.
+    ShareServer *m_shareServer = nullptr;
+    std::shared_ptr<const ShareCatalog> m_shareCatalog;
+    QFutureWatcher<QVector<Post>> *m_shareWatcher = nullptr;
+    QSharedPointer<Scanner> m_shareScanner;
+    QPointer<QProgressDialog> m_shareProgress;
+    qint64 m_shareGeneration = 0;
+    QPushButton *m_shareStatusBtn = nullptr;
     // Last browse error with its raw request/response attached. The status
     // bar shows a one-liner; clicking it opens the full inspector.
     QString m_statusProbeTitle;

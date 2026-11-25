@@ -46,7 +46,7 @@
   `sitequirks` + `booruengine` + 6 engine impls + `remotesource.cpp`.
 - Files: `test_cachejanitor/downloadplan/explicittags/favdb/favicon/
   filehash/hydrus/hydrusstore/index/losnimport/metaparser/mediafilter/metatext/queryor/
-  remotesource/scanner/security/settings/sidecarrefresh/tagsuggest/
+  remotesource/scanner/security/settings/sharecatalog/shareserver/sidecarrefresh/tagsuggest/
   tagtypes/thumbloader` + `check_translations.py` (ctest case,
   `:72-78`). ViewerPage meta tail (notes bodies, comment expand layout,
   commentary preview/popup) lives in `test_metathread`.

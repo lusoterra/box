@@ -246,6 +246,15 @@ QJsonObject exportJson(const AppSettings &s, const QVector<Post> &favs) {
     hydrus[QStringLiteral("minTagPosts")] = s.hydrusMinTagPosts;
     hydrus[QStringLiteral("dropUnknownTags")] = s.hydrusDropUnknownTags;
     o[QStringLiteral("hydrus")] = hydrus;
+    QJsonObject share;
+    share[QStringLiteral("bind")] = s.shareBind;
+    share[QStringLiteral("port")] = s.sharePort;
+    share[QStringLiteral("hydrus")] = s.shareHydrus;
+    share[QStringLiteral("downloads")] = s.shareDownloads;
+    share[QStringLiteral("favourites")] = s.shareFavourites;
+    share[QStringLiteral("localFolder")] = s.shareLocalFolder;
+    share[QStringLiteral("folder")] = s.shareFolder;
+    o[QStringLiteral("share")] = share;
     o[QStringLiteral("viewerMaxSide")] = s.viewerMaxSide;
     QJsonObject grid;
     grid[QStringLiteral("aspectNum")] = s.aspectNum;
@@ -407,6 +416,23 @@ bool importJson(const QJsonObject &o, AppSettings *s, QVector<Post> *favs,
     if (hydrus.contains(QStringLiteral("dropUnknownTags")))
         s->hydrusDropUnknownTags =
             hydrus.value(QStringLiteral("dropUnknownTags")).toBool();
+    const QJsonObject share = o.value(QStringLiteral("share")).toObject();
+    if (share.contains(QStringLiteral("bind")))
+        s->shareBind = share.value(QStringLiteral("bind")).toString();
+    if (share.contains(QStringLiteral("port")))
+        s->sharePort =
+            qBound(1, share.value(QStringLiteral("port")).toInt(7071), 65535);
+    if (share.contains(QStringLiteral("hydrus")))
+        s->shareHydrus = share.value(QStringLiteral("hydrus")).toBool();
+    if (share.contains(QStringLiteral("downloads")))
+        s->shareDownloads = share.value(QStringLiteral("downloads")).toBool();
+    if (share.contains(QStringLiteral("favourites")))
+        s->shareFavourites = share.value(QStringLiteral("favourites")).toBool();
+    if (share.contains(QStringLiteral("localFolder")))
+        s->shareLocalFolder =
+            share.value(QStringLiteral("localFolder")).toBool();
+    if (share.contains(QStringLiteral("folder")))
+        s->shareFolder = share.value(QStringLiteral("folder")).toString();
     const QJsonObject cache = o.value(QStringLiteral("cache")).toObject();
     if (cache.contains(QStringLiteral("dir")))
         s->cacheDir = cache.value(QStringLiteral("dir")).toString();

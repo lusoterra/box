@@ -16,6 +16,7 @@
 #include "remotesource.h"
 #include "scanner.h"
 #include "settingsexport.h"
+#include "shareserver.h"
 #include "stray.h"
 #include "straydialog.h"
 #include "strayresolve.h"
@@ -137,6 +138,28 @@ void MainWindow::closeEvent(QCloseEvent *e) {
     if (m_hydrusDlRunner) {
         m_hydrusDlCancelled = true;
         m_hydrusDlRunner->cancel();
+    }
+    // LAN sharing is ephemeral: stop accepting requests immediately and
+    // drop an in-flight snapshot build. The scan worker finishes on its
+    // own but its result is discarded.
+    ++m_shareGeneration;
+    if (m_shareProgress) {
+        m_shareProgress->hide();
+        m_shareProgress->deleteLater();
+        m_shareProgress = nullptr;
+    }
+    if (m_shareScanner) {
+        m_shareScanner->requestCancel();
+        m_shareScanner.reset();
+    }
+    if (m_shareWatcher) {
+        m_shareWatcher->deleteLater();
+        m_shareWatcher = nullptr;
+    }
+    if (m_shareServer) {
+        m_shareServer->stop();
+        m_shareServer->deleteLater();
+        m_shareServer = nullptr;
     }
     m_hydrusDb.close();
     flushSavedTabs(); // includes saveSettings

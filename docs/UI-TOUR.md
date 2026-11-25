@@ -202,8 +202,10 @@ left blank. Reordered/renamed/older `site` columns, CRLF/BOM and
 `true/false` or `1/0` are accepted. Import opens the same options dialog
 as the LoliSnatcher import and keeps `date_added` order),
 `Download/Add Stray…` (paste direct media or booru post links;
-see 20-stray-dialog), `Update downloaded sidecars…`,
-`Redownload missing files…`, `Quit`. Media downloads tolerate
+see 20-stray-dialog), `Share library on LAN…` (read-only Danbooru API
+for LoliSnatcher or another Box; see 22-lan-sharing),
+`Update downloaded sidecars…`, `Redownload missing files…`, `Quit`.
+Media downloads tolerate
 empty/misleading `Content-Type` headers (Shimmie2 serves real JPEGs with
 none): magic bytes decide, wall pages still fail with a named error.
 Closing while a download runs asks `Abort and quit` (delete partials),
@@ -383,7 +385,9 @@ threads collapse behind a show-all toggle).
 `settings.ini` + `boorus.json` there, leaves a `[app] configDir` pointer
 stub at the default folder; takes effect next launch),
 `Archive history` (+ `Clear history`), Favourites toggles
-(auto-download/auto-favourite/unfavourite-deletes-file), blacklist box,
+(auto-download/auto-favourite/unfavourite-deletes-file), `LAN sharing`
+(`Bind address`, `Port`; defaults for File → Share library on LAN…, which
+still asks what to share each start), blacklist box,
 and the external handler commands (`External image viewer`, `GIF viewer`,
 `video player`, `text editor`; empty = system default, `{file}`/`{url}`
 substitution). Bottom: `Defaults` (reset page), `OK` / `Apply` (greys out
@@ -600,6 +604,31 @@ missing from the DB are indexed untagged on open. If counts are
 unavailable (official client/PTR, extension disabled, or still building),
 every fetched tag is kept and the status bar/summary explains that
 masking was skipped.
+
+## 22-lan-sharing - Share library on LAN (`sharedialog`, `shareserver.cpp`)
+`File → Share library on LAN…` opens a per-start picker: `Hydrus tab`
+(disabled when Hydrus is off/empty), `Online mode: downloads`, `Online
+mode: favourites`, and `Local archive folder` with Browse. Any mix is
+merged into one read-only Danbooru API; duplicate rows collapse by
+site+id, content hash, media URL or path. Network fields: `Bind address`
+(default `0.0.0.0` = LAN) and `Port` (default `7071`). Buttons: `Start
+sharing` / `Restart with these sources`, `Refresh snapshot` (rebuild while
+the listener stays up), `Stop sharing`, `Close`. While live the dialog
+shows `API is live`, the post count, the primary URL and `Copy API URL`.
+A warning says there is no authentication: anyone who can reach the
+address can browse the selected posts.
+
+The API is Danbooru-shaped: `/posts.json?tags=…&page=…&limit=…`,
+`/posts/<id>.json`, `/tags.json?search[name_matches]=…` and
+`/counts/posts.json`; media at `/share/file/<id>` (Range supported),
+previews at `/share/thumb/<id>` (generated and cached for local files,
+booru preview for remote-only rows). IDs are stable hash-based numbers.
+Local files serve directly; remote-only favourites use the media cache
+when enabled and a temporary proxy otherwise; videos stream through Box.
+Local thumbnails are cached under `~/.cache/box/share-thumbs`. When the
+server runs, a green `API is live` button sits in the bottom-right status
+bar; clicking it reopens the picker with the current URL/count. The
+listener stops on quit; there is no auto-start.
 
 ## Not yet documented (keep unchecked until done)
 - [ ] Downloads tab (non-empty: sidecar-backed offline rows)

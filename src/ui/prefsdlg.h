@@ -107,6 +107,8 @@ private:
     QCheckBox *m_hydrusDropUnknown = nullptr;
     QPushButton *m_hydrusTest = nullptr;
     QLabel *m_hydrusStatus = nullptr;
+    QLineEdit *m_shareBind = nullptr;
+    QSpinBox *m_sharePort = nullptr;
     QComboBox *m_dragMode = nullptr;
     QCheckBox *m_wallAutoPopup = nullptr;
     QListWidget *m_booruList = nullptr;

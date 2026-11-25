@@ -765,6 +765,12 @@ void PrefsDialog::harvestInto(AppSettings &out) {
         out.hydrusMinTagPosts = m_hydrusMinPosts->value();
     if (m_hydrusDropUnknown)
         out.hydrusDropUnknownTags = m_hydrusDropUnknown->isChecked();
+    if (m_shareBind)
+        out.shareBind = m_shareBind->text().trimmed().isEmpty()
+                            ? QStringLiteral("0.0.0.0")
+                            : m_shareBind->text().trimmed();
+    if (m_sharePort)
+        out.sharePort = m_sharePort->value();
     if (m_defaultImageViewer)
         out.defaultImageViewer = m_defaultImageViewer->text().trimmed();
     if (m_defaultGifViewer)
