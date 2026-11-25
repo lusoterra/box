@@ -63,7 +63,7 @@ Post fromNuuruSummary(const QJsonObject &o, const QString &baseUrl);
 Post fromNuuru(const QJsonObject &o, const QString &baseUrl);
 // e621 (Danbooru fork, e621.net + e926.net mirror): /posts.json bare
 // array search, /posts/<id>.json detail. Tags arrive flat (no category
-// splits), everything general + untyped for the classifier waterfall.
+// splits), everything general + untyped for the classifier.
 Post fromE621(const QJsonObject &o, const QString &baseUrl);
 // AnimePictures (anime-pictures.net, api.anime-pictures.net): /api/v3/posts
 // envelope search, /api/v3/posts/<id> detail. Summaries carry no tags

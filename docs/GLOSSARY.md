@@ -25,6 +25,20 @@
 - tag cache = `tags.db` (`TagCountCache`, data dir): tag + bucket + post
   count learned from tag-API answers and the archive; instant, popularity
   ranked omnibar answers before the network replies.
+- network gate = `NetworkPolicy` (`src/remote/netpolicy.h`): default
+  closed for every launch. Opportunistic traffic (site favicons, the
+  Chromium capture profile) and `prefetchFavicons()` check `allowed()`;
+  `allow()` is called only by explicit browse/search/download/Hydrus/
+  classifier actions. A fresh profile therefore makes zero requests.
+- classifier backend = `classify/backend` (`off` default, `hydrus`,
+  `danbooru`, `gelbooru`, `safebooru`, `yandere`, `custom`), plus
+  `classify/auto` and the custom URL/format. One backend at a time, no
+  hidden fallback. `hydrus` uses `HydrusStore::Db::namespaceBuckets()`
+  (local, offline); `custom` is a base URL or `{tag}` template.
+- tag namespace dictionary = `hydrus.db` tags split at `:` and folded to
+  classic buckets (`TagCategories::hydrusBucket`: creator/artist/person →
+  artist, character → character, series/copyright/studio/franchise →
+  copyright, meta/title → meta). Used by the offline classifier.
 - viewer = `ViewerPage`, same-window post view (`src/ui/viewerpage.h:170`);
   stills `ImageView`, GIFs `GifView`, mp4/webm `VideoView`/`VideoPane`.
   Double-click / right-click / F11 toggles fullscreen (`MainWindow::
@@ -131,14 +145,14 @@
 - skipAutoClassify = per-entry opt-out of tag categorization
   (`RemotePosts::skipAutoClassify`, `src/remote/remotesource.h:147`).
 - custom tag categories = `customTagCategories` + `tagCustomCategories`
-  (Preferences → Tags): named groups with manual `tag -> group`
+  (Preferences → Taxonomies): named groups with manual `tag -> group`
   assignments; assigned tags render in their own sidebar/viewer group.
 - disabled booru = `BooruSite::enabled=false`: config/credentials and
   old tabs/favourites keep resolving, but every picker/menu hides it.
 - variants = viewer `Variants` button: builds a parent/child/id OR group
   and returns to the grid, so only the post family is searched.
 - merge tag categories = `TagCategoryMerge` rows (`src/library/tagcategories.h`,
-  Preferences → Tags): `source1, source2 → Target`, scoped to one booru
+  Preferences → Taxonomies): `source1, source2 → Target`, scoped to one booru
   or all; a classic target joins/renames that bucket, anything else is
   one custom group. `*` matches every category.
 - themes = `Theme::availableThemes/colorsFor` (`src/ui/theme.cpp`): INI

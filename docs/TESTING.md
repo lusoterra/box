@@ -40,6 +40,24 @@
 the dialog, scans exact copies, and exercises archive + Hydrus deletion
 (trash, sidecars, hydrus.db row).
 
+## First-launch offline check
+
+- `test_gridwindow::firstLaunchStaysOffline` builds a `MainWindow` with
+  fresh `XDG_*` temp dirs, waits, and asserts `NetworkPolicy::allowed()`
+  is still false, no `webprofile` exists and no favicon was cached.
+- For an end-to-end check, preload a tiny `connect()`/`getaddrinfo()`
+  logger and run an offscreen build with empty XDG dirs for ~10 s: the
+  log must stay empty. Example probe source lives in
+  `/tmp/opencode/netprobe/probe.c` during a manual session; rebuild with
+  `gcc -shared -fPIC -o probe.so probe.c -ldl` and set
+  `LD_PRELOAD=$PWD/probe.so CONNLOG=$PWD/conn.log`.
+- `test_settings` covers the `classify/backend|auto|custom*` round-trip;
+  `test_tagtypes` proves off/hydrus never fetch and that
+  gelbooru-without-credentials and a bad custom URL report an error
+  instead of falling back; `test_hydrusstore` checks the local
+  namespace dictionary; `test_gridwindow::tagsPreferencesBuild` opens
+  the Tags page and the backend combo.
+
 ## Test layout
 
 - One binary per file: `add_unit_test(name sources...)` in

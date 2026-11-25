@@ -34,6 +34,10 @@ private slots:
         QVERIFY(s.videoMuted && s.videoLoop);
         QVERIFY(s.videoPitch); // pitch-correct sped-up/slowed video by default
         QVERIFY(!s.dedupAllowArchiveDelete); // archive deletion is opt-in
+        QCOMPARE(s.classifyBackend, QStringLiteral("off")); // privacy default
+        QVERIFY(!s.classifyAuto);
+        QVERIFY(s.classifyCustomUrl.isEmpty());
+        QCOMPARE(s.classifyCustomFormat, QStringLiteral("danbooru"));
         QCOMPARE(s.ugoiraFormat, QStringLiteral("webp"));
         QCOMPARE(s.ugoiraFrameDelayMs, 100);
         QCOMPARE(s.explicitTags, defaultExplicitTagList());
@@ -99,6 +103,10 @@ private slots:
         s.volume = 42;
         s.videoPitch = false;
         s.dedupAllowArchiveDelete = true;
+        s.classifyBackend = QStringLiteral("custom");
+        s.classifyAuto = true;
+        s.classifyCustomUrl = QStringLiteral("https://tags.example/{tag}");
+        s.classifyCustomFormat = QStringLiteral("gelbooru");
         s.ugoiraFormat = QStringLiteral("jxl");
         s.ugoiraFrameDelayMs = 150;
         s.aspectNum = 4;
@@ -168,6 +176,11 @@ private slots:
         QCOMPARE(back.volume, 42);
         QVERIFY(!back.videoPitch);
         QVERIFY(back.dedupAllowArchiveDelete);
+        QCOMPARE(back.classifyBackend, QStringLiteral("custom"));
+        QVERIFY(back.classifyAuto);
+        QCOMPARE(back.classifyCustomUrl,
+                 QStringLiteral("https://tags.example/{tag}"));
+        QCOMPARE(back.classifyCustomFormat, QStringLiteral("gelbooru"));
         QCOMPARE(back.ugoiraFormat, QStringLiteral("jxl"));
         QCOMPARE(back.ugoiraFrameDelayMs, 150);
         QCOMPARE(back.aspectNum, 4);
@@ -243,6 +256,25 @@ private slots:
         s.favTags.clear();
         saveSettings(s);
         QVERIFY(loadSettings().favTags.isEmpty());
+    }
+
+    void classifyBackendKeysNormalize() {
+        QCOMPARE(classifyBackendKey(QStringLiteral("Danbooru")),
+                 QStringLiteral("danbooru"));
+        QCOMPARE(classifyBackendKey(QStringLiteral("hydrus")),
+                 QStringLiteral("hydrus"));
+        QCOMPARE(classifyBackendKey(QStringLiteral("bogus")),
+                 QStringLiteral("off"));
+        QVERIFY(classifyBackendIsOnline(QStringLiteral("custom")));
+        QVERIFY(!classifyBackendIsOnline(QStringLiteral("hydrus")));
+        AppSettings s;
+        QVERIFY(!classifyAutoEnabled(s));
+        s.classifyBackend = QStringLiteral("hydrus");
+        s.classifyAuto = true;
+        QVERIFY(classifyAutoEnabled(s));
+        QVERIFY(!classifyNeedsNetwork(s));
+        s.classifyBackend = QStringLiteral("danbooru");
+        QVERIFY(classifyNeedsNetwork(s));
     }
 
     void cachePolicyNarrowsPerBooru() {

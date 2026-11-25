@@ -146,6 +146,7 @@ void MainWindow::runClassifyPopup() {
         statusBar()->showMessage(tr("Open an archive first"), 4000);
         return;
     }
+    allowNetwork();
     if (m_classifyPop) {
         m_classifyPop->raise();
         m_classifyPop->activateWindow();
@@ -209,24 +210,29 @@ void MainWindow::runClassifyPopup() {
     connect(m_fetcher, &TagTypeFetcher::finished, pop,
             [this, pop, label, bar, cancelBtn](const QHash<QString, QString> &) {
                 const int failed = m_fetcher->failures();
+                const QString err = m_fetcher->backendError();
                 bar->setRange(0, 1);
                 bar->setValue(1);
-                label->setText(failed > 0
-                    ? tr("Done with %1 failures - retry on the next update.")
-                          .arg(failed)
-                    : tr("All categories up to date."));
+                label->setText(!err.isEmpty()
+                    ? err
+                    : failed > 0
+                        ? tr("Done with %1 failures - retry on the next update.")
+                              .arg(failed)
+                        : tr("All categories up to date."));
                 cancelBtn->setText(tr("Close"));
             });
     pop->show();
-    startManualClassify();
+    startManualClassify(true);
 }
 
-void MainWindow::startManualClassify() {
+void MainWindow::startManualClassify(bool force) {
     BrowserTab *t = currentTab();
     if (!t)
         return;
     m_fetcher->cancel();
     m_browseFetcher->cancel();
+    const QString backend = classifyBackendKey(m_settings.classifyBackend);
+    const bool online = classifyBackendIsOnline(backend);
     // Target posts: local archive (mirrored index), favourites, or the
     // current browse merge. Entries that opt out contribute no tags.
     QSet<QString> unknown;
@@ -251,11 +257,9 @@ void MainWindow::startManualClassify() {
     for (auto it = m_settings.manualTagTypes.begin();
          it != m_settings.manualTagTypes.end(); ++it)
         manual.insert(it.key(), it.value());
-    QStringList missing;
-    for (const QString &tag : unknown) {
-        if (!manual.contains(tag))
-            missing.append(tag);
-    }
+    QSet<QString> pending = unknown;
+    for (auto it = manual.begin(); it != manual.end(); ++it)
+        pending.remove(it.key());
     m_manualTab = t;
     if (!manual.isEmpty())
         applyManualBuckets(t, manual, false);
@@ -264,41 +268,77 @@ void MainWindow::startManualClassify() {
         return;
     }
     m_manualDb = effectiveTagTypesDbPath(m_settings); // global verdict store
-    // Skip tags already resolved in the chosen database.
-    QHash<QString, QString> autoKnown;
-    TagTypeCache cache;
-    if (cache.open(m_manualDb)) {
-        QStringList fresh;
-        for (const QString &tag : missing) {
-            int ty = TagTypes::kTransientFailure;
-            if (cache.get(tag, ty)) {
-                if (ty != TagTypes::kUnknownTag)
-                    autoKnown.insert(tag, TagTypes::bucketForType(ty));
-            } else {
-                fresh.append(tag);
+    int localMoved = 0;
+    if (backend == QStringLiteral("hydrus")) {
+        const QHash<QString, QString> local = hydrusBucketsFor(pending);
+        if (!local.isEmpty()) {
+            applyManualBuckets(t, local, true);
+            localMoved = static_cast<int>(local.size());
+        }
+        for (auto it = local.begin(); it != local.end(); ++it)
+            pending.remove(it.key());
+    } else if (online && !pending.isEmpty()) {
+        // Skip tags already resolved in the chosen database unless the
+        // user asked to refetch everything ("Update now").
+        QHash<QString, QString> autoKnown;
+        if (!force) {
+            TagTypeCache cache;
+            if (cache.open(m_manualDb)) {
+                QStringList fresh;
+                for (const QString &tag : pending) {
+                    int ty = TagTypes::kTransientFailure;
+                    if (cache.get(tag, ty)) {
+                        if (ty != TagTypes::kUnknownTag)
+                            autoKnown.insert(tag, TagTypes::bucketForType(ty));
+                    } else {
+                        fresh.append(tag);
+                    }
+                }
+                cache.close();
+                pending = QSet<QString>(fresh.begin(), fresh.end());
             }
         }
-        cache.close();
-        missing.swap(fresh);
         if (!autoKnown.isEmpty())
             applyManualBuckets(t, autoKnown, true);
     }
-    if (missing.isEmpty()) {
-        statusBar()->showMessage(tr("All categories up to date."), 6000);
-        if (m_classifyPop) {
-            // Nothing to fetch: show the done state instead of a dead 0%.
-            if (auto *st = m_classifyPop->findChild<QLabel *>(QStringLiteral("status")))
-                st->setText(tr("All categories up to date."));
-            if (auto *b = m_classifyPop->findChild<QProgressBar *>(QStringLiteral("bar"))) {
-                b->setRange(0, 1);
-                b->setValue(1);
-            }
-            if (auto *c = m_classifyPop->findChild<QPushButton *>(QStringLiteral("cancelBtn")))
-                c->setText(tr("Close"));
+    auto popupDone = [this](const QString &text) {
+        if (!m_classifyPop)
+            return;
+        if (auto *st = m_classifyPop->findChild<QLabel *>(QStringLiteral("status")))
+            st->setText(text);
+        if (auto *b = m_classifyPop->findChild<QProgressBar *>(QStringLiteral("bar"))) {
+            b->setRange(0, 1);
+            b->setValue(1);
         }
+        if (auto *c = m_classifyPop->findChild<QPushButton *>(QStringLiteral("cancelBtn")))
+            c->setText(tr("Close"));
+    };
+    if (pending.isEmpty()) {
+        const QString msg = localMoved > 0
+                                ? tr("Categorized %1 tags from Hydrus namespaces.")
+                                      .arg(localMoved)
+                                : tr("All categories up to date.");
+        statusBar()->showMessage(msg, 6000);
+        popupDone(msg);
         m_manualTab = nullptr;
         return;
     }
+    if (!online) {
+        const QString msg =
+            backend == QStringLiteral("off")
+                ? tr("No classifier backend selected; %1 tag(s) left "
+                     "unchanged.")
+                      .arg(pending.size())
+                : tr("Hydrus namespaces resolved %1 tag(s); %2 have no "
+                     "namespaced match.")
+                      .arg(localMoved)
+                      .arg(pending.size());
+        statusBar()->showMessage(msg, 10000);
+        popupDone(msg);
+        m_manualTab = nullptr;
+        return;
+    }
+    QStringList missing(pending.begin(), pending.end());
     missing.sort();
     m_manualActive = true;
     statusBar()->showMessage(

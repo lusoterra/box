@@ -112,6 +112,11 @@ public:
     // Newest first.
     QVector<Record> list() const;
 
+    // Local tag dictionary for the offline classifier: stripped tag ->
+    // classic bucket, built from the namespaced tags stored here. No
+    // network, no writes. Unknown namespaces are skipped.
+    QHash<QString, QString> namespaceBuckets() const;
+
     // Insert when absent (duplicate hash -> false, existing row untouched).
     bool insert(const Record &r);
     // Replace the tag set and lookup outcome. clearOverride resets the

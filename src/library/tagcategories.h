@@ -1,6 +1,6 @@
 #pragma once
 
-// Booru-specific tag-category merging/renaming (Preferences → Tags →
+// Booru-specific tag-category merging/renaming (Preferences → Taxonomies →
 // "Merge tag categories"). Native taxonomies are inconsistent: Soybooru
 // sends `character`/`variant`, some hosts repeat `meta`, meme boorus use
 // their own names. A rule groups one or more category names from one
@@ -62,6 +62,26 @@ inline QString classicBucket(const QString &category) {
     if (c == QStringLiteral("general") || c == QStringLiteral("generals") ||
         c == QStringLiteral("uncategorized") || c == QStringLiteral("default"))
         return QStringLiteral("general");
+    return {};
+}
+
+// Hydrus tag namespace -> classic bucket. This is the local dictionary
+// used by the offline classifier: creator:/artist:/person: are artists,
+// character:/char: characters, series:/copyright:/studio:/franchise:
+// copyrights, meta:/title: meta. Unknown namespaces have no bucket (they
+// stay in their native Hydrus group instead of being folded away).
+inline QString hydrusBucket(const QString &ns) {
+    const QString n = normalizeKey(ns);
+    if (n == QStringLiteral("creator") || n == QStringLiteral("artist") ||
+        n == QStringLiteral("person"))
+        return QStringLiteral("artist");
+    if (n == QStringLiteral("character") || n == QStringLiteral("char"))
+        return QStringLiteral("character");
+    if (n == QStringLiteral("series") || n == QStringLiteral("copyright") ||
+        n == QStringLiteral("studio") || n == QStringLiteral("franchise"))
+        return QStringLiteral("copyright");
+    if (n == QStringLiteral("meta") || n == QStringLiteral("title"))
+        return QStringLiteral("meta");
     return {};
 }
 

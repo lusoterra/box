@@ -1,4 +1,7 @@
 #include "mainwindow.h"
+
+#include "cookiegrab.h"
+#include "netpolicy.h"
 #include "appinfo.h"
 #include "cache.h"
 #include "cachejanitor.h"
@@ -84,6 +87,32 @@
 #include <utility>
 #include <algorithm>
 
+void MainWindow::ensureWebBackend() {
+    if (m_webDownloads)
+        return;
+    // First WebEngine object in the process. Built only after the user has
+    // explicitly browsed or downloaded, so a fresh profile stays offline.
+    m_webDownloads = new WebEngineDownloadBackend(this);
+    m_downloads->setWebBackend(m_webDownloads);
+    m_thumbs->setWebBackend(m_webDownloads);
+    if (m_viewer)
+        m_viewer->setWebBackend(m_webDownloads);
+    // Warm up Chromium at idle now that it is allowed: the first visible
+    // WebEngine use otherwise stalls the GUI thread. Keep the delay so the
+    // browse action itself paints first.
+    QTimer::singleShot(20000, this, [this] {
+        CookieGrabDialog::prime(effectiveDataDir(m_settings) +
+                                QStringLiteral("/webprofile"));
+    });
+}
+
+void MainWindow::allowNetwork() {
+    // Just open the gate. Callers that actually need the browser stack or
+    // site icons build/fetch them explicitly, so a favourites tab does not
+    // pay for Chromium or a favicon round-trip.
+    NetworkPolicy::allow();
+}
+
 void MainWindow::prefetchFavicons() {
     if (!m_favicons)
         return;
@@ -94,6 +123,7 @@ void MainWindow::prefetchFavicons() {
 void MainWindow::refreshFavicons() {
     if (!m_favicons)
         return;
+    NetworkPolicy::allow(); // explicit user action: fetching is expected
     m_favicons->refreshAll();
     prefetchFavicons();
     rebuildSitesMenu();

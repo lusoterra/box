@@ -108,12 +108,81 @@ void MainWindow::refreshViewerTags(const BrowserTab *t) {
     m_viewer->refreshCurrentPost();
 }
 
+QHash<QString, QString> MainWindow::hydrusNamespaceBuckets() {
+    const QString path = m_hydrusDb.isOpen()
+                             ? m_hydrusDb.path()
+                             : effectiveHydrusDbPath(m_settings);
+    if (path.isEmpty())
+        return {};
+    const QFileInfo info(path);
+    if (!info.exists())
+        return {};
+    // While the Hydrus tab holds the DB open, WAL writes may not touch the
+    // main file, so mix the WAL size/mtime in. A temporary read-only open
+    // (below) can itself create the WAL, so do not use it in that case.
+    qint64 stamp = info.size() ^ info.lastModified().toMSecsSinceEpoch();
+    if (m_hydrusDb.isOpen() && m_hydrusDb.path() == path) {
+        const QFileInfo wal(path + QStringLiteral("-wal"));
+        if (wal.exists())
+            stamp ^= (wal.size() * 1315423911LL) ^
+                     wal.lastModified().toMSecsSinceEpoch();
+    }
+    if (m_hydrusBucketsStamp >= 0 && m_hydrusBucketsPath == path &&
+        m_hydrusBucketsStamp == stamp)
+        return m_hydrusBuckets;
+    QHash<QString, QString> buckets;
+    if (m_hydrusDb.isOpen() && m_hydrusDb.path() == path) {
+        buckets = m_hydrusDb.namespaceBuckets();
+    } else {
+        // Read-only, local, no settings side effects: do not create the
+        // DB just because the classifier wants a dictionary.
+        HydrusStore::Db db;
+        if (db.open(path))
+            buckets = db.namespaceBuckets();
+    }
+    m_hydrusBucketsPath = path;
+    m_hydrusBucketsStamp = stamp;
+    m_hydrusBuckets = buckets;
+    return buckets;
+}
+
+QHash<QString, QString> MainWindow::hydrusBucketsFor(
+    const QSet<QString> &tags) {
+    QHash<QString, QString> out;
+    if (tags.isEmpty())
+        return out;
+    const QHash<QString, QString> all = hydrusNamespaceBuckets();
+    if (all.isEmpty())
+        return out;
+    for (const QString &tag : tags) {
+        const auto it = all.constFind(tag);
+        if (it != all.constEnd())
+            out.insert(tag, it.value());
+    }
+    return out;
+}
+
+void MainWindow::applyClassifySettings() {
+    const QString backend = classifyBackendKey(m_settings.classifyBackend);
+    if (m_fetcher)
+        m_fetcher->setBackend(backend, m_settings.classifyCustomUrl,
+                              m_settings.classifyCustomFormat);
+    if (m_browseFetcher)
+        m_browseFetcher->setBackend(backend, m_settings.classifyCustomUrl,
+                                    m_settings.classifyCustomFormat);
+}
+
 void MainWindow::maybeClassifyBrowse(BrowserTab *t) {
     // Same cached pass for remote grids and Favourites: both carry
     // category-less tags (LOSN rows, flat API blobs) that live in
-    // `untyped` until a verdict exists.
-    if (!t || (!t->isRemote && !t->isFavourites) || t->isHydrus ||
-        !m_settings.classifyTags)
+    // `untyped` until a verdict exists. Manual overrides apply even when
+    // automatic classification is off (they need no network).
+    if (!t || (!t->isRemote && !t->isFavourites) || t->isHydrus)
+        return;
+    const bool autoOn = classifyAutoEnabled(m_settings);
+    const QString backend = classifyBackendKey(m_settings.classifyBackend);
+    const bool online = autoOn && classifyBackendIsOnline(backend);
+    if (!autoOn && m_settings.manualTagTypes.isEmpty())
         return;
     QVector<Post> &target = t->isFavourites ? t->localPosts : t->browseMerged;
     // Manual overrides are explicit user intent: they apply to every post,
@@ -140,40 +209,53 @@ void MainWindow::maybeClassifyBrowse(BrowserTab *t) {
         }
     }
     QSet<QString> unknown;
-    for (const Post &p : work) {
-        for (const QString &tag :
-             p.untyped.split(QChar::Space, Qt::SkipEmptyParts))
-            unknown.insert(tag.toLower());
+    if (autoOn) {
+        for (const Post &p : work) {
+            for (const QString &tag :
+                 p.untyped.split(QChar::Space, Qt::SkipEmptyParts))
+                unknown.insert(tag.toLower());
+        }
+        for (auto it = knownManual.begin(); it != knownManual.end(); ++it)
+            unknown.remove(it.key());
     }
     if (unknown.isEmpty() && manualMoved == 0)
         return;
     const QString db = effectiveTagTypesDbPath(m_settings); // one store for everything
-    TagTypeCache cache;
     QHash<QString, QString> known;
     QStringList missing;
-    if (!unknown.isEmpty() && cache.open(db)) {
-        for (const QString &tag : unknown) {
-            int ty = TagTypes::kTransientFailure;
-            if (cache.get(tag, ty)) {
-                if (ty != TagTypes::kUnknownTag)
-                    known.insert(tag, TagTypes::bucketForType(ty));
-                // negatives stay general without refetching
-            } else {
-                missing.append(tag);
-            }
+    // Hydrus-local backend: namespaced tags already in hydrus.db are a
+    // free, offline dictionary. It wins over stale fetched verdicts.
+    if (autoOn && backend == QStringLiteral("hydrus")) {
+        const QHash<QString, QString> local = hydrusBucketsFor(unknown);
+        for (auto it = local.begin(); it != local.end(); ++it) {
+            if (knownManual.contains(it.key()))
+                continue;
+            known.insert(it.key(), it.value());
+            unknown.remove(it.key());
         }
-        cache.close();
-    } else if (!unknown.isEmpty()) {
-        missing = QStringList(unknown.begin(), unknown.end());
+    } else if (online && !unknown.isEmpty()) {
+        TagTypeCache cache;
+        if (cache.open(db)) {
+            for (const QString &tag : unknown) {
+                int ty = TagTypes::kTransientFailure;
+                if (cache.get(tag, ty)) {
+                    if (ty != TagTypes::kUnknownTag)
+                        known.insert(tag, TagTypes::bucketForType(ty));
+                    // negatives stay general without refetching
+                } else {
+                    missing.append(tag);
+                }
+            }
+            cache.close();
+        } else {
+            missing = QStringList(unknown.begin(), unknown.end());
+        }
     }
     // Manual overrides win over fetched verdicts (and need no fetch).
-    for (auto it = knownManual.begin(); it != knownManual.end(); ++it) {
+    for (auto it = knownManual.begin(); it != knownManual.end(); ++it)
         known.insert(it.key(), it.value());
-        missing.removeAll(it.key());
-    }
     if (!known.isEmpty() || manualMoved > 0) {
-        const int moved =
-            manualMoved + applyHostBuckets(work, known);
+        const int moved = manualMoved + applyHostBuckets(work, known);
         for (int j = 0; j < work.size(); ++j)
             target[workIndex.at(j)] = work.at(j);
         if (moved > 0 && t->isFavourites)
@@ -190,11 +272,15 @@ void MainWindow::maybeClassifyBrowse(BrowserTab *t) {
             }
             if (moved > 0)
                 statusBar()->showMessage(
-                    tr("Categorized %1 tags from cache").arg(moved), 8000);
+                    backend == QStringLiteral("hydrus")
+                        ? tr("Categorized %1 tags from Hydrus namespaces")
+                              .arg(moved)
+                        : tr("Categorized %1 tags from cache").arg(moved),
+                    8000);
             refreshViewerTags(t);
         }
     }
-    if (!missing.isEmpty()) {
+    if (!missing.isEmpty() && online) {
         missing.sort();
         m_classifyTab = t;
         m_browseFetcher->fetch(missing, db);
@@ -213,15 +299,20 @@ void MainWindow::onBrowseClassifyFinished(
     if (!t || !m_tabs.contains(t))
         return; // tab closed mid-fetch
     const int failed = m_browseFetcher->failures();
+    const QString backendError = m_browseFetcher->backendError();
     if (buckets.isEmpty()) {
-        if (t == currentTab())
-            statusBar()->showMessage(
-                failed > 0
-                    ? tr("Tag classification: %1 failed (network), "
-                         "will retry next scan")
-                          .arg(failed)
-                    : tr("Tag classification done"),
-                8000);
+        if (t == currentTab()) {
+            if (!backendError.isEmpty())
+                statusBar()->showMessage(backendError, 12000);
+            else
+                statusBar()->showMessage(
+                    failed > 0
+                        ? tr("Tag classification: %1 failed (network), "
+                             "will retry next scan")
+                              .arg(failed)
+                        : tr("Tag classification done"),
+                    8000);
+        }
         return;
     }
     // Fetched verdicts skip opted-out entries (manual overrides were
@@ -257,7 +348,9 @@ void MainWindow::onBrowseClassifyFinished(
                       .arg(buckets.size());
     if (failed > 0)
         msg += tr(" · %1 failed, will retry").arg(failed);
-    statusBar()->showMessage(msg, 8000);
+    if (!backendError.isEmpty())
+        msg += QStringLiteral(" · ") + backendError;
+    statusBar()->showMessage(msg, 12000);
 }
 
 bool MainWindow::classifyUiTick(int done, int total) {
@@ -347,14 +440,18 @@ void MainWindow::onClassifyFinished(const QHash<QString, QString> &buckets) {
     m_pendingBuckets.clear(); // everything below re-applies the full map
     m_scanBar->setVisible(false);
     const int failed = m_fetcher->failures();
+    const QString backendError = m_fetcher->backendError();
     if (buckets.isEmpty()) {
-        statusBar()->showMessage(
-            failed > 0
-                ? tr("Tag classification: %1 failed (network), "
-                                 "will retry next scan")
-                      .arg(failed)
-                : tr("Tag classification done"),
-            8000);
+        if (!backendError.isEmpty())
+            statusBar()->showMessage(backendError, 12000);
+        else
+            statusBar()->showMessage(
+                failed > 0
+                    ? tr("Tag classification: %1 failed (network), "
+                         "will retry next scan")
+                          .arg(failed)
+                    : tr("Tag classification done"),
+                8000);
         return;
     }
     const int moved = m_index.applyTagTypes(buckets);
@@ -366,6 +463,8 @@ void MainWindow::onClassifyFinished(const QHash<QString, QString> &buckets) {
                       .arg(buckets.size());
     if (failed > 0)
         msg += tr(" · %1 failed, will retry").arg(failed);
-    statusBar()->showMessage(msg, 8000);
+    if (!backendError.isEmpty())
+        msg += QStringLiteral(" · ") + backendError;
+    statusBar()->showMessage(msg, 12000);
 }
 

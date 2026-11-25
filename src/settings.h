@@ -108,8 +108,14 @@ struct AppSettings {
     // Favourite tags (starred via sidebar/viewer right-click): they rank
     // first in search suggestions and sit behind the omnibar star menu.
     QStringList favTags;
-    // Online tag-category lookup for untyped tags (cached forever).
-    bool classifyTags = false;
+    // Automatic tag-category lookup for untyped tags (cached forever).
+    // Off by default for privacy: a fresh profile sends nothing. Backend
+    // keys: off | hydrus | danbooru | gelbooru | safebooru | yandere |
+    // custom. "hydrus" reads namespaced tags from hydrus.db (no network).
+    QString classifyBackend = QStringLiteral("off");
+    bool classifyAuto = false;
+    QString classifyCustomUrl; // custom backend base URL
+    QString classifyCustomFormat = QStringLiteral("danbooru"); // danbooru|gelbooru
     // Manual tag -> bucket overrides (tag type overrides in Preferences).
     // Lowercase tags, bucketForType() names; win over fetched verdicts,
     // applied without any network use.
@@ -118,7 +124,7 @@ struct AppSettings {
     // categories, …): shown folded into that sidebar section and pill
     // colour instead of a standalone custom section. Lowercase names.
     QMap<QString, QString> customBucketMap;
-    // Per-booru category merge/rename rules (Preferences → Tags): group
+    // Per-booru category merge/rename rules (Preferences → Taxonomies): group
     // native categories under one classic bucket or custom label.
     QList<TagCategoryMerge> tagCategoryMerges;
     // User-created categories and manual tag assignments (lowercase tag ->
@@ -310,6 +316,34 @@ inline QString effectiveHydrusDbPath(const AppSettings &s) {
     return effectiveDataDir(s) + QStringLiteral("/hydrus.db");
 }
 
+// Classifier backend keys are stored as plain strings so old configs and
+// exports stay readable. Unknown values fall back to "off".
+inline QString classifyBackendKey(const QString &raw) {
+    const QString k = raw.trimmed().toLower();
+    if (k == QStringLiteral("hydrus") || k == QStringLiteral("danbooru") ||
+        k == QStringLiteral("gelbooru") || k == QStringLiteral("safebooru") ||
+        k == QStringLiteral("yandere") || k == QStringLiteral("custom"))
+        return k;
+    return QStringLiteral("off");
+}
+
+inline bool classifyBackendIsOnline(const QString &key) {
+    const QString k = classifyBackendKey(key);
+    return k == QStringLiteral("danbooru") || k == QStringLiteral("gelbooru") ||
+           k == QStringLiteral("safebooru") || k == QStringLiteral("yandere") ||
+           k == QStringLiteral("custom");
+}
+
+inline bool classifyAutoEnabled(const AppSettings &s) {
+    return s.classifyAuto && classifyBackendKey(s.classifyBackend) !=
+                                 QStringLiteral("off");
+}
+
+inline bool classifyNeedsNetwork(const AppSettings &s) {
+    return classifyAutoEnabled(s) &&
+           classifyBackendIsOnline(s.classifyBackend);
+}
+
 // True when every persisted field matches (window geometry excluded:
 // it changes on every move and must not keep Apply lit).
 inline bool operator==(const AppSettings &a, const AppSettings &b) {
@@ -359,7 +393,11 @@ inline bool operator==(const AppSettings &a, const AppSettings &b) {
            a.favTags == b.favTags &&
            a.ugoiraFormat == b.ugoiraFormat &&
            a.ugoiraFrameDelayMs == b.ugoiraFrameDelayMs &&
-           a.classifyTags == b.classifyTags && a.manualTagTypes == b.manualTagTypes &&
+           a.classifyBackend == b.classifyBackend &&
+           a.classifyAuto == b.classifyAuto &&
+           a.classifyCustomUrl == b.classifyCustomUrl &&
+           a.classifyCustomFormat == b.classifyCustomFormat &&
+           a.manualTagTypes == b.manualTagTypes &&
            a.customBucketMap == b.customBucketMap &&
            a.tagCategoryMerges == b.tagCategoryMerges &&
            a.customTagCategories == b.customTagCategories &&

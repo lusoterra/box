@@ -1,6 +1,7 @@
 #include "hydrus.h"
 
 #include "post.h" // cleanTagTokens
+#include "tagcategories.h"
 
 #include <QCoreApplication>
 #include <QJsonArray>
@@ -81,19 +82,7 @@ QString namespaceBucket(const QString &tag, QString *stripped) {
     const QString rest = tag.mid(colon + 1).trimmed();
     if (rest.isEmpty())
         return {};
-    QString bucket;
-    if (ns == QStringLiteral("creator") || ns == QStringLiteral("artist") ||
-        ns == QStringLiteral("person"))
-        bucket = QStringLiteral("artist");
-    else if (ns == QStringLiteral("character") || ns == QStringLiteral("char"))
-        bucket = QStringLiteral("character");
-    else if (ns == QStringLiteral("series") ||
-             ns == QStringLiteral("copyright") ||
-             ns == QStringLiteral("studio") ||
-             ns == QStringLiteral("franchise"))
-        bucket = QStringLiteral("copyright");
-    else if (ns == QStringLiteral("meta") || ns == QStringLiteral("title"))
-        bucket = QStringLiteral("meta");
+    const QString bucket = TagCategories::hydrusBucket(ns);
     if (bucket.isEmpty())
         return {};
     if (stripped)

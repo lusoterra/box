@@ -298,6 +298,42 @@ QNetworkAccessManager *TagTypeFetcher::namForProxy(const QString &proxySpec) {
     return nam;
 }
 
+void TagTypeFetcher::setBackend(const QString &backend, const QString &customUrl,
+                                const QString &customFormat) {
+    m_backend = backend.trimmed().toLower();
+    if (m_backend != QStringLiteral("hydrus") &&
+        m_backend != QStringLiteral("danbooru") &&
+        m_backend != QStringLiteral("gelbooru") &&
+        m_backend != QStringLiteral("safebooru") &&
+        m_backend != QStringLiteral("yandere") &&
+        m_backend != QStringLiteral("custom"))
+        m_backend = QStringLiteral("off");
+    m_customUrl = customUrl.trimmed();
+    m_customFormat = customFormat.trimmed().toLower() ==
+                             QStringLiteral("gelbooru")
+                         ? QStringLiteral("gelbooru")
+                         : QStringLiteral("danbooru");
+}
+
+QUrl TagTypeFetcher::customUrl(const QString &tag) const {
+    QString base = m_customUrl.trimmed();
+    while (base.endsWith(u'/'))
+        base.chop(1);
+    if (base.isEmpty())
+        return {};
+    const QString enc = QString::fromLatin1(QUrl::toPercentEncoding(tag));
+    if (base.contains(QStringLiteral("{tag}"))) {
+        base.replace(QStringLiteral("{tag}"), enc);
+        return QUrl(base);
+    }
+    if (m_customFormat == QStringLiteral("gelbooru"))
+        return QUrl(base + QStringLiteral("/index.php?page=dapi&s=tag&q=index"
+                                          "&name=") +
+                    enc);
+    return QUrl(base + QStringLiteral("/tags.json?search[name]=") + enc +
+                QStringLiteral("&limit=5"));
+}
+
 void TagTypeFetcher::fetch(const QStringList &tags, const QString &dbPath) {
     // A running batch absorbs new tags instead of being cancelled:
     // pagination classifies the next page while the current page's tags
@@ -330,15 +366,53 @@ void TagTypeFetcher::fetch(const QStringList &tags, const QString &dbPath) {
         return;
     }
     cancel();
-    m_cache.open(dbPath); // best effort; results still emitted on failure
+    m_backendError.clear();
+    m_results.clear();
+    m_failures = 0;
+    // Off / Hydrus are handled by the caller (local data, no requests).
+    if (m_backend == QStringLiteral("off") ||
+        m_backend == QStringLiteral("hydrus")) {
+        emit finished(m_results);
+        return;
+    }
     m_order.clear();
-    // Gelbooru needs credentials (its tag API 401s anonymously); without
-    // them the anonymous Danbooru index goes first - same tag universe,
-    // same category numbering. Safebooru (SFW subset) then yandere cover
-    // the misses.
-    if (!m_gelbooruUser.isEmpty() && !m_gelbooruKey.isEmpty())
+    if (m_backend == QStringLiteral("danbooru"))
+        m_order << Source::Danbooru;
+    else if (m_backend == QStringLiteral("gelbooru"))
         m_order << Source::Gelbooru;
-    m_order << Source::Danbooru << Source::Safebooru << Source::Yandere;
+    else if (m_backend == QStringLiteral("safebooru"))
+        m_order << Source::Safebooru;
+    else if (m_backend == QStringLiteral("yandere"))
+        m_order << Source::Yandere;
+    else if (m_backend == QStringLiteral("custom"))
+        m_order << Source::Custom;
+    if (m_order.isEmpty()) {
+        m_backendError = tr("No tag classifier backend selected.");
+        emit finished(m_results);
+        return;
+    }
+    // No silent fallback: a backend that cannot run reports why instead of
+    // quietly contacting a different host.
+    if (m_backend == QStringLiteral("gelbooru") &&
+        (m_gelbooruUser.isEmpty() || m_gelbooruKey.isEmpty())) {
+        m_backendError =
+            tr("Gelbooru needs API credentials in Preferences → Booru "
+               "manager.");
+        emit finished(m_results);
+        return;
+    }
+    if (m_backend == QStringLiteral("custom")) {
+        const QUrl probe = customUrl(QStringLiteral("test"));
+        if (m_customUrl.isEmpty() || !probe.isValid() ||
+            (probe.scheme() != QStringLiteral("http") &&
+             probe.scheme() != QStringLiteral("https"))) {
+            m_backendError =
+                tr("Set a valid http(s) URL for the custom tag backend.");
+            emit finished(m_results);
+            return;
+        }
+    }
+    m_cache.open(dbPath); // best effort; results still emitted on failure
     m_gelbooruDead = false;
     QSet<QString> seen;
     for (const QString &t : tags) {
@@ -350,8 +424,6 @@ void TagTypeFetcher::fetch(const QStringList &tags, const QString &dbPath) {
     }
     m_done = 0;
     m_total = static_cast<int>(m_queue.size());
-    m_failures = 0;
-    m_results.clear();
     m_cache.beginBatch();
     if (m_total == 0) {
         m_cache.endBatch(true);
@@ -424,6 +496,8 @@ void TagTypeFetcher::issue(Flight *flight) {
             url = danbooruUrl(flight->tag);
         else if (src == Source::Safebooru)
             url = safebooruUrl(flight->tag);
+        else if (src == Source::Custom)
+            url = customUrl(flight->tag);
         else
             url = yandereUrl(flight->tag);
         flight->reply = namForProxy(
@@ -435,10 +509,14 @@ void TagTypeFetcher::issue(Flight *flight) {
     flight->reply = nullptr;
 }
 
-int TagTypeFetcher::parseFor(Source src, const QByteArray &body, const QString &tag) {
+int TagTypeFetcher::parseFor(Source src, const QByteArray &body,
+                             const QString &tag) const {
     if (src == Source::Yandere)
         return TagTypes::parseYandereJson(body, tag);
     if (src == Source::Danbooru)
+        return TagTypes::parseDanbooruTagsJson(body, tag);
+    if (src == Source::Custom &&
+        m_customFormat == QStringLiteral("danbooru"))
         return TagTypes::parseDanbooruTagsJson(body, tag);
     return TagTypes::parseSafebooruXml(body, tag); // Gelbooru shares the schema
 }
@@ -489,6 +567,9 @@ void TagTypeFetcher::onReply(Flight *flight) {
         // and tell the UI once.
         if (!m_gelbooruDead) {
             m_gelbooruDead = true;
+            m_backendError =
+                tr("Gelbooru rejected the API credentials - check User ID "
+                   "and key in Preferences → Booru manager.");
             emit gelbooruAuthFailed();
         }
         flight->stage++;

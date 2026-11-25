@@ -2,8 +2,9 @@
 // yandere JSON response parsers, persistent tag->type store.
 #include "tagtypes.h"
 
-#include <QTemporaryDir>
 #include <QCoreApplication>
+#include <QFile>
+#include <QTemporaryDir>
 #include <QtTest>
 
 class TestTagTypes : public QObject {
@@ -189,6 +190,51 @@ private slots:
                                      QStringLiteral("ok=character"),
                                      QStringLiteral("tag=artist")}));
         QCOMPARE(TagTypes::normalizeTagOverrides(lines), n);
+    }
+    void offlineBackendsDoNotFetch() {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString db = dir.filePath(QStringLiteral("tag_types.db"));
+        TagTypeFetcher fetcher;
+        QSignalSpy spy(&fetcher, &TagTypeFetcher::finished);
+        for (const QString &backend :
+             {QStringLiteral("off"), QStringLiteral("hydrus"),
+              QStringLiteral("bogus")}) {
+            spy.clear();
+            fetcher.setBackend(backend);
+            fetcher.fetch({QStringLiteral("solo")}, db);
+            QCOMPARE(spy.count(), 1);
+            QVERIFY2(fetcher.backendError().isEmpty(),
+                     qPrintable(fetcher.backendError()));
+        }
+        // Nothing was written: no network backend ran.
+        QVERIFY(!QFile::exists(db));
+    }
+
+    void brokenBackendReportsWhy() {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString db = dir.filePath(QStringLiteral("tag_types.db"));
+        TagTypeFetcher fetcher;
+        QSignalSpy spy(&fetcher, &TagTypeFetcher::finished);
+
+        fetcher.setBackend(QStringLiteral("gelbooru"));
+        fetcher.fetch({QStringLiteral("solo")}, db);
+        QCOMPARE(spy.count(), 1);
+        QVERIFY(!fetcher.backendError().isEmpty()); // no credentials
+
+        spy.clear();
+        fetcher.setBackend(QStringLiteral("custom"));
+        fetcher.fetch({QStringLiteral("solo")}, db);
+        QCOMPARE(spy.count(), 1);
+        QVERIFY(!fetcher.backendError().isEmpty()); // empty URL
+
+        spy.clear();
+        fetcher.setBackend(QStringLiteral("custom"),
+                           QStringLiteral("ftp://example.org/{tag}"));
+        fetcher.fetch({QStringLiteral("solo")}, db);
+        QCOMPARE(spy.count(), 1);
+        QVERIFY(!fetcher.backendError().isEmpty()); // non-http scheme
     }
 };
 

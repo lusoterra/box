@@ -249,6 +249,12 @@ QJsonObject exportJson(const AppSettings &s, const QVector<Post> &favs) {
     QJsonObject dedup;
     dedup[QStringLiteral("allowArchiveDelete")] = s.dedupAllowArchiveDelete;
     o[QStringLiteral("dedup")] = dedup;
+    QJsonObject classify;
+    classify[QStringLiteral("backend")] = s.classifyBackend;
+    classify[QStringLiteral("auto")] = s.classifyAuto;
+    classify[QStringLiteral("customUrl")] = s.classifyCustomUrl;
+    classify[QStringLiteral("customFormat")] = s.classifyCustomFormat;
+    o[QStringLiteral("classify")] = classify;
     QJsonObject share;
     share[QStringLiteral("bind")] = s.shareBind;
     share[QStringLiteral("port")] = s.sharePort;
@@ -423,6 +429,24 @@ bool importJson(const QJsonObject &o, AppSettings *s, QVector<Post> *favs,
     if (dedup.contains(QStringLiteral("allowArchiveDelete")))
         s->dedupAllowArchiveDelete =
             dedup.value(QStringLiteral("allowArchiveDelete")).toBool();
+    const QJsonObject classify = o.value(QStringLiteral("classify")).toObject();
+    if (!classify.isEmpty()) {
+        if (classify.contains(QStringLiteral("backend")))
+            s->classifyBackend = classifyBackendKey(
+                classify.value(QStringLiteral("backend")).toString());
+        if (classify.contains(QStringLiteral("auto")))
+            s->classifyAuto =
+                classify.value(QStringLiteral("auto")).toBool();
+        if (classify.contains(QStringLiteral("customUrl")))
+            s->classifyCustomUrl =
+                classify.value(QStringLiteral("customUrl")).toString();
+        if (classify.contains(QStringLiteral("customFormat")))
+            s->classifyCustomFormat =
+                classify.value(QStringLiteral("customFormat")).toString() ==
+                        QStringLiteral("gelbooru")
+                    ? QStringLiteral("gelbooru")
+                    : QStringLiteral("danbooru");
+    }
     const QJsonObject share = o.value(QStringLiteral("share")).toObject();
     if (share.contains(QStringLiteral("bind")))
         s->shareBind = share.value(QStringLiteral("bind")).toString();

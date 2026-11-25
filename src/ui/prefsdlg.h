@@ -32,7 +32,7 @@ public:
     AppSettings settings() const { return m_result; }
 
 signals:
-    // "Update tag categories now" (Library): run a forced classification
+    // "Update tag categories now" (Taxonomies): run a forced classification
     // pass over the current archive, refetching even cached verdicts.
     void classifyNowRequested();
     // "Refresh favicons" (Browse): drop cached site icons and refetch.
@@ -72,7 +72,11 @@ private:
     QPushButton *m_applyBtn = nullptr;
     QComboBox *m_defaultTab;
     QComboBox *m_language = nullptr;
-    QCheckBox *m_classify;
+    QComboBox *m_classifyBackend = nullptr;
+    QCheckBox *m_classifyAuto = nullptr;
+    QLineEdit *m_classifyCustomUrl = nullptr;
+    QComboBox *m_classifyCustomFormat = nullptr;
+    QLabel *m_classifyHint = nullptr;
     QCheckBox *m_fullCache;
     QSpinBox *m_cacheLimit;
     QCheckBox *m_favAutoDownload;

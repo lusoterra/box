@@ -242,8 +242,29 @@ AppSettings loadSettings() {
                2000);
     if (c.contains(QStringLiteral("fav/tags")))
         s.favTags = c.value(QStringLiteral("fav/tags")).toStringList();
-    s.classifyTags =
-        c.value(QStringLiteral("classify/enabled"), s.classifyTags).toBool();
+    // classify/enabled is the pre-0.12 boolean. When it was on, the old
+    // waterfall started with anonymous Danbooru, so migrate to that as an
+    // explicit backend; a fresh profile stays off.
+    const QString backendRaw =
+        c.value(QStringLiteral("classify/backend")).toString();
+    const bool legacyEnabled =
+        c.value(QStringLiteral("classify/enabled"), false).toBool();
+    if (!backendRaw.isEmpty())
+        s.classifyBackend = classifyBackendKey(backendRaw);
+    else if (legacyEnabled)
+        s.classifyBackend = QStringLiteral("danbooru");
+    s.classifyAuto =
+        c.value(QStringLiteral("classify/auto"),
+                backendRaw.isEmpty() ? legacyEnabled : false)
+            .toBool();
+    s.classifyCustomUrl =
+        c.value(QStringLiteral("classify/customUrl"), s.classifyCustomUrl)
+            .toString();
+    s.classifyCustomFormat =
+        c.value(QStringLiteral("classify/customFormat"), s.classifyCustomFormat)
+            .toString();
+    if (s.classifyCustomFormat != QStringLiteral("gelbooru"))
+        s.classifyCustomFormat = QStringLiteral("danbooru");
     if (c.contains(QStringLiteral("tagtypes/manual")))
         s.manualTagTypes = TagTypes::normalizeTagOverrides(
             c.value(QStringLiteral("tagtypes/manual")).toStringList());
@@ -437,7 +458,16 @@ void writeSettingsTo(QSettings &c, const AppSettings &s) {
     c.setValue(QStringLiteral("downloads/ugoiraFormat"), s.ugoiraFormat);
     c.setValue(QStringLiteral("downloads/ugoiraDelayMs"), s.ugoiraFrameDelayMs);
     c.setValue(QStringLiteral("fav/tags"), s.favTags);
-    c.setValue(QStringLiteral("classify/enabled"), s.classifyTags);
+    c.setValue(QStringLiteral("classify/backend"),
+               classifyBackendKey(s.classifyBackend));
+    const bool classifyOn = s.classifyAuto &&
+                            classifyBackendKey(s.classifyBackend) !=
+                                QStringLiteral("off");
+    c.setValue(QStringLiteral("classify/auto"), classifyOn);
+    // Legacy key for older builds reading the same ini.
+    c.setValue(QStringLiteral("classify/enabled"), classifyOn);
+    c.setValue(QStringLiteral("classify/customUrl"), s.classifyCustomUrl);
+    c.setValue(QStringLiteral("classify/customFormat"), s.classifyCustomFormat);
     c.setValue(QStringLiteral("tagtypes/manual"),
                  TagTypes::serializeTagOverrides(s.manualTagTypes));
     c.setValue(QStringLiteral("tagtypes/customBuckets"),

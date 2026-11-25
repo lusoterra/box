@@ -363,7 +363,7 @@ public:
     void maybeFetchHybooruDetail();
     void setMaxSide(int px) { m_maxSide = qMax(512, px); }
     void setImageCache(ImageCache *cache);
-    // Per-booru category merge/rename rules (Preferences → Tags).
+    // Per-booru category merge/rename rules (Preferences → Taxonomies).
     void setCategoryMerges(const QList<TagCategoryMerge> &merges);
     // User-created groups: lowercase tag -> category label.
     void setCustomTagCategories(const QMap<QString, QString> &tags);

@@ -1,5 +1,7 @@
 #include "hydrusstore.h"
 
+#include "tagcategories.h"
+
 #include <QDateTime>
 #include <QDir>
 #include <QFileInfo>
@@ -354,6 +356,25 @@ QVector<Record> Db::list() const {
         return out;
     while (q.next())
         out.append(recordFromQuery(q));
+    return out;
+}
+
+QHash<QString, QString> Db::namespaceBuckets() const {
+    QHash<QString, QString> out;
+    if (!m_open)
+        return out;
+    const QVector<Record> rows = list();
+    for (const Record &r : rows) {
+        for (const QString &tag : r.tags) {
+            const SplitTag split = splitTag(tag);
+            if (split.ns.isEmpty() || split.tag.isEmpty())
+                continue;
+            const QString bucket = TagCategories::hydrusBucket(split.ns);
+            if (bucket.isEmpty())
+                continue;
+            out.insert(split.tag.toLower(), bucket);
+        }
+    }
     return out;
 }
 

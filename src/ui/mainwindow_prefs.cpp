@@ -198,7 +198,18 @@ void MainWindow::applyPreferences(const AppSettings &app) {
         return out;
     };
     const QStringList oldMediaAuth = mediaAuthOf(old.boorus);
+    const bool classifyBackendChanged =
+        classifyBackendKey(old.classifyBackend) !=
+            classifyBackendKey(app.classifyBackend) ||
+        old.classifyCustomUrl != app.classifyCustomUrl ||
+        old.classifyCustomFormat != app.classifyCustomFormat;
     m_settings = app;
+    if (classifyBackendChanged) {
+        if (m_fetcher && m_fetcher->isActive())
+            m_fetcher->cancel();
+        if (m_browseFetcher && m_browseFetcher->isActive())
+            m_browseFetcher->cancel();
+    }
     setAppCacheDirOverride(m_settings.cacheDir);
     saveSettings(m_settings);
     if (m_model && m_grid) {
@@ -308,6 +319,7 @@ void MainWindow::applyPreferences(const AppSettings &app) {
             updateTabTitle(i);
     }
     applyBooruCreds();
+    applyClassifySettings();
     // Capturing a captcha/clearance in Preferences must revive the cards
     // that already failed: failures are never cached, so re-requesting the
     // visible keys rides the new cookies/browser profile immediately.

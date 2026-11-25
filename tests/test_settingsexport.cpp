@@ -35,6 +35,10 @@ AppSettings sampleSettings() {
     s.tagCustomCategories.insert(QStringLiteral("smile"),
                                  QStringLiteral("Favourite faces"));
     s.manualTagTypes.insert(QStringLiteral("sky"), QStringLiteral("general"));
+    s.classifyBackend = QStringLiteral("custom");
+    s.classifyAuto = true;
+    s.classifyCustomUrl = QStringLiteral("https://tags.example/{tag}");
+    s.classifyCustomFormat = QStringLiteral("gelbooru");
     s.ugoiraFormat = QStringLiteral("jxl");
     s.ugoiraFrameDelayMs = 150;
     return s;
@@ -84,6 +88,11 @@ private slots:
         QCOMPARE(back.customTagCategories, sampleSettings().customTagCategories);
         QCOMPARE(back.tagCustomCategories, sampleSettings().tagCustomCategories);
         QCOMPARE(back.manualTagTypes.value(QStringLiteral("sky")), QStringLiteral("general"));
+        QCOMPARE(back.classifyBackend, QStringLiteral("custom"));
+        QVERIFY(back.classifyAuto);
+        QCOMPARE(back.classifyCustomUrl,
+                 QStringLiteral("https://tags.example/{tag}"));
+        QCOMPARE(back.classifyCustomFormat, QStringLiteral("gelbooru"));
         QCOMPARE(back.ugoiraFormat, QStringLiteral("jxl"));
         QCOMPARE(back.ugoiraFrameDelayMs, 150);
         QCOMPARE(favs.size(), 1);

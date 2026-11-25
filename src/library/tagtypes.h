@@ -6,16 +6,20 @@
 // (tagType "none" / one flat blob), so everything lands in General.
 // Fix: look the category up and re-bucket, persistently.
 //
-// Sources (danbooru numbering
-// 0=general 1=artist 3=copyright 4=character 5=meta 6=deprecated):
-//   1. Gelbooru tag API when credentials are set (exact `name=` match, XML;
-//      anonymous requests 401, so this stage is skipped without creds)
-//   2. Danbooru tag API, anonymous (same tag universe + numbering, JSON)
-//   3. Safebooru tag API fallback (SFW-filtered, misses more)
-//   4. yandere tag API fallback (exact-name pick from substring results, JSON)
-// Results - including misses (type -1) - persist in the per-root index DB's
-// tag_types table, so each tag is fetched once ever. Transient network
-// failures are NOT cached and retried on the next scan.
+// Backends are user-selected (settings: classify/backend), never a hidden
+// waterfall. The fetcher below performs the network ones; "off" and
+// "hydrus" are resolved by the caller from local data:
+//   off      - no requests (default)
+//   hydrus   - local namespace dictionary from hydrus.db
+//   danbooru - anonymous tags.json (JSON, danbooru numbering)
+//   gelbooru - tag XML, requires the configured credentials
+//   safebooru- tag XML (SFW-filtered)
+//   yandere  - tag.json (JSON)
+//   custom   - user base URL, Danbooru-JSON or Gelbooru-XML
+// Results (danbooru numbering 0=general 1=artist 3=copyright
+// 4=character 5=meta 6=deprecated) persist in `tag_types.db`; misses
+// (type -1) are cached, transient failures (kTransientFailure) are not
+// and retry on the next scan.
 #include <QHash>
 #include <QList>
 #include <QMap>
@@ -26,6 +30,7 @@
 class QNetworkAccessManager;
 class QNetworkReply;
 class QTimer;
+class QUrl;
 
 namespace TagTypes {
 QString bucketForType(int type); // "artist"|"copyright"|"character"|"meta"|"general"
@@ -106,9 +111,10 @@ private:
     QString m_conn;
 };
 
-// Sequential-ish fetcher (GUI thread): up to 4 concurrent lookups,
-// Gelbooru first when credentials exist, else anonymous Danbooru, then
-// Safebooru and yandere as fallbacks. Emits progress + one finished map.
+// Sequential-ish fetcher (GUI thread): up to 4 concurrent lookups against
+// ONE user-selected backend (no silent fallback). Emits progress + one
+// finished map. "hydrus" and "off" are handled by the caller: this class
+// only performs network lookups.
 class TagTypeFetcher : public QObject {
     Q_OBJECT
 public:
@@ -119,10 +125,19 @@ public:
     // the anonymous Danbooru index is used instead.
     void setGelbooruCredentials(const QString &userId, const QString &apiKey);
 
+    // backend: off | hydrus | danbooru | gelbooru | safebooru | yandere |
+    // custom. Only the online keys are used here; "hydrus"/"off" make
+    // fetch() a no-op. Custom needs a base URL and a response format.
+    void setBackend(const QString &backend, const QString &customUrl = {},
+                    const QString &customFormat = QStringLiteral("danbooru"));
+
     void fetch(const QStringList &tags, const QString &dbPath);
     void cancel();
     bool isActive() const { return m_active; }
     int failures() const { return m_failures; }
+    // Set when the chosen backend cannot run (missing Gelbooru keys,
+    // empty custom URL, or "off"). Cleared at the start of each fetch.
+    QString backendError() const { return m_backendError; }
 
     // One-shot credential check (known tag, reports what the API said).
     void validateCredentials(const QString &userId, const QString &apiKey);
@@ -140,7 +155,7 @@ signals:
     void backoff(); // rate-limited: launches paused briefly
 
 private:
-    enum class Source { Gelbooru, Danbooru, Safebooru, Yandere };
+    enum class Source { Gelbooru, Danbooru, Safebooru, Yandere, Custom };
     struct Flight {
         QString tag;
         QNetworkReply *reply = nullptr;
@@ -150,7 +165,8 @@ private:
     void pump();
     void issue(Flight *flight);
     void onReply(Flight *flight);
-    static int parseFor(Source src, const QByteArray &body, const QString &tag);
+    int parseFor(Source src, const QByteArray &body, const QString &tag) const;
+    QUrl customUrl(const QString &tag) const;
     QNetworkAccessManager *namForProxy(const QString &proxySpec);
 
     QNetworkAccessManager *m_nam;
@@ -161,6 +177,10 @@ private:
     QHash<QString, QString> m_results;
     TagTypeCache m_cache;
     QMap<QString, QNetworkAccessManager *> m_proxyNams;
+    QString m_backend = QStringLiteral("off");
+    QString m_customUrl;
+    QString m_customFormat = QStringLiteral("danbooru");
+    QString m_backendError;
     QString m_gelbooruUser;
     QString m_gelbooruKey;
     bool m_gelbooruDead = false; // 401/403 this run: skip it for the rest

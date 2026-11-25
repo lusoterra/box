@@ -1,5 +1,5 @@
 .\" Manual page for box
-.TH BOX 1 "2026-11-25" "box 0.11.0" "User Commands"
+.TH BOX 1 "2026-11-25" "box 0.12.0" "User Commands"
 .SH NAME
 box \- browse local image archives, online boorus and a Hydrus library
 .SH SYNOPSIS
@@ -22,6 +22,12 @@ Hydrus/hydd API without writing back.
 Booru instances, storage folders, themes and download behaviour are managed
 from the graphical Preferences dialog; settings persist in
 .IR settings.ini .
+.PP
+A fresh profile makes no network requests until the user explicitly opens
+a remote tab, searches, downloads or opens Hydrus. Automatic tag
+categorization is off by default; Preferences \(-> Taxonomies selects one
+explicit backend (off, local Hydrus namespaces, Danbooru, Gelbooru,
+Safebooru, Yandere or a custom URL). There is no hidden fallback.
 .PP
 Only one instance runs at a time. A second copy exits with a message.
 .SH OPTIONS

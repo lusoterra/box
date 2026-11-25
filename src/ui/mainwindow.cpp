@@ -11,6 +11,7 @@
 
 #include "metaparser.h"
 #include "migrations/migrations.h"
+#include "netpolicy.h"
 #include "multipickmenu.h"
 #include "postmeta.h"
 #include "prefsdlg.h"
@@ -825,31 +826,24 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
                              QStringLiteral("/favicons"));
     WebApiFetcher::setProfilePath(effectiveDataDir(m_settings) +
                                   QStringLiteral("/webprofile"));
-    // Warm up Chromium once at idle: first WebEngine use initializes on
-    // the GUI thread and can blink every window. A hidden probe now
-    // means capture dialogs later open without the stall.
-    QTimer::singleShot(20000, this, [this] {
-        CookieGrabDialog::prime(effectiveDataDir(m_settings) +
-                                QStringLiteral("/webprofile"));
-    });
+    // Chromium is deliberately NOT initialized here: a fresh profile must
+    // not start a browser stack (and its background networking) before the
+    // user asks for a browse/download. ensureWebBackend() builds it later.
     RemoteSource::setWebFetcher([](const QUrl &url, int timeoutMs) {
         const WebApiFetcher::Result r =
             WebApiFetcher::fetchJsonBlocking(url, timeoutMs);
         return RemoteSource::WebFetchResult{r.http, r.body, r.error};
     });
-    auto *webDownloads = new WebEngineDownloadBackend(this);
-    m_downloads->setWebBackend(webDownloads);
     m_downloads->setImageCache(m_imgCache); // full-res move shortcut
     m_downloads->setQueueStorePath(effectiveDataDir(m_settings) +
                                    QStringLiteral("/download_queue.db"));
     m_downloads->setUgoiraFormat(m_settings.ugoiraFormat);
     m_downloads->setUgoiraFrameDelayMs(m_settings.ugoiraFrameDelayMs);
-    m_thumbs->setWebBackend(webDownloads);
     connect(m_favicons, &FaviconCache::ready, this, &MainWindow::onFaviconReady);
     RemoteSource::setConfiguredBoorus(m_settings.boorus);
     RemotePosts::setDisabledBuckets(m_settings.disabledBuckets);
     RemotePosts::setGlobalProxy(m_settings.globalProxy);
-    prefetchFavicons();
+    // No prefetchFavicons() here: see allowNetwork().
     // Remembered folder wins when no explicit root was given on the CLI.
     m_root = root;
     if (!rootExplicit && !m_settings.lastRoot.isEmpty() &&
@@ -1446,8 +1440,8 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
             &MainWindow::onClassifyPartial);
     connect(m_fetcher, &TagTypeFetcher::gelbooruAuthFailed, this, [this] {
         statusBar()->showMessage(
-            tr("Gelbooru rejected the API credentials - using "
-                           "public sources (check User ID + key in Preferences)"),
+            tr("Gelbooru rejected the API credentials - check User ID + "
+               "key in Preferences → Booru manager"),
             10000);
     });
     connect(m_fetcher, &TagTypeFetcher::backoff, this, [this] {
@@ -1545,6 +1539,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
                                   m_settings.volume, m_settings.videoPitch);
     m_viewer->setMaxSide(m_settings.viewerMaxSide);
     applyBooruCreds();
+    applyClassifySettings();
     m_imgCache->setBaseDir(appCacheDir() + u'/' + QStringLiteral("full"));
     m_imgCache->setEnabled(m_settings.fullCache);
     m_viewer->setImageCache(m_imgCache);
@@ -1566,7 +1561,6 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
         // download/cache flags belong to the row now on screen).
         updateViewerBadges();
     });
-    m_viewer->setWebBackend(webDownloads);
     connect(m_viewer, &ViewerPage::variantsRequested, this,
             &MainWindow::searchVariants);
     connect(m_viewer, &ViewerPage::metadataRequested, this,

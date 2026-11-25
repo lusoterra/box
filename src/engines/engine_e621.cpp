@@ -7,7 +7,7 @@
 // comment_count}, flags.{deleted,...}, has.{notes,sample,...},
 // relationships.{parent_id,children[]}, rating s/q/e, sources[],
 // description (DText), tags[] FLAT (no per-category splits in either
-// shape: buckets come from the shared classifier waterfall, species/lore
+// shape: buckets come from the shared classifier, species/lore
 // stay native-capable through customTags on a later pass).
 // API rules (https://e621.net/help/api): descriptive non-empty
 // User-Agent required (default library UAs are blocked, browser
@@ -153,7 +153,7 @@ Post fromE621(const QJsonObject &o, const QString &baseUrl) {
     e621FillCommon(p, o, baseUrl);
     // Flat tag blob (no per-category splits in either shape): everything
     // arrives general + untyped, exactly like a LOSN flat import. The
-    // shared classifier waterfall resolves artist/character/copyright
+    // shared classifier resolves artist/character/copyright
     // (Danbooru-compatible 0/1/3/4 numbering) when enabled; species/lore
     // stay general until the e621-aware resolution lands (see below).
     QStringList tags;

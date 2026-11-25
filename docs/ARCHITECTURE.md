@@ -21,6 +21,11 @@ single-instance via `session.lock`).
     tag-suggest web fetch via `QtConcurrent::run`
     (`src/remote/tagsuggest.cpp:311`); prefs probe/test via
     `QtConcurrent::run` + `QFutureWatcher` (`src/ui/prefsdlg.cpp:1315,1358`).
+  - First launch is offline: `NetworkPolicy` starts closed, so favicon
+    prefetch and the Chromium profile are skipped until the first explicit
+    browse/download/Hydrus action or a Prefs probe/refresh button.
+    Chromium also runs with background networking, component updates,
+    safe-browsing pings, sync and DNS prefetch disabled (`src/main.cpp`).
   - Network is async QNAM: `RemoteSource::searchFinished`,
     `DownloadManager` (`kMaxFlight = 3`, `src/remote/downloadmanager.h:109`),
     `TagTypeFetcher` (`kMaxFlight = 4`, `src/library/tagtypes.h:171`),
@@ -195,7 +200,18 @@ single-instance via `session.lock`).
     boorus merge by key, favourites addMany skips duplicates).
   - `tagtypes.h`: `bucketForType/typeForBucket` (`:31`),
     `parseSafebooruXml/parseYandereJson/parseDanbooruTagsJson` (`:36-38`),
-    `TagTypeCache` verdict store (`:84`), `TagTypeFetcher` waterfall (`:112`).
+    `TagTypeCache` verdict store, `TagTypeFetcher` (one selected backend;
+    no silent fallback). Backend keys and the `classify/` settings live in
+    `settings.h`.
+  - `hydrusstore.h` also exposes `Db::namespaceBuckets()`: the local
+    offline dictionary (`stripped tag -> classic bucket`) built from the
+    namespaced tags in `hydrus.db`.
+  - `netpolicy.h` (`src/remote/`): default-deny gate for opportunistic
+    traffic. `allowed()` is false for a fresh profile; favicons and the
+    Chromium capture profile check it. `allow()` is called only from
+    explicit actions (browse tab/search/download, Hydrus tab, manual
+    classifier run, prefs Test/Refresh). Session-only; every launch
+    starts closed.
   - `explicittags.h`: built-in set (`:20`), `explicitTagsHash()` cache-buster
     (`:110`), `inferExplicit()` (`:122`).
   - `sidecarrefresh.h`: `SidecarRefresh::collect()` (`:24`), `SidecarBatch`
@@ -560,13 +576,22 @@ single-instance via `session.lock`).
     `share/hydrus`, `share/downloads`, `share/favourites`,
     `share/localFolder`, `share/folder`. The picker is shown on every
     start; there is no auto-start.
-- Tag classification waterfall (`src/library/tagtypes.h:112` `TagTypeFetcher`):
-  Gelbooru-with-creds -> anon Danbooru -> Safebooru -> yandere; misses
-  (type -1) cached, transient (`kTransientFailure = -2`) not cached and
-  retried (`tagtypes.h:17-18`). A run started while another is active
-  MERGES its tags into the running queue instead of cancelling it:
-  pagination used to abort the in-flight batch, leaving the first page's
-  tags general forever (`fetch()`).
+- Tag classification (`src/library/tagtypes.h` `TagTypeFetcher`): ONE
+  user-selected backend, never a hidden waterfall. Keys:
+  `off` (default), `hydrus` (local namespaces), `danbooru`, `gelbooru`,
+  `safebooru`, `yandere`, `custom`. `off`/`hydrus` never touch the
+  network. `gelbooru` needs the Booru-manager credentials; `custom` takes
+  a base URL (or a `{tag}` template) plus a Danbooru-JSON/Gelbooru-XML
+  format. A backend that cannot run reports why instead of contacting a
+  different host. Misses (type -1) are cached, transient
+  (`kTransientFailure = -2`) are not and retry on the next scan. A
+  run started while another is active MERGES its tags into the running
+  queue instead of cancelling it: pagination used to abort the in-flight
+  batch, leaving the first page's tags general forever (`fetch()`).
+  `startManualClassify(force)` backs `Update tag categories now` and
+  really refetches cached verdicts. Automatic runs are gated by
+  `classify/auto` (default off); the `hydrus` backend resolves from the
+  local `namespaceBuckets()` dictionary, with manual overrides on top.
   - Manual overrides (`tagtypes/manual` ini, `normalizeTagOverrides`)
     win without network; `skipAutoClassify` per entry
     (`remotesource.h:147`) leaves meme-host tags as-is; disabled buckets
@@ -608,7 +633,9 @@ ini + `boorus.json` to the target and leaves only the pointer stub.
 Key `settings.ini` groups: `cache/` (index, mode=all|sfw|none, full, limitMB,
 thumbSize), `library/` (root, history), `app/` (restoreSession, language),
 `fav/` (autoDownload, autoFav, unfavDeletesFile, deleteUnfavs),
-`stray/autoFav`, `filter/blacklist`, `classify/enabled`,
+`stray/autoFav`, `filter/blacklist`, `classify/backend`, `classify/auto`,
+`classify/customUrl`, `classify/customFormat` (`classify/enabled` is kept
+as the legacy boolean),
 `tagtypes/` (manual, customBuckets, categoryMerges, customCategories,
  tagCustomCategories, legacy disabledBuckets), `boorus/*/enabled`, `browse/` (mode, sites, limit),
 `tabs/saved*` + `last/*` (session restore, cap 25), `downloads/dir`,

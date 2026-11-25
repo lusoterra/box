@@ -1,6 +1,7 @@
 #include "faviconcache.h"
 
 #include "migrations/migrations.h"
+#include "netpolicy.h"
 #include "remotesource.h"
 
 #include <QDir>
@@ -94,6 +95,10 @@ QString FaviconCache::autoPathFor(const QString &key) const {
 }
 
 void FaviconCache::prefetch(const QString &key, const QString &baseUrl) {
+    // Opportunistic icon traffic waits for the first explicit browse or
+    // download; a fresh profile must not contact any host on its own.
+    if (!NetworkPolicy::allowed())
+        return;
     if (key.isEmpty() || m_icons.contains(key) || m_dead.contains(key) ||
         m_queued.contains(key) || key == m_currentKey)
         return;
@@ -141,7 +146,7 @@ void FaviconCache::refreshAll() {
 }
 
 void FaviconCache::fetchNext() {
-    if (m_reply || m_queue.isEmpty())
+    if (!NetworkPolicy::allowed() || m_reply || m_queue.isEmpty())
         return;
     const QPair<QString, QString> queued = m_queue.takeFirst();
     const QString key = queued.first, base = queued.second;

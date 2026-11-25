@@ -8,6 +8,9 @@
 #include "statsdialog.h"
 #include "filehash.h"
 #include "hydrusstore.h"
+#include "netpolicy.h"
+#include "prefsdlg.h"
+#include "settings.h"
 #include "tabbar.h"
 
 #include <QApplication>
@@ -15,6 +18,7 @@
 #include <QComboBox>
 #include <QDateTime>
 #include <QDialog>
+#include <QDialogButtonBox>
 #include <QDir>
 #include <QEventLoop>
 #include <QFile>
@@ -162,6 +166,63 @@ void decorationStats(GridView *grid, int &distinctOut, int &topCountOut,
 class TestGridWindow : public QObject {
     Q_OBJECT
 private slots:
+    // The Tags page exposes the classifier backend and keeps the custom
+    // URL fields disabled until "Custom URL" is selected.
+    void tagsPreferencesBuild() {
+        QTemporaryDir xdg;
+        QVERIFY(xdg.isValid());
+        qputenv("XDG_CONFIG_HOME", xdg.filePath("config").toUtf8());
+        qputenv("XDG_DATA_HOME", xdg.filePath("data").toUtf8());
+        qputenv("XDG_CACHE_HOME", xdg.filePath("cache").toUtf8());
+        PrefsDialog dlg(loadSettings(), nullptr);
+        auto *backend = dlg.findChild<QComboBox *>(
+            QStringLiteral("classifyBackend"));
+        QVERIFY(backend);
+        QCOMPARE(backend->currentData().toString(), QStringLiteral("off"));
+        auto *autoBox =
+            dlg.findChild<QCheckBox *>(QStringLiteral("classifyAuto"));
+        QVERIFY(autoBox);
+        QVERIFY(!autoBox->isEnabled());
+        auto *url =
+            dlg.findChild<QLineEdit *>(QStringLiteral("classifyCustomUrl"));
+        QVERIFY(url);
+        QVERIFY(!url->isEnabled());
+        backend->setCurrentIndex(
+            backend->findData(QStringLiteral("hydrus")));
+        QVERIFY(autoBox->isEnabled());
+        autoBox->setChecked(true);
+        QVERIFY(autoBox->isChecked());
+        auto *buttons = dlg.findChild<QDialogButtonBox *>();
+        QVERIFY(buttons);
+        buttons->button(QDialogButtonBox::Ok)->click();
+        const AppSettings out = dlg.settings();
+        QCOMPARE(out.classifyBackend, QStringLiteral("hydrus"));
+        QVERIFY(out.classifyAuto);
+    }
+
+    // Privacy: a fresh profile must not touch the network, prefetch
+    // favicons or initialize Chromium before the user browses.
+    void firstLaunchStaysOffline() {
+        NetworkPolicy::reset();
+        QTemporaryDir xdg;
+        QVERIFY(xdg.isValid());
+        qputenv("XDG_CONFIG_HOME", xdg.filePath("config").toUtf8());
+        qputenv("XDG_DATA_HOME", xdg.filePath("data").toUtf8());
+        qputenv("XDG_CACHE_HOME", xdg.filePath("cache").toUtf8());
+        MainWindow w(QString(), false);
+        QTest::qWait(300);
+        QVERIFY(!NetworkPolicy::allowed());
+        const AppSettings s = loadSettings();
+        QVERIFY(!QFileInfo::exists(effectiveDataDir(s) +
+                                   QStringLiteral("/webprofile")));
+        const QString faviconDir =
+            xdg.filePath(QStringLiteral("cache/box/favicons"));
+        QVERIFY(QDir(faviconDir).entryList({QStringLiteral("*.png")},
+                                           QDir::Files)
+                    .isEmpty());
+        NetworkPolicy::reset();
+    }
+
     // A favourites tab with thousands of rows must switch like a browser
 // tab: no full DB decode per visit, no per-row regex construction, no
 // per-card favicon scaling. The old path took ~1.5s per switch here.

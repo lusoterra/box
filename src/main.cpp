@@ -51,8 +51,34 @@ int main(int argc, char *argv[]) {
     // hardware GL, passes. Hardware path untouched; user's own flags kept.
     {
         QByteArray flags = qgetenv("QTWEBENGINE_CHROMIUM_FLAGS");
-        if (!flags.contains("--enable-unsafe-swiftshader"))
-            flags += " --enable-unsafe-swiftshader";
+        const auto addFlag = [&flags](const char *flag) {
+            if (flags.contains(flag))
+                return;
+            if (!flags.trimmed().isEmpty())
+                flags += ' ';
+            flags += flag;
+        };
+        addFlag("--enable-unsafe-swiftshader");
+        // Privacy: Box only talks to a host when the user asked for that
+        // browse/download. Chromium's own background channels (component
+        // updates, safe-browsing pings, domain reliability, sync, DNS
+        // prefetch) are switched off, so a fresh profile cannot phone home
+        // before the network gate opens.
+        addFlag("--disable-background-networking");
+        addFlag("--disable-component-update");
+        addFlag("--disable-domain-reliability");
+        addFlag("--disable-client-side-phishing-detection");
+        addFlag("--disable-sync");
+        addFlag("--disable-breakpad");
+        addFlag("--disable-default-apps");
+        addFlag("--no-pings");
+        addFlag("--no-first-run");
+        addFlag("--dns-prefetch-disable");
+        // A user-supplied --disable-features list always wins.
+        if (!flags.contains("--disable-features="))
+            addFlag("--disable-features=OptimizationHints,MediaRouter,"
+                    "InterestFeedContentSuggestions,"
+                    "AutofillServerCommunication,Translate");
         qputenv("QTWEBENGINE_CHROMIUM_FLAGS", flags.trimmed());
     }
     // Software video decoding (Qt FFmpeg backend): the VAAPI/hardware

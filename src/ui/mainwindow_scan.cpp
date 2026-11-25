@@ -254,39 +254,52 @@ void MainWindow::onScanFinished(const QString &scannedRoot,
 }
 
 bool MainWindow::maybeClassify(bool force) {
-    const bool online = m_settings.classifyTags;
+    const bool autoOn = classifyAutoEnabled(m_settings);
+    const QString backend = classifyBackendKey(m_settings.classifyBackend);
+    const bool online = autoOn && classifyBackendIsOnline(backend);
+    const bool wantVerdicts = autoOn || force;
     const QSet<QString> unknown =
-        (online || force) ? m_index.collectUntyped() : QSet<QString>();
+        wantVerdicts ? m_index.collectUntyped() : QSet<QString>();
     if (unknown.isEmpty() && m_settings.manualTagTypes.isEmpty())
         return false;
     const QString db = effectiveTagTypesDbPath(m_settings);
-    TagTypeCache cache;
     QHash<QString, QString> known;
     QStringList missing;
-    if (!unknown.isEmpty() && !force && cache.open(db)) {
-        for (const QString &t : unknown) {
-            int ty = TagTypes::kTransientFailure;
-            if (cache.get(t, ty)) {
-                if (ty != TagTypes::kUnknownTag)
-                    known.insert(t, TagTypes::bucketForType(ty));
-                // negatives stay general without refetching
-            } else {
-                missing.append(t);
-            }
-        }
-        cache.close();
-    } else if (!unknown.isEmpty()) {
-        if (force)
-            statusBar()->showMessage(
-                tr("Refreshing categories for %1 tags…").arg(unknown.size()));
-        missing = QStringList(unknown.begin(), unknown.end());
-    }
-    // Manual overrides: no network, win over fetched verdicts, and keep
-    // pinned tags (even General) out of the fetch queue.
+    QSet<QString> pending = unknown;
+    // Manual overrides: no network, win over everything.
     for (auto it = m_settings.manualTagTypes.begin();
          it != m_settings.manualTagTypes.end(); ++it) {
         known.insert(it.key(), it.value());
-        missing.removeAll(it.key());
+        pending.remove(it.key());
+    }
+    if (wantVerdicts && backend == QStringLiteral("hydrus")) {
+        const QHash<QString, QString> local = hydrusBucketsFor(pending);
+        for (auto it = local.begin(); it != local.end(); ++it) {
+            if (m_settings.manualTagTypes.contains(it.key()))
+                continue;
+            known.insert(it.key(), it.value());
+            pending.remove(it.key());
+        }
+    } else if (online && wantVerdicts && !pending.isEmpty()) {
+        TagTypeCache cache;
+        if (!force && cache.open(db)) {
+            for (const QString &t : pending) {
+                int ty = TagTypes::kTransientFailure;
+                if (cache.get(t, ty)) {
+                    if (ty != TagTypes::kUnknownTag)
+                        known.insert(t, TagTypes::bucketForType(ty));
+                    // negatives stay general without refetching
+                } else {
+                    missing.append(t);
+                }
+            }
+            cache.close();
+        } else {
+            missing = QStringList(pending.begin(), pending.end());
+        }
+    } else if (wantVerdicts && backend == QStringLiteral("off") && force) {
+        // Manual run with no backend: apply the manual map + cache is
+        // skipped; report nothing to fetch.
     }
     if (!known.isEmpty()) {
         const int moved = m_index.applyTagTypes(known);
@@ -295,10 +308,14 @@ bool MainWindow::maybeClassify(bool force) {
             rebuildSidebar();
             applyFilter();
             statusBar()->showMessage(
-                tr("Categorized %1 tags from cache").arg(moved), 8000);
+                backend == QStringLiteral("hydrus")
+                    ? tr("Categorized %1 tags from Hydrus namespaces")
+                          .arg(moved)
+                    : tr("Categorized %1 tags from cache").arg(moved),
+                8000);
         }
     }
-    if (!missing.isEmpty() && (online || force)) {
+    if (!missing.isEmpty() && online) {
         missing.sort();
         statusBar()->showMessage(
             tr("Classifying %1 untyped tags…").arg(missing.size()));

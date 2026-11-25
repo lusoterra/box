@@ -54,6 +54,7 @@ class RemoteSource;
 class PostRefresher;
 struct SiteCreds;
 class DownloadManager;
+class WebEngineDownloadBackend;
 class ImageCache;
 class GalleryDlRunner;
 class GalleryDlDialog;
@@ -255,9 +256,18 @@ private slots:
     void flushClassifyPartials();
     void onClassifyFinished(const QHash<QString, QString> &buckets);
     void onManualFetchDone(const QHash<QString, QString> &buckets);
-    void startManualClassify(); // (re)run for popup target + tag verdict DB
+    // (re)run for popup target + tag verdict DB. force skips cached
+    // verdicts (the "Update tag categories now" button promises that).
+    void startManualClassify(bool force = false);
     void applyManualBuckets(BrowserTab *t, const QHash<QString, QString> &buckets,
                             bool autoVerdicts);
+    // Local (offline) Hydrus namespace dictionary: stripped tag -> bucket.
+    QHash<QString, QString> hydrusNamespaceBuckets();
+    QHash<QString, QString> hydrusBucketsFor(const QSet<QString> &tags);
+    // Push the configured backend into both fetchers (startup + prefs).
+    void applyClassifySettings();
+    // Right-click "Categorize tag as…": a manual override, no network.
+    void categorizeTagManually(const QString &tag, const QString &bucket);
     void persistFavBuckets(const QVector<Post> &posts); // tag splits -> favdb
     void maybeClassifyBrowse(BrowserTab *t);
     // Re-push classified posts into the open viewer (its snapshot is a
@@ -293,6 +303,11 @@ private slots:
     void onSitesChanged();
     void syncSitesMenu();
     void rebuildSitesMenu(); // configured boorus changed (prefs)
+    // Open the default-deny network gate once, after the first explicit
+    // browse/download/hydrus action, then start the opportunistic work
+    // (site icons, Chromium profile) that stayed idle on a fresh profile.
+    void allowNetwork();
+    void ensureWebBackend();
     void prefetchFavicons(); // queue site icons after registry changes
     void refreshFavicons();  // drop cached icons and fetch them again
     void showPlusMenu();     // + button: home, specials, booru picker
@@ -688,6 +703,11 @@ private:
     BrowserTab *m_manualTab = nullptr; // popup classify target (validated)
     QString m_manualDb;                // tag DB the popup run uses
     bool m_manualActive = false;       // suppress auto finish handlers
+    // Local Hydrus namespace dictionary cache (rebuilt when hydrus.db
+    // changes, not on every browse/scan).
+    QString m_hydrusBucketsPath;
+    qint64 m_hydrusBucketsStamp = -1;
+    QHash<QString, QString> m_hydrusBuckets;
     // Tab a browse classify run belongs to (raw: verified against m_tabs
     // on finish, since tabs can close mid-fetch). -1 = local run / none.
     BrowserTab *m_classifyTab = nullptr;
@@ -721,6 +741,7 @@ private:
     RefreshTarget m_hybooruTarget;
     Post m_hybooruCurrent;
     DownloadManager *m_downloads = nullptr;
+    WebEngineDownloadBackend *m_webDownloads = nullptr;
     class DownloadsDialog *m_dlDialog = nullptr;
     // Close flow: set when the quit prompt was already answered (or a
     // drain was requested), so the second close() goes straight through.

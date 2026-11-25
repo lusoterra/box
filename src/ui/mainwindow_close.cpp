@@ -245,8 +245,11 @@ void MainWindow::maybeResumeDownloads() {
     }
     if (mb.clickedButton() == forgetBtn)
         m_downloads->discardPersistedQueue();
-    else if (mb.clickedButton() == contBtn)
+    else if (mb.clickedButton() == contBtn) {
+        allowNetwork();
+        ensureWebBackend();
         m_downloads->resumePersistedQueue();
+    }
     relinkFavourites();
 }
 
@@ -597,6 +600,18 @@ void MainWindow::showViewerTagMenu(const QString &tag, const QPoint &globalPos) 
     }
     if (newTab->isEmpty())
         newTab->setEnabled(false);
+    QMenu *categorize = menu.addMenu(tr("Categorize tag as"));
+    const QList<QPair<QString, QString>> buckets = {
+        {tr("Artist"), QStringLiteral("artist")},
+        {tr("Character"), QStringLiteral("character")},
+        {tr("Copyright"), QStringLiteral("copyright")},
+        {tr("Meta"), QStringLiteral("meta")},
+        {tr("General"), QStringLiteral("general")}};
+    for (const auto &[label, key] : buckets) {
+        QAction *a = categorize->addAction(label);
+        connect(a, &QAction::triggered, this,
+                [this, tag, key] { categorizeTagManually(tag, key); });
+    }
     menu.exec(globalPos);
 }
 

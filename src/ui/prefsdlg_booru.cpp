@@ -4,6 +4,7 @@
 #include "remotesource.h"
 #include "settings.h"
 #include "cachepolicy.h"
+#include "netpolicy.h"
 #include "tagcategories.h"
 #include "tagtypes.h"
 #include "explicittags.h"
@@ -563,6 +564,7 @@ QPair<int, QString> detectEngineFor(const QString &base) {
 } // namespace
 
 void PrefsDialog::detectBooruEngine(QPushButton *detectBtn) {
+    NetworkPolicy::allow(); // explicit probe button
     saveBooruEditor();
     BooruSite *e = currentBooruEntry();
     if (!e || e->baseUrl.isEmpty()) {
@@ -606,6 +608,7 @@ void PrefsDialog::detectBooruEngine(QPushButton *detectBtn) {
 }
 
 void PrefsDialog::testSite(const BooruSite &probed) {
+    NetworkPolicy::allow(); // explicit Test button
     if (probed.baseUrl.isEmpty()) {
         showAccountStatus(
             StatusError,
@@ -698,7 +701,17 @@ void PrefsDialog::harvestInto(AppSettings &out) {
     out = m_result; // carry history/session/geometry: not edited here
     out.tabsDefault = m_defaultTab->currentData().toString();
     out.language = m_language ? m_language->currentData().toString() : out.language;
-    out.classifyTags = m_classify->isChecked();
+    if (m_classifyBackend)
+        out.classifyBackend = classifyBackendKey(
+            m_classifyBackend->currentData().toString());
+    if (m_classifyAuto)
+        out.classifyAuto = m_classifyAuto->isChecked() &&
+                           out.classifyBackend != QStringLiteral("off");
+    if (m_classifyCustomUrl)
+        out.classifyCustomUrl = m_classifyCustomUrl->text().trimmed();
+    if (m_classifyCustomFormat)
+        out.classifyCustomFormat =
+            m_classifyCustomFormat->currentData().toString();
     out.favAutoDownload = m_favAutoDownload->isChecked();
     out.favAutoFav = m_favFav->isChecked();
     out.unfavDeletesFile = m_unfavDeletes->isChecked();

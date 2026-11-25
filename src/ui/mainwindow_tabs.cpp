@@ -666,6 +666,16 @@ void MainWindow::finishActivateTab(int tabIdx) {
     if (tabIdx < 0 || tabIdx >= m_tabs.size() || tabIdx != m_curTab)
         return;
     BrowserTab *t = m_tabs[tabIdx];
+    // Opening or restoring a remote/favourites/Hydrus tab is an explicit
+    // network action: open the gate before any prefetch runs.
+    if (t->isHydrus || t->isFavourites || t->isRemote)
+        allowNetwork();
+    if (t->isRemote) {
+        // Remote grids need the browser fallback for walled previews and
+        // the site icons now that the user chose to browse.
+        ensureWebBackend();
+        prefetchFavicons();
+    }
     if (t->isHydrus) {
         loadHydrusTab(t);
     } else if (t->isFavourites) {
@@ -676,6 +686,14 @@ void MainWindow::finishActivateTab(int tabIdx) {
         // tab switch must not pay a full decode of every row.
         if (t->localPosts.isEmpty())
             t->localPosts = m_favDb.list();
+        // Remote-only favourites use the browser fallback for walled
+        // previews/videos. Build it on first visit, not at startup.
+        for (const Post &p : t->localPosts) {
+            if (p.isRemote) {
+                ensureWebBackend();
+                break;
+            }
+        }
         setWindowTitle(QStringLiteral("Box - Favourites"));
         m_rating = t->rating;
         m_category = t->category;

@@ -485,18 +485,6 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
             return CacheMode::SfwOnly;
         return CacheMode::All;
     };
-    m_classify = new QCheckBox(
-        tr("Classify untyped tags online (Gelbooru/Danbooru, cached)"),
-        this);
-    m_classify->setChecked(current.classifyTags);
-    auto *classifyRow = new QHBoxLayout();
-    auto *classifyNow = new QPushButton(tr("Update tag categories now"), this);
-    classifyNow->setToolTip(tr("Re-fetch categories for every untyped tag, "
-                               "including cached ones"));
-    connect(classifyNow, &QPushButton::clicked, this,
-            &PrefsDialog::classifyNowRequested);
-    classifyRow->addWidget(classifyNow);
-    classifyRow->addStretch(1);
     m_fullCache = new QCheckBox(
         tr("Also cache full-quality images while browsing (large)"), this);
     m_fullCache->setChecked(current.fullCache);
@@ -586,19 +574,133 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     sizeRow->addWidget(clearBtn);
     libLay->addWidget(m_fullCache);
     libLay->addWidget(m_cacheFavs);
-    libLay->addWidget(m_classify);
-    libLay->addLayout(classifyRow);
     libLay->addLayout(limitRow);
     auto *cacheLabelRow = new QHBoxLayout();
     cacheLabelRow->addWidget(new QLabel(tr("Cache folder:"), this));
     cacheLabelRow->addLayout(cacheRow);
     libLay->addLayout(cacheLabelRow);
-    libLay->addWidget(note(tr("Untyped tags (tagType \"none\", Gelbooru blobs) get their category "
-        "from public tag APIs. Results cache forever; misses stay general.")));
     libLay->addLayout(sizeRow);
     libLay->addWidget(note(tr("Cache changes apply on Apply; existing files "
                               "stay until you delete them.")));
     libraryPage->addWidget(lib);
+
+    // ── Automatic tag categorization (off by default) ──
+    auto *cat = new QGroupBox(tr("Automatic tag categorization"), this);
+    auto *catLay = new QVBoxLayout(cat);
+    catLay->addWidget(note(tr(
+        "Fills Artist/Character/Copyright/Meta for tags that arrive without "
+        "a category (flat Gelbooru/e621 blobs, LOSN imports). Off by "
+        "default: nothing is sent until you choose a backend. Native booru "
+        "categories are never changed.")));
+    auto *backendRow = new QHBoxLayout();
+    backendRow->addWidget(new QLabel(tr("Backend:"), this));
+    m_classifyBackend = new QComboBox(this);
+    m_classifyBackend->setObjectName(QStringLiteral("classifyBackend"));
+    m_classifyBackend->addItem(tr("Off (no requests)"),
+                               QStringLiteral("off"));
+    m_classifyBackend->addItem(tr("Hydrus tags (local, offline)"),
+                               QStringLiteral("hydrus"));
+    m_classifyBackend->addItem(tr("Danbooru (anonymous)"),
+                               QStringLiteral("danbooru"));
+    m_classifyBackend->addItem(tr("Gelbooru (needs credentials)"),
+                               QStringLiteral("gelbooru"));
+    m_classifyBackend->addItem(tr("Safebooru"),
+                               QStringLiteral("safebooru"));
+    m_classifyBackend->addItem(tr("Yandere"), QStringLiteral("yandere"));
+    m_classifyBackend->addItem(tr("Custom URL"), QStringLiteral("custom"));
+    const int backendIndex = m_classifyBackend->findData(
+        classifyBackendKey(current.classifyBackend));
+    m_classifyBackend->setCurrentIndex(backendIndex < 0 ? 0 : backendIndex);
+    backendRow->addWidget(m_classifyBackend, 1);
+    catLay->addLayout(backendRow);
+
+    m_classifyAuto = new QCheckBox(
+        tr("Classify automatically while browsing and scanning"), this);
+    m_classifyAuto->setObjectName(QStringLiteral("classifyAuto"));
+    m_classifyAuto->setChecked(current.classifyAuto);
+    catLay->addWidget(m_classifyAuto);
+
+    auto *classifyCustomRow = new QHBoxLayout();
+    classifyCustomRow->addWidget(new QLabel(tr("Custom base URL:"), this));
+    m_classifyCustomUrl = new QLineEdit(current.classifyCustomUrl, this);
+    m_classifyCustomUrl->setObjectName(QStringLiteral("classifyCustomUrl"));
+    m_classifyCustomUrl->setPlaceholderText(
+        tr("https://example.org (or a URL containing {tag})"));
+    classifyCustomRow->addWidget(m_classifyCustomUrl, 1);
+    m_classifyCustomFormat = new QComboBox(this);
+    m_classifyCustomFormat->setObjectName(
+        QStringLiteral("classifyCustomFormat"));
+    m_classifyCustomFormat->addItem(tr("Danbooru JSON"),
+                                    QStringLiteral("danbooru"));
+    m_classifyCustomFormat->addItem(tr("Gelbooru XML"),
+                                    QStringLiteral("gelbooru"));
+    const int formatIndex = m_classifyCustomFormat->findData(
+        current.classifyCustomFormat);
+    m_classifyCustomFormat->setCurrentIndex(formatIndex < 0 ? 0 : formatIndex);
+    classifyCustomRow->addWidget(m_classifyCustomFormat);
+    catLay->addLayout(classifyCustomRow);
+
+    auto *classifyRow = new QHBoxLayout();
+    auto *classifyNow = new QPushButton(tr("Update tag categories now"), this);
+    classifyNow->setToolTip(tr(
+        "Re-fetch categories for every untyped tag, including cached ones. "
+        "Uses the selected backend."));
+    connect(classifyNow, &QPushButton::clicked, this,
+            &PrefsDialog::classifyNowRequested);
+    classifyRow->addWidget(classifyNow);
+    classifyRow->addStretch(1);
+    catLay->addLayout(classifyRow);
+    m_classifyHint = new QLabel(this);
+    m_classifyHint->setObjectName(QStringLiteral("classifyHint"));
+    m_classifyHint->setWordWrap(true);
+    catLay->addWidget(m_classifyHint);
+
+    auto syncClassifyUi = [this] {
+        if (!m_classifyBackend || !m_classifyAuto || !m_classifyCustomUrl ||
+            !m_classifyCustomFormat || !m_classifyHint)
+            return;
+        const QString backend = m_classifyBackend->currentData().toString();
+        const bool custom = backend == QStringLiteral("custom");
+        const bool off = backend == QStringLiteral("off");
+        m_classifyCustomUrl->setEnabled(custom);
+        m_classifyCustomFormat->setEnabled(custom);
+        m_classifyAuto->setEnabled(!off);
+        if (off)
+            m_classifyAuto->setChecked(false);
+        QString hint;
+        if (off)
+            hint = tr("No requests and no automatic categorization. Manual "
+                      "overrides still apply; the bundled common-tag cache is "
+                      "used when an online backend runs.");
+        else if (backend == QStringLiteral("hydrus"))
+            hint = tr("Reads namespaced tags from hydrus.db. No network.");
+        else if (backend == QStringLiteral("gelbooru"))
+            hint = tr("Uses the Gelbooru credentials from the Booru manager; "
+                      "tag names are sent to gelbooru.com.");
+        else if (backend == QStringLiteral("custom"))
+            hint = tr("Tag names are sent to the custom endpoint. A URL "
+                      "containing {tag} overrides the default path.");
+        else if (backend == QStringLiteral("danbooru"))
+            hint = tr("Tag names are sent anonymously to danbooru.donmai.us.");
+        else if (backend == QStringLiteral("safebooru"))
+            hint = tr("Tag names are sent to safebooru.org.");
+        else if (backend == QStringLiteral("yandere"))
+            hint = tr("Tag names are sent to yande.re.");
+        m_classifyHint->setText(hint);
+        updateApplyState();
+    };
+    connect(m_classifyBackend,
+            QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+            [syncClassifyUi](int) { syncClassifyUi(); });
+    connect(m_classifyAuto, &QCheckBox::toggled, this,
+            [syncClassifyUi](bool) { syncClassifyUi(); });
+    connect(m_classifyCustomUrl, &QLineEdit::textChanged, this,
+            [syncClassifyUi](const QString &) { syncClassifyUi(); });
+    connect(m_classifyCustomFormat,
+            QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+            [syncClassifyUi](int) { syncClassifyUi(); });
+    syncClassifyUi();
+    tagsPage->addWidget(cat);
 
     // ── Tag type overrides: manual bucket per tag ──
     auto *types = new QGroupBox(tr("Tag type overrides"), this);
@@ -663,7 +765,27 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     typeRow->addWidget(typeAdd);
     typeRow->addWidget(typeDel);
     typesLay->addLayout(typeRow);
-    typesLay->addWidget(note(tr(
+    tagsPage->addWidget(types);
+
+    // Everything below is niche: custom groups and per-booru category
+    // renaming. It stays available but collapsed, because the common case
+    // is the tag-level override above (plus the offline classifier).
+    auto *advancedToggle = new QCheckBox(
+        tr("Advanced tag mapping (custom groups, per-booru merges)"), this);
+    tagsPage->addWidget(advancedToggle);
+    auto *advancedBody = new QWidget(this);
+    auto *advLay = new QVBoxLayout(advancedBody);
+    advLay->setContentsMargins(0, 0, 0, 0);
+    advancedBody->setVisible(false);
+    tagsPage->addWidget(advancedBody);
+    connect(advancedToggle, &QCheckBox::toggled, advancedBody,
+            &QWidget::setVisible);
+
+    auto *customBucketGroup =
+        new QGroupBox(tr("Native category → classic bucket"), this);
+    auto *customBucketLay = new QVBoxLayout(customBucketGroup);
+    advLay->addWidget(customBucketGroup);
+    customBucketLay->addWidget(note(tr(
         "Custom category → classic bucket (e.g. series → Copyright): "
         "those tags join that sidebar section and pill colour.")));
     m_customBuckets = new QListWidget(this);
@@ -675,7 +797,7 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
         item->setData(Qt::UserRole, it.key());
         item->setData(Qt::UserRole + 1, it.value());
     }
-    typesLay->addWidget(m_customBuckets);
+    customBucketLay->addWidget(m_customBuckets);
     auto *customRow = new QHBoxLayout();
     m_customBucketEdit = new QLineEdit(this);
     m_customBucketEdit->setPlaceholderText(tr("category (e.g. series)"));
@@ -721,10 +843,13 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     customRow->addWidget(m_customBucketBucket);
     customRow->addWidget(customAdd);
     customRow->addWidget(customDel);
-    typesLay->addLayout(customRow);
+    customBucketLay->addLayout(customRow);
 
     // ── User-created categories: assign any tag to its own group ──
-    typesLay->addWidget(note(tr(
+    auto *customCatGroup = new QGroupBox(tr("Custom tag groups"), this);
+    auto *customCatLay = new QVBoxLayout(customCatGroup);
+    advLay->addWidget(customCatGroup);
+    customCatLay->addWidget(note(tr(
         "Custom tag categories: create a group, then assign tags to it. "
         "Assigned tags move out of Artist/Character/Copyright/Meta/Tags "
         "into that group in the sidebar and viewer.")));
@@ -732,7 +857,7 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     m_customCategories->setMinimumHeight(58);
     for (const QString &cat : current.customTagCategories)
         new QListWidgetItem(cat, m_customCategories);
-    typesLay->addWidget(m_customCategories);
+    customCatLay->addWidget(m_customCategories);
     auto *customCatRow = new QHBoxLayout();
     m_customCategoryEdit = new QLineEdit(this);
     m_customCategoryEdit->setPlaceholderText(tr("new category name"));
@@ -741,7 +866,7 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     customCatRow->addWidget(m_customCategoryEdit, 1);
     customCatRow->addWidget(customCatAdd);
     customCatRow->addWidget(customCatDel);
-    typesLay->addLayout(customCatRow);
+    customCatLay->addLayout(customCatRow);
 
     m_tagCustomAssignments = new QListWidget(this);
     m_tagCustomAssignments->setMinimumHeight(80);
@@ -752,7 +877,7 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
         item->setData(Qt::UserRole, it.key());
         item->setData(Qt::UserRole + 1, it.value());
     }
-    typesLay->addWidget(m_tagCustomAssignments);
+    customCatLay->addWidget(m_tagCustomAssignments);
     auto *catTagRow = new QHBoxLayout();
     m_tagCustomEdit = new QLineEdit(this);
     m_tagCustomEdit->setPlaceholderText(tr("tag"));
@@ -765,7 +890,7 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     catTagRow->addWidget(m_tagCustomCategory, 1);
     catTagRow->addWidget(catTagAdd);
     catTagRow->addWidget(catTagDel);
-    typesLay->addLayout(catTagRow);
+    customCatLay->addLayout(catTagRow);
     auto refreshCatCombo = [this]() {
         if (!m_tagCustomCategory)
             return;
@@ -849,7 +974,6 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
             m_tagCustomAssignments->currentRow());
         updateApplyState();
     });
-    tagsPage->addWidget(types);
 
     // ── Merge tag categories: one group/rename per booru ──
     auto *merge = new QGroupBox(tr("Merge tag categories"), this);
@@ -933,7 +1057,7 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
         delete m_categoryMerges->takeItem(m_categoryMerges->currentRow());
         updateApplyState();
     });
-    tagsPage->addWidget(merge);
+    advLay->addWidget(merge);
 
     // ── Browse ──
     auto *browse = new QGroupBox(tr("Browse && downloads"), this);
@@ -1978,7 +2102,17 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
                 m_defaultTab->setCurrentIndex(0);
                 if (m_language)
                     m_language->setCurrentIndex(0);
-                m_classify->setChecked(d.classifyTags);
+                if (m_classifyBackend) {
+                    const int idx = m_classifyBackend->findData(
+                        classifyBackendKey(d.classifyBackend));
+                    m_classifyBackend->setCurrentIndex(idx < 0 ? 0 : idx);
+                }
+                if (m_classifyAuto)
+                    m_classifyAuto->setChecked(d.classifyAuto);
+                if (m_classifyCustomUrl)
+                    m_classifyCustomUrl->clear();
+                if (m_classifyCustomFormat)
+                    m_classifyCustomFormat->setCurrentIndex(0);
                 if (m_gridSnap)
                     m_gridSnap->setChecked(d.gridSnap);
                 if (m_gridStaggered)

@@ -257,6 +257,7 @@ void MainWindow::openHydrusTab() {
     }
     if (!ensureHydrusDb())
         return;
+    allowNetwork();
     auto *t = new BrowserTab();
     t->isHydrus = true;
     t->sort = QStringLiteral("added");

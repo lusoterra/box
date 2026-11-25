@@ -14,8 +14,10 @@ booru registry, the favourites schema/identities, cache tracking and
 on-disk layout moves. When work is pending a small modal dialog -
 `Running migrations…` (or `Migrating vX → vY…` across schema
 generations) with a progress bar and the current step - covers startup;
-with nothing to do there is no dialog and boot is unchanged. A missing
-configured storage folder still warns first (Use defaults / Change
+with nothing to do there is no dialog and boot is unchanged. A fresh
+profile makes no network requests: favicons and the Chromium capture
+profile are built only after the first explicit browse/download/Hydrus
+action (`NetworkPolicy`). A missing configured storage folder still warns first (Use defaults / Change
 folders / Quit), and a moved data folder re-runs the upgrades for the
 new location on Apply.
 
@@ -54,7 +56,7 @@ purple, META orange, TAGS/general white) with counts, each tinted in its
 bucket colour like the filter pills, plus
 extra sections for native custom categories (Nuuru flags, Szuru
 categories) seen on the page - or folded into a classic bucket when
-mapped under Preferences → Tags. Category labels read as words
+mapped under Preferences → Taxonomies. Category labels read as words
 (`ENTITY TYPE`, not `entity_type`); empty or single-tag categories hide
 entirely until they hold two tags (a single-post page, e.g. an `id:`
 search, keeps its one artist/character/copyright tag visible), and tiny
@@ -379,8 +381,9 @@ downloaded rows show their booru `Label (Engine)` form -, URLs (the
 post page, not the downloaded file, except strays),
 score, rating with `(inferred)` flag, dimensions, ext) and clickable tag
 groups (Artist/Character/Copyright/General/Meta + native custom
-categories; right-click a tag for `Add to search` or `Search in
-new tab` per booru), then notes + comments on remote posts (long
+categories; right-click a tag for `Add to search`, `Search in
+new tab` per booru, or `Categorize tag as` → Artist/Character/Copyright/
+Meta/General, which pins a manual override with no network use), then notes + comments on remote posts (long
 threads collapse behind a show-all toggle).
 
 ## 12-prefs-general - Preferences → General
@@ -435,7 +438,8 @@ Per-entry `Tags` (skip auto-categorization), `Drag posts as` (direct
 media vs post page; `Use global` follows Preferences → Browse), `Blacklist` (filter
 blacklist locally instead of server `-tags`, for tag-capped accounts),
 `Default tags`, `Media cache` (`Global` / `All` / `SFW only` / `Nothing`
-for this booru, narrowed by the global mode), `Proxy`.
+for this booru, narrowed by the global mode), `Proxy`. Restoring the
+shipped presets asks three times: the list is easy to lose.
 
 ## 15b-prefs-hydrus - Preferences → Hydrus
 `Enable Hydrus tab and tag lookups` (off by default) reveals the Hydrus
@@ -457,17 +461,24 @@ reports as undefined. If the extension is disabled/missing/building, tags
 are kept unmasked and the tab says so. Manual edits are never masked.
 
 ## 15-prefs-tags - Preferences → Taxonomies
-`Tag type overrides` (manual `tag → bucket`, wins over fetches),
-`Restore presets` asks three times before re-adding shipped boorus (the
-list is easy to lose),
-`Custom category → bucket` (fold a native category into a classic bucket),
-`Custom tag categories` (create named groups and assign `tag → group`;
-assigned tags leave Artist/Character/Copyright/Meta/Tags),
-`Merge tag categories` (per-booru rows `source1, source2 → Target`:
-group native categories under one label or rename a classic bucket, e.g.
-`character, variant → Characters` or `* → soybooru_specific`),
-`Explicit detection` word list (offline rating upgrades; edits
-invalidate the scan cache).
+`Automatic tag categorization`: backend combo (`Off (no requests)`,
+`Hydrus tags (local, offline)`, `Danbooru`, `Gelbooru`, `Safebooru`,
+`Yandere`, `Custom URL`), a `Classify automatically while browsing and
+scanning` checkbox, the custom base URL + format (Danbooru JSON /
+Gelbooru XML), `Update tag categories now` (refetches even cached
+verdicts) and a hint naming the active endpoint or "no network". Default
+is Off. The backend applies only to tags that arrive without a category;
+native booru categories are never changed. `Hydrus tags` reads the
+namespaced tags already stored in `hydrus.db` (creator/character/series/
+studio/meta), so it is fully offline.
+
+`Tag type overrides` (manual `tag → bucket`, wins over fetches and the
+classifier) stays visible. `Advanced tag mapping` (collapsed) holds
+`Native category → classic bucket`, `Custom tag groups` (create a group
+and assign `tag → group`) and `Merge tag categories` (per-booru rows
+`source1, source2 → Target`, e.g. `character, variant → Characters`).
+`Explicit detection` is the offline rating word list (edits invalidate
+the scan cache).
 
 ## 16-prefs-appearance - Preferences → Appearance
 `Theme` (file-based; Box dark, KeePassXC dark/light, Light, Nord,

@@ -97,6 +97,10 @@ void MainWindow::downloadPosts(const QVector<Post> &posts, bool confirmBulk) {
             6000);
         return;
     }
+    // A remote batch is an explicit network action: open the gate and
+    // build the browser fallback only when there is something to fetch.
+    allowNetwork();
+    ensureWebBackend();
     const QString dest = effectiveDownloadDir(m_settings);
     const QList<DownloadJob> jobs = DownloadManager::plan(remote, dest);
     if (jobs.isEmpty()) {

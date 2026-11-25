@@ -120,6 +120,9 @@ void MainWindow::doBrowseSearch(bool append) {
     BrowserTab *t = currentTab();
     if (!t || !t->isRemote)
         return;
+    allowNetwork();
+    ensureWebBackend();
+    prefetchFavicons();
     clearStatusProbe(); // a new search invalidates the old error details
     if (!append)
         m_hybooruTried.clear(); // fresh page: hydrate its rows again

@@ -217,6 +217,40 @@ private slots:
         QCOMPARE(again.record(second.sha256).fileName, second.fileName);
     }
 
+    void namespaceBucketsAreLocal() {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        Db db;
+        QVERIFY(db.open(dir.filePath(QStringLiteral("hydrus.db"))));
+        Record r;
+        r.sha256 = QStringLiteral("aa");
+        r.fileName = QStringLiteral("aa.png");
+        r.ext = QStringLiteral("png");
+        r.tags = {QStringLiteral("creator:alice"),
+                  QStringLiteral("character:bob"),
+                  QStringLiteral("series:show"),
+                  QStringLiteral("studio:acme"),
+                  QStringLiteral("meta:sketch"),
+                  QStringLiteral("species:cat"),
+                  QStringLiteral("beach")};
+        QVERIFY(db.insert(r));
+        const QHash<QString, QString> buckets = db.namespaceBuckets();
+        QCOMPARE(buckets.value(QStringLiteral("alice")),
+                 QStringLiteral("artist"));
+        QCOMPARE(buckets.value(QStringLiteral("bob")),
+                 QStringLiteral("character"));
+        QCOMPARE(buckets.value(QStringLiteral("show")),
+                 QStringLiteral("copyright"));
+        QCOMPARE(buckets.value(QStringLiteral("acme")),
+                 QStringLiteral("copyright"));
+        QCOMPARE(buckets.value(QStringLiteral("sketch")),
+                 QStringLiteral("meta"));
+        // Unknown namespaces and unnamespaced tags do not enter the map.
+        QVERIFY(!buckets.contains(QStringLiteral("cat")));
+        QVERIFY(!buckets.contains(QStringLiteral("beach")));
+        db.close();
+    }
+
     void dbRejectsUnusablePaths() {
         Db db;
         QVERIFY(!db.open(QString()));

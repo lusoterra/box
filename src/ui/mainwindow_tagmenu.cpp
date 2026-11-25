@@ -134,6 +134,24 @@ void MainWindow::toggleFavTag(const QString &tag) {
         3000);
 }
 
+void MainWindow::categorizeTagManually(const QString &tag,
+                                       const QString &bucket) {
+    const QString clean = tag.trimmed().toLower();
+    if (clean.isEmpty() || !TagTypes::isValidBucket(bucket))
+        return;
+    m_settings.manualTagTypes.insert(clean, bucket);
+    saveSettings(m_settings);
+    BrowserTab *t = currentTab();
+    if (t && !t->isHydrus) {
+        QHash<QString, QString> one;
+        one.insert(clean, bucket);
+        applyManualBuckets(t, one, false);
+        refreshViewerTags(t);
+    }
+    statusBar()->showMessage(
+        tr("Pinned %1 → %2").arg(clean, bucket), 4000);
+}
+
 void MainWindow::onTagContextMenu(const QPoint &pos) {
     auto *list = qobject_cast<QListWidget *>(sender());
     if (!list)
@@ -223,6 +241,18 @@ void MainWindow::onTagContextMenu(const QPoint &pos) {
             statusBar()->showMessage(
                 tr("Recategorised %1 → %2").arg(tag, choice), 3000);
         });
+    }
+    QMenu *categorize = menu.addMenu(tr("Categorize tag as"));
+    const QList<QPair<QString, QString>> buckets = {
+        {tr("Artist"), QStringLiteral("artist")},
+        {tr("Character"), QStringLiteral("character")},
+        {tr("Copyright"), QStringLiteral("copyright")},
+        {tr("Meta"), QStringLiteral("meta")},
+        {tr("General"), QStringLiteral("general")}};
+    for (const auto &[label, key] : buckets) {
+        QAction *a = categorize->addAction(label);
+        connect(a, &QAction::triggered, this,
+                [this, tag, key] { categorizeTagManually(tag, key); });
     }
     menu.exec(list->mapToGlobal(pos));
 }

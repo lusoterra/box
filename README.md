@@ -38,6 +38,36 @@ general-rated ones by default. Existing entries keep their own default
 tags.
 
 
+## Privacy and tag classification
+
+A fresh profile is offline until you ask for something. On first launch Box
+makes no network requests: site favicons are not prefetched, the embedded
+Chromium profile is not created, and the tag classifier is off. The gate
+opens only when you open a remote/favourites/Hydrus tab, run a search,
+start a download, or press a Prefs Test/Refresh button. Chromium also runs
+with its background networking, component updates, safe-browsing pings,
+sync and DNS prefetch disabled.
+
+Automatic tag categorization is opt-in and has explicit backends:
+
+- `Off` (default) - no requests and no automatic categorization. Manual
+  tag overrides still apply. Online backends consult the bundled
+  common-tag cache before making a request.
+- `Hydrus tags (local)` - reads namespaced tags already in `hydrus.db`
+  (`creator:`/`character:`/`series:`/`meta:`). No network.
+- `Danbooru`, `Safebooru`, `Yandere` - anonymous tag lookup; tag names
+  are sent to that host.
+- `Gelbooru` - uses the credentials from the Booru manager.
+- `Custom URL` - a self-hosted Danbooru-JSON or Gelbooru-XML endpoint,
+  with an optional `{tag}` URL template.
+
+There is no hidden fallback: if the chosen backend cannot run (missing
+Gelbooru keys, empty custom URL, offline), Box says why instead of
+contacting another host. Cached verdicts live in `tag_types.db` and are
+shared across tabs; `Update tag categories now` refetches them. Preferences → Taxonomies keeps
+manual overrides visible and collapses the niche custom-group/per-booru
+mapping rules under `Advanced tag mapping`.
+
 ## Requirements
 
 - C++20 compiler (GCC, Clang, MSVC)
