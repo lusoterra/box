@@ -21,6 +21,7 @@
 #include <QWebEngineView>
 #include <QWebEnginePage>
 #include <QWebEngineProfile>
+#include <QWebEngineSettings>
 #include <QWebEngineCookieStore>
 #include <QWebEngineDownloadRequest>
 
@@ -89,6 +90,13 @@ QWebEngineProfile *sharedCaptureProfile(const QString &profilePath) {
     }
     profile->setPersistentCookiesPolicy(
         QWebEngineProfile::AllowPersistentCookies);
+    // No spellcheck dictionary downloads and no DNS prefetch / hyperlink
+    // auditing pings: only the page the user is solving should be fetched.
+    profile->setSpellCheckEnabled(false);
+    profile->settings()->setAttribute(QWebEngineSettings::DnsPrefetchEnabled,
+                                      false);
+    profile->settings()->setAttribute(
+        QWebEngineSettings::HyperlinkAuditingEnabled, false);
     // Login reuse needs the cookie jar on disk, but a persistent HTTP
     // cache only buys a multi-MB flush that blocks the GUI thread on
     // close (the hang behind the "frozen settings" reports).

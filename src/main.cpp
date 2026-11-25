@@ -71,6 +71,7 @@ int main(int argc, char *argv[]) {
         addFlag("--disable-sync");
         addFlag("--disable-breakpad");
         addFlag("--disable-default-apps");
+        addFlag("--disable-spell-checking");
         addFlag("--no-pings");
         addFlag("--no-first-run");
         addFlag("--dns-prefetch-disable");
@@ -78,7 +79,10 @@ int main(int argc, char *argv[]) {
         if (!flags.contains("--disable-features="))
             addFlag("--disable-features=OptimizationHints,MediaRouter,"
                     "InterestFeedContentSuggestions,"
-                    "AutofillServerCommunication,Translate");
+                    "AutofillServerCommunication,Translate,"
+                    "NetworkTimeServiceQuerying,PasswordLeakDetection,"
+                    "SafeBrowsingEnhancedProtection,"
+                    "OptimizationGuideModelDownloading");
         qputenv("QTWEBENGINE_CHROMIUM_FLAGS", flags.trimmed());
     }
     // Software video decoding (Qt FFmpeg backend): the VAAPI/hardware
