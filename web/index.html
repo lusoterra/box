@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta
+      name="description"
+      content="Booru Explorer LAN library, read-only"
+    />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#23252e" />
+    <title>Box Share · Booru Explorer</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2064%2064%27%3E%3Cpath%20d%3D%27M32%206%2058%2022%2032%2038%206%2022Z%27%20fill%3D%27%23e2b184%27%2F%3E%3Cpath%20d%3D%27M6%2022%2032%2038%2032%2060%206%2044Z%27%20fill%3D%27%23cf9b70%27%2F%3E%3Cpath%20d%3D%27M58%2022%2032%2038%2032%2060%2058%2044Z%27%20fill%3D%27%23c28d63%27%2F%3E%3Cg%20fill%3D%27none%27%20stroke%3D%27%233a3a3a%27%20stroke-width%3D%273%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M32%206%2058%2022%2032%2038%206%2022Z%27%2F%3E%3Cpath%20d%3D%27M6%2022%2032%2038%2032%2060%206%2044Z%27%2F%3E%3Cpath%20d%3D%27M58%2022%2032%2038%2032%2060%2058%2044Z%27%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"
+    />
+    <script>
+      try {
+        const theme = localStorage.getItem('box-share-theme');
+        if (theme && theme !== 'system') {
+          document.documentElement.dataset.theme = theme;
+        }
+      } catch (error) {
+        // private mode / storage disabled
+      }
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
