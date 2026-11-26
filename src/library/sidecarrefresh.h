@@ -4,6 +4,7 @@
 // sidecars are all native API objects, so each resolves to (site, id) and
 // re-fetches wholesale. Runs a few PostRefresher flights in parallel with
 // progress; failures stay silent per-file and count up.
+#include <QJsonObject>
 #include <QList>
 #include <QMap>
 #include <QObject>
@@ -24,6 +25,12 @@ struct Job {
 QList<Job> collect(const QString &downloadDir,
                     const QMap<QString, QString> &labelToKey,
                     const QSet<QString> &siteLabels = {});
+// A fresh API object has no box-written provenance (`post_url`), cached
+// notes or normalized content hash. Keep the existing sidecar's values when
+// a refresh rewrites it, or the next rescan falls back to the physical
+// folder for the origin (and loses md5-based relinking).
+QJsonObject mergePreserved(const QJsonObject &fresh,
+                           const QJsonObject &existing);
 } // namespace SidecarRefresh
 
 class SidecarBatch : public QObject {

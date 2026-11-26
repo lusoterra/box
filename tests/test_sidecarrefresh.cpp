@@ -5,6 +5,7 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QTemporaryDir>
@@ -178,6 +179,43 @@ private slots:
         QCOMPARE(RemoteSource::labelKeys().value(QStringLiteral("My Gelbooru")),
                  QStringLiteral("gelbooru"));
         RemoteSource::setConfiguredBoorus({});
+    }
+
+    void mergeKeepsBoxProvenance() {
+        // Sidecar refresh rewrites the native API object, which has no
+        // post_url or box_notes: the rescan would otherwise lose the real
+        // page and badge the file from its (possibly legacy) folder.
+        QJsonObject fresh;
+        fresh[QStringLiteral("id")] = 5;
+        fresh[QStringLiteral("mimeType")] = QStringLiteral("video/mp4");
+        QJsonObject old;
+        old[QStringLiteral("id")] = 5;
+        old[QStringLiteral("post_url")] =
+            QStringLiteral("https://soybooru.com/post/view/5");
+        old[QStringLiteral("md5")] =
+            QStringLiteral("4f0a3d37c18e61c8550ab82b94ef06a2");
+        QJsonArray notes;
+        QJsonObject note;
+        note[QStringLiteral("body")] = QStringLiteral("hi");
+        notes.append(note);
+        old[QStringLiteral("box_notes")] = notes;
+        const QJsonObject merged =
+            SidecarRefresh::mergePreserved(fresh, old);
+        QCOMPARE(merged.value(QStringLiteral("id")).toInt(), 5);
+        QCOMPARE(merged.value(QStringLiteral("post_url")).toString(),
+                 QStringLiteral("https://soybooru.com/post/view/5"));
+        QCOMPARE(merged.value(QStringLiteral("md5")).toString(),
+                 QStringLiteral("4f0a3d37c18e61c8550ab82b94ef06a2"));
+        QCOMPARE(merged.value(QStringLiteral("box_notes")).toArray().size(), 1);
+
+        // A fresh object that does carry a page wins (never stale).
+        QJsonObject moved;
+        moved[QStringLiteral("post_url")] =
+            QStringLiteral("https://glegle.gallery/5");
+        QCOMPARE(SidecarRefresh::mergePreserved(moved, old)
+                     .value(QStringLiteral("post_url"))
+                     .toString(),
+                 QStringLiteral("https://glegle.gallery/5"));
     }
 
     void collectGaps() {

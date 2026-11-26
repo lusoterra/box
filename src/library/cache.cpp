@@ -11,7 +11,9 @@
 
 namespace {
 
-constexpr int kVersion = 3; // v3: posts carry native custom categories
+// v4: Nuuru/soybooru sidecars parse their box-written post_url, so cached
+// rows from v3 (empty provenance, folder-decided badges) must reparse.
+constexpr int kVersion = 4; // v3: posts carry native custom categories
 
 QString cacheDirFor(const QString &rootAbs) {
     const QString base = appCacheDir();

@@ -3,6 +3,8 @@
 
 #include <QDir>
 #include <QSet>
+#include <QSqlDatabase>
+#include <QSqlQuery>
 #include <QTemporaryDir>
 #include <QtTest>
 
@@ -67,6 +69,46 @@ private slots:
         QVERIFY(c2.lookup(QStringLiteral("a.jpg"), 1, 1, out));
         QCOMPARE(out.id, qint64(1));
         QVERIFY(!c2.lookup(QStringLiteral("b.jpg"), 1, 1, out));
+        c2.close();
+        setAppCacheDirOverride(QString());
+    }
+
+    void staleParserVersionReparses() {
+        // Sidecar provenance is parsed into Post.postUrl; rows cached by a
+        // parser version that did not read it must not survive an upgrade
+        // (Downloads kept resolving their origin from the host folder).
+        QTemporaryDir tmp;
+        QVERIFY(tmp.isValid());
+        setAppCacheDirOverride(tmp.path() + QStringLiteral("/cache"));
+        const QString root = tmp.path() + QStringLiteral("/root");
+        QVERIFY(QDir().mkpath(root));
+
+        {
+            ScanCache c;
+            QVERIFY(c.open(root, QStringLiteral("h")));
+            Post p;
+            p.id = 9;
+            c.store(QStringLiteral("img.jpg"), 1, 1, p);
+            c.finish({QStringLiteral("img.jpg")});
+            c.close();
+        }
+        {
+            // Pretend the row was written by the previous parser version.
+            QSqlDatabase db = QSqlDatabase::addDatabase(
+                QStringLiteral("QSQLITE"), QStringLiteral("cachever"));
+            db.setDatabaseName(ScanCache::dbPathFor(root));
+            QVERIFY(db.open());
+            QSqlQuery q(db);
+            QVERIFY(q.exec(QStringLiteral(
+                "UPDATE meta SET v='3' WHERE k='version'")));
+            db.close();
+        }
+        QSqlDatabase::removeDatabase(QStringLiteral("cachever"));
+
+        ScanCache c2;
+        QVERIFY(c2.open(root, QStringLiteral("h")));
+        Post out;
+        QVERIFY(!c2.lookup(QStringLiteral("img.jpg"), 1, 1, out));
         c2.close();
         setAppCacheDirOverride(QString());
     }

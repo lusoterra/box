@@ -382,8 +382,13 @@ void MainWindow::onRemoteFinished() {
                     local = m_favDb.list();
             } else {
                 const QString dir = effectiveDownloadDir(m_settings);
-                if (QDir(dir).exists())
+                if (QDir(dir).exists()) {
                     local = Scanner::scan(dir, nullptr, m_settings.indexCache);
+                    // Same provenance repair the local Downloads tab gets:
+                    // a recorded post_url fixes a legacy host folder (and
+                    // the source filter) before badges resolve.
+                    healLocalPosts(local);
+                }
             }
             for (const Post &p : local) {
                 if (matchesTokens(p, vinc, vexc) && groupsMatch(p, vgroups))

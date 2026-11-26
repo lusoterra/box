@@ -48,6 +48,17 @@ QList<Job> collect(const QString &downloadDir,
     }
     return out;
 }
+
+QJsonObject mergePreserved(const QJsonObject &fresh,
+                           const QJsonObject &existing) {
+    QJsonObject out = fresh;
+    for (const char *key : {"post_url", "box_notes", "md5"}) {
+        const QString k = QString::fromLatin1(key);
+        if (!out.contains(k) && existing.contains(k))
+            out.insert(k, existing.value(k));
+    }
+    return out;
+}
 } // namespace SidecarRefresh
 
 SidecarBatch::SidecarBatch(QObject *parent) : QObject(parent) {
@@ -144,10 +155,23 @@ void SidecarBatch::onRefreshed(qint64 reqId, const QJsonObject &raw) {
     const QString path = m_reqPath.take(reqId);
     if (!m_active || !flight)
         return;
+    // Read the sidecar before truncating it: the API object never carries
+    // the downloader's post_url/notes/md5, but the rescan needs them.
+    QJsonObject merged = raw;
+    if (!merged.isEmpty() && !path.isEmpty()) {
+        QFile old(path);
+        if (old.open(QIODevice::ReadOnly)) {
+            QJsonParseError err;
+            const QJsonDocument doc =
+                QJsonDocument::fromJson(old.readAll(), &err);
+            if (err.error == QJsonParseError::NoError && doc.isObject())
+                merged = SidecarRefresh::mergePreserved(raw, doc.object());
+        }
+    }
     QFile f(path);
-    if (!path.isEmpty() && !raw.isEmpty() &&
+    if (!path.isEmpty() && !merged.isEmpty() &&
         f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-        f.write(QJsonDocument(raw).toJson(QJsonDocument::Indented));
+        f.write(QJsonDocument(merged).toJson(QJsonDocument::Indented));
         m_updated++;
     } else {
         m_failed++;
