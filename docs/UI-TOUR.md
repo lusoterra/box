@@ -433,10 +433,14 @@ URL`/`Type` (engine) editor with cookie capture + favicon override and
 `Detect` (probes every engine signature, including e-shuushuu, e621,
 AnimePictures, HyBooru, Philomena, Booru-on-Rails and the older families;
 5s per probe, adopts a Szurubooru `/booru` subpath). The
-dialog is 780px wide, the editor column 560px, the booru list matches
-its two-row button block (Add/Remove above the arrows), and the badge
-swatch stays a compact chip: labels, fields and the wrapping cookie row
-line up with no dead band between the list and the editor.
+dialog is 780px wide, the editor column 560px, and the booru list sits
+in one grid with the button block below it: `Add`/`Remove`, then the
+up/down arrows (same two-column widths), then `Restore presets` and
+`Refresh favicons` across both columns, with one 6px gap throughout.
+`Test` shares the `Favicon` row (preview left, `Test`/`Choose…`/`Clear`
+right). The badge swatch stays a compact chip: labels, fields and the
+wrapping cookie row line up with no dead band between the list and the
+editor.
 Per-entry `Tags` (skip auto-categorization), `Drag posts as` (direct
 media vs post page; `Use global` follows Preferences → Browse), `Blacklist` (filter
 blacklist locally instead of server `-tags`, for tag-capped accounts),

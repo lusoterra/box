@@ -1332,20 +1332,31 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     // ── Booru manager: presets + user-added instances ──
     auto *acc = new QGroupBox(tr("Booru manager"), this);
     auto *accLay = new QHBoxLayout(acc);
-    auto *accLeft = new QVBoxLayout();
+    // One grid for the list and every button under it: a separate
+    // Add/Remove/arrows grid ended 4px short of the list and the full-width
+    // buttons (its size hint was narrower than its sibling), and its 4px
+    // spacing did not match the 6px gaps around it. Sharing the grid ties
+    // every column to the same width.
+    auto *accLeft = new QGridLayout();
+    accLeft->setContentsMargins(0, 0, 0, 0);
+    accLeft->setHorizontalSpacing(4);
+    accLeft->setVerticalSpacing(6);
     m_booruList = new QListWidget(this);
-    // Match the list to the button block (the old one-line Add/Remove/
-    // arrows row was ~250px wide, leaving a dead band between the list and
-    // the editor). Buttons wrap into two rows instead.
-    m_booruList->setFixedWidth(176);
     m_booruEdits = current.boorus;
-    accLeft->addWidget(m_booruList, 1);
-    auto *accBtnRow = new QGridLayout();
-    accBtnRow->setContentsMargins(0, 0, 0, 0);
-    accBtnRow->setHorizontalSpacing(4);
-    accBtnRow->setVerticalSpacing(4);
+    accLeft->addWidget(m_booruList, 0, 0, 1, 2);
+    accLeft->setRowStretch(0, 1);
     auto *booruAdd = new QPushButton(tr("Add"), this);
     auto *booruDel = new QPushButton(tr("Remove"), this);
+    // Match the list to the button block (the old one-line Add/Remove/
+    // arrows row was ~250px wide, leaving a dead band between the list and
+    // the editor) and give both columns the same width: a plain grid sizes
+    // each column from its own label, so "Add" was narrower than "Remove".
+    const int colW = qMax(176 / 2 - accLeft->horizontalSpacing() / 2,
+                          qMax(booruAdd->sizeHint().width(),
+                               booruDel->sizeHint().width()));
+    accLeft->setColumnMinimumWidth(0, colW);
+    accLeft->setColumnMinimumWidth(1, colW);
+    m_booruList->setFixedWidth(colW * 2 + accLeft->horizontalSpacing());
     connect(booruAdd, &QPushButton::clicked, this, [this] {
         saveBooruEditor();
         QSet<QString> taken;
@@ -1428,21 +1439,20 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
             [moveBooru] { moveBooru(-1); });
     connect(booruDown, &QPushButton::clicked, this,
             [moveBooru] { moveBooru(1); });
-    accBtnRow->addWidget(booruAdd, 0, 0);
-    accBtnRow->addWidget(booruDel, 0, 1);
-    booruUp->setFixedWidth(34);
-    booruDown->setFixedWidth(34);
-    accBtnRow->addWidget(booruUp, 1, 0);
-    accBtnRow->addWidget(booruDown, 1, 1);
-    accBtnRow->setColumnStretch(0, 1);
-    accBtnRow->setColumnStretch(1, 1);
-    accLeft->addLayout(accBtnRow);
-    accLeft->addWidget(booruDefaults);
+    accLeft->addWidget(booruAdd, 1, 0);
+    accLeft->addWidget(booruDel, 1, 1);
+    // Same width as Add/Remove (the old fixed 34px squares hugged the left
+    // of each half-column, leaving a ragged empty band on the right).
+    accLeft->addWidget(booruUp, 2, 0);
+    accLeft->addWidget(booruDown, 2, 1);
+    accLeft->setColumnStretch(0, 1);
+    accLeft->setColumnStretch(1, 1);
+    accLeft->addWidget(booruDefaults, 3, 0, 1, 2);
     auto *faviconRefresh = new QPushButton(tr("Refresh favicons"), this);
     faviconRefresh->setToolTip(tr("Drop cached site icons and fetch them again"));
     connect(faviconRefresh, &QPushButton::clicked, this,
             &PrefsDialog::faviconsRefreshRequested);
-    accLeft->addWidget(faviconRefresh);
+    accLeft->addWidget(faviconRefresh, 4, 0, 1, 2);
     accLay->addLayout(accLeft);
     m_booruEmpty = new QLabel(tr("Select a booru on the left to edit it."), this);
     m_booruEmpty->setWordWrap(true);
@@ -1756,14 +1766,6 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
         updateFaviconPreview();
         updateApplyState();
     });
-    auto *favRow = new QHBoxLayout();
-    favRow->addWidget(m_booruFavicon);
-    favRow->addStretch(1);
-    favRow->addWidget(favChoose);
-    favRow->addWidget(favClear);
-    auto *favBox = new QWidget(this);
-    favBox->setLayout(favRow);
-    accForm->addRow(tr("Favicon:"), favBox);
     auto *testBtn = new QPushButton(tr("Test"), this);
     connect(testBtn, &QPushButton::clicked, this, [this] {
         saveBooruEditor();
@@ -1772,12 +1774,15 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
             return;
         testSite(m_booruEdits.at(row));
     });
-    // Compact button (same stretch fix as Clear search history): a bare
-    // button as a form field grows to the full editor width.
-    auto *testRow = new QHBoxLayout();
-    testRow->addWidget(testBtn);
-    testRow->addStretch(1);
-    accForm->addRow(QStringLiteral(""), testRow);
+    auto *favRow = new QHBoxLayout();
+    favRow->addWidget(m_booruFavicon);
+    favRow->addStretch(1);
+    favRow->addWidget(testBtn);
+    favRow->addWidget(favChoose);
+    favRow->addWidget(favClear);
+    auto *favBox = new QWidget(this);
+    favBox->setLayout(favRow);
+    accForm->addRow(tr("Favicon:"), favBox);
     accForm->addRow(QStringLiteral(""), note(tr(
         "Keys and cookies are stored plaintext in settings.ini. Renaming a booru orphans "
         "its old favourites entries (they keep the old name); the key itself "
