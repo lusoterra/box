@@ -310,6 +310,8 @@ void BooruEngineOps::finishRemote(Post &p, const QString &siteLabel,
     QString md5 = raw.value(QStringLiteral("md5")).toString();
     if (!isMd5Hex(md5))
         md5 = raw.value(QStringLiteral("checksumMD5")).toString();
+    if (!isMd5Hex(md5))
+        md5 = raw.value(QStringLiteral("md5_hash")).toString(); // e-shuushuu
     p.md5 = isMd5Hex(md5) ? md5.toLower() : QString();
     QStringList all;
     all << splitTags(p.tagsArtist) << splitTags(p.tagsCharacter)
@@ -337,6 +339,7 @@ QString engineKey(BooruEngine engine) {
     case BooruOnRails: return QStringLiteral("booru-on-rails");
     case E621: return QStringLiteral("e621");
     case AnimePictures: return QStringLiteral("animepictures");
+    case EShuushuu: return QStringLiteral("e-shuushuu");
     case Safebooru: return QStringLiteral("gelbooru"); // dapi family
     }
     return QStringLiteral("danbooru");
@@ -366,6 +369,10 @@ BooruEngine engineForKey(const QString &key) {
     if (key == QStringLiteral("animepictures") ||
         key == QStringLiteral("anime-pictures"))
         return BooruEngine::AnimePictures;
+    if (key == QStringLiteral("e-shuushuu") ||
+        key == QStringLiteral("eshuushuu") ||
+        key == QStringLiteral("shuushuu"))
+        return BooruEngine::EShuushuu;
     return BooruEngine::Danbooru;
 }
 
@@ -383,6 +390,7 @@ QString engineLabel(BooruEngine engine) {
     case BooruOnRails: return QStringLiteral("Booru-on-Rails");
     case E621: return QStringLiteral("e621");
     case AnimePictures: return QStringLiteral("AnimePictures");
+    case EShuushuu: return QStringLiteral("e-shuushuu");
     case Safebooru: return QStringLiteral("Safebooru");
     }
     return QStringLiteral("Danbooru");
@@ -472,7 +480,8 @@ QStringList translateSearchTags(const QStringList &tags, BooruEngine engine) {
                 continue;
         } else if (engine == BooruEngine::Hybooru ||
                    engine == BooruEngine::Philomena ||
-                   engine == BooruEngine::BooruOnRails) {
+                   engine == BooruEngine::BooruOnRails ||
+                   engine == BooruEngine::EShuushuu) {
             // Neither engine exposes a verified content-rating or sort
             // spelling (HyBooru rating: is a 0-100 star filter): such
             // tokens would silently mis-filter, so drop them - sorting
@@ -717,6 +726,8 @@ QString shortFor(const QString &siteLabel) {
         return QStringLiteral("KON");
     if (siteLabel == QStringLiteral("Shimmie"))
         return QStringLiteral("SHI");
+    if (siteLabel == QStringLiteral("e-shuushuu"))
+        return QStringLiteral("SHU");
     return siteLabel.left(3).toUpper();
 }
 
@@ -811,6 +822,8 @@ QString postPageUrl(const QString &siteKey, const QString &baseUrl, qint64 id, b
     }
     if (siteKey == QStringLiteral("shimmie") || siteKey == QStringLiteral("nuuru"))
         return baseUrl + QStringLiteral("/post/view/") + QString::number(id);
+    if (siteKey == QStringLiteral("e-shuushuu"))
+        return baseUrl + QStringLiteral("/images/") + QString::number(id);
     return baseUrl + QStringLiteral("/index.php?page=post&s=view&id=") +
            QString::number(id);
 }
@@ -966,6 +979,8 @@ const BooruEngineOps *engineOps(BooruEngine engine) {
         return EngineInternal::e621Ops();
     case AnimePictures:
         return EngineInternal::animePicturesOps();
+    case EShuushuu:
+        return EngineInternal::shuushuuOps();
     case Danbooru:
         return EngineInternal::danbooruOps();
     }

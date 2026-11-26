@@ -58,6 +58,7 @@ QVector<TagSuggestion> parseHybooru(const QByteArray &body);
 QVector<TagSuggestion> parseNuuru(const QByteArray &body);
 QVector<TagSuggestion> parseE621(const QByteArray &body);
 QVector<TagSuggestion> parseAnimePictures(const QByteArray &body);
+QVector<TagSuggestion> parseShuushuu(const QByteArray &body);
 QVector<TagSuggestion> parsePhilomenaTags(const QByteArray &body,
                                          const QString &countKey);
 
@@ -378,6 +379,39 @@ QVector<TagSuggestion> parseE621(const QByteArray &body) {
     return takeCapped(out, 64);
 }
 
+QVector<TagSuggestion> parseShuushuu(const QByteArray &body) {
+    // {tags: [{title, type, usage_count, alias_of}]}: Titles are plain
+    // spaced names; Box's search tokens use underscores.
+    QVector<TagSuggestion> out;
+    QJsonParseError err;
+    const QJsonDocument doc = QJsonDocument::fromJson(body, &err);
+    if (err.error != QJsonParseError::NoError || !doc.isObject())
+        return out;
+    for (const QJsonValue &v :
+         doc.object().value(QStringLiteral("tags")).toArray()) {
+        if (!v.isObject())
+            continue;
+        const QJsonObject o = v.toObject();
+        QString name = o.value(QStringLiteral("title")).toString().trimmed().simplified();
+        name.replace(u' ', u'_');
+        if (name.isEmpty())
+            continue;
+        TagSuggestion s;
+        s.tag = name;
+        s.count = qMax(0, o.value(QStringLiteral("usage_count")).toInt());
+        if (s.count <= 0)
+            continue;
+        switch (o.value(QStringLiteral("type")).toInt(1)) {
+        case 3: s.bucket = QStringLiteral("artist"); break;
+        case 2: s.bucket = QStringLiteral("copyright"); break;
+        case 4: s.bucket = QStringLiteral("character"); break;
+        default: s.bucket = QStringLiteral("general"); break;
+        }
+        out.append(s);
+    }
+    return takeCapped(out, 64);
+}
+
 QVector<TagSuggestion> parseAnimePictures(const QByteArray &body) {
     // {tags: [{t (bold-wrapped), t2, c (numeric type), id}]} - types
     // (Boorusama tagTypeFromInt): 1 character, 4 author, 3/5/6 copyright*,
@@ -526,6 +560,20 @@ QUrl TagSuggester::urlFor(BooruEngine engine, const QString &baseUrl,
                  QStringLiteral("/api/v3/tags:autocomplete"));
         QUrlQuery q;
         q.addQueryItem(QStringLiteral("tag"), prefix);
+        url.setQuery(q);
+        return url;
+    }
+    if (engine == BooruEngine::EShuushuu) {
+        // {tags: [{tag_id,title,type,usage_count}]}; the API searches by
+        // substring, so rank/cap client-side.
+        QString search = prefix;
+        search.replace(u'_', u' ');
+        QUrl url(baseUrl + QStringLiteral("/api/v1/tags"));
+        QUrlQuery q;
+        q.addQueryItem(QStringLiteral("search"), search);
+        q.addQueryItem(QStringLiteral("per_page"), QStringLiteral("64"));
+        q.addQueryItem(QStringLiteral("exclude_aliases"),
+                       QStringLiteral("false"));
         url.setQuery(q);
         return url;
     }
@@ -868,6 +916,8 @@ QVector<TagSuggestion> TagSuggester::parse(BooruEngine engine,
         return parseE621(body);
     case AnimePictures:
         return parseAnimePictures(body);
+    case EShuushuu:
+        return parseShuushuu(body);
     case Philomena:
     case BooruOnRails:
         return parsePhilomenaTags(body, RemotePosts::philomenaListKey(engine));

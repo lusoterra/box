@@ -58,6 +58,17 @@ the dialog, scans exact copies, and exercises archive + Hydrus deletion
   namespace dictionary; `test_gridwindow::tagsPreferencesBuild` opens
   the Tags page and the backend combo.
 
+## e-shuushuu + engine detection
+
+- `test_shuushuu` covers the image mapper (tag types, md5, URLs), the
+  tag-ID search URL, tag-name/alias resolution and a full two-step
+  preflight against a local HTTP server (`/api/v1/tags` then
+  `/api/v1/images`).
+- `test_enginedetect` feeds fake probe bodies for every engine and checks
+  the order/signatures (e-shuushuu, e621, Danbooru, AnimePictures,
+  HyBooru, Philomena, Booru-on-Rails, Shimmie, Szurubooru, Moebooru,
+  Gelbooru, Nuuru) plus the unknown-host case.
+
 ## Box Share web UI
 
 - `test_shareserver::rootServesTheSharePage` checks `/` and `/index.html`

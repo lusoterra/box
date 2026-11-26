@@ -202,4 +202,11 @@
   subdomain): tagless summaries hydrate through detail refresh
   (HyBooru-style queue); detail tags carry numeric types mapped onto the
   classic buckets. No account needed.
+- e-shuushuu = SFW custom anime board (`e-shuushuu.net`, FastAPI):
+  image search needs tag IDs, so `RemoteSource` resolves query names via
+  `/api/v1/tags?search=` first; detail `/api/v1/images/<id>/`. Tag types
+  1 Theme -> general, 2 Source -> copyright, 3 Artist, 4 Character.
+- engine detect = `EngineDetect::detect` (`src/engines/enginedetect.h`):
+  pure base-URL probes for every engine, called by the Booru manager
+  `Detect` button; the fetch callback is injected and unit-tested.
 - paranoia mode = retired (ini key removed on save, `src/settings.cpp:246`).

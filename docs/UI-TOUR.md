@@ -429,7 +429,10 @@ manager: entry list with up/down arrow buttons to reorder + `Name`/`Enabled` (of
 the config but hides the booru from every picker)/`short` (grid badge text)/`Badge color`
 (known hosts get house colors: gelbooru blue, rule34 green, aibooru green,
 danbooru/safebooru tan, shimmie gray; editable anytime)/`Base
-URL`/`Type` (engine) editor with cookie capture + favicon override. The
+URL`/`Type` (engine) editor with cookie capture + favicon override and
+`Detect` (probes every engine signature, including e-shuushuu, e621,
+AnimePictures, HyBooru, Philomena, Booru-on-Rails and the older families;
+5s per probe, adopts a Szurubooru `/booru` subpath). The
 dialog is 780px wide, the editor column 560px, the booru list matches
 its two-row button block (Add/Remove above the arrows), and the badge
 swatch stays a compact chip: labels, fields and the wrapping cookie row

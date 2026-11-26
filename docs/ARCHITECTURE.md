@@ -40,8 +40,9 @@ single-instance via `session.lock`).
   `parseSingle`/`applyAuth`; `engineOps()` at `:146`).
   - Pure shared helpers in `RemotePosts`: `translateSearchTags`,
     `sortSearchTag`, `isTransientSearchError`, `fromDanbooru/Gelbooru/Moebooru/
-    Szuru/Shimmie/Hybooru/Nuuru/E621/AnimePictures`, `fromPhilomenaFamily`,
-    `parseShimmieXml` (`src/engines/booruengine.h:25-95`). `engine_philomena.cpp`: the
+    Szuru/Shimmie/Hybooru/Nuuru/E621/AnimePictures/EShuushuu`,
+    `fromPhilomenaFamily`, `parseShimmieXml`
+    (`src/engines/booruengine.h:25-95`). `engine_philomena.cpp`: the
     Philomena family, one implementation with two `PhilomenaShape` rows -
     Philomena (Elixir; Derpibooru v1 `/api/v1/json/search/images|images/:id`,
     `{images}`/`{image}`) and Booru-on-Rails (Ruby; Twibooru v3
@@ -89,6 +90,18 @@ single-instance via `session.lock`).
     tag types (1 character, 4 author, 3/5/6 copyright, else general);
     media URLs reconstructed from md5 (`opreviews`/`oimages`); all-SFW
     (`erotics` level folds to general/sensitive/questionable).
+    e-shuushuu notes (custom FastAPI board): image search takes tag IDs,
+    so `RemoteSource::resolvesTagIds` first resolves each query name via
+    `/api/v1/tags?search=` (`tagLookupUrl`/`parseTagId`, aliases use
+    `alias_of`), then calls `/api/v1/images?tags=<ids>&tags_mode=all&
+    status=1`; detail and refresh use `/api/v1/images/<id>/`. Tags are
+    title + type (1 Theme, 2 Source, 3 Artist, 4 Character); all-SFW.
+  - `enginedetect.h` (`src/engines/`): pure base-URL engine probes behind
+    an injected fetch callback. Detect tries e-shuushuu, Shimmie,
+    Szurubooru (base and `/booru`), e621, Danbooru, AnimePictures,
+    HyBooru, Philomena, Booru-on-Rails, Moebooru, Nuuru and Gelbooru;
+    the prefs dialog supplies a 5s-timeout fetch and adopts a discovered
+    subpath. Unit-tested without network.
   - `sitequirks.h` = per-host quirks (api subdomain, cookies, PoW and
     Cloudflare browser-only API walls).
   - `boorutypes.h` = `BooruEngine` enum, `BooruSite`, `SiteCreds`,

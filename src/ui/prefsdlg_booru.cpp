@@ -5,6 +5,7 @@
 #include "settings.h"
 #include "cachepolicy.h"
 #include "netpolicy.h"
+#include "enginedetect.h"
 #include "tagcategories.h"
 #include "tagtypes.h"
 #include "explicittags.h"
@@ -452,9 +453,9 @@ QPair<int, QString> detectEngineFor(const QString &base) {
     QNetworkAccessManager nam;
     auto get = [&](const QString &url) -> QByteArray {
         QNetworkRequest req{QUrl(url)};
-        req.setTransferTimeout(10000);
+        req.setTransferTimeout(5000);
         req.setHeader(QNetworkRequest::UserAgentHeader,
-                      QStringLiteral("box/0.1 (engine detect)"));
+                      QStringLiteral("box/0.14 (engine detect)"));
         req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                          QNetworkRequest::NoLessSafeRedirectPolicy);
         QNetworkReply *reply = nam.get(req);
@@ -464,102 +465,25 @@ QPair<int, QString> detectEngineFor(const QString &base) {
         QObject::connect(&timer, &QTimer::timeout, &loop, &QEventLoop::quit);
         QObject::connect(reply, &QNetworkReply::finished, &loop,
                          &QEventLoop::quit);
-        timer.start(12000);
+        timer.start(6000);
         loop.exec();
         timer.stop();
-        QByteArray body;
-        if (reply->error() == QNetworkReply::NoError)
-            body = reply->readAll();
+        // Keep a 200 body, plus 449 (Nuuru's pow_required signature).
+        // Other error pages are HTML walls, not engine signatures.
+        const int http = reply->attribute(
+                             QNetworkRequest::HttpStatusCodeAttribute)
+                             .toInt();
+        const QByteArray body =
+            (reply->error() == QNetworkReply::NoError || http == 449)
+                ? reply->readAll()
+                : QByteArray();
+        if (body.isEmpty())
+            reply->readAll(); // drain; reply is deleted next
         reply->deleteLater();
         return body;
     };
-    auto firstObj = [](const QByteArray &body) -> QJsonObject {
-        QJsonParseError err;
-        const QJsonDocument doc = QJsonDocument::fromJson(body, &err);
-        if (err.error != QJsonParseError::NoError || !doc.isArray() ||
-            doc.array().isEmpty())
-            return {};
-        const QJsonValue v = doc.array().first();
-        return v.isObject() ? v.toObject() : QJsonObject();
-    };
-    // Shimmie: XML only (danbooru_api ext).
-    {
-        const QByteArray xml =
-            get(base + QStringLiteral("/api/danbooru/post/index.xml?limit=1"));
-        if (xml.trimmed().startsWith('<') && xml.contains("<posts"))
-            return {int(BooruEngine::Shimmie), base};
-    }
-    // Szurubooru: version endpoint, else results-shaped listing. Tried at
-    // the base and at <base>/booru (subpath installs share no subdomain,
-    // e.g. visuabusters /booru/post/<id>).
-    QStringList cands = {base};
-    if (!base.endsWith(QStringLiteral("/booru")))
-        cands << base + QStringLiteral("/booru");
-    for (const QString &cand : cands) {
-        QJsonParseError err;
-        const QJsonDocument info = QJsonDocument::fromJson(
-            get(cand + QStringLiteral("/api/info")), &err);
-        if (err.error == QJsonParseError::NoError && info.isObject() &&
-            (info.object().contains(QStringLiteral("serverTime")) ||
-             info.object().contains(QStringLiteral("version"))))
-            return {int(BooruEngine::Szurubooru), cand};
-        const QJsonDocument list = QJsonDocument::fromJson(
-            get(cand + QStringLiteral("/api/posts/?limit=1")), &err);
-        if (err.error == QJsonParseError::NoError && list.isObject() &&
-            list.object().value(QStringLiteral("results")).isArray())
-            return {int(BooruEngine::Szurubooru), cand};
-    }
-    // Danbooru: per-bucket tag_string_* fields.
-    {
-        const QJsonObject o =
-            firstObj(get(base + QStringLiteral("/posts.json?limit=1")));
-        if (!o.isEmpty() &&
-            (o.contains(QStringLiteral("tag_string_artist")) ||
-             o.contains(QStringLiteral("tag_string_general")) ||
-             o.contains(QStringLiteral("tag_string_copyright"))))
-            return {int(BooruEngine::Danbooru), base};
-    }
-    // Moebooru: flat "tags" string (epoch dates where present).
-    // Gelbooru never serves /post.json, so anything tags-shaped here
-    // is moebooru-family.
-    {
-        const QJsonObject o =
-            firstObj(get(base + QStringLiteral("/post.json?limit=1")));
-        if (!o.isEmpty() && o.value(QStringLiteral("tags")).isString())
-            return {int(BooruEngine::Moebooru), base};
-    }
-    // Soybooru (and other pow-walled hosts) answer HTTP 449
-    // pow_required on plain fetches: detect it BEFORE the Gelbooru dapi
-    // fallback so it isn't mis-identified (Gelbooru). The wall is itself
-    // the signature of the Nuuru family.
-    {
-        // Probe the same shape Nuuru's detect path uses.
-        const QByteArray body = get(
-            base + QStringLiteral("/api/booru/posts?limit=1"));
-        if (body.contains("pow_required") ||
-            body.contains("captcha_required"))
-            return {int(BooruEngine::Nuuru), base};
-    }
-    // Gelbooru dapi family: {"post": [...]} or a bare tags array.
-    {
-        const QByteArray body = get(
-            base +
-            QStringLiteral("/index.php?page=dapi&s=post&q=index&limit=1&json=1"));
-        QJsonParseError err;
-        const QJsonDocument doc = QJsonDocument::fromJson(body, &err);
-        if (err.error == QJsonParseError::NoError) {
-            if (doc.isObject() &&
-                doc.object().value(QStringLiteral("post")).isArray())
-                return {int(BooruEngine::Gelbooru), base};
-            if (doc.isArray() && !doc.array().isEmpty()) {
-                const QJsonValue v = doc.array().first();
-                if (v.isObject() &&
-                    v.toObject().value(QStringLiteral("tags")).isString())
-                    return {int(BooruEngine::Gelbooru), base};
-            }
-        }
-    }
-    return {-1, base};
+    const EngineDetect::Result found = EngineDetect::detect(base, get);
+    return {found.found ? int(found.engine) : -1, found.baseUrl};
 }
 } // namespace
 

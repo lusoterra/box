@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(Box VERSION 0.13.0 LANGUAGES C CXX)
+project(Box VERSION 0.14.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -39,6 +39,8 @@ add_executable(box
     src/engines/engine_philomena.cpp
     src/engines/engine_e621.cpp
     src/engines/engine_animepictures.cpp
+    src/engines/engine_shuushuu.cpp
+    src/engines/enginedetect.cpp
     src/library/ugoioconvert.cpp
     src/library/miniz/miniz.c
     src/remote/remotesource.cpp

@@ -29,6 +29,7 @@ Safebooru ships preconfigured, so a fresh install starts SFW-only.
 | Nuuru | soybooru.com | proof-of-work clearance solves itself in-app |
 | Philomena | derpibooru.org | Philomena v1 hosts |
 | Booru-on-Rails | twibooru.org | the v3 Ruby codebase Philomena replaced |
+| e-shuushuu | e-shuushuu.net | custom FastAPI board; SFW, tag-ID search, full tag categories |
 
 </details>
 
@@ -36,6 +37,11 @@ New booru entries default to the `furry:g` tag, expanded to
 `furry rating:general` on the wire: furry posts stay allowed, but only
 general-rated ones by default. Existing entries keep their own default
 tags.
+
+`Add` in Preferences → Booru manager then `Detect` probes the common
+engine shapes (e-shuushuu, Shimmie, Szurubooru, e621, Danbooru,
+AnimePictures, HyBooru, Philomena, Booru-on-Rails, Moebooru, Nuuru,
+Gelbooru) and selects the match.
 
 
 ## Privacy and tag classification

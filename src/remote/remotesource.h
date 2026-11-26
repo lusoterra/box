@@ -99,6 +99,11 @@ signals:
 
 private:
     QUrl buildUrl(const QStringList &tags, int page, int limit) const;
+    // Tag-ID engines (e-shuushuu): resolve query names first, then issue
+    // the image search. All callbacks are guarded by m_searchGen.
+    void beginTagResolution(const QStringList &tags, int page, int limit);
+    void resolveNextTag();
+    void sendSearchRequest(const QUrl &url);
     SearchResult parse(const QByteArray &body) const;
     // Browser fallback for proof-of-work / fingerprint-walled hosts (see
     // WebApiFetcher): fetches m_lastUrl in the capture profile and emits
@@ -141,6 +146,11 @@ private:
     QStringList m_lastCookieNames; // Cookie names on the last request
     int m_pendingPage = 1;
     int m_pendingLimit = 40;
+    class QNetworkReply *m_tagReply = nullptr;
+    QStringList m_pendingTagNames;
+    QVector<bool> m_pendingTagExclude;
+    QVector<qint64> m_pendingTagIds;
+    int m_tagIndex = 0;
 };
 
 Q_DECLARE_METATYPE(RemoteSource::CredentialProbe)

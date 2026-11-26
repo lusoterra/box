@@ -439,6 +439,7 @@ QUrl notesUrl(BooruEngine engine, const QString &baseUrl, qint64 postId,
     }
     if (engine == BooruEngine::Shimmie ||
         engine == BooruEngine::Nuuru ||
+        engine == BooruEngine::EShuushuu ||
         RemotePosts::isPhilomenaFamily(engine))
         return {}; // no notes endpoint on these engines
     if (engine == BooruEngine::Hybooru) {
@@ -502,8 +503,9 @@ QUrl commentsUrl(BooruEngine engine, const QString &baseUrl, qint64 postId,
         return QUrl(baseUrl + QStringLiteral("/api/v3/posts/") + id +
                     QStringLiteral("/comments"));
     }
-    if (engine == BooruEngine::Shimmie || engine == BooruEngine::Hybooru)
-        return {}; // no comment API on these engines (v1 / unknown shape)
+    if (engine == BooruEngine::Shimmie || engine == BooruEngine::Hybooru ||
+        engine == BooruEngine::EShuushuu)
+        return {}; // no comment API in this client yet (e-shuushuu has one)
     if (engine == BooruEngine::Nuuru) {
         QUrl url(baseUrl + QStringLiteral("/api/booru/posts/") + id +
                  QStringLiteral("/comments"));

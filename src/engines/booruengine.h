@@ -72,6 +72,10 @@ Post fromE621(const QJsonObject &o, const QString &baseUrl);
 // 0 unknown) mapped onto the classic buckets.
 Post fromAnimePicturesSummary(const QJsonObject &o, const QString &baseUrl);
 Post fromAnimePictures(const QJsonObject &o, const QString &baseUrl);
+// e-shuushuu (e-shuushuu.net): one image object from /api/v1/images
+// (search) or /api/v1/images/<id>/ (detail). Tags are title + type
+// (1 Theme, 2 Source, 3 Artist, 4 Character), URLs full/medium/thumb.
+Post fromEshuushuu(const QJsonObject &o, const QString &baseUrl);
 // Philomena family: Philomena (Elixir; Derpibooru and other v1 hosts) and
 // BooruOnRails (Ruby; Twibooru and other v3 hosts) share the post fields
 // but differ in paths and envelope keys. One engine, two shapes.
@@ -152,6 +156,30 @@ public:
     // Engine-native request auth (Basic / Token / none).
     virtual void applyAuth(QNetworkRequest &req,
                            const SiteCreds &creds) const = 0;
+    // Engines whose image search takes tag IDs instead of names resolve
+    // the query first. RemoteSource calls tagLookupUrl() per name,
+    // parseTagId() on the body, then resolvedSearchUrl() with the IDs.
+    virtual bool resolvesTagIds() const { return false; }
+    virtual QUrl tagLookupUrl(const Context &ctx, const QString &name) const {
+        Q_UNUSED(ctx);
+        Q_UNUSED(name);
+        return {};
+    }
+    // > 0 exact/alias tag id, 0 no match. Network errors are handled by
+    // the caller before this is called.
+    virtual qint64 parseTagId(const QByteArray &body, const QString &name) const {
+        Q_UNUSED(body);
+        Q_UNUSED(name);
+        return 0;
+    }
+    virtual QUrl resolvedSearchUrl(const Context &ctx,
+                                   const QVector<qint64> &include,
+                                   const QVector<qint64> &exclude, int page,
+                                   int limit) const {
+        Q_UNUSED(include);
+        Q_UNUSED(exclude);
+        return searchUrl(ctx, {}, page, limit);
+    }
     // Quirk-aware API root (post pages stay on the base URL).
     QString apiBase(const Context &ctx) const;
 

@@ -270,7 +270,7 @@ void MainWindow::finishShareBuild(
     server->setRequestDecorator([](QNetworkRequest &req) {
         RemoteSource::applyCookies(req);
         req.setHeader(QNetworkRequest::UserAgentHeader,
-                      QStringLiteral("box/0.13 (share)"));
+                      QStringLiteral("box/0.14 (share)"));
     });
     server->setNetworkProxy(RemotePosts::proxyFromSpec(QString()));
     QString error;

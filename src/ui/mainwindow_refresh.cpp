@@ -125,6 +125,8 @@ Post remapFresh(const QJsonObject &raw, const RefreshTarget &t) {
         return RemotePosts::fromE621(raw, t.baseUrl);
     case AnimePictures:
         return RemotePosts::fromAnimePictures(raw, t.baseUrl);
+    case EShuushuu:
+        return RemotePosts::fromEshuushuu(raw, t.baseUrl);
     case Philomena:
     case BooruOnRails:
         return RemotePosts::fromPhilomenaFamily(engine, raw, t.baseUrl);

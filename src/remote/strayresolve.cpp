@@ -529,6 +529,9 @@ Post postFromRaw(BooruEngine engine, const QJsonObject &raw,
     case BooruEngine::Nuuru:
         p = fromNuuru(raw, baseUrl);
         break;
+    case BooruEngine::EShuushuu:
+        p = fromEshuushuu(raw, baseUrl);
+        break;
     case BooruEngine::Philomena:
     case BooruEngine::BooruOnRails:
         p = fromPhilomenaFamily(engine, raw, baseUrl);

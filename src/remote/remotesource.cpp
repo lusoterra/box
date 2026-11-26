@@ -472,7 +472,162 @@ void RemoteSource::search(const QStringList &tags, int page, int limit) {
     }
     m_pendingPage = qMax(1, page);
     m_pendingLimit = limit;
-    QNetworkRequest req = timedRequest(buildUrl(tags, page, limit));
+    const BooruEngineOps *ops = engineOps(m_site.engine);
+    if (ops->resolvesTagIds()) {
+        beginTagResolution(tags, page, limit);
+        return;
+    }
+    sendSearchRequest(buildUrl(tags, page, limit));
+}
+
+void RemoteSource::beginTagResolution(const QStringList &tags, int page,
+                                     int limit) {
+    m_pendingPage = qMax(1, page);
+    m_pendingLimit = limit;
+    m_pendingTagNames.clear();
+    m_pendingTagExclude.clear();
+    m_pendingTagIds.clear();
+    for (QString tok : tags) {
+        const bool neg = tok.startsWith(u'-');
+        if (neg)
+            tok = tok.mid(1);
+        QString name = tok.trimmed();
+        name.replace(u'_', u' ');
+        // Metatags (rating/filetype/sort/...) are not tag names.
+        if (name.isEmpty() || name.contains(u':'))
+            continue;
+        m_pendingTagNames << name;
+        m_pendingTagExclude << neg;
+        m_pendingTagIds << 0;
+    }
+    m_tagIndex = 0;
+    if (m_pendingTagNames.isEmpty()) {
+        const QUrl url = engineOps(m_site.engine)->resolvedSearchUrl(
+            opsContext(), {}, {}, m_pendingPage, m_pendingLimit);
+        if (url.isEmpty()) {
+            SearchResult result;
+            result.site = m_site.key;
+            result.error = tr("Could not build the search URL.");
+            m_lastError = result.error;
+            emit searchFinished(result);
+            return;
+        }
+        sendSearchRequest(url);
+        return;
+    }
+    resolveNextTag();
+}
+
+void RemoteSource::resolveNextTag() {
+    const BooruEngineOps *ops = engineOps(m_site.engine);
+    const int gen = m_searchGen;
+    if (m_tagIndex >= m_pendingTagNames.size()) {
+        QVector<qint64> include, exclude;
+        bool hadInclude = false;
+        for (int i = 0; i < m_pendingTagNames.size(); ++i) {
+            const bool neg = m_pendingTagExclude.value(i, false);
+            if (!neg)
+                hadInclude = true;
+            const qint64 id = m_pendingTagIds.value(i, 0);
+            if (id > 0)
+                (neg ? exclude : include) << id;
+        }
+        if (hadInclude && include.isEmpty()) {
+            SearchResult result;
+            result.site = m_site.key;
+            result.error =
+                tr("No matching %1 tag for the search.").arg(m_site.label);
+            m_lastError = result.error;
+            emit searchFinished(result);
+            return;
+        }
+        const QUrl url = ops->resolvedSearchUrl(
+            opsContext(), include, exclude, m_pendingPage, m_pendingLimit);
+        if (url.isEmpty()) {
+            SearchResult result;
+            result.site = m_site.key;
+            result.error = tr("Could not build the search URL.");
+            m_lastError = result.error;
+            emit searchFinished(result);
+            return;
+        }
+        sendSearchRequest(url);
+        return;
+    }
+    const QString name = m_pendingTagNames.at(m_tagIndex);
+    const QUrl lookup = ops->tagLookupUrl(opsContext(), name);
+    if (lookup.isEmpty()) {
+        ++m_tagIndex;
+        resolveNextTag();
+        return;
+    }
+    QNetworkRequest req = timedRequest(lookup);
+    m_lastUrl = lookup;
+    attachSiteCookies(req, m_site.baseUrl, m_site.cookies);
+    m_lastCookieNames.clear();
+    for (const QByteArray &tok : req.rawHeader("Cookie").split(';')) {
+        const QString cookie =
+            QString::fromUtf8(tok.trimmed()).section(u'=', 0, 0).trimmed();
+        if (!cookie.isEmpty())
+            m_lastCookieNames << cookie;
+    }
+    ops->applyAuth(req, m_creds);
+    m_tagReply = m_nam->get(req);
+    connect(m_tagReply, &QNetworkReply::finished, this,
+            [this, gen, name] {
+                QNetworkReply *reply = m_tagReply;
+                m_tagReply = nullptr;
+                if (!reply)
+                    return;
+                if (gen != m_searchGen) {
+                    reply->deleteLater();
+                    return; // a newer search owns the UI
+                }
+                const int http = reply->attribute(
+                                     QNetworkRequest::HttpStatusCodeAttribute)
+                                     .toInt();
+                if (reply->error() != QNetworkReply::NoError) {
+                    const QByteArray body = reply->readAll();
+                    m_lastBody = body.left(32768);
+                    m_lastHttp = http;
+                    SearchResult result;
+                    result.site = m_site.key;
+                    result.httpStatus = http;
+                    result.error =
+                        http > 0
+                            ? tr("Tag lookup failed (HTTP %1: %2)")
+                                  .arg(http)
+                                  .arg(reply->errorString())
+                            : tr("Tag lookup failed: %1")
+                                  .arg(reply->errorString());
+                    m_lastError = result.error;
+                    reply->deleteLater();
+                    emit searchFinished(result);
+                    return;
+                }
+                const QByteArray body = reply->readAll();
+                m_lastBody = body.left(32768);
+                const qint64 id = engineOps(m_site.engine)->parseTagId(body,
+                                                                      name);
+                reply->deleteLater();
+                if (id <= 0 && !m_pendingTagExclude.value(m_tagIndex, false)) {
+                    SearchResult result;
+                    result.site = m_site.key;
+                    result.error =
+                        tr("No %1 tag matched \"%2\".")
+                            .arg(m_site.label, name);
+                    m_lastError = result.error;
+                    emit searchFinished(result);
+                    return;
+                }
+                m_pendingTagIds[m_tagIndex] = id;
+                ++m_tagIndex;
+                resolveNextTag();
+            });
+}
+
+void RemoteSource::sendSearchRequest(const QUrl &url) {
+    QNetworkRequest req = timedRequest(url);
     m_lastUrl = req.url();
     attachSiteCookies(req, m_site.baseUrl, m_site.cookies);
     m_lastCookieNames.clear();
@@ -628,6 +783,16 @@ void RemoteSource::search(const QStringList &tags, int page, int limit) {
 
 void RemoteSource::cancel() {
     ++m_searchGen; // a pending native solve reports into the void, not here
+    if (m_tagReply) {
+        disconnect(m_tagReply, nullptr, this, nullptr);
+        m_tagReply->abort();
+        m_tagReply->deleteLater();
+        m_tagReply = nullptr;
+    }
+    m_pendingTagNames.clear();
+    m_pendingTagExclude.clear();
+    m_pendingTagIds.clear();
+    m_tagIndex = 0;
     if (m_reply) {
         disconnect(m_reply, nullptr, this, nullptr);
         m_reply->abort();
@@ -1181,6 +1346,8 @@ QString postPageUrlFor(const BooruSite &site, qint64 id) {
     case AnimePictures:
         return base + QStringLiteral("/pictures/view_post/") +
                QString::number(id);
+    case EShuushuu:
+        return base + QStringLiteral("/images/") + QString::number(id);
     case Philomena:
         return base + QStringLiteral("/images/") + QString::number(id);
     case BooruOnRails:

@@ -18,5 +18,6 @@ const BooruEngineOps *philomenaOps();
 const BooruEngineOps *booruOnRailsOps();
 const BooruEngineOps *e621Ops();
 const BooruEngineOps *animePicturesOps();
+const BooruEngineOps *shuushuuOps();
 
 } // namespace EngineInternal

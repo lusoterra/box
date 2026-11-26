@@ -30,6 +30,7 @@ set(REMOTE_SOURCES
     ../src/engines/engine_philomena.cpp
     ../src/engines/engine_e621.cpp
     ../src/engines/engine_animepictures.cpp
+    ../src/engines/engine_shuushuu.cpp
     ../src/remote/remotesource.cpp
     ../src/remote/powsolver.cpp)
 
@@ -190,7 +191,9 @@ add_unit_test(test_gridwindow test_gridwindow.cpp
               ../src/ui/welcomepage.cpp ../src/ui/tabbar.cpp
               ../src/ui/theme.cpp ../src/ui/flowlayout.cpp
               ../src/ui/metatext.cpp
-              ../src/ui/prefsdlg.cpp ../src/ui/prefsdlg_booru.cpp ../src/remote/cookiegrab.cpp
+              ../src/ui/prefsdlg.cpp ../src/ui/prefsdlg_booru.cpp
+              ../src/engines/enginedetect.cpp
+              ../src/remote/cookiegrab.cpp
               ../src/ui/straydialog.cpp ../src/ui/hydrusdialog.cpp
               ../src/ui/hydrustagdialog.cpp
               ../src/ui/sharedialog.cpp
@@ -234,6 +237,9 @@ add_unit_test(test_e621 test_e621.cpp ${REMOTE_SOURCES}
               ../src/library/tagcountcache.cpp
               ../src/library/index.cpp ../src/library/metaparser.cpp
               ../src/library/cache.cpp ../src/settings.cpp ${MIGRATION_SOURCES})
+add_unit_test(test_enginedetect test_enginedetect.cpp
+              ../src/engines/enginedetect.cpp)
+add_unit_test(test_shuushuu test_shuushuu.cpp ${REMOTE_SOURCES})
 add_unit_test(test_animepictures test_animepictures.cpp ${REMOTE_SOURCES}
               ../src/remote/tagsuggest.cpp ../src/library/tagtypes.cpp
               ../src/library/tagcountcache.cpp
