@@ -793,20 +793,9 @@ bool MainWindow::isDownloadsTab() {
     const BrowserTab *t = currentTab();
     if (!t)
         return false;
-    if (t->isRemote)
-        return t->sites.contains(kSrcDownloads);
-    if (t->isFavourites)
-        return false;
-    QString root = QDir(t->root).canonicalPath();
-    if (root.isEmpty())
-        root = QDir(t->root).absolutePath();
-    const QString dl = effectiveDownloadDir(m_settings);
-    if (dl.trimmed().isEmpty())
-        return false;
-    QString download = QDir(dl).canonicalPath();
-    if (download.isEmpty())
-        download = QDir(dl).absolutePath();
-    return !root.isEmpty() && !download.isEmpty() && root == download;
+    // Downloads is only the online-booru virtual source. Local folders are
+    // read-only archives and get no downloads media filter.
+    return t->isRemote && t->sites.contains(kSrcDownloads);
 }
 
 void MainWindow::setBrowseUi(bool browse) {
@@ -823,7 +812,7 @@ void MainWindow::setBrowseUi(bool browse) {
     // source and use the Boorus picker instead).
     m_categoryBox->setVisible((favs || downloads) && !hydrus);
     // Downloads media type: extension-based, so it only makes sense on
-    // tabs backed by the download folder.
+    // the online Downloads view (local archives get no media picker).
     if (m_mediaBox)
         m_mediaBox->setVisible(downloads && !hydrus);
     m_sortBox->setVisible(showFilters || hydrus);

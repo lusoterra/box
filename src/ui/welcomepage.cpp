@@ -111,7 +111,7 @@ WelcomePage::WelcomePage(QWidget *parent) : QWidget(parent) {
     dlBtn->setIcon(UiIcons::icon(QStringLiteral("download")));
     dlBtn->setIconSize(QSize(16, 16));
     dlBtn->setMinimumHeight(44);
-    dlBtn->setToolTip(tr("Browse the download folder"));
+    dlBtn->setToolTip(tr("Browse downloaded media from your boorus"));
     connect(dlBtn, &QPushButton::clicked, this, &WelcomePage::downloadsRequested);
     col->addWidget(dlBtn);
 

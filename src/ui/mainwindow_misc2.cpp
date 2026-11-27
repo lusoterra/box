@@ -143,8 +143,10 @@ void MainWindow::showPlusMenu() {
     connect(favAct, &QAction::triggered, this, &MainWindow::openFavTab);
     QAction *dlAct = menu.addAction(UiIcons::icon(QStringLiteral("download")),
                                     tr("Downloads"));
+    // Downloads is an online-booru view (the downloaded media of the
+    // configured sites), never a local archive tab.
     connect(dlAct, &QAction::triggered, this,
-            [this] { addLocalTab(effectiveDownloadDir(m_settings)); });
+            [this] { addRemoteTab({kSrcDownloads}, {}); });
     if (m_settings.hydrusEnabled) {
         QAction *hydrusAct = menu.addAction(
             UiIcons::icon(QStringLiteral("hydrus")), tr("Hydrus"));

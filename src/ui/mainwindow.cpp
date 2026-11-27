@@ -918,7 +918,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
         });
     });
     fileMenu->addAction(tr("Browse &Downloads"), this, [this] {
-        addLocalTab(effectiveDownloadDir(m_settings));
+        addRemoteTab({kSrcDownloads}, {});
     });
     fileMenu->addSeparator();
     fileMenu->addAction(tr("Import LoliSnatcher backup…"), this,
@@ -945,8 +945,8 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     tabsMenu->addAction(tr("New &remote tab"), this, [this] {
         addRemoteTab(QStringList(), QStringList());
     });
-    tabsMenu->addAction(tr("Open &downloads folder"), this, [this] {
-        addLocalTab(effectiveDownloadDir(m_settings));
+    tabsMenu->addAction(tr("Open &Downloads"), this, [this] {
+        addRemoteTab({kSrcDownloads}, {});
     });
     QAction *favAct =
         tabsMenu->addAction(tr("&Favourites"), this, &MainWindow::openFavTab);
@@ -1899,7 +1899,7 @@ MainWindow::MainWindow(const QString &root, bool rootExplicit, QWidget *parent)
     connect(m_welcome, &WelcomePage::resumeRequested, this,
             &MainWindow::openLastPlace);
     connect(m_welcome, &WelcomePage::downloadsRequested, this, [this] {
-        addLocalTab(effectiveDownloadDir(m_settings));
+        addRemoteTab({kSrcDownloads}, {});
     });
     connect(m_welcome, &WelcomePage::restoreToggled, this, [this](bool on) {
         m_settings.tabsDefault = on ? QStringLiteral("last") : QStringLiteral("welcome");

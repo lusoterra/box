@@ -28,7 +28,7 @@ a session was saved: restores every tab, lands on the saved current
 one, and returns to its post/scroll; if every tab was closed it warns
 "Nothing to resume" instead of resurrecting one), `New browse tab` (restores the session first when empty, then
 opens the Default-tab booru or the default boorus), `Favourites`
-(filled heart icon), `Downloads` (download icon) - and the `Always load
+(filled heart icon), `Downloads` (download icon; the online-booru Downloads view) - and the `Always load
 last session on
 startup` checkbox (mirrors Preferences → General). Tabs → `Start fresh
 session` closes everything and forgets the session. Optional mascot picture
@@ -86,16 +86,16 @@ within minutes are suppressed (the button stays).
 
 ## 03-omnibar - the control row under the tab bar
 Left to right: tag search box (placeholder `Search tags…`, `/` focuses)
-→ rating dropdown (`All`/`General`/`Sensitive`/`Questionable`/`Explicit`; shown on browse, favourites and both downloads views - server-side on remote tabs, client-side on local/favourites) → source dropdown (`All sources` + one row per booru/folder with counts; shown on Favourites and both downloads views, filters the grid client-side and becomes a removable pill) → media dropdown
-(`All media` / `Images` / `GIFs` / `Anything animated` / `Videos`, shown only on
-tabs backed by the download folder (`Downloads` source or `File → Browse Downloads`);
+→ rating dropdown (`All`/`General`/`Sensitive`/`Questionable`/`Explicit`; shown on browse, favourites and the Downloads view - server-side on remote tabs, client-side on local/favourites) → source dropdown (`All sources` + one row per booru/folder with counts; shown on Favourites and the Downloads view, filters the grid client-side and becomes a removable pill) → media dropdown
+(`All media` / `Images` / `GIFs` / `Anything animated` / `Videos`, shown only on the
+online `Downloads` view (`Downloads` source or `File → Browse Downloads`);
 filters files under the download folder by extension - a `GIFs` choice covers gif/animated webp/jxl, `Anything animated`
 adds mp4/webm; no tags or MIME sniffing) → sort dropdown (`Recently added`/`Newest`/`Oldest`/`Top
 Rated`/`Low Rated`/`Random`; shown on browse, favourites and downloads - server-side via translated tags where the
 engine supports it on remote tabs, all orders client-side on local tabs and favourites; remote options that would only re-sort client-side disable
 themselves per tab, `Recently added`/`Newest` never reorder on remote).
 `Recently added` is the default on new tabs: favourites sort by the DB's
-added time, local tabs/Downloads by file arrival time (mtime), and
+added time, local archive tabs and Downloads by file arrival time (mtime), and
 remote browsing keeps the API's native newest-first order. →
 `Boorus…` (per-tab source picker, multibooru merge; checkable entries
 toggle in place and keep the menu open) → `AI` (one-click
@@ -183,7 +183,7 @@ selected bold-font difference (plus a couple of pixels), so titles are
 not clipped when the tab becomes current; longer titles still marquee.
 
 ## 04-file-menu - File
-`Open ▸` (folder picker), `Browse Downloads`, `Import LoliSnatcher
+`Open ▸` (folder picker), `Browse Downloads` (online Downloads view), `Import LoliSnatcher
 backup…` (favourite and downloaded flags are independent: import favs,
 download/download-as-favourite/skip downloaded rows, optionally cross
 them; imports only add favourites, and the opt-in `Sync` checkbox asks
