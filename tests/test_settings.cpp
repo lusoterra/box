@@ -7,6 +7,7 @@
 
 #include <QTemporaryDir>
 #include <QCoreApplication>
+#include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QSettings>
@@ -50,6 +51,7 @@ private slots:
         QVERIFY(s.unfavDeletesFile); // delete-on-unfavourite defaults ON
         QVERIFY(!s.deleteUnfavs);    // unfavourite-on-delete defaults OFF
         QVERIFY(!s.hasLastPlace);    // nothing to resume on first run
+        QVERIFY(s.archives.isEmpty()); // no saved local archive by default
     }
 
     void settingsRoundTrip() {
@@ -60,6 +62,8 @@ private slots:
         s.thumbLongSide = 512;
         s.lastRoot = QStringLiteral("/pics/dump");
         s.history = {QStringLiteral("/pics/a"), QStringLiteral("/pics/b")};
+        s.archives = {{QStringLiteral("Archive A"), QStringLiteral("/pics/a")},
+                      {QStringLiteral("Archive B"), QStringLiteral("/pics/b")}};
         s.historyTokens = {QStringLiteral("sky"), QStringLiteral("cloud")};
         s.downloadDir = QStringLiteral("/tmp/be-dl");
         s.dataDir = QStringLiteral("/tmp/be-data");
@@ -133,6 +137,11 @@ private slots:
         QCOMPARE(back.thumbLongSide, 512);
         QCOMPARE(back.lastRoot, QStringLiteral("/pics/dump"));
         QCOMPARE(back.history, s.history);
+        QCOMPARE(back.archives.size(), 2);
+        QCOMPARE(back.archives.at(0).name, QStringLiteral("Archive A"));
+        QCOMPARE(back.archives.at(0).root, QStringLiteral("/pics/a"));
+        QCOMPARE(back.archives.at(1).name, QStringLiteral("Archive B"));
+        QCOMPARE(back.archives.at(1).root, QStringLiteral("/pics/b"));
         QCOMPARE(back.historyTokens, s.historyTokens);
         QCOMPARE(back.downloadDir, QStringLiteral("/tmp/be-dl"));
         QCOMPARE(back.dataDir, QStringLiteral("/tmp/be-data"));
@@ -225,6 +234,21 @@ private slots:
             noteFolderOpened(s, QStringLiteral("/pics/%1").arg(i));
         QCOMPARE(s.history.size(), 10);
         QCOMPARE(s.history.first(), QStringLiteral("/pics/11"));
+    }
+
+    void savedArchiveLabels() {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString a = dir.filePath(QStringLiteral("PicDumpA"));
+        const QString b = dir.filePath(QStringLiteral("PicDumpB"));
+        QVERIFY(QDir().mkpath(a));
+        QVERIFY(QDir().mkpath(b));
+        AppSettings s;
+        s.archives = {{QStringLiteral("Archive A"), a}};
+        QCOMPARE(archiveLabelForRoot(s, a), QStringLiteral("Archive A"));
+        QCOMPARE(archiveLabelForRoot(s, b), QStringLiteral("PicDumpB"));
+        s.archives.first().name.clear(); // empty name falls back to folder
+        QCOMPARE(archiveLabelForRoot(s, a), QStringLiteral("PicDumpA"));
     }
 
     void manualTagTypesRoundTrip() {

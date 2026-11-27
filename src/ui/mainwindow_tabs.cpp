@@ -359,16 +359,11 @@ void MainWindow::updateTabTitle(int tabIdx) {
         t->title = tags.isEmpty() ? shown.join(QStringLiteral(" + ")) : tags.join(u' ');
         m_tabBar->setTabIcon(tabIdx + 1, sitesIcon(t->sites));
     } else {
-        t->title = QDir(t->root).dirName();
-        if (t->title.isEmpty())
-            t->title = t->root;
-        // The download folder is literally named "downloads": show it
-        // like everywhere else instead of the raw dirname.
-        if (t->title.compare(QStringLiteral("downloads"), Qt::CaseInsensitive) == 0)
-            t->title = tr("Downloads");
+        t->title = archiveLabelForRoot(m_settings, t->root);
         if (!tags.isEmpty())
             t->title += QStringLiteral(" · ") + tags.join(u' ');
-        m_tabBar->setTabIcon(tabIdx + 1, UiIcons::icon(QStringLiteral("folder-open")));
+        m_tabBar->setTabIcon(tabIdx + 1,
+                             UiIcons::icon(QStringLiteral("archive")));
     }
     m_tabBar->setFullTitle(tabIdx + 1, t->title);
     // Keep the OS title in lockstep when this is the visible tab.
@@ -639,7 +634,7 @@ void MainWindow::activateTab(int tabIdx) {
         busy = tr("Loading %1…")
                    .arg(t->title.isEmpty() ? tr("browse") : t->title);
     else
-        busy = tr("Loading %1…").arg(QDir(t->root).dirName());
+        busy = tr("Loading %1…").arg(archiveLabelForRoot(m_settings, t->root));
     m_gridLoading->showFor(busy);
     // Capture the tab pointer, not the numeric index: closing an
     // unrelated tab before this fires shifts every index after it, and

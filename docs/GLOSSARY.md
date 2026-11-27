@@ -95,7 +95,11 @@
   tab explains why.
 - view-only folder = the read-only archive reader (`openFolder` +
   `addLocalTab`), always available as `Open view-only folder…` in the ＋
-  menu; it never writes sidecars or touches the library.
+  menu; it never writes sidecars or touches the library. `saved archive` =
+  a named entry in Preferences → Library (`library/archives`) listed
+  directly in the ＋ menu; each opens its own read-only tab and the entries
+  never merge with each other, Downloads or favourites. `Downloads` itself
+  is the online-booru downloaded-media view, not a local archive tab.
 - duplicate family = one dedup `scope`: `archive` (all local archive
   roots together), `download` (the download folder, including downloaded
   favourites) or `hydrus` (the Hydrus media folder). `kind` further splits

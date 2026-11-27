@@ -155,6 +155,19 @@ void MainWindow::showPlusMenu() {
         connect(hydrusAct, &QAction::triggered, this,
                 &MainWindow::openHydrusTab);
     }
+    // Saved local archives: one click each, exactly like a booru tab.
+    for (const AppSettings::SavedArchive &a : m_settings.archives) {
+        if (a.root.trimmed().isEmpty() || !QDir(a.root).exists())
+            continue;
+        QAction *archiveAct = menu.addAction(
+            UiIcons::icon(QStringLiteral("archive")),
+            a.name.trimmed().isEmpty() ? QDir(a.root).dirName()
+                                      : a.name.trimmed());
+        archiveAct->setToolTip(QDir::toNativeSeparators(a.root));
+        connect(archiveAct, &QAction::triggered, this,
+                [this, root = a.root] { addLocalTab(root); });
+    }
+    menu.addSeparator();
     // The read-only archive browser is easy to forget: always offer it,
     // alongside the optional plain "open local folder" entry.
     QAction *viewAct = menu.addAction(

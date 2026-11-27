@@ -676,6 +676,17 @@ void PrefsDialog::harvestInto(AppSettings &out) {
         out.dataDir.chop(1);
     if (out.dataDir == defaultDataDir())
         out.dataDir.clear(); // default stays implicit
+    out.archives.clear();
+    if (m_archiveList) {
+        for (int i = 0; i < m_archiveList->count(); ++i) {
+            const QListWidgetItem *item = m_archiveList->item(i);
+            AppSettings::SavedArchive a;
+            a.name = item->data(Qt::UserRole).toString().trimmed();
+            a.root = item->data(Qt::UserRole + 1).toString().trimmed();
+            if (!a.root.isEmpty())
+                out.archives.append(a);
+        }
+    }
     // The download default follows the data dir: resolve it after dataDir.
     out.downloadDir = m_downloadDir->text().trimmed();
     while (out.downloadDir.endsWith(u'/') && out.downloadDir.size() > 1)

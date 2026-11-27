@@ -28,6 +28,7 @@
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QImage>
+#include <QInputDialog>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonParseError>
@@ -583,6 +584,117 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     libLay->addWidget(note(tr("Cache changes apply on Apply; existing files "
                               "stay until you delete them.")));
     libraryPage->addWidget(lib);
+
+    // ── Saved local archives ──
+    auto *archives = new QGroupBox(tr("Saved archives"), this);
+    auto *archivesLay = new QVBoxLayout(archives);
+    archivesLay->addWidget(note(tr(
+        "Read-only local folders (gallery-dl/LOSN dumps) listed in the + "
+        "menu. Each opens in its own tab and keeps its own filters and scan "
+        "cache; archives never write to or mix with each other.")));
+    m_archiveList = new QListWidget(archives);
+    m_archiveList->setObjectName(QStringLiteral("archiveList"));
+    m_archiveList->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_archiveList->setTextElideMode(Qt::ElideMiddle);
+    m_archiveList->setMaximumHeight(130);
+    archivesLay->addWidget(m_archiveList);
+    auto appendArchiveRow = [this](const QString &name, const QString &root) {
+        const QString shown = name.trimmed().isEmpty()
+                                  ? QDir(root).dirName()
+                                  : name.trimmed();
+        auto *item = new QListWidgetItem(
+            tr("%1  -  %2").arg(shown, QDir::toNativeSeparators(root)),
+            m_archiveList);
+        item->setData(Qt::UserRole, shown);
+        item->setData(Qt::UserRole + 1, root);
+        item->setToolTip(QDir::toNativeSeparators(root));
+    };
+    for (const AppSettings::SavedArchive &a : current.archives) {
+        if (!a.root.trimmed().isEmpty())
+            appendArchiveRow(a.name, a.root);
+    }
+    auto *archiveRow = new QHBoxLayout();
+    auto *addArchive = new QPushButton(tr("Add archive…"), this);
+    auto *renameArchive = new QPushButton(tr("Rename…"), this);
+    auto *removeArchive = new QPushButton(tr("Remove"), this);
+    archiveRow->addWidget(addArchive);
+    archiveRow->addWidget(renameArchive);
+    archiveRow->addWidget(removeArchive);
+    archiveRow->addStretch(1);
+    archivesLay->addLayout(archiveRow);
+    auto syncArchiveButtons = [this, renameArchive, removeArchive] {
+        const bool has = m_archiveList->currentItem() != nullptr;
+        renameArchive->setEnabled(has);
+        removeArchive->setEnabled(has);
+    };
+    syncArchiveButtons();
+    connect(m_archiveList, &QListWidget::currentItemChanged, this,
+            [syncArchiveButtons] { syncArchiveButtons(); });
+    connect(addArchive, &QPushButton::clicked, this, [this, appendArchiveRow] {
+        const QString start = m_archiveList->count() > 0
+                                  ? m_archiveList->item(0)
+                                        ->data(Qt::UserRole + 1)
+                                        .toString()
+                                  : m_result.lastRoot;
+        const QString dir = QFileDialog::getExistingDirectory(
+            this, tr("Add local archive"), start);
+        if (dir.isEmpty())
+            return;
+        const QString canon = QDir(dir).canonicalPath();
+        for (int i = 0; i < m_archiveList->count(); ++i) {
+            const QString existing = QDir(m_archiveList->item(i)
+                                              ->data(Qt::UserRole + 1)
+                                              .toString())
+                                         .canonicalPath();
+            if (!canon.isEmpty() && canon == existing) {
+                QMessageBox::information(
+                    this, tr("Saved archives"),
+                    tr("That folder is already in the archive list."));
+                return;
+            }
+        }
+        bool ok = false;
+        QString defaultName = QDir(dir).dirName();
+        if (defaultName.isEmpty())
+            defaultName = tr("Archive %1").arg(m_archiveList->count() + 1);
+        const QString name = QInputDialog::getText(
+            this, tr("Add local archive"), tr("Name:"), QLineEdit::Normal,
+            defaultName, &ok);
+        if (!ok)
+            return;
+        appendArchiveRow(name.trimmed().isEmpty() ? defaultName : name, dir);
+        m_archiveList->setCurrentRow(m_archiveList->count() - 1);
+        updateApplyState();
+    });
+    connect(renameArchive, &QPushButton::clicked, this, [this] {
+        QListWidgetItem *item = m_archiveList->currentItem();
+        if (!item)
+            return;
+        bool ok = false;
+        const QString name = QInputDialog::getText(
+            this, tr("Rename archive"), tr("Name:"), QLineEdit::Normal,
+            item->data(Qt::UserRole).toString(), &ok);
+        if (!ok || name.trimmed().isEmpty())
+            return;
+        item->setData(Qt::UserRole, name.trimmed());
+        item->setText(tr("%1  -  %2")
+                          .arg(name.trimmed(),
+                               QDir::toNativeSeparators(
+                                   item->data(Qt::UserRole + 1).toString())));
+        updateApplyState();
+    });
+    connect(removeArchive, &QPushButton::clicked, this,
+            [this, syncArchiveButtons] {
+                if (!m_archiveList->currentItem())
+                    return;
+                delete m_archiveList->takeItem(m_archiveList->currentRow());
+                syncArchiveButtons();
+                updateApplyState();
+            });
+    archivesLay->addWidget(note(tr(
+        "Archives are never modified: downloads and favourites stay in the "
+        "download folder, not in these locations.")));
+    libraryPage->addWidget(archives);
 
     // ── Automatic tag categorization (off by default) ──
     auto *cat = new QGroupBox(tr("Automatic tag categorization"), this);

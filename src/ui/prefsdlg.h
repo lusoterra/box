@@ -84,6 +84,7 @@ private:
     QCheckBox *m_unfavDeletes;
     QCheckBox *m_deleteUnfavs;
     QPlainTextEdit *m_blacklist;
+    QListWidget *m_archiveList = nullptr; // Library: saved local archives
     QListWidget *m_favTagList = nullptr; // General: review/remove stars
     QLineEdit *m_configDir = nullptr; // General: effective config folder
     QLineEdit *m_defaultImageViewer = nullptr;

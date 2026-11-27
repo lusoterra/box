@@ -135,6 +135,11 @@ it you get untagged files. Re-run the same command later for new posts;
 add `--download-archive ~/pics/archive.sqlite3` to skip what you already
 have. The `--write-info-json` is also useful.
 
+Save as many local archives as you like under Preferences → Library →
+`Saved archives`; each named entry appears in the ＋ menu with its own
+read-only tab (own filters and scan cache). Archives never write to each
+other or to the downloads/favourites library.
+
 ## Hydrus library
 
 Enable Preferences → Hydrus, then open `Hydrus` from the ＋ menu. The tab

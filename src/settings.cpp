@@ -169,6 +169,28 @@ AppSettings loadSettings() {
         1024);
     s.lastRoot = c.value(QStringLiteral("library/root")).toString();
     s.history = c.value(QStringLiteral("library/history")).toStringList();
+    s.archives.clear();
+    c.beginGroup(QStringLiteral("library/archives"));
+    {
+        QList<int> order;
+        for (const QString &g : c.childGroups()) {
+            bool ok = false;
+            const int idx = g.toInt(&ok);
+            if (ok)
+                order << idx;
+        }
+        std::sort(order.begin(), order.end());
+        for (int idx : order) {
+            c.beginGroup(QString::number(idx));
+            AppSettings::SavedArchive a;
+            a.name = c.value(QStringLiteral("name")).toString();
+            a.root = c.value(QStringLiteral("root")).toString();
+            c.endGroup();
+            if (!a.root.trimmed().isEmpty())
+                s.archives.append(a);
+        }
+    }
+    c.endGroup();
     s.historyTokens =
         c.value(QStringLiteral("library/historyTokens")).toStringList().mid(0, 200);
     // NOTE: never a group literally named general/General - QSettings
@@ -443,6 +465,20 @@ void writeSettingsTo(QSettings &c, const AppSettings &s) {
     c.setValue(QStringLiteral("cache/thumbSize"), s.thumbLongSide);
     c.setValue(QStringLiteral("library/root"), s.lastRoot);
     c.setValue(QStringLiteral("library/history"), s.history);
+    c.remove(QStringLiteral("library/archives"));
+    c.beginGroup(QStringLiteral("library/archives"));
+    {
+        int n = 0;
+        for (const AppSettings::SavedArchive &a : s.archives) {
+            if (n >= 50)
+                break; // bound ini growth
+            c.beginGroup(QString::number(n++));
+            c.setValue(QStringLiteral("name"), a.name);
+            c.setValue(QStringLiteral("root"), a.root);
+            c.endGroup();
+        }
+    }
+    c.endGroup();
     c.setValue(QStringLiteral("library/historyTokens"),
                s.historyTokens.mid(0, 200));
     c.setValue(QStringLiteral("app/restoreSession"), s.restoreSession);

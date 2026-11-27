@@ -313,11 +313,10 @@ void MainWindow::applyPreferences(const AppSettings &app) {
     prefetchFavicons();
     rebuildSitesMenu();
     updateSortBox();
-    // Custom favicons apply immediately (same loop as fetch arrivals).
-    for (int i = 0; i < m_tabs.size(); ++i) {
-        if (m_tabs[i]->isRemote)
-            updateTabTitle(i);
-    }
+    // Custom favicons apply immediately (same loop as fetch arrivals);
+    // archive renames in Library also retitle their open tabs.
+    for (int i = 0; i < m_tabs.size(); ++i)
+        updateTabTitle(i);
     applyBooruCreds();
     applyClassifySettings();
     // Capturing a captcha/clearance in Preferences must revive the cards

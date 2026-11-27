@@ -266,12 +266,13 @@ Grid cards follow the default category order Artists, Character,
 Copyright, General, Meta, then native categories from unusual boorus.
 
 ## 09-plus-menu - ＋ new-tab picker (`showPlusMenu`)
-`Home`, `Favourites`, `Downloads`, `Hydrus` (only when Preferences →
-Hydrus is enabled), then `Open view-only folder…` (always: the read-only
-gallery-dl/LOSN archive browser; the optional `Open local folder…` entry
-follows when enabled in Preferences → General), then one entry per
-configured booru (favicon + label). One click = one tab; merging stays
-per-tab via `Boorus…`.
+`Home`, `Favourites`, `Downloads` (the online-booru Downloads view), `Hydrus` (only when Preferences →
+Hydrus is enabled), then one entry per saved local archive (archive icon;
+added in Preferences → Library, each opens in its own tab), then `Open
+view-only folder…` (always: the read-only gallery-dl/LOSN archive browser;
+the optional `Open local folder…` entry follows when enabled in
+Preferences → General), then one entry per configured booru (favicon +
+label). One click = one tab; merging stays per-tab via `Boorus…`.
 
 ## 10-boorus-menu - Boorus… per-tab picker (`m_sitesMenu`)
 Checkable entries: configured sites by label, then virtual sources
@@ -412,6 +413,11 @@ explicitly downloaded stays cacheable even when NSFW; favouriting alone
 does not lift the filter. Blacklisted tags never cache in SFW-only mode,
 and an empty/unknown rating is treated as NSFW unless a positive
 `rating:g`/`rating:safe`-style tag proves otherwise.
+`Saved archives` lists the named local folders shown in the `＋` menu
+(`Add archive…` prompts for a name, `Rename…`, `Remove`; matched by
+canonical path). Each archive opens in its own read-only tab with its own
+filters and scan cache - archives never merge with each other, with
+Downloads or with favourites.
 
 ## 14-prefs-browse - Preferences → Browse
 `Page size`, `Drag posts as` (what a post drag sends to Discord/other

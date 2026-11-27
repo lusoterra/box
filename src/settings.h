@@ -18,6 +18,14 @@
 #include "tagcategories.h" // per-booru category merge/rename rules
 
 struct AppSettings {
+    // Saved local archive locations (Preferences -> Library). Each entry is
+    // a read-only archive root the "+" menu can open in its own tab; they
+    // never share tabs, filters or scan caches with each other.
+    struct SavedArchive {
+        QString name; // display label ("Archive A"); empty = folder name
+        QString root;
+        bool operator==(const SavedArchive &) const = default;
+    };
     // Library
     bool indexCache = true;
     // Duplicate cleanup: allow deleting files inside read-only local
@@ -48,6 +56,7 @@ struct AppSettings {
     int thumbLongSide = 360; // 256/360/512/768
     QString lastRoot;
     QStringList history; // most-recent-first archive roots, cap 10
+    QList<SavedArchive> archives; // named local archives for the "+" menu
     QStringList historyTokens; // recent search tokens, cap 200
     bool restoreSession = false; // legacy: migrated to tabsDefault="last"
     QString language; // UI locale override ("fr", "pt_BR"); empty = system
@@ -294,6 +303,23 @@ inline QString effectiveDownloadDir(const AppSettings &s) {
     return effectiveDataDir(s) + QStringLiteral("/downloads");
 }
 
+// Display label for a local archive tab: the saved archive's name when the
+// root is configured in Preferences, else the folder name. Saved archives
+// are matched by canonical path (symlinks included).
+inline QString archiveLabelForRoot(const AppSettings &s, const QString &root) {
+    const QString canonRoot = QDir(root).canonicalPath();
+    for (const AppSettings::SavedArchive &a : s.archives) {
+        const QString canon = QDir(a.root).canonicalPath();
+        if (!canon.isEmpty() && canon == canonRoot) {
+            const QString name = a.name.trimmed();
+            if (!name.isEmpty())
+                return name;
+        }
+    }
+    const QString dirName = QDir(root).dirName();
+    return dirName.isEmpty() ? root : dirName;
+}
+
 // Hydrus tab media folder + database. The tab is isolated: these never
 // point at downloads/ or store.db unless the user explicitly does so.
 inline QString effectiveHydrusDir(const AppSettings &s) {
@@ -348,8 +374,13 @@ inline bool classifyNeedsNetwork(const AppSettings &s) {
 // it changes on every move and must not keep Apply lit).
 inline bool operator==(const AppSettings &a, const AppSettings &b) {
     if (a.boorus.size() != b.boorus.size() ||
-        a.savedTabs.size() != b.savedTabs.size())
+        a.savedTabs.size() != b.savedTabs.size() ||
+        a.archives.size() != b.archives.size())
         return false;
+    for (int i = 0; i < a.archives.size(); ++i) {
+        if (!(a.archives.at(i) == b.archives.at(i)))
+            return false;
+    }
     for (int i = 0; i < a.boorus.size(); ++i) {
         if (!(a.boorus.at(i) == b.boorus.at(i)))
             return false;
