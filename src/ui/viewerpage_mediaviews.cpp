@@ -2,6 +2,7 @@
 
 #include "imagecache.h"
 #include "uicons.h"
+#include "ugoioconvert.h"
 #include "webdlbackend.h"
 
 #include <QApplication>
@@ -264,6 +265,7 @@ void GifView::setFile(const QString &path) {
     // left GIFs on black while the first frame decoded. The frameChanged
     // handler below swaps the placeholder pixmap in place when frame 0
     // lands (same-size fast path, re-fit when the size changes).
+    stopUgoira();
     if (m_movie) {
         m_movie->stop();
         delete m_movie;
@@ -292,29 +294,7 @@ void GifView::setFile(const QString &path) {
     connect(m_movie, &QMovie::frameChanged, this, [this] {
         if (!m_movie)
             return;
-        const QPixmap pm = m_movie->currentPixmap();
-        if (pm.isNull())
-            return;
-        if (!m_item) {
-            m_item = m_scene->addPixmap(pm);
-            m_scene->setSceneRect(m_item->boundingRect());
-            fit();
-        } else {
-            if (pm.size() != m_item->pixmap().size()) {
-                m_item->setPixmap(pm);
-                m_scene->setSceneRect(m_item->boundingRect());
-                if (m_fitted) {
-                    fit();
-                } else {
-                    const double z = m_zoom;
-                    resetTransform();
-                    scale(z, z);
-                    m_zoom = z;
-                }
-            } else {
-                m_item->setPixmap(pm);
-            }
-        }
+        applyFrame(m_movie->currentPixmap());
     });
     if (m_movie->frameCount() <= 1) {
         // Not actually animated: render the one frame as a still and drop
@@ -327,6 +307,96 @@ void GifView::setFile(const QString &path) {
         return;
     }
     m_movie->start();
+}
+
+void GifView::applyFrame(const QPixmap &pm) {
+    if (pm.isNull())
+        return;
+    if (!m_item) {
+        m_item = m_scene->addPixmap(pm);
+        m_scene->setSceneRect(m_item->boundingRect());
+        fit();
+        return;
+    }
+    if (pm.size() != m_item->pixmap().size()) {
+        m_item->setPixmap(pm);
+        m_scene->setSceneRect(m_item->boundingRect());
+        if (m_fitted) {
+            fit();
+        } else {
+            const double z = m_zoom;
+            resetTransform();
+            scale(z, z);
+            m_zoom = z;
+        }
+    } else {
+        m_item->setPixmap(pm);
+    }
+}
+
+void GifView::stopUgoira() {
+    if (m_ugoiraTimer) {
+        m_ugoiraTimer->stop();
+        m_ugoiraTimer->deleteLater();
+        m_ugoiraTimer = nullptr;
+    }
+    m_ugoiraZip.clear();
+    m_ugoiraNames.clear();
+    m_ugoiraDelays.clear();
+    m_ugoiraIndex = 0;
+}
+
+void GifView::setUgoiraZip(const QString &path, int defaultDelayMs) {
+    // Keep the placeholder until the first frame is decoded, like GIFs.
+    if (m_movie) {
+        m_movie->stop();
+        delete m_movie;
+        m_movie = nullptr;
+    }
+    stopUgoira();
+    m_ugoiraZip = path;
+    QVector<Ugoira::FrameInfo> frames;
+    QString error;
+    if (!Ugoira::listFrames(path, frames, defaultDelayMs, &error) ||
+        frames.isEmpty()) {
+        m_scene->clear();
+        m_item = nullptr;
+        auto *text = m_scene->addText(tr("Cannot play ugoira"));
+        text->setDefaultTextColor(QColor(0xe0, 0x55, 0x55));
+        m_ugoiraZip.clear();
+        return;
+    }
+    for (const Ugoira::FrameInfo &f : frames) {
+        m_ugoiraNames.append(f.name);
+        m_ugoiraDelays.append(f.delayMs);
+    }
+    m_ugoiraTimer = new QTimer(this);
+    m_ugoiraTimer->setSingleShot(true);
+    connect(m_ugoiraTimer, &QTimer::timeout, this, [this] {
+        showUgoiraFrame((m_ugoiraIndex + 1) % m_ugoiraNames.size());
+    });
+    showUgoiraFrame(0);
+}
+
+void GifView::showUgoiraFrame(int index) {
+    if (m_ugoiraNames.isEmpty() || index < 0 ||
+        index >= m_ugoiraNames.size())
+        return;
+    QImage image;
+    QString error;
+    if (!Ugoira::decodeFrame(m_ugoiraZip, m_ugoiraNames.at(index), image,
+                             &error)) {
+        m_scene->clear();
+        m_item = nullptr;
+        auto *text = m_scene->addText(tr("Cannot play ugoira: %1").arg(error));
+        text->setDefaultTextColor(QColor(0xe0, 0x55, 0x55));
+        stopUgoira();
+        return;
+    }
+    applyFrame(QPixmap::fromImage(image));
+    m_ugoiraIndex = index;
+    if (m_ugoiraTimer)
+        m_ugoiraTimer->start(qMax(10, m_ugoiraDelays.value(index, 100)));
 }
 
 void GifView::setPlaceholder(const QPixmap &pm) {
@@ -343,6 +413,7 @@ QPixmap GifView::currentPixmap() const {
 }
 
 void GifView::clear() {
+    stopUgoira();
     if (m_movie) {
         m_movie->stop();
         delete m_movie;

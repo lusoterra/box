@@ -86,7 +86,7 @@ void ViewerPage::primeThumb(int row) {
         m_thumbModel->index(row, 0).data(Qt::DecorationRole));
     if (pm.isNull())
         return;
-    if (p.ext == QStringLiteral("gif")) {
+    if (p.ext == QStringLiteral("gif") || isUgoiraPost(p)) {
         m_stack->setCurrentWidget(m_gif);
         m_gif->setPlaceholder(pm);
         return;
@@ -120,6 +120,8 @@ void ViewerPage::preloadNeighbours() {
                                           RemotePosts::mediaRefererFor(np));
             continue;
         }
+        if (isUgoiraPost(np))
+            continue; // original zips are big; fetch on open, not ahead
         const QString u = RemotePosts::viewerUrlFor(np);
         if (!u.isEmpty())
             m_imgCache->request(u, RemotePosts::mediaRefererFor(np), &np);
@@ -174,7 +176,7 @@ void ViewerPage::showCurrent() {
     // the thumb inside the gif pane (never black while loading).
     m_image->setNotes({}, {});
     if (!m_pendingThumb.isNull()) {
-        if (p.ext == QStringLiteral("gif")) {
+        if (p.ext == QStringLiteral("gif") || isUgoiraPost(p)) {
             m_stack->setCurrentWidget(m_gif);
             m_gif->setPlaceholder(m_pendingThumb);
         } else if (!isVideoExt(p.ext)) {
@@ -215,6 +217,44 @@ void ViewerPage::showCurrent() {
                 return;
             }
             m_video->setFile(p.absFile);
+        }
+    } else if (isUgoiraPost(p)) {
+        // Danbooru/Pixiv ugoira: the original is a zip. The site plays it
+        // by unpacking frames client-side; do the same, lazily per frame,
+        // instead of handing the zip to an image decoder (blank viewer).
+        m_loadBar->setVisible(false);
+        m_loadInfo->setVisible(false);
+        m_stack->setCurrentWidget(m_gif);
+        if (p.isRemote) {
+            // Always the original zip: the "sample" variant is a webm
+            // some browsers/Qt builds cannot decode.
+            const QString url = !p.fileUrl.isEmpty() ? p.fileUrl
+                                                     : p.sampleUrl;
+            if (url.isEmpty() || !m_imgCache) {
+                m_gif->clear();
+                showNote(url.isEmpty()
+                             ? tr("No file URL (login may be required)")
+                             : tr("Image cache unavailable"));
+            } else {
+                m_pendingUrl = url;
+                m_pendingRow = m_row;
+                m_loadTimer.restart();
+                m_loadLastReceived = 0;
+                m_loadLastTime = 0;
+                m_loadBar->setRange(0, 0); // busy until progress lands
+                m_loadBar->setVisible(true);
+                const QString have = m_imgCache->localPath(url, &p);
+                if (!have.isEmpty())
+                    onCacheReady(url, have);
+                else
+                    m_imgCache->request(url, RemotePosts::mediaRefererFor(p),
+                                        &p);
+            }
+        } else if (p.absFile.isEmpty() || !QFileInfo::exists(p.absFile)) {
+            m_gif->clear();
+            showNote(tr("Local file not found: %1").arg(p.absFile));
+        } else {
+            m_gif->setUgoiraZip(p.absFile);
         }
     } else if (p.ext == QStringLiteral("gif")) {
         m_loadBar->setVisible(false);

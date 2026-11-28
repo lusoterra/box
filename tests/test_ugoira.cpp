@@ -186,6 +186,28 @@ private slots:
         QCOMPARE(frames.delaysMs, QVector<int>({70, 130}));
     }
 
+    void lazyFrameListAndDecode() {
+        // Online viewer path: list the same zip without decoding, then
+        // decode one frame at a time (memory stays at one frame).
+        QVector<Ugoira::FrameInfo> frames;
+        QString error;
+        QVERIFY2(Ugoira::listFrames(animationZip(), frames, 100, &error),
+                 qPrintable(error));
+        QCOMPARE(frames.size(), 2);
+        QCOMPARE(frames.at(0).name, QStringLiteral("000000.png"));
+        QCOMPARE(frames.at(0).delayMs, 70);
+        QCOMPARE(frames.at(1).name, QStringLiteral("000001.png"));
+        QCOMPARE(frames.at(1).delayMs, 130);
+        QImage img;
+        QVERIFY2(Ugoira::decodeFrame(animationZip(), frames.at(1).name, img,
+                                     &error),
+                 qPrintable(error));
+        QVERIFY(!img.isNull());
+        QVERIFY(!Ugoira::decodeFrame(animationZip(),
+                                     QStringLiteral("missing.png"), img,
+                                     &error));
+    }
+
     void encodeWebp() {
         if (QStandardPaths::findExecutable(QStringLiteral("ffmpeg")).isEmpty())
             QSKIP("ffmpeg not in PATH");

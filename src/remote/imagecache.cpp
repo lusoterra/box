@@ -211,7 +211,9 @@ void ImageCache::request(const QString &url, const QString &referer,
                 ctl.startsWith(QStringLiteral("image/")) ||
                 ctl.startsWith(QStringLiteral("video/")) ||
                 ctl.startsWith(QStringLiteral("application/octet-stream")) ||
-                ctl.startsWith(QStringLiteral("binary/octet-stream"));
+                ctl.startsWith(QStringLiteral("binary/octet-stream")) ||
+                ctl.startsWith(QStringLiteral("application/zip")) ||
+                ctl.startsWith(QStringLiteral("application/x-zip"));
             if (!headerMedia &&
                 !RemotePosts::looksLikeMediaBytes(bytes.left(512))) {
                 // Hotlink/wall pages answer HTML (or 302-to-HTML) when the

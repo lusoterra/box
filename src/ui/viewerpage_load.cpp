@@ -72,6 +72,9 @@ void ViewerPage::onCacheReady(const QString &url, const QString &localPath) {
     if (p.ext == QStringLiteral("gif")) {
         m_stack->setCurrentWidget(m_gif);
         m_gif->setFile(localPath);
+    } else if (isUgoiraPost(p)) {
+        m_stack->setCurrentWidget(m_gif);
+        m_gif->setUgoiraZip(localPath);
     } else {
         loadLocalImage(localPath, m_row);
     }
@@ -85,7 +88,8 @@ void ViewerPage::onCacheFailed(const QString &url, const QString &error) {
     if (!m_sampleFallback && m_row >= 0 && m_row < m_posts.size()) {
         const Post &p = m_posts.at(m_row);
         if (p.isRemote && url == p.fileUrl && !p.sampleUrl.isEmpty() &&
-            p.sampleUrl != p.fileUrl && m_imgCache) {
+            p.sampleUrl != p.fileUrl && m_imgCache &&
+            !isUgoiraPost(p)) {
             m_sampleFallback = true;
             m_pendingUrl = p.sampleUrl;
             showNote(tr("Full file unavailable - showing sample"));
@@ -186,6 +190,9 @@ void ViewerPage::onStillWebFinished(qint64 id, bool ok, const QString &error) {
     if (m_posts.at(m_row).ext == QStringLiteral("gif")) {
         m_stack->setCurrentWidget(m_gif);
         m_gif->setFile(tmp);
+    } else if (isUgoiraPost(m_posts.at(m_row))) {
+        m_stack->setCurrentWidget(m_gif);
+        m_gif->setUgoiraZip(tmp);
     } else {
         loadLocalImage(tmp, m_row);
     }

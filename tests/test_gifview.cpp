@@ -42,6 +42,16 @@ private slots:
         // Invalid GIF shows an error text item instead of silently failing.
         QCOMPARE(view.scene()->items().size(), 1);
     }
+
+    void ugoiraZipRendersFirstFrame() {
+        // Online Danbooru/Pixiv path: the original zip is listed and its
+        // first frame decoded (no webm sample involved).
+        GifView view;
+        view.setUgoiraZip(QString::fromLatin1(TESTFILES_DIR) +
+                          u"/ugoira-animation.zip");
+        QCOMPARE(view.scene()->items().size(), 1);
+        QVERIFY(!view.currentPixmap().isNull());
+    }
 };
 
 int main(int argc, char *argv[]) {

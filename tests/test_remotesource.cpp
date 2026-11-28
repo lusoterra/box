@@ -319,6 +319,16 @@ private slots:
         RemoteSource::setConfiguredBoorus(RemoteSource::presetBoorus());
     }
 
+    void zipMediaSniff() {
+        // Danbooru ugoira originals are application/zip; the media gate
+        // must not mistake them for a wall page. Empty/spanned zip
+        // signatures count too (a streamed archive may start with one).
+        QVERIFY(RemotePosts::looksLikeMediaBytes(QByteArray::fromHex("504b0304")));
+        QVERIFY(RemotePosts::looksLikeMediaBytes(QByteArray::fromHex("504b0506")));
+        QVERIFY(RemotePosts::looksLikeMediaBytes(QByteArray::fromHex("504b0708")));
+        QVERIFY(!RemotePosts::looksLikeMediaBytes("<html>blocked</html>"));
+    }
+
     void engineKeysRoundTrip() {
         for (BooruEngine e : {BooruEngine::Danbooru, BooruEngine::Gelbooru,
                               BooruEngine::Moebooru, BooruEngine::Szurubooru,

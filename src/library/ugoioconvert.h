@@ -21,6 +21,20 @@ struct Frames {
     QVector<int> delaysMs;
     bool isEmpty() const { return images.isEmpty(); }
 };
+// One archive entry for lazy playback (no image decoded yet).
+struct FrameInfo {
+    QString name;
+    int delayMs = 100;
+};
+// List the playable frames + delays without decoding them. Reads the
+// bundled animation.json when present (Danbooru/Pixiv zips) and falls
+// back to sorted numbered image entries. defaultDelayMs fills gaps.
+bool listFrames(const QString &zipPath, QVector<FrameInfo> &frames,
+                int defaultDelayMs, QString *error);
+// Decode one frame named by listFrames(). Opens the zip per call so an
+// online viewer never holds every frame decoded in memory.
+bool decodeFrame(const QString &zipPath, const QString &name, QImage &image,
+                 QString *error);
 // pixiv_ugoira_frame_data tolerant parse: {data:[{file|name, delay|delay_ms?}]}.
 // Also accepts gallery-dl/Pixiv metadata shapes ("frames": [...] or
 // "_ugoira_frame_data") so a downloaded animation.json can drive delays.

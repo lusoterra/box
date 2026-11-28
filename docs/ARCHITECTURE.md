@@ -346,6 +346,10 @@ single-instance via `session.lock`).
     `QMediaDevices::audioOutputsChanged` and on every `setUrl`, so a
     Plasma headphone/speaker switch is honoured mid-session); note click
     opens `showNotePopup`;
+    `GifView::setUgoiraZip` plays Danbooru/Pixiv ugoira originals by
+    listing `animation.json` frames (`Ugoira::listFrames`) and decoding
+    one at a time (`Ugoira::decodeFrame`), so raw zips are not sent to
+    an image decoder and huge archives stay memory-light;
     `welcomepage` (home + mascot);
     `metatext` (untrusted DText/BBCode/Markdown -> escaped Qt rich text
     with http(s)/mailto-only links, relative targets resolved per entry;

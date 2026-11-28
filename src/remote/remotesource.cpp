@@ -357,6 +357,10 @@ bool looksLikeMediaBytes(const QByteArray &head) {
         return true; // raw JXL codestream
     if (head.size() >= 12 && head.mid(4, 8) == "JXL     ")
         return true; // JXL container
+    if (at(0, 'P') && at(1, 'K') &&
+        ((at(2, 3) && at(3, 4)) || (at(2, 5) && at(3, 6)) ||
+         (at(2, 7) && at(3, 8))))
+        return true; // ZIP (ugoira original; Danbooru serves application/zip)
     return false;
 }
 

@@ -144,7 +144,7 @@ add_unit_test(test_thumbloader test_thumbloader.cpp ../src/remote/thumbloader.cp
               ../src/library/cachejanitor.cpp ${REMOTE_SOURCES} ../src/settings.cpp ../src/remote/tempmedia.cpp ${MIGRATION_SOURCES})
 target_compile_definitions(test_thumbloader PRIVATE
     TESTFILES_DIR="${CMAKE_SOURCE_DIR}/tests/files")
-add_unit_test(test_gifview test_gifview.cpp ../src/ui/viewerpage.cpp ../src/ui/viewerpage_mediaviews.cpp ../src/ui/viewerpage_meta.cpp ../src/ui/viewerpage_tags.cpp ../src/ui/viewerpage_load.cpp ../src/ui/viewerpage_setters.cpp ../src/ui/viewerpage_detail.cpp ../src/ui/viewerpage_nav.cpp
+add_unit_test(test_gifview test_gifview.cpp ../src/ui/viewerpage.cpp ../src/ui/viewerpage_mediaviews.cpp ../src/ui/viewerpage_meta.cpp ../src/ui/viewerpage_tags.cpp ../src/ui/viewerpage_load.cpp ../src/ui/viewerpage_setters.cpp ../src/ui/viewerpage_detail.cpp ../src/ui/viewerpage_nav.cpp ${UGOIRA_SOURCES}
               ../src/remote/imagecache.cpp ../src/remote/postmeta.cpp
               ../src/remote/webdlbackend.h ../src/library/cachejanitor.cpp
               ../src/ui/progressbar.cpp ../src/ui/flowlayout.cpp
@@ -155,7 +155,7 @@ target_compile_definitions(test_gifview PRIVATE
     TESTFILES_DIR="${CMAKE_SOURCE_DIR}/tests/files")
 set_tests_properties(test_gifview PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-add_unit_test(test_metathread test_metathread.cpp ../src/ui/viewerpage.cpp ../src/ui/viewerpage_mediaviews.cpp ../src/ui/viewerpage_meta.cpp ../src/ui/viewerpage_tags.cpp ../src/ui/viewerpage_load.cpp ../src/ui/viewerpage_setters.cpp ../src/ui/viewerpage_detail.cpp ../src/ui/viewerpage_nav.cpp
+add_unit_test(test_metathread test_metathread.cpp ../src/ui/viewerpage.cpp ../src/ui/viewerpage_mediaviews.cpp ../src/ui/viewerpage_meta.cpp ../src/ui/viewerpage_tags.cpp ../src/ui/viewerpage_load.cpp ../src/ui/viewerpage_setters.cpp ../src/ui/viewerpage_detail.cpp ../src/ui/viewerpage_nav.cpp ${UGOIRA_SOURCES}
               ../src/remote/imagecache.cpp ../src/remote/postmeta.cpp
               ../src/remote/webdlbackend.h ../src/library/cachejanitor.cpp
               ../src/ui/progressbar.cpp ../src/ui/flowlayout.cpp
@@ -164,7 +164,7 @@ add_unit_test(test_metathread test_metathread.cpp ../src/ui/viewerpage.cpp ../sr
               ${REMOTE_SOURCES} ../src/settings.cpp ../src/remote/tempmedia.cpp ${MIGRATION_SOURCES})
 set_tests_properties(test_metathread PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-add_unit_test(test_videopane test_videopane.cpp ../src/ui/viewerpage.cpp ../src/ui/viewerpage_mediaviews.cpp ../src/ui/viewerpage_meta.cpp ../src/ui/viewerpage_tags.cpp ../src/ui/viewerpage_load.cpp ../src/ui/viewerpage_setters.cpp ../src/ui/viewerpage_detail.cpp ../src/ui/viewerpage_nav.cpp
+add_unit_test(test_videopane test_videopane.cpp ../src/ui/viewerpage.cpp ../src/ui/viewerpage_mediaviews.cpp ../src/ui/viewerpage_meta.cpp ../src/ui/viewerpage_tags.cpp ../src/ui/viewerpage_load.cpp ../src/ui/viewerpage_setters.cpp ../src/ui/viewerpage_detail.cpp ../src/ui/viewerpage_nav.cpp ${UGOIRA_SOURCES}
               ../src/remote/imagecache.cpp ../src/remote/postmeta.cpp
               ../src/remote/webdlbackend.h ../src/library/cachejanitor.cpp
               ../src/ui/progressbar.cpp ../src/ui/flowlayout.cpp

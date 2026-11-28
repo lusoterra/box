@@ -355,8 +355,7 @@ badges mirroring the grid marks. Downloading or (un)favouriting from
 the viewer never leaves it; the grid refreshes behind and the viewer
 follows it (removed rows resolve to the nearest surviving post,
 twin copies collapse so stepping never sticks). Media area: wheel-zoom/drag-pan stills, GIFs,
-looping video with seek/volume/rate (the `1.00×` button opens a popup with
-a 0.25×–2.00× slider in 0.05× stops plus a `Pitch correction` toggle;
+looping video with seek/volume/rate (the `1.00×` button opens a popup witha 0.25×–2.00× slider in 0.05× stops plus a `Pitch correction` toggle;
 pitch stays constant unless disabled, and the choice is remembered;
 playback halts on every post
 switch - no background audio, guarded by a wanted-source gate so stale
@@ -378,7 +377,10 @@ media URL, and captured cookies are host-scoped
 instead of overwriting each other; walled stills/GIFs
 also retry through the browser backend (matching UA + profile cookies),
 which re-runs page JS where QNAM replays a dead cookie or gets a
-fingerprint 403). Right: metadata (`#id`, site -
+fingerprint 403). Danbooru/Pixiv ugoira posts play from the original
+zip: box lists the frames from the bundled `animation.json`, decodes one
+at a time and honours its per-frame millisecond delays, so the broken
+webm sample is not needed. Right: metadata (`#id`, site -
 downloaded rows show their booru `Label (Engine)` form -, URLs (the
 post page, not the downloaded file, except strays),
 score, rating with `(inferred)` flag, dimensions, ext) and clickable tag
@@ -574,8 +576,8 @@ post-processing choices, landing flat in `_Stray/` as `_Stray_<md5>`
 names with basic sidecars it writes itself (box pins the exact download
 directory and filters out archives/layered files such as zip and PSD,
 then deletes ignored leftovers and any emptied per-site folders; Pixiv
-ugoira is kept as a zip and converted by box to animated WebP using the
-zip's per-frame delays; its file URL/title/artist metadata is carried
+and Danbooru ugoira is kept as a zip and converted by box to animated
+WebP using the zip's per-frame delays; its file URL/title/artist metadata is carried
 into the sidecar):
 page URL recorded, tags left empty for you - one flight
 per pasted link; direct media links and recognised booru post pages

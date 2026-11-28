@@ -59,7 +59,9 @@ bool contentTypeMedia(const QString &ct) {
     return c.startsWith(QStringLiteral("image/")) ||
            c.startsWith(QStringLiteral("video/")) ||
            c.startsWith(QStringLiteral("application/octet-stream")) ||
-           c.startsWith(QStringLiteral("binary/octet-stream"));
+           c.startsWith(QStringLiteral("binary/octet-stream")) ||
+           c.startsWith(QStringLiteral("application/zip")) ||
+           c.startsWith(QStringLiteral("application/x-zip"));
 }
 
 bool wallStatus(int httpStatus) {

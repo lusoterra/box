@@ -143,6 +143,164 @@ QMap<QString, int> delaysFromRaw(const QJsonObject &raw, int defaultMs) {
     return out;
 }
 
+bool listFrames(const QString &zipPath, QVector<FrameInfo> &frames,
+                int defaultDelayMs, QString *error) {
+    frames.clear();
+    mz_zip_archive zip;
+    memset(&zip, 0, sizeof(zip));
+    if (!mz_zip_reader_init_file(&zip, zipPath.toUtf8().constData(), 0)) {
+        if (error)
+            *error = QObject::tr("Not a readable zip: %1").arg(zipPath);
+        return false;
+    }
+    QVector<FrameInfo> fromJson;
+    const int metaIdx =
+        mz_zip_reader_locate_file(&zip, "animation.json", nullptr, 0);
+    mz_zip_archive_file_stat metaStat;
+    if (metaIdx >= 0 &&
+        mz_zip_reader_file_stat(&zip, (mz_uint)metaIdx, &metaStat) &&
+        metaStat.m_uncomp_size > 0 &&
+        metaStat.m_uncomp_size <= 1024 * 1024) {
+        size_t sz = 0;
+        void *raw = mz_zip_reader_extract_to_heap(&zip, (mz_uint)metaIdx, &sz,
+                                                  0);
+        if (raw && sz) {
+            const QJsonObject o =
+                QJsonDocument::fromJson(
+                    QByteArray(static_cast<const char *>(raw), (qsizetype)sz))
+                    .object();
+            QJsonValue root = o.value(QStringLiteral("frames"));
+            if (root.isUndefined() || root.isNull())
+                root = o.value(QStringLiteral("pixiv_ugoira_frame_data"));
+            if (root.isUndefined() || root.isNull())
+                root = o.value(QStringLiteral("_ugoira_frame_data"));
+            QJsonArray data;
+            if (root.isArray())
+                data = root.toArray();
+            else if (root.isObject()) {
+                const QJsonObject r = root.toObject();
+                data = r.value(QStringLiteral("data")).toArray();
+                if (data.isEmpty())
+                    data = r.value(QStringLiteral("frames")).toArray();
+            }
+            for (const QJsonValue &v : data) {
+                if (!v.isObject())
+                    continue;
+                const QJsonObject f = v.toObject();
+                QString name = f.value(QStringLiteral("file")).toString();
+                if (name.isEmpty())
+                    name = f.value(QStringLiteral("name")).toString();
+                if (name.isEmpty())
+                    continue;
+                name = QFileInfo(name).fileName();
+                int delay = f.value(QStringLiteral("delay")).toInt(-1);
+                if (delay < 0)
+                    delay = f.value(QStringLiteral("delay_ms")).toInt(-1);
+                delay = clampDelay(delay < 0 ? defaultDelayMs : delay,
+                                   defaultDelayMs);
+                fromJson.append({name, delay});
+            }
+        }
+        mz_free(raw);
+    }
+    if (!fromJson.isEmpty()) {
+        frames = fromJson;
+    } else {
+        static const QRegularExpression imageName(
+            QStringLiteral("\\.(?:png|jpe?g|webp|gif|bmp)$"),
+            QRegularExpression::CaseInsensitiveOption);
+        QStringList names;
+        const int n = (int)mz_zip_reader_get_num_files(&zip);
+        for (int i = 0; i < n; ++i) {
+            if (mz_zip_reader_is_file_a_directory(&zip, (mz_uint)i))
+                continue;
+            mz_zip_archive_file_stat st;
+            if (!mz_zip_reader_file_stat(&zip, (mz_uint)i, &st))
+                continue;
+            const QString name =
+                QFileInfo(QString::fromUtf8(st.m_filename)).fileName();
+            if (imageName.match(name).hasMatch())
+                names.append(name);
+        }
+        names.sort();
+        for (const QString &name : names)
+            frames.append({name, defaultDelayMs});
+    }
+    mz_zip_reader_end(&zip);
+    if (frames.isEmpty()) {
+        if (error)
+            *error = QObject::tr("No frames in %1").arg(zipPath);
+        return false;
+    }
+    return true;
+}
+
+bool decodeFrame(const QString &zipPath, const QString &name, QImage &image,
+                 QString *error) {
+    image = QImage();
+    mz_zip_archive zip;
+    memset(&zip, 0, sizeof(zip));
+    if (!mz_zip_reader_init_file(&zip, zipPath.toUtf8().constData(), 0)) {
+        if (error)
+            *error = QObject::tr("Not a readable zip: %1").arg(zipPath);
+        return false;
+    }
+    int idx = (int)mz_zip_reader_locate_file(&zip, name.toUtf8().constData(),
+                                             nullptr, 0);
+    const QString base = QFileInfo(name).fileName();
+    if (idx < 0 && base != name)
+        idx = (int)mz_zip_reader_locate_file(&zip, base.toUtf8().constData(),
+                                             nullptr, 0);
+    if (idx < 0) {
+        // animation.json can use a path while the archive entry is bare
+        // (or differ in case): fall back to a basename scan.
+        const int n = (int)mz_zip_reader_get_num_files(&zip);
+        for (int i = 0; i < n; ++i) {
+            if (mz_zip_reader_is_file_a_directory(&zip, (mz_uint)i))
+                continue;
+            mz_zip_archive_file_stat st;
+            if (!mz_zip_reader_file_stat(&zip, (mz_uint)i, &st))
+                continue;
+            if (QString::fromUtf8(st.m_filename).compare(base,
+                                                         Qt::CaseInsensitive) == 0 ||
+                QFileInfo(QString::fromUtf8(st.m_filename))
+                        .fileName()
+                        .compare(base, Qt::CaseInsensitive) == 0) {
+                idx = i;
+                break;
+            }
+        }
+    }
+    if (idx < 0) {
+        mz_zip_reader_end(&zip);
+        if (error)
+            *error = QObject::tr("Frame %1 not found").arg(name);
+        return false;
+    }
+    mz_zip_archive_file_stat st;
+    if (!mz_zip_reader_file_stat(&zip, (mz_uint)idx, &st) ||
+        st.m_uncomp_size == 0 || st.m_uncomp_size > 50 * 1024 * 1024) {
+        mz_zip_reader_end(&zip);
+        if (error)
+            *error = QObject::tr("Bad frame size: %1").arg(name);
+        return false;
+    }
+    size_t sz = 0;
+    void *raw = mz_zip_reader_extract_to_heap(&zip, (mz_uint)idx, &sz, 0);
+    const QByteArray bytes = raw ? QByteArray(static_cast<const char *>(raw),
+                                              (qsizetype)sz)
+                                 : QByteArray();
+    mz_free(raw);
+    mz_zip_reader_end(&zip);
+    image = QImage::fromData(bytes);
+    if (image.isNull()) {
+        if (error)
+            *error = QObject::tr("Cannot decode frame %1").arg(name);
+        return false;
+    }
+    return true;
+}
+
 bool looksLikeUgoiraZip(const QString &zipPath) {
     mz_zip_archive zip;
     memset(&zip, 0, sizeof(zip));

@@ -710,7 +710,8 @@ void ViewerPage::stageNotes() {
     if (m_row < 0 || m_row >= m_posts.size())
         return;
     const Post &p = m_posts[m_row];
-    if (isVideoExt(p.ext) || p.ext == QStringLiteral("gif") || !p.width || !p.height) {
+    if (isVideoExt(p.ext) || p.ext == QStringLiteral("gif") ||
+        isUgoiraPost(p) || !p.width || !p.height) {
         m_image->setNotes({}, {});
         return;
     }

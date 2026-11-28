@@ -784,7 +784,9 @@ void DownloadManager::onFileReply() {
             ct.startsWith(QStringLiteral("image/")) ||
             ct.startsWith(QStringLiteral("video/")) ||
             ct.startsWith(QStringLiteral("application/octet-stream")) ||
-            ct.startsWith(QStringLiteral("binary/octet-stream"));
+            ct.startsWith(QStringLiteral("binary/octet-stream")) ||
+            ct.startsWith(QStringLiteral("application/zip")) ||
+            ct.startsWith(QStringLiteral("application/x-zip"));
         flight->file->write(reply->readAll()); // trailing bytes
         flight->file->close();
         QByteArray head;

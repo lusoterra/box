@@ -32,6 +32,7 @@ class QBoxLayout;
 class QAbstractItemModel;
 class QCheckBox;
 class QFrame;
+class QTimer;
 
 class ImageCache;
 class PostMetaFetcher;
@@ -93,6 +94,9 @@ class GifView : public QGraphicsView {
 public:
     explicit GifView(QWidget *parent = nullptr);
     void setFile(const QString &path);
+    // Ugoira zip (Danbooru/Pixiv original): list frames from animation.json
+    // and decode one at a time so big archives never sit fully in memory.
+    void setUgoiraZip(const QString &path, int defaultDelayMs = 100);
     void setPlaceholder(const QPixmap &pm); // grid thumb until 1st frame lands
     QPixmap currentPixmap() const; // displayed frame (placeholder across reloads)
     void clear();
@@ -115,12 +119,20 @@ protected:
 
 private:
     void applyZoom(double f);
+    void applyFrame(const QPixmap &pm);
+    void showUgoiraFrame(int index);
+    void stopUgoira();
     QString m_dragUrl;
     QPoint m_dragPress;
     bool m_dragMaybe = false;
     QGraphicsScene *m_scene;
     QGraphicsPixmapItem *m_item = nullptr;
     QMovie *m_movie = nullptr;
+    QTimer *m_ugoiraTimer = nullptr;
+    QString m_ugoiraZip;
+    QStringList m_ugoiraNames;
+    QVector<int> m_ugoiraDelays;
+    int m_ugoiraIndex = 0;
     double m_zoom = 1.0;
     bool m_fitted = true;
 };
