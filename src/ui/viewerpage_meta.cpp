@@ -584,15 +584,18 @@ void ViewerPage::showCommentsPopup() {
                 l->setStyleSheet(QStringLiteral("color:#4a5068;"));
                 vl->addWidget(l);
             } else {
-                int shown = 0;
-                for (const PostComment &c : it->comments) {
-                    if (++shown > 200)
-                        break; // threads beyond this stay panel-only
-                    vl->addWidget(commentCard(c, host));
-                    auto *sep = new QFrame(host);
-                    sep->setFrameShape(QFrame::HLine);
-                    sep->setStyleSheet(QStringLiteral("color:#2a2f45;"));
-                    vl->addWidget(sep);
+                const qsizetype shown =
+                    qMin<qsizetype>(it->comments.size(), 200);
+                for (qsizetype i = 0; i < shown; ++i) {
+                    // Separator between comments only: a trailing rule
+                    // after the last card read like a cut-off thread.
+                    if (i > 0) {
+                        auto *sep = new QFrame(host);
+                        sep->setFrameShape(QFrame::HLine);
+                        sep->setStyleSheet(QStringLiteral("color:#2a2f45;"));
+                        vl->addWidget(sep);
+                    }
+                    vl->addWidget(commentCard(it->comments.at(i), host));
                 }
             }
         }
