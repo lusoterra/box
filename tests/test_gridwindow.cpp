@@ -41,6 +41,7 @@
 #include <QSettings>
 #include <QSlider>
 #include <QStandardItemModel>
+#include <QStackedWidget>
 #include <QTcpServer>
 #include <QTcpSocket>
 #include <QTemporaryDir>
@@ -198,6 +199,36 @@ private slots:
         const AppSettings out = dlg.settings();
         QCOMPARE(out.classifyBackend, QStringLiteral("hydrus"));
         QVERIFY(out.classifyAuto);
+    }
+
+    // Browse default source: online checklist, local archive folder and
+    // the Hydrus tab option (only when the tab is enabled).
+    void defaultSourcePreferences() {
+        QTemporaryDir xdg;
+        QVERIFY(xdg.isValid());
+        qputenv("XDG_CONFIG_HOME", xdg.filePath("config").toUtf8());
+        qputenv("XDG_DATA_HOME", xdg.filePath("data").toUtf8());
+        qputenv("XDG_CACHE_HOME", xdg.filePath("cache").toUtf8());
+        AppSettings s = loadSettings();
+        s.hydrusTab = true;
+        s.defaultSource = QStringLiteral("local");
+        s.defaultLocalRoot = QStringLiteral("/tmp/box-default-archive");
+        PrefsDialog dlg(s, nullptr);
+        auto *source =
+            dlg.findChild<QComboBox *>(QStringLiteral("defaultSource"));
+        QVERIFY(source);
+        QCOMPARE(source->currentData().toString(), QStringLiteral("local"));
+        QVERIFY(source->findData(QStringLiteral("hydrus")) >= 0);
+        auto *stack =
+            dlg.findChild<QStackedWidget *>(QStringLiteral("defaultSourceStack"));
+        QVERIFY(stack);
+        QCOMPARE(stack->currentIndex(), 1);
+        auto *root =
+            dlg.findChild<QLineEdit *>(QStringLiteral("defaultLocalRoot"));
+        QVERIFY(root);
+        QCOMPARE(root->text(), QStringLiteral("/tmp/box-default-archive"));
+        source->setCurrentIndex(source->findData(QStringLiteral("browse")));
+        QCOMPARE(stack->currentIndex(), 0);
     }
 
     // Privacy: a fresh profile must not touch the network, prefetch

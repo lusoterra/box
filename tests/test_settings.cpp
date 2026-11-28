@@ -45,6 +45,8 @@ private slots:
         QVERIFY(s.downloadDir.isEmpty());
         QVERIFY(s.dataDir.isEmpty());
         QCOMPARE(s.browseSites, QStringList({QStringLiteral("safebooru")}));
+        QCOMPARE(s.defaultSource, QStringLiteral("browse"));
+        QVERIFY(s.defaultLocalRoot.isEmpty());
         QCOMPARE(s.tabsDefault, QStringLiteral("welcome"));
         QVERIFY(!s.favAutoDownload); // download-on-favourite defaults OFF
         QVERIFY(s.favAutoFav);       // favourite-on-download defaults ON
@@ -83,6 +85,8 @@ private slots:
                                      QStringLiteral("Favourite faces"));
         s.blacklist = {QStringLiteral("loli"), QStringLiteral("shota")};
         s.browseSites = {QStringLiteral("danbooru")};
+        s.defaultSource = QStringLiteral("local");
+        s.defaultLocalRoot = QStringLiteral("/pics/default-archive");
         BooruSite custom;
         custom.key = QStringLiteral("mybooru");
         custom.label = QStringLiteral("My Booru");
@@ -159,6 +163,9 @@ private slots:
         QCOMPARE(back.tagCustomCategories, s.tagCustomCategories);
         QCOMPARE(back.blacklist, s.blacklist);
         QCOMPARE(back.browseSites, QStringList({QStringLiteral("danbooru")}));
+        QCOMPARE(back.defaultSource, QStringLiteral("local"));
+        QCOMPARE(back.defaultLocalRoot,
+                 QStringLiteral("/pics/default-archive"));
         QCOMPARE(back.boorus.size(), 1);
         QCOMPARE(back.boorus.first().key, QStringLiteral("mybooru"));
         QCOMPARE(back.boorus.first().label, QStringLiteral("My Booru"));

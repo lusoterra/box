@@ -194,7 +194,7 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     m_defaultTab = new QComboBox(this);
     m_defaultTab->addItem(tr("Welcome home"), QStringLiteral("welcome"));
     m_defaultTab->addItem(tr("Last session"), QStringLiteral("last"));
-    // Default booru (driven by Browse > Default boorus): open the first
+    // Default booru (driven by Browse → Default source): open the first
     // configured default booru as a browse tab instead of a per-site list.
     const QList<BooruSite> defBoorus =
         current.boorus.isEmpty() ? RemoteSource::presetBoorus() : current.boorus;
@@ -1197,7 +1197,26 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
     connect(m_dragMode, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &PrefsDialog::updateApplyState);
     browseLay->addRow(tr("Drag posts as:"), m_dragMode);
-    m_defBoorus = new QListWidget(this);
+    m_defaultSource = new QComboBox(this);
+    m_defaultSource->setObjectName(QStringLiteral("defaultSource"));
+    m_defaultSource->addItem(tr("Online boorus"), QStringLiteral("browse"));
+    m_defaultSource->addItem(tr("Local archive"), QStringLiteral("local"));
+    if (current.hydrusTab)
+        m_defaultSource->addItem(tr("Hydrus tab"), QStringLiteral("hydrus"));
+    m_defaultSource->setCurrentIndex(qMax(
+        0, m_defaultSource->findData(current.defaultSource)));
+    m_defaultSource->setToolTip(
+        tr("What Ctrl+T and the welcome Browse button open. Online boorus "
+           "uses the checklist below; Local archive opens the folder chosen "
+           "here; Hydrus tab opens the isolated Hydrus library."));
+    browseLay->addRow(tr("Default source:"), m_defaultSource);
+
+    m_defaultSourceStack = new QStackedWidget(this);
+    m_defaultSourceStack->setObjectName(QStringLiteral("defaultSourceStack"));
+    auto *onlinePage = new QWidget(this);
+    auto *onlineLay = new QVBoxLayout(onlinePage);
+    onlineLay->setContentsMargins(0, 0, 0, 0);
+    m_defBoorus = new QListWidget(onlinePage);
     m_defBoorus->setMinimumHeight(110);
     const QList<BooruSite> tabBoorus =
         current.boorus.isEmpty() ? RemoteSource::presetBoorus() : current.boorus;
@@ -1209,7 +1228,47 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
         item->setCheckState(current.browseSites.contains(s.key) ? Qt::Checked
                                                                : Qt::Unchecked);
     }
-    browseLay->addRow(tr("Default boorus:"), m_defBoorus);
+    onlineLay->addWidget(m_defBoorus);
+    m_defaultSourceStack->addWidget(onlinePage);
+
+    auto *localPage = new QWidget(this);
+    auto *localLay = new QHBoxLayout(localPage);
+    localLay->setContentsMargins(0, 0, 0, 0);
+    m_defaultLocalRoot = new QLineEdit(current.defaultLocalRoot, localPage);
+    m_defaultLocalRoot->setObjectName(QStringLiteral("defaultLocalRoot"));
+    m_defaultLocalRoot->setPlaceholderText(tr("Choose an archive folder"));
+    connect(m_defaultLocalRoot, &QLineEdit::textChanged, this,
+            &PrefsDialog::updateApplyState);
+    auto *localBrowse = new QPushButton(tr("Browse…"), localPage);
+    connect(localBrowse, &QPushButton::clicked, this, [this] {
+        const QString d = QFileDialog::getExistingDirectory(
+            this, tr("Default archive folder"),
+            m_defaultLocalRoot->text().isEmpty() ? QDir::homePath()
+                                                 : m_defaultLocalRoot->text());
+        if (!d.isEmpty())
+            m_defaultLocalRoot->setText(d);
+    });
+    localLay->addWidget(m_defaultLocalRoot, 1);
+    localLay->addWidget(localBrowse);
+    m_defaultSourceStack->addWidget(localPage);
+
+    if (current.hydrusTab) {
+        auto *hydrusPageDefault = new QWidget(this);
+        auto *hydrusPageLay = new QVBoxLayout(hydrusPageDefault);
+        hydrusPageLay->setContentsMargins(0, 0, 0, 0);
+        hydrusPageLay->addWidget(note(tr(
+            "New tabs open the Hydrus library (its own hydrus.db and media "
+            "folder). Configure it in Preferences → Hydrus.")));
+        m_defaultSourceStack->addWidget(hydrusPageDefault);
+    }
+    m_defaultSourceStack->setCurrentIndex(m_defaultSource->currentIndex());
+    connect(m_defaultSource, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, [this](int idx) {
+                if (m_defaultSourceStack)
+                    m_defaultSourceStack->setCurrentIndex(idx);
+                updateApplyState();
+            });
+    browseLay->addRow(m_defaultSourceStack);
     m_dataDefault = defaultDataDir();
     m_dataDir = new QLineEdit(
         current.dataDir.isEmpty() ? m_dataDefault : current.dataDir, this);
@@ -2264,6 +2323,11 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
                 if (m_dragMode)
                     m_dragMode->setCurrentIndex(qMax(
                         0, m_dragMode->findData(int(d.dragLinkMode))));
+                if (m_defaultSource)
+                    m_defaultSource->setCurrentIndex(qMax(
+                        0, m_defaultSource->findData(d.defaultSource)));
+                if (m_defaultLocalRoot)
+                    m_defaultLocalRoot->setText(d.defaultLocalRoot);
                 m_dataDir->setText(effectiveDataDir(d));
                 if (m_cacheDir)
                     m_cacheDir->setText(d.cacheDir);

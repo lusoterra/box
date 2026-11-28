@@ -149,10 +149,14 @@ struct AppSettings {
     QSet<QString> disabledBuckets;
     // Tag classifier credentials live on the configured Gelbooru entry
     // (Preferences → Booru manager); anonymous otherwise.
+    // Default source for new browse tabs (Ctrl+T / welcome Browse):
+    // "browse" (online boorus), "local" (defaultLocalRoot) or "hydrus".
+    QString defaultSource = QStringLiteral("browse");
+    QString defaultLocalRoot;
     // Browse mode (remote boorus).
     QString browseMode = QStringLiteral("local"); // "local" | "browse"
     // New users start SFW-only: just Safebooru until they pick more in
-    // Preferences → Browse → Default boorus.
+    // Preferences → Browse → Default source.
     QStringList browseSites = {QStringLiteral("safebooru")};
     int browseLimit = 40;
     QString dataDir; // empty = default data dir (all DBs + downloads live here)
@@ -438,6 +442,8 @@ inline bool operator==(const AppSettings &a, const AppSettings &b) {
            a.customTagCategories == b.customTagCategories &&
            a.tagCustomCategories == b.tagCustomCategories &&
            a.disabledBuckets == b.disabledBuckets &&
+           a.defaultSource == b.defaultSource &&
+           a.defaultLocalRoot == b.defaultLocalRoot &&
            a.browseMode == b.browseMode && a.browseSites == b.browseSites &&
            a.browseLimit == b.browseLimit && a.dataDir == b.dataDir &&
            a.downloadDir == b.downloadDir && a.globalProxy == b.globalProxy &&

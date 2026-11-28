@@ -170,6 +170,8 @@ QJsonObject exportJson(const AppSettings &s, const QVector<Post> &favs) {
     o[QStringLiteral("format")] = 1;
     QJsonObject browse;
     browse[QStringLiteral("mode")] = s.browseMode;
+    browse[QStringLiteral("defaultSource")] = s.defaultSource;
+    browse[QStringLiteral("defaultLocalRoot")] = s.defaultLocalRoot;
     browse[QStringLiteral("sites")] = strList(s.browseSites);
     browse[QStringLiteral("limit")] = s.browseLimit;
     browse[QStringLiteral("wallAutoPopup")] = s.wallAutoPopup;
@@ -295,6 +297,12 @@ bool importJson(const QJsonObject &o, AppSettings *s, QVector<Post> *favs,
     const QJsonObject browse = o.value(QStringLiteral("browse")).toObject();
     if (!browse.value(QStringLiteral("mode")).toString().isEmpty())
         s->browseMode = browse.value(QStringLiteral("mode")).toString();
+    if (browse.contains(QStringLiteral("defaultSource")))
+        s->defaultSource =
+            browse.value(QStringLiteral("defaultSource")).toString();
+    if (browse.contains(QStringLiteral("defaultLocalRoot")))
+        s->defaultLocalRoot =
+            browse.value(QStringLiteral("defaultLocalRoot")).toString();
     if (browse.contains(QStringLiteral("sites")))
         s->browseSites = strList(browse.value(QStringLiteral("sites")));
     if (browse.contains(QStringLiteral("limit")))

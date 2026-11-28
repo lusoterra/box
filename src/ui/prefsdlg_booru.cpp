@@ -658,6 +658,21 @@ void PrefsDialog::harvestInto(AppSettings &out) {
         out.ugoiraFormat != QStringLiteral("zip"))
         out.ugoiraFormat = QStringLiteral("webp");
     out.ugoiraFrameDelayMs = m_ugoiraDelay->value();
+    if (m_defaultSource)
+        out.defaultSource = m_defaultSource->currentData().toString();
+    if (out.defaultSource != QStringLiteral("browse") &&
+        out.defaultSource != QStringLiteral("local") &&
+        out.defaultSource != QStringLiteral("hydrus"))
+        out.defaultSource = QStringLiteral("browse");
+    if (out.defaultSource == QStringLiteral("hydrus") && m_hydrusTab &&
+        !m_hydrusTab->isChecked())
+        out.defaultSource = QStringLiteral("browse");
+    if (m_defaultLocalRoot) {
+        out.defaultLocalRoot = m_defaultLocalRoot->text().trimmed();
+        while (out.defaultLocalRoot.endsWith(u'/') &&
+               out.defaultLocalRoot.size() > 1)
+            out.defaultLocalRoot.chop(1);
+    }
     out.browseSites.clear();
     if (m_defBoorus) {
         for (int i = 0; i < m_defBoorus->count(); ++i) {

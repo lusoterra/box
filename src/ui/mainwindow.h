@@ -277,7 +277,7 @@ private slots:
     void onTabChanged(int index);
     void onTabClosed(int index);
     void closeCurrentTab();   // Ctrl+W
-    void openDefaultTab();    // Ctrl+T: Default tab booru / default boorus
+    void openDefaultTab();    // Ctrl+T: default source (boorus/local/Hydrus)
     void reopenClosedTab();   // Ctrl+Shift+T (LIFO closed-tab stack)
     void downloadCurrentOrSelection(); // Ctrl+D
     void focusOmniBar();      // Ctrl+L (leaves the viewer first)

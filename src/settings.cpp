@@ -328,6 +328,16 @@ AppSettings loadSettings() {
                 s.disabledBuckets.insert(t);
         }
     }
+    s.defaultSource =
+        c.value(QStringLiteral("browse/defaultSource"), s.defaultSource)
+            .toString();
+    if (s.defaultSource != QStringLiteral("browse") &&
+        s.defaultSource != QStringLiteral("local") &&
+        s.defaultSource != QStringLiteral("hydrus"))
+        s.defaultSource = QStringLiteral("browse");
+    s.defaultLocalRoot =
+        c.value(QStringLiteral("browse/defaultLocalRoot"), s.defaultLocalRoot)
+            .toString();
     s.browseMode = c.value(QStringLiteral("browse/mode"), s.browseMode).toString();
     if (c.contains(QStringLiteral("browse/sites")))
         s.browseSites = c.value(QStringLiteral("browse/sites")).toStringList();
@@ -524,6 +534,8 @@ void writeSettingsTo(QSettings &c, const AppSettings &s) {
     c.setValue(QStringLiteral("tagtypes/tagCustomCategories"), customPairs);
     c.setValue(QStringLiteral("tagtypes/disabledBuckets"),
                QStringList(s.disabledBuckets.begin(), s.disabledBuckets.end()));
+    c.setValue(QStringLiteral("browse/defaultSource"), s.defaultSource);
+    c.setValue(QStringLiteral("browse/defaultLocalRoot"), s.defaultLocalRoot);
     c.setValue(QStringLiteral("browse/mode"), s.browseMode);
     c.setValue(QStringLiteral("browse/sites"), s.browseSites);
     c.setValue(QStringLiteral("browse/limit"), s.browseLimit);

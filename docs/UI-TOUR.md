@@ -27,7 +27,8 @@ tagline + version, four big buttons - `Back to last session` (only when
 a session was saved: restores every tab, lands on the saved current
 one, and returns to its post/scroll; if every tab was closed it warns
 "Nothing to resume" instead of resurrecting one), `New browse tab` (restores the session first when empty, then
-opens the Default-tab booru or the default boorus), `Favourites`
+opens the default source: online default boorus, the chosen local
+archive, or the Hydrus tab), `Favourites`
 (filled heart icon), `Downloads` (download icon; the online-booru Downloads view) - and the `Always load
 last session on
 startup` checkbox (mirrors Preferences → General). Tabs → `Start fresh
@@ -222,8 +223,8 @@ navigation cannot abort it.
 `Close Folder`, `Start fresh session` (closes every tab, forgets the
 saved session, shows home), `Favourites` (database-only tab, heart icon),
 `Reload` (`F5` / `Ctrl+R` - rescan locally, re-search remotely). Tab keys:
-`Ctrl+T` opens a new default tab (Default tab booru, else the default
-boorus), `Ctrl+W` closes the current tab, `Ctrl+Shift+T` reopens closed
+`Ctrl+T` opens a new default tab (explicit Default tab booru, else the
+default source: online default boorus, local archive or Hydrus tab), `Ctrl+W` closes the current tab, `Ctrl+Shift+T` reopens closed
 tabs newest-first (a 20-tab LIFO stack; the tab's kind, filters and open
 post return, content rescans/re-searches). Switching a tab paints the
 grid veil and swaps the left sidebar for a `Loading tags…` placeholder
@@ -422,7 +423,11 @@ Downloads or with favourites.
 ## 14-prefs-browse - Preferences → Browse
 `Page size`, `Drag posts as` (what a post drag sends to Discord/other
 apps: post page or direct media; per-booru overrides live in the manager),
-`Default boorus` checklist (new tabs + fallbacks), `Data
+`Default source` dropdown (what `Ctrl+T` / the welcome Browse button
+open): `Online boorus` shows the checklist (new tabs + fallbacks),
+`Local archive` shows a folder field + `Browse…` (the read-only archive
+tab root), and `Hydrus tab` (only when enabled in Preferences → Hydrus)
+opens the Hydrus library. Then `Data
 folder` / `Download folder` (empty = XDG defaults under `box/`),
 `Ugoira downloads` (animated webp / animated jxl / keep zip; needs
 ffmpeg in PATH, +cjxl for jxl) + `Ugoira frame delay` (fallback when the

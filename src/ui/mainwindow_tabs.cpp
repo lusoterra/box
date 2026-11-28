@@ -485,6 +485,26 @@ void MainWindow::closeCurrentTab() {
 }
 
 void MainWindow::openDefaultTab() {
+    // Default source (Preferences → Browse): Hydrus tab, a local archive
+    // folder, or the online-booru checklist. An explicit Default tab booru
+    // in General still wins.
+    if (m_settings.defaultSource == QStringLiteral("hydrus") &&
+        m_settings.hydrusTab) {
+        openHydrusTab();
+        return;
+    }
+    if (m_settings.defaultSource == QStringLiteral("local")) {
+        const QString root = m_settings.defaultLocalRoot.trimmed();
+        if (!root.isEmpty() && QDir(root).exists()) {
+            addLocalTab(root);
+            return;
+        }
+        statusBar()->showMessage(
+            tr("Default local archive folder is missing - pick it in "
+               "Preferences → Browse"),
+            5000);
+        return;
+    }
     // Same source choice as the home "New browse tab": the explicit
     // Default tab booru wins, else the default-boorus checklist.
     QStringList sites = m_settings.browseSites;
