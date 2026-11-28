@@ -191,7 +191,7 @@ private slots:
         // decode one frame at a time (memory stays at one frame).
         QVector<Ugoira::FrameInfo> frames;
         QString error;
-        QVERIFY2(Ugoira::listFrames(animationZip(), frames, 100, &error),
+        QVERIFY2(Ugoira::listFrames(animationZip(), frames, 83, &error),
                  qPrintable(error));
         QCOMPARE(frames.size(), 2);
         QCOMPARE(frames.at(0).name, QStringLiteral("000000.png"));
@@ -206,6 +206,23 @@ private slots:
         QVERIFY(!Ugoira::decodeFrame(animationZip(),
                                      QStringLiteral("missing.png"), img,
                                      &error));
+    }
+
+    void missingAnimationJsonFallsBackTo12fps() {
+        // Third-party/re-zipped ugoira may omit animation.json. Sorted frame
+        // entries still play, using 83 ms (12 fps = 24 fps on twos).
+        QVector<Ugoira::FrameInfo> frames;
+        QString error;
+        QVERIFY2(Ugoira::listFrames(fixtureZip(), frames, 83, &error),
+                 qPrintable(error));
+        QCOMPARE(frames.size(), 2);
+        for (const Ugoira::FrameInfo &f : frames)
+            QCOMPARE(f.delayMs, 83);
+        QImage img;
+        QVERIFY2(Ugoira::decodeFrame(fixtureZip(), frames.at(0).name, img,
+                                     &error),
+                 qPrintable(error));
+        QVERIFY(!img.isNull());
     }
 
     void encodeWebp() {

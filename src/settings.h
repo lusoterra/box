@@ -110,7 +110,11 @@ struct AppSettings {
     // file instead ("webp" | "jxl" | "zip" = keep original). Never gif.
     QString ugoiraFormat = QStringLiteral("webp");
     // Per-frame delay ms when the API omits pixiv frame data.
-    int ugoiraFrameDelayMs = 100;
+    // Fallback per-frame delay when a zip carries no animation.json:
+    // 83 ms = 12 fps, i.e. 24 fps animation "on twos" (two identical
+    // frames per drawing), the usual anime cadence. Zips from Pixiv /
+    // Danbooru normally bundle animation.json and never use this.
+    int ugoiraFrameDelayMs = 83;
     // One-click AI-content filter (omnibar AI toggle): hides posts tagged
     // ai_generated/ai_created/ai_assisted/ai_art everywhere.
     bool hideAi = false;

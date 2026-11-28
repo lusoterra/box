@@ -33,7 +33,7 @@
 
 - The version lives in one place: `project(Box VERSION x.y.z)` in
   `CMakeLists.txt:2` (`BOX_VERSION` flows to About Box via
-  `src/appinfo.h`). Current: `0.18.0`.
+  `src/appinfo.h`). Current: `0.18.1`.
 - Every behavior-affecting change bumps it in the same commit:
   bugfix -> patch (`x.y.z+1`), backwards-compatible feature -> minor
   (`x.y+1.0`, patch reset to 0). Docs-only / test-only / refactor-only

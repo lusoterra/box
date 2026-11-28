@@ -380,7 +380,9 @@ which re-runs page JS where QNAM replays a dead cookie or gets a
 fingerprint 403). Danbooru/Pixiv ugoira posts play from the original
 zip: box lists the frames from the bundled `animation.json`, decodes one
 at a time and honours its per-frame millisecond delays, so the broken
-webm sample is not needed. Right: metadata (`#id`, site -
+webm sample is not needed. A zip without `animation.json` falls back to
+its sorted frame entries at 83 ms each (12 fps, i.e. 24 fps on twos).
+Right: metadata (`#id`, site -
 downloaded rows show their booru `Label (Engine)` form -, URLs (the
 post page, not the downloaded file, except strays),
 score, rating with `(inferred)` flag, dimensions, ext) and clickable tag

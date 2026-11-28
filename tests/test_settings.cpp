@@ -40,7 +40,7 @@ private slots:
         QVERIFY(s.classifyCustomUrl.isEmpty());
         QCOMPARE(s.classifyCustomFormat, QStringLiteral("danbooru"));
         QCOMPARE(s.ugoiraFormat, QStringLiteral("webp"));
-        QCOMPARE(s.ugoiraFrameDelayMs, 100);
+        QCOMPARE(s.ugoiraFrameDelayMs, 83);
         QCOMPARE(s.explicitTags, defaultExplicitTagList());
         QVERIFY(s.downloadDir.isEmpty());
         QVERIFY(s.dataDir.isEmpty());

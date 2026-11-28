@@ -347,7 +347,7 @@ AdoptSummary adoptNewFiles(const QString &destDir,
     for (const QString &zip : std::as_const(zips)) {
         Ugoira::Frames frames;
         QString error;
-        if (!Ugoira::unzipFrames(zip, frames, {}, 100, &error))
+        if (!Ugoira::unzipFrames(zip, frames, {}, 83, &error))
             continue; // kept for a retry; cleanup leaves ugoira zips alone
         const QFileInfo zfi(zip);
         QString webpPath = zfi.absolutePath() + u'/' + zfi.completeBaseName() +

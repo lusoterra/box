@@ -396,7 +396,7 @@ void GifView::showUgoiraFrame(int index) {
     applyFrame(QPixmap::fromImage(image));
     m_ugoiraIndex = index;
     if (m_ugoiraTimer)
-        m_ugoiraTimer->start(qMax(10, m_ugoiraDelays.value(index, 100)));
+        m_ugoiraTimer->start(qMax(10, m_ugoiraDelays.value(index, 83)));
 }
 
 void GifView::setPlaceholder(const QPixmap &pm) {

@@ -95,7 +95,7 @@ bool writeConcatList(const QString &path, const QStringList &files,
     for (int i = 0; i < files.size(); ++i) {
         QString name = files.at(i);
         name.replace(QStringLiteral("'"), QStringLiteral("'\\''"));
-        const double sec = qMax(20, delaysMs.value(i, 100)) / 1000.0;
+        const double sec = qMax(20, delaysMs.value(i, 83)) / 1000.0;
         out << "file '" << name << "'\n";
         out << "duration " << QString::number(sec, 'f', 3) << "\n";
     }

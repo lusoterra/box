@@ -96,7 +96,8 @@ public:
     void setFile(const QString &path);
     // Ugoira zip (Danbooru/Pixiv original): list frames from animation.json
     // and decode one at a time so big archives never sit fully in memory.
-    void setUgoiraZip(const QString &path, int defaultDelayMs = 100);
+    // No animation.json -> 83 ms per frame (12 fps, 24 fps on twos).
+    void setUgoiraZip(const QString &path, int defaultDelayMs = 83);
     void setPlaceholder(const QPixmap &pm); // grid thumb until 1st frame lands
     QPixmap currentPixmap() const; // displayed frame (placeholder across reloads)
     void clear();

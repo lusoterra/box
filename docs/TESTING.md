@@ -76,7 +76,8 @@ the dialog, scans exact copies, and exercises archive + Hydrus deletion
 
 - `test_ugoira` covers detection, `animation.json` delays, eager unzip
   and encode, plus the online viewer's lazy `listFrames`/`decodeFrame`
-  path (one frame decoded at a time).
+  path (one frame decoded at a time) and the no-JSON 83 ms fallback
+  (12 fps, 24 fps on twos).
 - `test_remotesource::zipMediaSniff` keeps ZIP magic (`PK\x03\x04`,
   empty/spanned) accepted as media so `application/zip` ugoira originals
   are not mistaken for wall pages.

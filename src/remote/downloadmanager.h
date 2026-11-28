@@ -191,7 +191,7 @@ private:
     void cacheNotesForJob(const DownloadJob &job);
     void pumpNotesCache();
     QString m_ugoiraFormat = QStringLiteral("webp");
-    int m_ugoiraDelayMs = 100;
+    int m_ugoiraDelayMs = 83;
     QAtomicInt m_convertCancel{0}; // set by cancel(), polled by converts
     bool convertUgoiraZip(DownloadJob &job, QJsonObject &raw, QString *error);
     static constexpr int kMaxFlight = 3;
