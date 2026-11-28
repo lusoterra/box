@@ -73,10 +73,13 @@ struct AppSettings {
     // Strays pulled in via File -> Download/Add Stray get favourited
     // automatically. On by default (they have no home tab otherwise).
     bool strayAutoFav = true;
-    // Read-only Hydrus tag lookups + the Hydrus tab (Preferences → Hydrus):
-    // a local hydd / Hydrus client API or a reverse proxy in front of one.
-    // Disabled by default; the app never writes tags back to Hydrus.
-    bool hydrusEnabled = false;
+    // Read-only Hydrus tag lookups and the isolated Hydrus tab
+    // (Preferences → Hydrus): two independent switches. Lookups only need
+    // a local hydd / Hydrus client API (or a reverse proxy in front of
+    // one); the tab adds its own library and media storage. Disabled by
+    // default; the app never writes tags back to Hydrus.
+    bool hydrusTagLookups = false;
+    bool hydrusTab = false;
     QString hydrusUrl = QStringLiteral("http://127.0.0.1:45869");
     QString hydrusAccessKey;
     // Optional HTTP/SOCKS proxy for Hydrus traffic; empty = direct for
@@ -406,7 +409,8 @@ inline bool operator==(const AppSettings &a, const AppSettings &b) {
            a.favAutoDownload == b.favAutoDownload && a.favAutoFav == b.favAutoFav &&
            a.unfavDeletesFile == b.unfavDeletesFile &&
            a.deleteUnfavs == b.deleteUnfavs && a.strayAutoFav == b.strayAutoFav &&
-           a.hydrusEnabled == b.hydrusEnabled && a.hydrusUrl == b.hydrusUrl &&
+           a.hydrusTagLookups == b.hydrusTagLookups &&
+           a.hydrusTab == b.hydrusTab && a.hydrusUrl == b.hydrusUrl &&
            a.hydrusAccessKey == b.hydrusAccessKey &&
            a.hydrusProxy == b.hydrusProxy &&
            a.hydrusDir == b.hydrusDir && a.hydrusDb == b.hydrusDb &&

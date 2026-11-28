@@ -220,7 +220,7 @@ bool MainWindow::restoreTabs() {
         } else if (st.kind == QStringLiteral("favs")) {
             openFavTab(); // each saved fav tab restores with its own filters
         } else if (st.kind == QStringLiteral("hydrus")) {
-            if (!m_settings.hydrusEnabled)
+            if (!m_settings.hydrusTab)
                 continue;
             openHydrusTab();
         } else {

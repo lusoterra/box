@@ -27,7 +27,7 @@ void MainWindow::openDedupDialog() {
         m_dedupDialog->activateWindow();
         return;
     }
-    if (m_settings.hydrusEnabled)
+    if (m_settings.hydrusTab)
         ensureHydrusDb();
 
     DedupDialogSources src;

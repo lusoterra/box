@@ -237,7 +237,8 @@ QJsonObject exportJson(const AppSettings &s, const QVector<Post> &favs) {
     video[QStringLiteral("volume")] = s.volume;
     o[QStringLiteral("video")] = video;
     QJsonObject hydrus;
-    hydrus[QStringLiteral("enabled")] = s.hydrusEnabled;
+    hydrus[QStringLiteral("tagLookups")] = s.hydrusTagLookups;
+    hydrus[QStringLiteral("tab")] = s.hydrusTab;
     hydrus[QStringLiteral("url")] = s.hydrusUrl;
     hydrus[QStringLiteral("accessKey")] = s.hydrusAccessKey;
     hydrus[QStringLiteral("proxy")] = s.hydrusProxy;
@@ -406,8 +407,18 @@ bool importJson(const QJsonObject &o, AppSettings *s, QVector<Post> *favs,
     if (!o.value(QStringLiteral("tabsDefault")).toString().isEmpty())
         s->tabsDefault = o.value(QStringLiteral("tabsDefault")).toString();
     const QJsonObject hydrus = o.value(QStringLiteral("hydrus")).toObject();
-    if (hydrus.contains(QStringLiteral("enabled")))
-        s->hydrusEnabled = hydrus.value(QStringLiteral("enabled")).toBool();
+    // Older exports had a single "enabled" switch for both features.
+    const bool legacyHydrus =
+        hydrus.value(QStringLiteral("enabled")).toBool();
+    if (hydrus.contains(QStringLiteral("tagLookups")))
+        s->hydrusTagLookups =
+            hydrus.value(QStringLiteral("tagLookups")).toBool();
+    else if (hydrus.contains(QStringLiteral("enabled")))
+        s->hydrusTagLookups = legacyHydrus;
+    if (hydrus.contains(QStringLiteral("tab")))
+        s->hydrusTab = hydrus.value(QStringLiteral("tab")).toBool();
+    else if (hydrus.contains(QStringLiteral("enabled")))
+        s->hydrusTab = legacyHydrus;
     if (hydrus.contains(QStringLiteral("url")))
         s->hydrusUrl = hydrus.value(QStringLiteral("url")).toString();
     if (hydrus.contains(QStringLiteral("accessKey")))

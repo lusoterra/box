@@ -54,7 +54,7 @@ Hydrus::Config hydrusConfigFromFields(const QString &baseUrl,
 Hydrus::Config hydrusConfigFromSettings(const AppSettings &settings) {
     Hydrus::Config config = hydrusConfigFromFields(
         settings.hydrusUrl, settings.hydrusAccessKey, settings.hydrusProxy);
-    config.enabled = settings.hydrusEnabled;
+    config.enabled = settings.hydrusTagLookups;
     return config;
 }
 
@@ -77,7 +77,8 @@ HydrusFetch::~HydrusFetch() { cancel(); }
 void HydrusFetch::startFile(const QString &absFile) {
     cancel();
     if (!m_config.enabled) {
-        emit error(tr("Hydrus is disabled in Preferences → Hydrus."));
+        emit error(tr("Hydrus tag lookups are disabled in "
+                      "Preferences → Hydrus."));
         emit finished();
         return;
     }
@@ -113,7 +114,8 @@ void HydrusFetch::startFile(const QString &absFile) {
 void HydrusFetch::startHash(const QString &hashHex, Hydrus::HashKind kind) {
     cancel();
     if (!m_config.enabled) {
-        emit error(tr("Hydrus is disabled in Preferences → Hydrus."));
+        emit error(tr("Hydrus tag lookups are disabled in "
+                      "Preferences → Hydrus."));
         emit finished();
         return;
     }

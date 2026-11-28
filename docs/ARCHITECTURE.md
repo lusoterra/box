@@ -250,8 +250,8 @@ single-instance via `session.lock`).
     `HydrusTagsDialog` is the read-only chip view. `tagCounts()` uses the
     hydd-only `/hyd/tag_counts` extension (network-wide mapping counts;
     absent on the official client/PTR) and degrades to all-kept tags on
-    404/501/503. Settings `hydrus/enabled|url|accessKey|proxy`; no write
-    endpoints exist.
+    404/501/503. Settings `hydrus/tagLookups|url|accessKey|proxy`; no write
+    endpoints exist. The option is independent from `hydrus/tab`.
   - `sharecatalog.h` (`src/library/`): pure read-only catalog behind the
     LAN server. `ShareItem` = Post + local/remote media target + stable
     numeric id; `add()` merges duplicate rows by site+id, media URL,
@@ -539,7 +539,7 @@ single-instance via `session.lock`).
     URL host (`entryForHost`), so a renamed entry keeps its favicon and
     short name.
 - Hydrus tab (`mainwindow_hydrus.cpp`):
-  - The plus menu opens it only when `hydrus/enabled` is on. It uses
+  - The plus menu opens it only when `hydrus/tab` is on. It uses
     `hydrus.db` (default `<data>/hydrus.db`) and a media folder (default
     `<data>/hydrus`); neither is `store.db`, `downloads/`, `roots/` nor
     `tag_types.db`.

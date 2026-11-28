@@ -460,6 +460,25 @@ private slots:
         QCOMPARE(loadSettings().boorus.size(), 1);
     }
 
+    void legacyHydrusSwitchSplits() {
+        {
+            QSettings c(settingsFilePath(), QSettings::IniFormat);
+            c.clear();
+            c.setValue(QStringLiteral("hydrus/enabled"), true);
+            c.sync();
+        }
+        AppSettings s = loadSettings();
+        QVERIFY(s.hydrusTagLookups);
+        QVERIFY(s.hydrusTab);
+        // Saving writes the two switches separately; the old key is gone.
+        s.hydrusTagLookups = true;
+        s.hydrusTab = false;
+        saveSettings(s);
+        const AppSettings back = loadSettings();
+        QVERIFY(back.hydrusTagLookups);
+        QVERIFY(!back.hydrusTab);
+    }
+
     void savedTabsRoundTrip() {
         AppSettings s = loadSettings();
         AppSettings::SavedTab local;

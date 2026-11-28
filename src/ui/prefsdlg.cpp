@@ -1295,20 +1295,29 @@ PrefsDialog::PrefsDialog(const AppSettings &current, FaviconCache *favicons,
         "A proxy set on one booru (below) wins for that booru only.")));
     browsePage->addWidget(browse);
 
-    // ── Hydrus (read-only tag lookups + the isolated Hydrus tab) ──
+    // ── Hydrus (tag lookups and the isolated Hydrus tab are independent) ──
     auto *hydrus = new QGroupBox(tr("Hydrus integration"), this);
     auto *hydrusLay = new QVBoxLayout(hydrus);
-    m_hydrusEnabled = new QCheckBox(tr("Enable Hydrus tab and tag lookups"),
-                                    this);
-    m_hydrusEnabled->setChecked(current.hydrusEnabled);
-    m_hydrusEnabled->setToolTip(
-        tr("Adds the Hydrus tab (plus-menu), a Fetch from Hydrus button to "
-           "the stray tag editor and a read-only Hydrus tags entry to post "
-           "context menus. Off by default; nothing is sent anywhere until "
-           "enabled."));
-    connect(m_hydrusEnabled, &QCheckBox::toggled, this,
+    m_hydrusTagLookups =
+        new QCheckBox(tr("Enable Hydrus tag lookups"), this);
+    m_hydrusTagLookups->setChecked(current.hydrusTagLookups);
+    m_hydrusTagLookups->setToolTip(
+        tr("Adds a Fetch from Hydrus button to the stray tag editors and a "
+           "read-only Hydrus tags entry to post context menus. Only needs "
+           "the server settings below - no Hydrus tab, database or media "
+           "folder. Off by default; nothing is sent anywhere until enabled."));
+    connect(m_hydrusTagLookups, &QCheckBox::toggled, this,
             &PrefsDialog::updateApplyState);
-    hydrusLay->addWidget(m_hydrusEnabled);
+    hydrusLay->addWidget(m_hydrusTagLookups);
+    m_hydrusTab = new QCheckBox(tr("Enable Hydrus tab"), this);
+    m_hydrusTab->setChecked(current.hydrusTab);
+    m_hydrusTab->setToolTip(
+        tr("Adds the Hydrus tab to the plus menu with its own hydrus.db and "
+           "media folder, for importing and browsing a local library. "
+           "Tag lookups stay a separate switch."));
+    connect(m_hydrusTab, &QCheckBox::toggled, this,
+            &PrefsDialog::updateApplyState);
+    hydrusLay->addWidget(m_hydrusTab);
     auto *hydrusForm = new QFormLayout();
     m_hydrusUrl = new QLineEdit(current.hydrusUrl, this);
     m_hydrusUrl->setPlaceholderText(QStringLiteral("http://127.0.0.1:45869"));

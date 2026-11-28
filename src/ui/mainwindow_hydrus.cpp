@@ -249,10 +249,10 @@ bool MainWindow::ensureHydrusDb() {
 }
 
 void MainWindow::openHydrusTab() {
-    if (!m_settings.hydrusEnabled) {
+    if (!m_settings.hydrusTab) {
         QMessageBox::information(
             this, tr("Hydrus"),
-            tr("Enable Hydrus integration in Preferences → Hydrus first."));
+            tr("Enable the Hydrus tab in Preferences → Hydrus first."));
         return;
     }
     if (!ensureHydrusDb())
@@ -914,8 +914,11 @@ void MainWindow::startHydrusLookups(const QList<HydrusLookupJob> &jobs) {
     m_hydrusLookupRefresh =
         std::all_of(jobs.begin(), jobs.end(),
                     [](const HydrusLookupJob &j) { return j.refresh; });
-    m_hydrusLookupClient =
-        new Hydrus::Client(hydrusConfigFromSettings(m_settings), this);
+    Hydrus::Config lookupConfig = hydrusConfigFromSettings(m_settings);
+    // The tab's own refresh/import lookups are part of the tab, not the
+    // optional stray/post tag-lookup switches.
+    lookupConfig.enabled = true;
+    m_hydrusLookupClient = new Hydrus::Client(lookupConfig, this);
 
     auto *client = m_hydrusLookupClient;
     connect(client, &Hydrus::Client::found, this,

@@ -415,7 +415,7 @@ void MainWindow::editStrayTags(const Post &post) {
 }
 
 void MainWindow::showHydrusTags(const Post &post) {
-    if (!m_settings.hydrusEnabled)
+    if (!m_settings.hydrusTagLookups)
         return;
     QString path = post.absFile;
     if (!path.isEmpty() && !QFileInfo::exists(path))

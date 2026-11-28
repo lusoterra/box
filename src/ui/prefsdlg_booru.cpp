@@ -695,8 +695,10 @@ void PrefsDialog::harvestInto(AppSettings &out) {
         out.downloadDir.clear(); // default stays implicit
     out.globalProxy = m_globalProxy ? m_globalProxy->text().trimmed()
                                     : QString();
-    if (m_hydrusEnabled)
-        out.hydrusEnabled = m_hydrusEnabled->isChecked();
+    if (m_hydrusTagLookups)
+        out.hydrusTagLookups = m_hydrusTagLookups->isChecked();
+    if (m_hydrusTab)
+        out.hydrusTab = m_hydrusTab->isChecked();
     if (m_hydrusUrl)
         out.hydrusUrl = m_hydrusUrl->text().trimmed();
     if (out.hydrusUrl.isEmpty())

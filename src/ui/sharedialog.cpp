@@ -48,7 +48,7 @@ ShareDialog::ShareDialog(const ShareOptions &current, bool hydrusAvailable,
     m_hydrus->setToolTip(
         hydrusAvailable
             ? tr("Share the isolated Hydrus library and its native tags.")
-            : tr("Enable Hydrus integration in Preferences → Hydrus and "
+            : tr("Enable the Hydrus tab in Preferences → Hydrus and "
                  "import something first."));
     sourceLay->addWidget(m_hydrus);
 

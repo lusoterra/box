@@ -902,7 +902,7 @@ private slots:
         {
             QSettings c(xdg.filePath(QStringLiteral("config/box/settings.ini")),
                         QSettings::IniFormat);
-            c.setValue(QStringLiteral("hydrus/enabled"), true);
+            c.setValue(QStringLiteral("hydrus/tab"), true);
             c.setValue(QStringLiteral("hydrus/mediaDir"), mediaDir);
             c.setValue(QStringLiteral("hydrus/dbPath"), dbPath);
             c.setValue(QStringLiteral("hydrus/minTagPosts"), 0);
@@ -1221,7 +1221,7 @@ private slots:
         {
             QSettings c(xdg.filePath(QStringLiteral("config/box/settings.ini")),
                         QSettings::IniFormat);
-            c.setValue(QStringLiteral("hydrus/enabled"), true);
+            c.setValue(QStringLiteral("hydrus/tab"), true);
             c.setValue(QStringLiteral("hydrus/mediaDir"), hydrusDir.path());
             c.setValue(QStringLiteral("hydrus/dbPath"), dbPath);
             c.setValue(QStringLiteral("startup/defaultTab"),

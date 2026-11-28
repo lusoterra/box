@@ -213,8 +213,13 @@ AppSettings loadSettings() {
         c.value(QStringLiteral("fav/deleteUnfavs"), s.deleteUnfavs).toBool();
     s.strayAutoFav =
         c.value(QStringLiteral("stray/autoFav"), s.strayAutoFav).toBool();
-    s.hydrusEnabled =
-        c.value(QStringLiteral("hydrus/enabled"), s.hydrusEnabled).toBool();
+    // Older profiles only had hydrus/enabled; it turned on both switches.
+    const bool legacyHydrus =
+        c.value(QStringLiteral("hydrus/enabled"), false).toBool();
+    s.hydrusTagLookups =
+        c.value(QStringLiteral("hydrus/tagLookups"), legacyHydrus).toBool();
+    s.hydrusTab =
+        c.value(QStringLiteral("hydrus/tab"), legacyHydrus).toBool();
     s.hydrusUrl = c.value(QStringLiteral("hydrus/url"), s.hydrusUrl).toString();
     if (s.hydrusUrl.trimmed().isEmpty())
         s.hydrusUrl = QStringLiteral("http://127.0.0.1:45869");
@@ -561,7 +566,8 @@ void writeSettingsTo(QSettings &c, const AppSettings &s) {
     }
     c.setValue(QStringLiteral("downloads/dir"), s.downloadDir);
     c.setValue(QStringLiteral("network/proxy"), s.globalProxy);
-    c.setValue(QStringLiteral("hydrus/enabled"), s.hydrusEnabled);
+    c.setValue(QStringLiteral("hydrus/tagLookups"), s.hydrusTagLookups);
+    c.setValue(QStringLiteral("hydrus/tab"), s.hydrusTab);
     c.setValue(QStringLiteral("hydrus/url"), s.hydrusUrl);
     c.setValue(QStringLiteral("hydrus/accessKey"), s.hydrusAccessKey);
     c.setValue(QStringLiteral("hydrus/proxy"), s.hydrusProxy);

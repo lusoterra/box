@@ -26,7 +26,7 @@ void MainWindow::openShareDialog() {
     if (m_shareProgress)
         return; // one build at a time
 
-    bool hydrusAvailable = m_settings.hydrusEnabled;
+    bool hydrusAvailable = m_settings.hydrusTab;
     int hydrusCount = 0;
     if (hydrusAvailable) {
         hydrusAvailable = ensureHydrusDb();

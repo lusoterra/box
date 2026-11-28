@@ -166,7 +166,7 @@ only (never videos, still or animated), and `Copy post
 link` / `Copy media link` / `Copy file path` / `Copy file (clipboard)`
 put the selected rows on the clipboard (stills, GIFs and videos alike).
 A single selected row also has `View metadata…` (summary + tags + raw
-JSON tree), `Hydrus tags…` when Preferences → Hydrus is enabled and a
+JSON tree), `Hydrus tags…` when Hydrus tag lookups are enabled and a
 local file or booru md5 is available (read-only lookup by content hash),
 and `Show in folder` (file manager opens with the file
 selected). Multi-row `Unfavourite` and any multi-post `Download` ask for
@@ -266,8 +266,8 @@ Grid cards follow the default category order Artists, Character,
 Copyright, General, Meta, then native categories from unusual boorus.
 
 ## 09-plus-menu - ＋ new-tab picker (`showPlusMenu`)
-`Home`, `Favourites`, `Downloads` (the online-booru Downloads view), `Hydrus` (only when Preferences →
-Hydrus is enabled), then one entry per saved local archive (archive icon;
+`Home`, `Favourites`, `Downloads` (the online-booru Downloads view), `Hydrus` (only when the
+Hydrus tab is enabled in Preferences → Hydrus), then one entry per saved local archive (archive icon;
 added in Preferences → Library, each opens in its own tab), then `Open
 view-only folder…` (always: the read-only gallery-dl/LOSN archive browser;
 the optional `Open local folder…` entry follows when enabled in
@@ -455,15 +455,16 @@ for this booru, narrowed by the global mode), `Proxy`. Restoring the
 shipped presets asks three times: the list is easy to lose.
 
 ## 15b-prefs-hydrus - Preferences → Hydrus
-`Enable Hydrus tab and tag lookups` (off by default) reveals the Hydrus
-tab in the ＋ menu, the stray-editor fetch button and the read-only
-context-menu lookup. `Server URL` (a hydrus client API or a
-reverse-proxied `hydd`, default `http://127.0.0.1:45869`), `Access key`
-(sent as `Hydrus-Client-API-Access-Key`; local `hydd` accepts
-empty/bogus keys), `Proxy` (HTTP/SOCKS for Hydrus only; empty = direct
-for loopback, the global Browse proxy for remote hosts) and
-`Test connection` (`/verify_access_key`, paints the server name + Hydrus
-version inline).
+`Enable Hydrus tag lookups` and `Enable Hydrus tab` are independent
+switches (both off by default). Lookups add the stray-editor fetch button
+and the read-only context-menu lookup; the tab adds the `Hydrus` entry to
+the ＋ menu with its own `hydrus.db` and media folder. `Server URL` (a
+hydrus client API or a reverse-proxied `hydd`, default
+`http://127.0.0.1:45869`), `Access key` (sent as
+`Hydrus-Client-API-Access-Key`; local `hydd` accepts empty/bogus keys),
+`Proxy` (HTTP/SOCKS for Hydrus only; empty = direct for loopback, the
+global Browse proxy for remote hosts) and `Test connection`
+(`/verify_access_key`, paints the server name + Hydrus version inline).
 `Media folder` and `Database` override the isolated Hydrus storage
 (defaults `<data>/hydrus` and `<data>/hydrus.db`; Browse buttons).
 `Mask tags below this count` (default 10, 0 = off) drops automatically
@@ -590,7 +591,7 @@ without queues of wall pages.
 Grid right-click `Edit tags…` on strays: one stray opens the one-box
 editor (flat; a Hydrus fetch writes its namespaced tags straight into the
 matching buckets on save, manual additions stay General) with `Fetch from
-Hydrus` (when Preferences → Hydrus is enabled: hashes the file SHA-256,
+Hydrus` (when Hydrus tag lookups are enabled: hashes the file SHA-256,
 then offers legacy SHA-1/MD5 retries); two or more (`Edit tags…
 (N strays)`) open `Mass edit stray tags (N)`: file list, per-bucket boxes
 (Artist / Character / Copyright / General / Meta in that order), `Paste

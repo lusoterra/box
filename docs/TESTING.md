@@ -51,7 +51,9 @@ the dialog, scans exact copies, and exercises archive + Hydrus deletion
   `/tmp/opencode/netprobe/probe.c` during a manual session; rebuild with
   `gcc -shared -fPIC -o probe.so probe.c -ldl` and set
   `LD_PRELOAD=$PWD/probe.so CONNLOG=$PWD/conn.log`.
-- `test_settings` covers the `classify/backend|auto|custom*` round-trip;
+- `test_settings` covers the `classify/backend|auto|custom*` round-trip
+  and the `hydrus/tagLookups|tab` split with its legacy `hydrus/enabled`
+  migration;
   `test_tagtypes` proves off/hydrus never fetch and that
   gelbooru-without-credentials and a bad custom URL report an error
   instead of falling back; `test_hydrusstore` checks the local

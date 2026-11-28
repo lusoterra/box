@@ -147,7 +147,7 @@ void MainWindow::showPlusMenu() {
     // configured sites), never a local archive tab.
     connect(dlAct, &QAction::triggered, this,
             [this] { addRemoteTab({kSrcDownloads}, {}); });
-    if (m_settings.hydrusEnabled) {
+    if (m_settings.hydrusTab) {
         QAction *hydrusAct = menu.addAction(
             UiIcons::icon(QStringLiteral("hydrus")), tr("Hydrus"));
         hydrusAct->setToolTip(

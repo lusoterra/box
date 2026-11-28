@@ -17,6 +17,7 @@ class QListWidget;
 class QPushButton;
 class QRadioButton;
 class QSlider;
+class QStackedWidget;
 
 class FaviconCache;
 
@@ -102,7 +103,11 @@ private:
     QComboBox *m_ugoiraFormat = nullptr;
     QSpinBox *m_ugoiraDelay = nullptr;
     QLineEdit *m_globalProxy = nullptr;
-    QCheckBox *m_hydrusEnabled = nullptr;
+    QCheckBox *m_hydrusTagLookups = nullptr;
+    QCheckBox *m_hydrusTab = nullptr;
+    QComboBox *m_defaultSource = nullptr;
+    QLineEdit *m_defaultLocalRoot = nullptr;
+    QStackedWidget *m_defaultSourceStack = nullptr;
     QLineEdit *m_hydrusUrl = nullptr;
     QLineEdit *m_hydrusKey = nullptr;
     QLineEdit *m_hydrusProxy = nullptr;

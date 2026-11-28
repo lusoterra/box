@@ -291,7 +291,7 @@ void MainWindow::showViewerContextMenu(const Post &post,
     QAction *meta = menu.addAction(tr("View metadata…"));
     connect(meta, &QAction::triggered, this,
             [this, post] { showPostMetadata(post); });
-    if (m_settings.hydrusEnabled && (hasLocal || isMd5Hex(post.md5))) {
+    if (m_settings.hydrusTagLookups && (hasLocal || isMd5Hex(post.md5))) {
         QAction *hydrus = menu.addAction(tr("Hydrus tags…"));
         hydrus->setToolTip(
             tr("Read-only: look this file up in Hydrus by content hash"));

@@ -396,7 +396,7 @@ void MainWindow::showGridMenu(const QPoint &pos) {
                 [this, one] { showPostMetadata(one); });
         const QString res = resolvedFile(one);
         const bool hasMd5 = isMd5Hex(one.md5);
-        if (m_settings.hydrusEnabled && (!res.isEmpty() || hasMd5)) {
+        if (m_settings.hydrusTagLookups && (!res.isEmpty() || hasMd5)) {
             QAction *hydrus = menu.addAction(tr("Hydrus tags…"));
             hydrus->setToolTip(
                 tr("Read-only: look this file up in Hydrus by content hash"));
