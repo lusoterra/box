@@ -22,8 +22,9 @@ using Fetch = std::function<QByteArray(const QString &url)>;
 
 // Probe the known API shapes (e-shuushuu, Shimmie XML, Szurubooru,
 // e621, Danbooru, AnimePictures, HyBooru, Philomena, BooruOnRails,
-// Moebooru, Nuuru, Gelbooru). `fetch` must return an empty body on
-// failure; never throws. found=false when nothing matches.
+// Moebooru, Nuuru, Gelbooru). Common public hosts resolve from an
+// embedded hostname table before any request. `fetch` must return an
+// empty body on failure; never throws. found=false when nothing matches.
 Result detect(const QString &base, const Fetch &fetch);
 
 } // namespace EngineDetect

@@ -4,8 +4,46 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QStringList>
+#include <QUrl>
 
 namespace {
+
+// Known public hosts: skip the probe chain (some sit behind walls where
+// every endpoint answers 403, which used to look like "unknown engine").
+// Matching is exact or a subdomain, so a self-hosted Shimmie on someone
+// else's domain still falls through to the probes.
+struct KnownHost {
+    const char *host;
+    BooruEngine engine;
+    const char *path = "";
+};
+
+const KnownHost kKnownHosts[] = {
+    {"danbooru.donmai.us", BooruEngine::Danbooru},
+    {"safebooru.donmai.us", BooruEngine::Danbooru},
+    {"aibooru.online", BooruEngine::Danbooru},
+    {"gelbooru.com", BooruEngine::Gelbooru},
+    {"safebooru.org", BooruEngine::Gelbooru},
+    {"rule34.xxx", BooruEngine::Gelbooru},
+    {"realbooru.com", BooruEngine::Gelbooru},
+    {"xbooru.com", BooruEngine::Gelbooru},
+    {"tbib.org", BooruEngine::Gelbooru},
+    {"hypnohub.net", BooruEngine::Gelbooru},
+    {"yande.re", BooruEngine::Moebooru},
+    {"konachan.com", BooruEngine::Moebooru},
+    {"konachan.net", BooruEngine::Moebooru},
+    {"behoimi.org", BooruEngine::Moebooru},
+    {"e621.net", BooruEngine::E621},
+    {"e926.net", BooruEngine::E621},
+    {"anime-pictures.net", BooruEngine::AnimePictures},
+    {"e-shuushuu.net", BooruEngine::EShuushuu},
+    {"derpibooru.org", BooruEngine::Philomena},
+    {"furbooru.org", BooruEngine::Philomena},
+    {"twibooru.org", BooruEngine::BooruOnRails},
+    {"rule34.paheal.net", BooruEngine::Shimmie},
+    {"soybooru.com", BooruEngine::Nuuru},
+    {"visuabusters.com", BooruEngine::Szurubooru, "/booru"},
+};
 
 QJsonDocument parse(const QByteArray &body) {
     QJsonParseError err;
@@ -40,6 +78,8 @@ Result detect(const QString &base, const Fetch &fetch) {
         b.chop(1);
     if (b.isEmpty())
         return {};
+    if (!b.contains(QStringLiteral("://")))
+        b.prepend(QStringLiteral("https://"));
     const auto found = [](BooruEngine engine, const QString &baseUrl) {
         Result r;
         r.engine = engine;
@@ -47,6 +87,23 @@ Result detect(const QString &base, const Fetch &fetch) {
         r.found = true;
         return r;
     };
+
+    // House hostnames first: these are stable public APIs, and probing
+    // them through Cloudflare/walls was the common "not recognized"
+    // failure. Unknown/self-hosted hosts still use the shape probes.
+    const QString host = QUrl(b).host().toLower();
+    if (!host.isEmpty()) {
+        for (const KnownHost &kh : kKnownHosts) {
+            const QString known = QString::fromLatin1(kh.host);
+            if (host == known || host.endsWith(u'.' + known)) {
+                QString baseUrl = b;
+                const QString path = QString::fromLatin1(kh.path);
+                if (!path.isEmpty() && !baseUrl.endsWith(path))
+                    baseUrl += path;
+                return found(kh.engine, baseUrl);
+            }
+        }
+    }
 
     // e-shuushuu: FastAPI image list with total/images. Probe first: its
     // /search page is HTML, but the API path is unambiguous.

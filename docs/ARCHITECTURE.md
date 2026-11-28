@@ -97,11 +97,14 @@ single-instance via `session.lock`).
     status=1`; detail and refresh use `/api/v1/images/<id>/`. Tags are
     title + type (1 Theme, 2 Source, 3 Artist, 4 Character); all-SFW.
   - `enginedetect.h` (`src/engines/`): pure base-URL engine probes behind
-    an injected fetch callback. Detect tries e-shuushuu, Shimmie,
-    Szurubooru (base and `/booru`), e621, Danbooru, AnimePictures,
-    HyBooru, Philomena, Booru-on-Rails, Moebooru, Nuuru and Gelbooru;
-    the prefs dialog supplies a 5s-timeout fetch and adopts a discovered
-    subpath. Unit-tested without network.
+    an injected fetch callback. An embedded hostname table (Danbooru,
+    Gelbooru family, Moebooru, e621/e926, AnimePictures, e-shuushuu,
+    Philomena, BooruOnRails, Shimmie, Szurubooru, Nuuru) resolves common
+    public hosts without any request; unknown hosts then probe
+    e-shuushuu, Shimmie, Szurubooru (base and `/booru`), e621, Danbooru,
+    AnimePictures, HyBooru, Philomena, Booru-on-Rails, Moebooru, Nuuru
+    and Gelbooru. The prefs dialog supplies a 5s-timeout fetch and adopts
+    a discovered subpath. Unit-tested without network.
   - `sitequirks.h` = per-host quirks (api subdomain, cookies, PoW and
     Cloudflare browser-only API walls).
   - `boorutypes.h` = `BooruEngine` enum, `BooruSite`, `SiteCreds`,

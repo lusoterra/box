@@ -69,7 +69,8 @@ the dialog, scans exact copies, and exercises archive + Hydrus deletion
 - `test_enginedetect` feeds fake probe bodies for every engine and checks
   the order/signatures (e-shuushuu, e621, Danbooru, AnimePictures,
   HyBooru, Philomena, Booru-on-Rails, Shimmie, Szurubooru, Moebooru,
-  Gelbooru, Nuuru) plus the unknown-host case.
+  Gelbooru, Nuuru), the known-hostname fast path (zero fetches, scheme-
+  less input, Szuru `/booru` subpath) plus the unknown-host case.
 
 ## Box Share web UI
 

@@ -154,6 +154,52 @@ private slots:
         }
     }
 
+    void knownHostsSkipProbes() {
+        int calls = 0;
+        const auto fetch = [&](const QString &) {
+            ++calls;
+            return QByteArray();
+        };
+        const auto check = [&](const char *url, BooruEngine want) {
+            const auto r = EngineDetect::detect(QString::fromLatin1(url), fetch);
+            QVERIFY2(r.found, url);
+            QCOMPARE(int(r.engine), int(want));
+        };
+        check("https://danbooru.donmai.us", BooruEngine::Danbooru);
+        check("https://safebooru.donmai.us", BooruEngine::Danbooru);
+        check("https://aibooru.online", BooruEngine::Danbooru);
+        check("https://gelbooru.com", BooruEngine::Gelbooru);
+        check("https://safebooru.org", BooruEngine::Gelbooru);
+        check("https://rule34.xxx", BooruEngine::Gelbooru);
+        check("https://realbooru.com", BooruEngine::Gelbooru);
+        check("https://yande.re", BooruEngine::Moebooru);
+        check("https://konachan.net", BooruEngine::Moebooru);
+        check("https://e621.net", BooruEngine::E621);
+        check("https://e926.net", BooruEngine::E621);
+        check("https://anime-pictures.net", BooruEngine::AnimePictures);
+        check("https://e-shuushuu.net", BooruEngine::EShuushuu);
+        check("https://derpibooru.org", BooruEngine::Philomena);
+        check("https://twibooru.org", BooruEngine::BooruOnRails);
+        check("https://rule34.paheal.net", BooruEngine::Shimmie);
+        check("https://soybooru.com", BooruEngine::Nuuru);
+        check("https://visuabusters.com", BooruEngine::Szurubooru);
+        QCOMPARE(EngineDetect::detect(
+                     QStringLiteral("https://visuabusters.com"),
+                     [](const QString &) { return QByteArray(); })
+                     .baseUrl,
+                 QStringLiteral("https://visuabusters.com/booru"));
+        QCOMPARE(calls, 0); // known hosts never touch the network
+    }
+
+    void schemeLessKnownHost() {
+        const auto r = EngineDetect::detect(
+            QStringLiteral("gelbooru.com/"),
+            [](const QString &) { return QByteArray(); });
+        QVERIFY(r.found);
+        QVERIFY(r.engine == BooruEngine::Gelbooru);
+        QCOMPARE(r.baseUrl, QStringLiteral("https://gelbooru.com"));
+    }
+
     void liveDetectIfRequested() {
         if (!qEnvironmentVariableIsSet("BOX_LIVE_DETECT"))
             QSKIP("set BOX_LIVE_DETECT=1 for the live probe");
